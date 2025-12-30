@@ -74,12 +74,20 @@ RUN npm config set strict-ssl false && \
 FROM base
 RUN npm install -g pm2 && \
     apt update && \
-    apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential && \
+    apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
     pip install pycryptodomex && \
     apt remove -y --purge build-essential && \
     apt autoremove -y --purge && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="${DENO_INSTALL}/bin:${PATH}"
+
+# Update yt-dlp and install yt-dlp-ejs for external JavaScript support
+RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
