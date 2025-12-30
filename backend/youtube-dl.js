@@ -69,7 +69,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         env: {
             ...process.env,
             DENO_NO_PROMPT: '1',  // Prevent Deno from prompting for permissions
-            DENO_DIR: '/tmp/deno'  // Use temp dir for Deno cache to avoid permission issues
+            DENO_DIR: '/tmp/deno',  // Use temp dir for Deno cache to avoid permission issues
+            XDG_CACHE_HOME: '/tmp/cache',  // Set yt-dlp cache directory to writable location
+            HOME: '/tmp'  // Fallback home directory for cache
         }
     });
 
