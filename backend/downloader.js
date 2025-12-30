@@ -562,27 +562,14 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     logger.info(`[DEBUG] getVideoInfoByURL called for URL: ${url}`);
 
-    // For info retrieval, strip ALL args that cause file writes to prevent hanging
-    const file_write_args = [
-        '--no-simulate', '--write-info-json', '--write-thumbnail', '-j',
-        '--write-description', '--write-annotations', '--embed-thumbnail', '--add-metadata'
-    ];
+    // For info retrieval, completely ignore input args and build clean minimal set
+    // This prevents file-writing operations that cause yt-dlp to hang
+    const new_args = ['--dump-json'];
 
-    let new_args = utils.filterArgs(args, file_write_args);
-
-    // Remove output template (-o and its value)
-    const outputIndex = new_args.indexOf('-o');
-    if (outputIndex !== -1) {
-        new_args.splice(outputIndex, 2);
+    // Only add cookies if they exist
+    if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
+        new_args.push('--cookies', path.join('appdata', 'cookies.txt'));
     }
-
-    const archiveArgIndex = new_args.indexOf('--download-archive');
-    if (archiveArgIndex !== -1) {
-        new_args.splice(archiveArgIndex, 2);
-    }
-
-    // Only use --dump-json for clean info retrieval
-    new_args.push('--dump-json');
 
     // Note: yt-dlp-ejs is installed via pip and will be automatically detected
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
