@@ -547,7 +547,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             downloadConfig.push('--no-clean-info-json', '-j', '--no-simulate');
 
             // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
-            downloadConfig.push('--extractor-args', 'youtube:player_client=web');
+            // See: https://github.com/yt-dlp/yt-dlp/wiki/EJS
+            downloadConfig.push('--remote-components', 'ejs:github');
         }
 
     }
