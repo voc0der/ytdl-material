@@ -64,7 +64,13 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {
         maxBuffer: Infinity,
         stdin: 'ignore',  // Prevent yt-dlp from waiting for stdin input
-        timeout: 300000   // 5 minute timeout as safety measure
+        timeout: 300000,   // 5 minute timeout as safety measure
+        all: true,        // Merge stdout and stderr to prevent buffering deadlock
+        env: {
+            ...process.env,
+            DENO_NO_PROMPT: '1',  // Prevent Deno from prompting for permissions
+            DENO_DIR: '/tmp/deno'  // Use temp dir for Deno cache to avoid permission issues
+        }
     });
 
     // Log when process exits
@@ -77,10 +83,11 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     const callback = new Promise(async resolve => {
         try {
             logger.info(`[DEBUG] Waiting for yt-dlp process to complete for URL: ${url}`);
-            const {stdout, stderr} = await child_process;
-            logger.info(`[DEBUG] yt-dlp stdout length: ${stdout.length}, stderr length: ${stderr.length}`);
-            logger.info(`[DEBUG] yt-dlp stdout (first 500 chars): ${stdout.substring(0, 500)}`);
+            const {stdout, stderr, all} = await child_process;
+            logger.info(`[DEBUG] yt-dlp stdout length: ${stdout ? stdout.length : 0}, stderr length: ${stderr ? stderr.length : 0}, all length: ${all ? all.length : 0}`);
+            logger.info(`[DEBUG] yt-dlp stdout (first 500 chars): ${stdout ? stdout.substring(0, 500) : 'N/A'}`);
             if (stderr) logger.info(`[DEBUG] yt-dlp stderr: ${stderr}`);
+            // Use stdout for parsing (all includes both stdout and stderr mixed)
             const parsed_output = utils.parseOutputJSON(stdout.trim().split(/\r?\n/), stderr);
             logger.info(`[DEBUG] Parsed output length: ${parsed_output ? parsed_output.length : 'null'}`);
             resolve({parsed_output, err: stderr});
