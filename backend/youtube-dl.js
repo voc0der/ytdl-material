@@ -61,7 +61,11 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         return;
     }
     logger.info(`[DEBUG] Spawning yt-dlp process: ${youtubedl_path} ${url} ${args.join(' ')}`);
-    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {maxBuffer: Infinity});
+    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {
+        maxBuffer: Infinity,
+        stdin: 'ignore',  // Prevent yt-dlp from waiting for stdin input
+        timeout: 300000   // 5 minute timeout as safety measure
+    });
 
     // Log when process exits
     child_process.then(() => {
