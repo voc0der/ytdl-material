@@ -63,15 +63,17 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     logger.info(`[DEBUG] Spawning yt-dlp process: ${youtubedl_path} ${url} ${args.join(' ')}`);
     const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {
         maxBuffer: Infinity,
-        stdin: 'ignore',  // Prevent yt-dlp from waiting for stdin input
-        timeout: 300000,   // 5 minute timeout as safety measure
-        all: true,        // Merge stdout and stderr to prevent buffering deadlock
+        stdin: 'ignore',
+        timeout: 60000,   // Reduce to 60 seconds - if it takes longer, something is wrong
+        buffer: true,
+        cleanup: true,    // Kill all child processes when parent exits
+        killSignal: 'SIGKILL',  // Force kill instead of graceful SIGTERM
         env: {
             ...process.env,
-            DENO_NO_PROMPT: '1',  // Prevent Deno from prompting for permissions
-            DENO_DIR: '/tmp/deno',  // Use temp dir for Deno cache to avoid permission issues
-            XDG_CACHE_HOME: '/tmp/cache',  // Set yt-dlp cache directory to writable location
-            HOME: '/tmp'  // Fallback home directory for cache
+            DENO_NO_PROMPT: '1',
+            DENO_DIR: '/tmp/deno',
+            XDG_CACHE_HOME: '/tmp/cache',
+            HOME: '/tmp'
         }
     });
 
@@ -85,17 +87,18 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     const callback = new Promise(async resolve => {
         try {
             logger.info(`[DEBUG] Waiting for yt-dlp process to complete for URL: ${url}`);
-            const {stdout, stderr, all} = await child_process;
-            logger.info(`[DEBUG] yt-dlp stdout length: ${stdout ? stdout.length : 0}, stderr length: ${stderr ? stderr.length : 0}, all length: ${all ? all.length : 0}`);
+            const {stdout, stderr} = await child_process;
+            logger.info(`[DEBUG] yt-dlp process exited successfully`);
+            logger.info(`[DEBUG] yt-dlp stdout length: ${stdout ? stdout.length : 0}, stderr length: ${stderr ? stderr.length : 0}`);
             logger.info(`[DEBUG] yt-dlp stdout (first 500 chars): ${stdout ? stdout.substring(0, 500) : 'N/A'}`);
-            if (stderr) logger.info(`[DEBUG] yt-dlp stderr: ${stderr}`);
-            // Use stdout for parsing (all includes both stdout and stderr mixed)
+            if (stderr) logger.info(`[DEBUG] yt-dlp stderr (first 500 chars): ${stderr.substring(0, 500)}`);
             const parsed_output = utils.parseOutputJSON(stdout.trim().split(/\r?\n/), stderr);
             logger.info(`[DEBUG] Parsed output length: ${parsed_output ? parsed_output.length : 'null'}`);
             resolve({parsed_output, err: stderr});
         } catch (e) {
             logger.error(`[DEBUG] Error in callback: ${e.message}`);
-            logger.error(e);
+            if (e.stdout) logger.error(`[DEBUG] stdout from failed process: ${e.stdout.substring(0, 500)}`);
+            if (e.stderr) logger.error(`[DEBUG] stderr from failed process: ${e.stderr.substring(0, 500)}`);
             resolve({parsed_output: null, err: e})
         }
     });
