@@ -561,6 +561,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 }
 
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
+    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+
     // remove bad args
     const temp_args = utils.filterArgs(args, ['--no-simulate']);
     const new_args = [...temp_args];
@@ -571,6 +573,11 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     }
 
     new_args.push('--dump-json');
+
+    // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
+    if (default_downloader === 'yt-dlp') {
+        new_args.push('--remote-components', 'ejs:github');
+    }
 
     let {callback} = await youtubedl_api.runYoutubeDL(url, new_args);
     const {parsed_output, err} = await callback;
