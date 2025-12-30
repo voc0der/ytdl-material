@@ -560,6 +560,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 }
 
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
+    logger.info(`[DEBUG] getVideoInfoByURL called for URL: ${url}`);
     // remove bad args
     const temp_args = utils.filterArgs(args, ['--no-simulate']);
     const new_args = [...temp_args];
@@ -574,8 +575,11 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     // Note: yt-dlp-ejs is installed via pip and will be automatically detected
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
+    logger.info(`[DEBUG] About to call runYoutubeDL with args: ${new_args.join(' ')}`);
     let {callback} = await youtubedl_api.runYoutubeDL(url, new_args);
+    logger.info(`[DEBUG] runYoutubeDL returned, now waiting for callback`);
     const {parsed_output, err} = await callback;
+    logger.info(`[DEBUG] Callback resolved. parsed_output length: ${parsed_output ? parsed_output.length : 'null'}`);
     if (!parsed_output || parsed_output.length === 0) {
         let error_message = `Error while retrieving info on video with URL ${url} with the following message: ${err}`;
         if (err.stderr) error_message += `\n\n${err.stderr}`;
@@ -586,6 +590,7 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
         return null;
     }
 
+    logger.info(`[DEBUG] getVideoInfoByURL returning successfully for URL: ${url}`);
     return parsed_output;
 }
 

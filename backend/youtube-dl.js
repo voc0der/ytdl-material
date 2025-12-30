@@ -60,13 +60,29 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         logger.error(err);
         return;
     }
+    logger.info(`[DEBUG] Spawning yt-dlp process: ${youtubedl_path} ${url} ${args.join(' ')}`);
     const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {maxBuffer: Infinity});
+
+    // Log when process exits
+    child_process.then(() => {
+        logger.info(`[DEBUG] yt-dlp process completed for URL: ${url}`);
+    }).catch((e) => {
+        logger.error(`[DEBUG] yt-dlp process failed for URL: ${url} - Error: ${e.message}`);
+    });
+
     const callback = new Promise(async resolve => {
         try {
+            logger.info(`[DEBUG] Waiting for yt-dlp process to complete for URL: ${url}`);
             const {stdout, stderr} = await child_process;
+            logger.info(`[DEBUG] yt-dlp stdout length: ${stdout.length}, stderr length: ${stderr.length}`);
+            logger.info(`[DEBUG] yt-dlp stdout (first 500 chars): ${stdout.substring(0, 500)}`);
+            if (stderr) logger.info(`[DEBUG] yt-dlp stderr: ${stderr}`);
             const parsed_output = utils.parseOutputJSON(stdout.trim().split(/\r?\n/), stderr);
+            logger.info(`[DEBUG] Parsed output length: ${parsed_output ? parsed_output.length : 'null'}`);
             resolve({parsed_output, err: stderr});
         } catch (e) {
+            logger.error(`[DEBUG] Error in callback: ${e.message}`);
+            logger.error(e);
             resolve({parsed_output: null, err: e})
         }
     });
