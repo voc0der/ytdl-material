@@ -546,9 +546,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             // in yt-dlp -j --no-simulate is preferable
             downloadConfig.push('--no-clean-info-json', '-j', '--no-simulate');
 
-            // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
-            // See: https://github.com/yt-dlp/yt-dlp/wiki/EJS
-            downloadConfig.push('--remote-components', 'ejs:github');
+            // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+            // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
         }
 
     }
@@ -561,8 +560,6 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 }
 
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-
     // remove bad args
     const temp_args = utils.filterArgs(args, ['--no-simulate']);
     const new_args = [...temp_args];
@@ -574,10 +571,8 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
 
     new_args.push('--dump-json');
 
-    // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
-    if (default_downloader === 'yt-dlp') {
-        new_args.push('--remote-components', 'ejs:github');
-    }
+    // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+    // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
     let {callback} = await youtubedl_api.runYoutubeDL(url, new_args);
     const {parsed_output, err} = await callback;

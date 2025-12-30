@@ -52,8 +52,6 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
 }
 
 async function getSubscriptionInfo(sub) {
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-
     // get videos
     let downloadConfig = ['--dump-json', '--playlist-end', '1'];
     let useCookies = config_api.getConfigItem('ytdl_use_cookies');
@@ -65,10 +63,8 @@ async function getSubscriptionInfo(sub) {
         }
     }
 
-    // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
-    if (default_downloader === 'yt-dlp') {
-        downloadConfig.push('--remote-components', 'ejs:github');
-    }
+    // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+    // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
     let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
     const {parsed_output, err} = await callback;
@@ -442,8 +438,8 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
     if (default_downloader === 'yt-dlp') {
         downloadConfig.push('--no-clean-info-json');
-        // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
-        downloadConfig.push('--remote-components', 'ejs:github');
+        // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+        // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
     }
 
     downloadConfig = utils.filterArgs(downloadConfig, ['--write-comments']);
