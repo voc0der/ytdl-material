@@ -87,7 +87,7 @@ ENV DENO_INSTALL="/root/.deno"
 ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
 # Update yt-dlp and install yt-dlp-ejs for external JavaScript support
-RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages
+RUN pip install --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
