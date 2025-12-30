@@ -52,6 +52,8 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
 }
 
 async function getSubscriptionInfo(sub) {
+    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+
     // get videos
     let downloadConfig = ['--dump-json', '--playlist-end', '1'];
     let useCookies = config_api.getConfigItem('ytdl_use_cookies');
@@ -61,6 +63,11 @@ async function getSubscriptionInfo(sub) {
         } else {
             logger.warn('Cookies file could not be found. You can either upload one, or disable \'use cookies\' in the Advanced tab in the settings.');
         }
+    }
+
+    // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
+    if (default_downloader === 'yt-dlp') {
+        downloadConfig.push('--remote-components', 'ejs:github');
     }
 
     let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
@@ -435,6 +442,8 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
     if (default_downloader === 'yt-dlp') {
         downloadConfig.push('--no-clean-info-json');
+        // Enable external JavaScript support for YouTube (requires Deno + yt-dlp-ejs)
+        downloadConfig.push('--remote-components', 'ejs:github');
     }
 
     downloadConfig = utils.filterArgs(downloadConfig, ['--write-comments']);
