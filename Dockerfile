@@ -81,13 +81,12 @@ RUN npm install -g pm2 && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Deno (JavaScript runtime required for yt-dlp YouTube downloads)
-RUN curl -fsSL https://deno.land/install.sh | sh
-ENV DENO_INSTALL="/root/.deno"
-ENV PATH="${DENO_INSTALL}/bin:${PATH}"
+# Install Deno system-wide for yt-dlp YouTube support
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
-# Update yt-dlp and install yt-dlp-ejs for external JavaScript support
-RUN pip install --upgrade yt-dlp yt-dlp-ejs
+# Ensure yt-dlp and yt-dlp-ejs are up to date
+RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
+    pip install --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
