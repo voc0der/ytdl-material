@@ -1653,7 +1653,7 @@ app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
     const clear_paused = req.body.clear_paused;
     const clear_errors = req.body.clear_errors;
     let success = true;
-    if (clear_finished) success &= await db_api.removeAllRecords('download_queue', {finished: true,        user_uid: user_uid});
+    if (clear_finished) success &= await db_api.removeAllRecords('download_queue', {finished: true,        user_uid: user_uid, error: null});
     if (clear_paused)   success &= await db_api.removeAllRecords('download_queue', {paused:   true,        user_uid: user_uid});
     if (clear_errors)   success &= await db_api.removeAllRecords('download_queue', {error:    {$ne: null}, user_uid: user_uid});
     res.send({success: success});
