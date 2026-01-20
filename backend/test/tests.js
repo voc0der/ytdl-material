@@ -441,8 +441,29 @@ describe('Multi User', async function() {
     
 describe('Downloader', function() {
     const downloader_api = require('../downloader');
-    const url = 'https://www.youtube.com/watch?v=hpigjnKl7nI';
+    // These tests are intended to be unit-style. By default we do NOT hit live
+    // YouTube/yt-dlp during CI because it is inherently flaky (bot checks,
+    // removed videos, geo/auth restrictions, etc.).
+    //
+    // To run full integration tests locally, set: RUN_INTEGRATION=1
+    const RUN_INTEGRATION = process.env.RUN_INTEGRATION === '1';
+
+    // A stable public video (used only when RUN_INTEGRATION=1)
+    const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
     const playlist_url = 'https://www.youtube.com/playlist?list=PLbZT16X07RLhqK-ZgSkRuUyiz9B_WLdNK';
+
+    // Offline fixtures (used when RUN_INTEGRATION is not enabled)
+    const fixture_single = [fs.readJSONSync('./test/sample_mp4.info.json')];
+    const fixture_playlist = [
+        fixture_single[0],
+        {
+            ...fixture_single[0],
+            id: `${fixture_single[0].id}_2`,
+            _filename: fixture_single[0]._filename.replace(/\.mp4$/i, '_2.mp4')
+        }
+    ];
+
+    const _originalGetVideoInfoByURL = downloader_api.getVideoInfoByURL;
     const sub_id = 'dc834388-3454-41bf-a618-e11cb8c7de1c';
     const options = {
         ui_uid: uuid()
@@ -474,6 +495,18 @@ describe('Downloader', function() {
         const update_available = await youtubedl_api.checkForYoutubeDLUpdate();
         if (update_available) await youtubedl_api.updateYoutubeDL(update_available);
         config_api.setConfigItem('ytdl_max_concurrent_downloads', 0);
+
+        // Stub yt-dlp calls for CI/unit runs so we don't rely on live URLs.
+        if (!RUN_INTEGRATION) {
+            downloader_api.getVideoInfoByURL = async (requestedUrl) => {
+                if (String(requestedUrl).includes('playlist?list=')) return fixture_playlist;
+                return fixture_single;
+            };
+        }
+    });
+
+    after(function() {
+        downloader_api.getVideoInfoByURL = _originalGetVideoInfoByURL;
     });
 
     beforeEach(async function() {
@@ -601,10 +634,14 @@ describe('Downloader', function() {
         const expected_args3 =  ['-o', '%(title)s.%(ext)s', '--min-filesize', '1'];
         assert(JSON.stringify(updated_args3) === JSON.stringify(expected_args3));
     });
-    describe('Twitch', async function () {
+    describe('Twitch', function () {
         const twitch_api = require('../twitch');
         const example_vod = '1790315420';
-        it('Download VOD chat', async function() {
+        // This is an integration test... it requires a working Twitch VOD id
+        // and TwitchDownloaderCLI on PATH. It's disabled by default to keep CI
+        // deterministic.
+        const itTwitch = process.env.RUN_TWITCH_INTEGRATION === '1' ? it : it.skip;
+        itTwitch('Download VOD chat', async function() {
             this.timeout(300000);
             if (!fs.existsSync('TwitchDownloaderCLI')) {
                 try {
@@ -625,7 +662,7 @@ describe('Downloader', function() {
     });
 });
 
-describe('youtube-dl', async function() {
+describe('youtube-dl', function() {
     beforeEach(async function () {
         if (fs.existsSync(CONSTS.DETAILS_BIN_PATH)) fs.unlinkSync(CONSTS.DETAILS_BIN_PATH);
         await youtubedl_api.checkForYoutubeDLUpdate();
