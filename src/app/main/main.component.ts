@@ -329,6 +329,14 @@ export class MainComponent implements OnInit {
 
   // download click handler
   downloadClicked(): void {
+    // Sanitize single YouTube watch URLs (keep only v=...)
+    const _urlsForSanitize = this.getURLArray(this.url || '');
+    if (_urlsForSanitize.length === 1) {
+      const _sanitized = this.sanitizeYouTubeWatchUrl(_urlsForSanitize[0]);
+      if (_sanitized && _sanitized !== _urlsForSanitize[0]) {
+        this.url = _sanitized;
+      }
+    }
     if (!this.ValidURL(this.url)) {
       this.urlError = true;
       return;
@@ -375,7 +383,7 @@ export class MainComponent implements OnInit {
 
     const urls = this.getURLArray(this.url);
     for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
+      const url = this.sanitizeYouTubeWatchUrl(urls[i]);
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
         customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings).subscribe(res => {
           this.current_download = res['download'];
@@ -495,6 +503,17 @@ export class MainComponent implements OnInit {
 
   inputChanged(new_val: string): void {
     this.selectedQuality = '';
+
+    // Sanitize YouTube watch URLs (keep only v=...) so a \"video-from-playlist\" link
+    // doesn't get treated like a playlist by the downloader.
+    const urls = this.getURLArray(new_val || '');
+    if (urls.length === 1) {
+      const sanitized = this.sanitizeYouTubeWatchUrl(urls[0]);
+      if (sanitized && sanitized !== urls[0]) {
+        this.url = sanitized;
+        new_val = sanitized;
+      }
+    }
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -539,8 +558,8 @@ export class MainComponent implements OnInit {
     if (!this.cachedAvailableFormats[url]) {
       this.cachedAvailableFormats[url] = {};
     }
-    // if url is a youtube playlist, skip getting url info
-    if (url.includes('playlist')) {
+    // If URL is a YouTube playlist page (not a single watch?v=...), skip format probing
+    if (this.isYouTubePlaylistUrl(url)) {
       // make it think that formats errored so that users have options
       this.cachedAvailableFormats[url]['formats_loading'] = false;
       this.cachedAvailableFormats[url]['formats_failed'] = true;
@@ -561,6 +580,73 @@ export class MainComponent implements OnInit {
       });
     }
   }
+
+  private safeParseURL(raw: string): URL | null {
+    try {
+      const hasScheme = /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(raw);
+      return new URL(hasScheme ? raw : `https://${raw}`);
+    } catch {
+      return null;
+    }
+  }
+
+  // If this is a YouTube watch URL (or youtu.be), return a canonical single-video URL with ONLY v=
+  // Otherwise return the input unchanged.
+  private sanitizeYouTubeWatchUrl(raw: string): string {
+    const u = this.safeParseURL(raw);
+    if (!u) return raw;
+
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    const isYouTubeHost = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com' || host === 'youtu.be';
+    if (!isYouTubeHost) return raw;
+
+    let videoId = '';
+
+    if (host === 'youtu.be') {
+      videoId = u.pathname.replace(/^\/+/, '').split('/')[0] || '';
+    } else {
+      videoId = u.searchParams.get('v') || '';
+
+      // Support common alternate URL shapes
+      if (!videoId && u.pathname.startsWith('/shorts/')) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        videoId = parts[1] || '';
+      }
+      if (!videoId) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        if ((parts[0] === 'embed' || parts[0] === 'v' || parts[0] === 'vi') && parts[1]) {
+          videoId = parts[1];
+        }
+      }
+    }
+
+    if (!videoId) return raw;
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  }
+
+  // Detect actual playlist pages / pure playlist links.
+  // NOTE: watch?v=...&list=... is treated as a single video (we sanitize it above).
+  private isYouTubePlaylistUrl(raw: string): boolean {
+    const u = this.safeParseURL(raw);
+    if (!u) {
+      return raw.includes('youtube.com/playlist') || raw.includes('/playlist?');
+    }
+
+    const host = u.hostname.replace(/^www\./, '').toLowerCase();
+    const isYouTubeHost = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com';
+    if (!isYouTubeHost) return false;
+
+    const sp = u.searchParams;
+
+    // https://www.youtube.com/playlist?list=...
+    if (u.pathname.startsWith('/playlist') && sp.has('list')) return true;
+
+    // Any URL with list= but no v= is effectively a playlist request
+    if (sp.has('list') && !sp.has('v')) return true;
+
+    return false;
+  }
+
 
   getSimulatedOutput(): void {
     const urls = this.getURLArray(this.url);

@@ -526,35 +526,47 @@ exports.getDirectoriesInDirectory = async (basePath) => {
 }
 
 exports.parseOutputJSON = (output, err) => {
-    let split_output = [];
-    // const output_jsons = [];
+    const split_output = [];
+
+    // If output isn't provided, try a backup path from err (when available)
     if (err && !output) {
-        if (!err.stderr.includes('This video is unavailable') && !err.stderr.includes('Private video')) {
+        const stderr = (typeof err === 'string') ? err : (err.stderr || '');
+        const stdout = (typeof err === 'string') ? '' : (err.stdout || '');
+
+        if (!stderr.includes('This video is unavailable') && !stderr.includes('Private video')) {
             return null;
         }
-        logger.info('An error was encountered with at least one video, backup method will be used.')
+        logger.info('An error was encountered with at least one video, backup method will be used.');
         try {
-            split_output = err.stdout.split(/\r\n|\r|\n/);
+            for (const line of stdout.split(/\r\n|\r|\n/)) {
+                if (!line) continue;
+                const start_idx = line.indexOf('{"');
+                if (start_idx === -1) continue;
+                const clean = line.slice(start_idx).trim();
+                if (clean) split_output.push(clean);
+            }
         } catch (e) {
             logger.error('Backup method failed. See error below:');
             logger.error(e);
             return null;
         }
-    } else if (output.length === 0 || (output.length === 1 && output[0].length === 0)) {
+    } else if (!output || output.length === 0 || (output.length === 1 && output[0].length === 0)) {
         // output is '' or ['']
         return [];
     } else {
         for (const output_item of output) {
-            // we have to do this because sometimes there will be leading characters before the actual json
+            if (!output_item) continue;
+            // Sometimes there are leading characters before the actual json
             const start_idx = output_item.indexOf('{"');
-            const clean_output = output_item.slice(start_idx, output_item.length);
-            split_output.push(clean_output);
+            if (start_idx === -1) continue;
+            const clean_output = output_item.slice(start_idx).trim();
+            if (clean_output) split_output.push(clean_output);
         }
     }
 
     try {
-        return split_output.map(split_output_str => JSON.parse(split_output_str));
-    } catch(e) {
+        return split_output.map(str => JSON.parse(str));
+    } catch (e) {
         return null;
     }
 }
