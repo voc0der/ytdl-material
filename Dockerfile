@@ -23,7 +23,8 @@ ENV npm_config_cache=/app/.npm
 
 # Use NVM to get specific node version
 ENV NODE_VERSION=16.14.2
-RUN (groupadd -g $GID $USER || true) && useradd --system -m -g $USER --uid $UID $USER && \
+RUN (groupadd -g $GID $USER || groupadd $USER) && \
+    (useradd --system -m -g $USER --uid $UID $USER || useradd --system -m -g $USER $USER) && \
     apt update && \
     apt install -y --no-install-recommends curl ca-certificates tzdata libicu74 libatomic1 && \
     apt clean && \
