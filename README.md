@@ -1,6 +1,6 @@
 # YoutubeDL-Material
 
-[![Stargazers over time](https://starchart.cc/voc0der/YoutubeDL-Material.svg)](https://starchart.cc/voc0der/YoutubeDL-Material)
+[![Star History Chart](https://api.star-history.com/svg?repos=voc0der/YoutubeDL-Material&type=Date)](https://star-history.com/#voc0der/YoutubeDL-Material&Date)
 
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/youtubedl-material.svg)](https://hub.docker.com/r/voc0der/youtubedl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/youtubedl-material?sort=date)](https://hub.docker.com/r/voc0der/youtubedl-material)
