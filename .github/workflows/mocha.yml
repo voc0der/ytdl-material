@@ -21,16 +21,16 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '${{ matrix.node }}'
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: 'Cache node_modules'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-v${{ matrix.node }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-v${{ matrix.node }}-
           working-directory: ./backend
-      - uses: FedericoCarboni/setup-ffmpeg@v2
+      - uses: FedericoCarboni/setup-ffmpeg@v3
         id: setup-ffmpeg
       - name: Install Dependencies
         run: npm install
