@@ -96,7 +96,9 @@ COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/TwitchDownloaderCLI", "/us
 COPY --chown=$UID:$GID --from=backend ["/app/","/app/"]
 COPY --chown=$UID:$GID --from=frontend [ "/build/backend/public/", "/app/public/" ]
 #COPY --chown=$UID:$GID --from=python ["/app/TwitchDownloaderCLI","/usr/local/bin/TwitchDownloaderCLI"]
-RUN chmod +x /app/fix-scripts/*.sh
+RUN chmod +x /app/fix-scripts/*.sh && \
+    mkdir -p /app/pm2 /app/.npm && \
+    chmod 777 /app/pm2 /app/.npm
 # Add some persistence data
 #VOLUME ["/app/appdata"]
 
