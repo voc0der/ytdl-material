@@ -273,8 +273,8 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
         return next();
     }
 
-    // Get client IP (handles X-Forwarded-For and X-Real-IP headers)
-    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.connection.remoteAddress || '').split(',')[0].trim();
+    // Get the direct connecting IP (the reverse proxy itself, not the end client)
+    const proxyIp = (req.connection.remoteAddress || req.socket.remoteAddress || '').replace('::ffff:', '');
 
     // Parse whitelist (can be comma-separated CIDRs)
     const allowedRanges = whitelist.split(',').map(s => s.trim()).filter(s => s);
@@ -282,7 +282,7 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
     // Check if IP is in any of the allowed ranges
     for (const range of allowedRanges) {
         try {
-            if (ipInCIDR(clientIp, range)) {
+            if (ipInCIDR(proxyIp, range)) {
                 return next();
             }
         } catch (e) {
@@ -290,7 +290,7 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
         }
     }
 
-    logger.warn(`Access denied for IP ${clientIp} - not in whitelist`);
+    logger.warn(`Access denied for reverse proxy IP ${proxyIp} - not in whitelist`);
     return res.status(403).send('Access forbidden');
 }
 

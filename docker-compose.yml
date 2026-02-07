@@ -16,7 +16,8 @@ services:
             # ytdl_ssl_key_path: /mnt/keys/bindable-internal/lurker/privkey.pem
 
             # Reverse Proxy Whitelist (optional)
-            # If set, only IPs in these CIDR ranges can access the server
+            # Whitelists the reverse proxy's IP (the direct connecting IP, not end clients)
+            # This checks which reverse proxy is allowed to connect, not client IPs
             # Leave commented for no IP filtering
             # Example single IP: 172.28.0.100/32
             # Example subnet: 172.28.0.0/24
