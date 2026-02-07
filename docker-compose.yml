@@ -9,6 +9,19 @@ services:
             # Uncomment these lines to set custom UID/GID:
             # UID: 1000
             # GID: 1000
+
+            # SSL/HTTPS Configuration (optional)
+            # Uncomment and set paths to enable HTTPS:
+            # ytdl_ssl_cert_path: /mnt/keys/bindable-internal/lurker/fullchain-or-ca.pem
+            # ytdl_ssl_key_path: /mnt/keys/bindable-internal/lurker/privkey.pem
+
+            # Reverse Proxy Whitelist (optional)
+            # If set, only IPs in these CIDR ranges can access the server
+            # Leave commented for no IP filtering
+            # Example single IP: 172.28.0.100/32
+            # Example subnet: 172.28.0.0/24
+            # Example multiple ranges: 172.28.0.100/32,10.0.0.0/8
+            # ytdl_reverse_proxy_whitelist: 172.28.0.100/32
         # Option 2: Start container directly as non-root user (more secure, faster)
         # Uncomment this line to run as a specific user (requires proper volume permissions):
         # user: "1000:1000"
