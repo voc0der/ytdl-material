@@ -1,10 +1,17 @@
 version: "2"
 services:
     ytdl_material:
-        environment: 
+        environment:
             ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
             ytdl_use_local_db: 'false'
             write_ytdl_config: 'true'
+            # Option 1: Let container start as root and drop privileges (default behavior)
+            # Uncomment these lines to set custom UID/GID:
+            # UID: 1000
+            # GID: 1000
+        # Option 2: Start container directly as non-root user (more secure, faster)
+        # Uncomment this line to run as a specific user (requires proper volume permissions):
+        # user: "1000:1000"
         restart: always
         depends_on:
             - ytdl-mongo-db
