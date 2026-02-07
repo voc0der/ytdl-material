@@ -8,6 +8,18 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_port',
         'path': 'YoutubeDLMaterial.Host.port'
     },
+    'ytdl_ssl_cert_path': {
+        'key': 'ytdl_ssl_cert_path',
+        'path': 'YoutubeDLMaterial.Host.ssl_cert_path'
+    },
+    'ytdl_ssl_key_path': {
+        'key': 'ytdl_ssl_key_path',
+        'path': 'YoutubeDLMaterial.Host.ssl_key_path'
+    },
+    'ytdl_reverse_proxy_whitelist': {
+        'key': 'ytdl_reverse_proxy_whitelist',
+        'path': 'YoutubeDLMaterial.Host.reverse_proxy_whitelist'
+    },
 
     // Downloader
     'ytdl_audio_folder_path': {

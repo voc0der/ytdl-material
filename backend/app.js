@@ -1,6 +1,8 @@
 const { v4: uuid } = require('uuid');
 const fs = require('fs-extra');
 const { promisify } = require('util');
+const http = require('http');
+const https = require('https');
 const auth_api = require('./authentication/auth');
 const path = require('path');
 const compression = require('compression');
@@ -162,6 +164,9 @@ app.use(auth_api.passport.initialize());
 app.use(session({ secret: uuid(), resave: true, saveUninitialized: true }))
 app.use(auth_api.passport.session());
 
+// reverse proxy whitelist
+app.use(reverseProxyWhitelistMiddleware);
+
 // actual functions
 
 async function checkMigrations() {
@@ -250,6 +255,45 @@ async function simplifyDBFileStructure() {
     return true;
 }
 
+// CIDR IP checking utility
+function ipInCIDR(ip, cidr) {
+    const [range, bits = 32] = cidr.split('/');
+    const mask = ~(2 ** (32 - bits) - 1);
+    const ipNum = ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+    const rangeNum = range.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
+    return (ipNum & mask) === (rangeNum & mask);
+}
+
+// Reverse proxy whitelist middleware
+function reverseProxyWhitelistMiddleware(req, res, next) {
+    const whitelist = config_api.getConfigItem('ytdl_reverse_proxy_whitelist');
+
+    if (!whitelist || whitelist.trim() === '') {
+        // No whitelist configured, allow all
+        return next();
+    }
+
+    // Get the direct connecting IP (the reverse proxy itself, not the end client)
+    const proxyIp = (req.connection.remoteAddress || req.socket.remoteAddress || '').replace('::ffff:', '');
+
+    // Parse whitelist (can be comma-separated CIDRs)
+    const allowedRanges = whitelist.split(',').map(s => s.trim()).filter(s => s);
+
+    // Check if IP is in any of the allowed ranges
+    for (const range of allowedRanges) {
+        try {
+            if (ipInCIDR(proxyIp, range)) {
+                return next();
+            }
+        } catch (e) {
+            logger.warn(`Invalid CIDR range in whitelist: ${range}`);
+        }
+    }
+
+    logger.warn(`Access denied for reverse proxy IP ${proxyIp} - not in whitelist`);
+    return res.status(403).send('Access forbidden');
+}
+
 async function startServer() {
     if (process.env.USING_HEROKU && process.env.PORT) {
         // default to heroku port if using heroku
@@ -259,9 +303,34 @@ async function startServer() {
         await setPortItemFromENV();
     }
 
-    app.listen(backendPort,function(){
-        logger.info(`YoutubeDL-Material ${CONSTS['CURRENT_VERSION']} started on PORT ${backendPort}`);
-    });
+    // Check if SSL certificates are configured
+    const sslCertPath = config_api.getConfigItem('ytdl_ssl_cert_path');
+    const sslKeyPath = config_api.getConfigItem('ytdl_ssl_key_path');
+
+    let server;
+
+    if (sslCertPath && sslKeyPath && fs.existsSync(sslCertPath) && fs.existsSync(sslKeyPath)) {
+        // Start HTTPS server
+        const httpsOptions = {
+            cert: fs.readFileSync(sslCertPath),
+            key: fs.readFileSync(sslKeyPath)
+        };
+
+        server = https.createServer(httpsOptions, app);
+        server.listen(backendPort, function() {
+            logger.info(`YoutubeDL-Material ${CONSTS['CURRENT_VERSION']} started on HTTPS PORT ${backendPort}`);
+        });
+    } else {
+        // Start HTTP server
+        if (sslCertPath || sslKeyPath) {
+            logger.warn('SSL certificate or key path configured but files not found. Starting HTTP server instead.');
+        }
+
+        server = http.createServer(app);
+        server.listen(backendPort, function() {
+            logger.info(`YoutubeDL-Material ${CONSTS['CURRENT_VERSION']} started on HTTP PORT ${backendPort}`);
+        });
+    }
 }
 
 async function updateServer(tag) {
