@@ -8,6 +8,7 @@ const path = require('path');
 const compression = require('compression');
 const multer  = require('multer');
 const express = require("express");
+const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
 const archiver = require('archiver');
 const unzipper = require('unzipper');
@@ -692,6 +693,17 @@ app.use(function(req, res, next) {
 });
 
 app.use(compression());
+
+const testCookiesRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: 'Too many cookie test requests. Please wait a minute and try again.'
+    }
+});
 
 const optionalJwt = async function (req, res, next) {
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
@@ -1631,7 +1643,7 @@ function normalizeCookieTestError(err) {
     return message.length > max_error_length ? message.substring(0, max_error_length) + '...' : message;
 }
 
-app.post('/api/testCookies', optionalJwt, async (req, res) => {
+app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, async (req, res) => {
     const logs = [];
     const use_cookies_enabled = config_api.getConfigItem('ytdl_use_cookies');
     const downloader = config_api.getConfigItem('ytdl_default_downloader');
