@@ -15,6 +15,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Category, DBInfoResponse } from 'api-types';
 import { GenerateRssUrlComponent } from 'app/dialogs/generate-rss-url/generate-rss-url.component';
 
+type CookiesTestResponse = {
+  success: boolean;
+  logs: string[];
+};
+
 @Component({
   selector: 'app-settings',
   templateUrl: './settings.component.html',
@@ -30,6 +35,11 @@ export class SettingsComponent implements OnInit {
   db_info: DBInfoResponse = null;
   db_transferring = false;
   testing_connection_string = false;
+  testingCookies = false;
+  cookiesTestComplete = false;
+  cookiesTestSuccess: boolean = null;
+  cookiesTestUrl = '';
+  cookiesTestLogs: string[] = [];
 
   _settingsSame = true;
 
@@ -344,6 +354,40 @@ export class SettingsComponent implements OnInit {
     }, () => {
       this.testing_connection_string = false;
       this.postsService.openSnackBar($localize`Connection failed! Error: Server error. See logs for more info.`);
+    });
+  }
+
+  runCookiesTest(): void {
+    const testUrl = this.cookiesTestUrl ? this.cookiesTestUrl.trim() : '';
+    if (!testUrl) {
+      this.postsService.openSnackBar($localize`Please provide a URL to test.`);
+      return;
+    }
+
+    this.testingCookies = true;
+    this.cookiesTestComplete = false;
+    this.cookiesTestSuccess = null;
+    this.cookiesTestLogs = [$localize`Running cookies test...`];
+
+    this.postsService.testCookies(testUrl).subscribe((res: CookiesTestResponse) => {
+      this.testingCookies = false;
+      this.cookiesTestComplete = true;
+      this.cookiesTestSuccess = !!res['success'];
+      this.cookiesTestLogs = Array.isArray(res['logs']) ? res['logs'] : [];
+
+      if (this.cookiesTestSuccess) {
+        this.postsService.openSnackBar($localize`Cookies test passed.`);
+      } else {
+        this.postsService.openSnackBar($localize`Cookies test failed. Review logs below.`);
+      }
+    }, err => {
+      this.testingCookies = false;
+      this.cookiesTestComplete = true;
+      this.cookiesTestSuccess = false;
+      const error = err && err.error ? err.error : null;
+      const errorLogs = error && Array.isArray(error['logs']) ? error['logs'] : null;
+      this.cookiesTestLogs = errorLogs && errorLogs.length > 0 ? errorLogs : [$localize`Cookies test failed due to a server error.`];
+      this.postsService.openSnackBar($localize`Cookies test failed. Review logs below.`);
     });
   }
 

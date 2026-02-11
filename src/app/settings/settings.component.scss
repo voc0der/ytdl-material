@@ -111,3 +111,54 @@
     top: 6px;
     margin-left: 10px;
 }
+
+.cookie-test-inline {
+    margin-top: 8px;
+    max-width: 780px;
+}
+
+.cookie-test-url-field {
+    width: 100%;
+    max-width: 620px;
+}
+
+.cookie-test-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cookie-test-spinner {
+    display: inline-block;
+}
+
+.cookie-test-status {
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.cookie-test-success {
+    color: #2e7d32;
+}
+
+.cookie-test-failed {
+    color: #c62828;
+}
+
+.cookie-test-log-label {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.cookie-test-log-box {
+    margin-top: 6px;
+    max-height: 220px;
+    overflow: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 10px;
+    background: #f8f8f8;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

@@ -506,6 +506,28 @@
                         <mat-checkbox color="accent" [(ngModel)]="new_config['Advanced']['use_cookies']"><ng-container i18n="Use cookies setting">Use Cookies</ng-container></mat-checkbox>
                         <button class="checkbox-button" mat-stroked-button (click)="openCookiesUploaderDialog()"><ng-container i18n="Set cookies button">Set Cookies</ng-container></button>
                     </div>
+                    <div class="col-12 mb-2 cookie-test-inline">
+                        <h5 i18n="Advanced cookies test title">Test current cookies</h5>
+                        <p i18n="Advanced cookies test description">Run a metadata-only check against the cookies currently stored on the server.</p>
+                        <mat-form-field class="cookie-test-url-field">
+                            <mat-label i18n="Advanced cookies test URL label">Test URL</mat-label>
+                            <input matInput [(ngModel)]="cookiesTestUrl" placeholder="https://www.youtube.com/watch?v=..." i18n-placeholder="Advanced cookies test URL placeholder">
+                        </mat-form-field>
+                        <div class="cookie-test-actions">
+                            <button mat-flat-button color="accent" (click)="runCookiesTest()" [disabled]="testingCookies || !cookiesTestUrl || !cookiesTestUrl.trim()">
+                                <ng-container i18n="Advanced run cookie test button">Run Cookie Test</ng-container>
+                            </button>
+                            <mat-spinner *ngIf="testingCookies" class="cookie-test-spinner" [diameter]="22"></mat-spinner>
+                        </div>
+                        <div class="cookie-test-status" *ngIf="cookiesTestComplete && cookiesTestSuccess !== null">
+                            <span *ngIf="cookiesTestSuccess" class="cookie-test-success" i18n="Advanced cookies test success message">Cookies test passed.</span>
+                            <span *ngIf="cookiesTestSuccess === false" class="cookie-test-failed" i18n="Advanced cookies test failure message">Cookies test failed.</span>
+                        </div>
+                        <div *ngIf="cookiesTestLogs.length > 0">
+                            <div class="cookie-test-log-label" i18n="Advanced cookies test logs label">Test logs</div>
+                            <pre class="cookie-test-log-box">{{ cookiesTestLogs.join('\n') }}</pre>
+                        </div>
+                    </div>
                 </div>
             </div>
             <mat-divider></mat-divider>
@@ -599,4 +621,3 @@
         <span i18n="Settings cancel button">Cancel</span>
     </button>
 </div>
-
