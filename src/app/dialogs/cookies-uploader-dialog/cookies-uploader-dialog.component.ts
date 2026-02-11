@@ -2,6 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { NgxFileDropEntry, FileSystemFileEntry, FileSystemDirectoryEntry } from 'ngx-file-drop';
 import { PostsService } from 'app/posts.services';
 
+type CookiesTestResponse = {
+  success: boolean;
+  logs: string[];
+};
+
 @Component({
   selector: 'app-cookies-uploader-dialog',
   templateUrl: './cookies-uploader-dialog.component.html',
@@ -12,6 +17,11 @@ export class CookiesUploaderDialogComponent implements OnInit {
 
   uploading = false;
   uploaded = false;
+  testingCookies = false;
+  cookiesTestComplete = false;
+  cookiesTestSuccess: boolean = null;
+  cookiesTestUrl = '';
+  cookiesTestLogs: string[] = [];
 
   constructor(private postsService: PostsService) { }
 
@@ -45,6 +55,40 @@ export class CookiesUploaderDialogComponent implements OnInit {
         });
       }
     }
+  }
+
+  runCookiesTest(): void {
+    const testUrl = this.cookiesTestUrl ? this.cookiesTestUrl.trim() : '';
+    if (!testUrl) {
+      this.postsService.openSnackBar($localize`Please provide a URL to test.`);
+      return;
+    }
+
+    this.testingCookies = true;
+    this.cookiesTestComplete = false;
+    this.cookiesTestSuccess = null;
+    this.cookiesTestLogs = [$localize`Running cookies test...`];
+
+    this.postsService.testCookies(testUrl).subscribe((res: CookiesTestResponse) => {
+      this.testingCookies = false;
+      this.cookiesTestComplete = true;
+      this.cookiesTestSuccess = !!res['success'];
+      this.cookiesTestLogs = Array.isArray(res['logs']) ? res['logs'] : [];
+
+      if (this.cookiesTestSuccess) {
+        this.postsService.openSnackBar($localize`Cookies test passed.`);
+      } else {
+        this.postsService.openSnackBar($localize`Cookies test failed. Review the popup logs.`);
+      }
+    }, err => {
+      this.testingCookies = false;
+      this.cookiesTestComplete = true;
+      this.cookiesTestSuccess = false;
+      const error = err && err.error ? err.error : null;
+      const errorLogs = error && Array.isArray(error['logs']) ? error['logs'] : null;
+      this.cookiesTestLogs = errorLogs && errorLogs.length > 0 ? errorLogs : [$localize`Cookies test failed due to a server error.`];
+      this.postsService.openSnackBar($localize`Cookies test failed. Review the popup logs.`);
+    });
   }
 
   public fileOver(event) {

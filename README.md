@@ -156,7 +156,7 @@ If you're interested in translating the app into a new language, check out the [
 
 Official translators:
 
-* Spanish - voc0der
+* Spanish - tzahi12345
 * German - UnlimitedCookies
 * Chinese - TyRoyal
 

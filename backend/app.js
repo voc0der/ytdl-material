@@ -8,6 +8,7 @@ const path = require('path');
 const compression = require('compression');
 const multer  = require('multer');
 const express = require("express");
+const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
 const archiver = require('archiver');
 const unzipper = require('unzipper');
@@ -692,6 +693,17 @@ app.use(function(req, res, next) {
 });
 
 app.use(compression());
+
+const testCookiesRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: 'Too many cookie test requests. Please wait a minute and try again.'
+    }
+});
 
 const optionalJwt = async function (req, res, next) {
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
@@ -1593,6 +1605,202 @@ app.post('/api/uploadCookies', upload_multer.single('cookies'), async (req, res)
         res.sendStatus(500);
     }
 
+});
+
+function getCookiesFileSummary(cookies_text) {
+    const lines = cookies_text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+    const cookie_lines = lines.filter(line => !line.startsWith('#') || line.startsWith('#HttpOnly_'));
+    let invalid_entries = 0;
+
+    for (const line of cookie_lines) {
+        // Netscape cookie format should contain at least 7 tab-separated values.
+        if (line.split('\t').length < 7) invalid_entries++;
+    }
+
+    return {
+        total_lines: lines.length,
+        cookie_entries: cookie_lines.length,
+        invalid_entries: invalid_entries
+    };
+}
+
+function normalizeCookieTestError(err) {
+    if (!err) return 'Unknown error.';
+
+    let message = null;
+    if (typeof err === 'string') {
+        message = err;
+    } else if (err.stderr) {
+        message = err.stderr.toString();
+    } else if (err.message) {
+        message = err.message.toString();
+    } else {
+        message = JSON.stringify(err);
+    }
+
+    if (!message) return 'Unknown error.';
+    const max_error_length = 1200;
+    return message.length > max_error_length ? message.substring(0, max_error_length) + '...' : message;
+}
+
+app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, async (req, res) => {
+    const logs = [];
+    const use_cookies_enabled = config_api.getConfigItem('ytdl_use_cookies');
+    const downloader = config_api.getConfigItem('ytdl_default_downloader');
+    const test_url = req.body && req.body.url ? req.body.url.trim() : '';
+    const cookie_path = path.join(__dirname, 'appdata', 'cookies.txt');
+    const relative_cookie_path = path.join('appdata', 'cookies.txt');
+
+    logs.push('Starting cookie test.');
+    logs.push(`Downloader: ${downloader}`);
+    logs.push(`Use Cookies setting is ${use_cookies_enabled ? 'enabled' : 'disabled'}.`);
+
+    if (!test_url) {
+        logs.push('No URL was provided for cookie testing.');
+        res.status(400).send({
+            success: false,
+            error: 'Missing URL to test.',
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: false
+        });
+        return;
+    }
+
+    let parsed_test_url = null;
+    try {
+        parsed_test_url = new URL(test_url);
+    } catch (err) {
+        parsed_test_url = null;
+    }
+
+    if (!parsed_test_url || (parsed_test_url.protocol !== 'http:' && parsed_test_url.protocol !== 'https:')) {
+        logs.push(`Invalid test URL provided: ${test_url}`);
+        res.status(400).send({
+            success: false,
+            error: 'Invalid URL. Only http/https URLs are allowed.',
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: false
+        });
+        return;
+    }
+
+    if (!(await fs.pathExists(cookie_path))) {
+        logs.push(`Cookie file was not found at ${cookie_path}.`);
+        res.send({
+            success: false,
+            error: 'Cookies file not found.',
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: false
+        });
+        return;
+    }
+
+    const cookie_stats = await fs.stat(cookie_path);
+    logs.push(`Cookie file found (${cookie_stats.size} bytes).`);
+
+    if (cookie_stats.size === 0) {
+        logs.push('Cookie file is empty.');
+        res.send({
+            success: false,
+            error: 'Cookies file is empty.',
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: true,
+            cookie_file_size: cookie_stats.size
+        });
+        return;
+    }
+
+    const cookies_text = await fs.readFile(cookie_path, 'utf8');
+    const cookie_summary = getCookiesFileSummary(cookies_text);
+
+    logs.push(`Detected ${cookie_summary.cookie_entries} cookie entries from ${cookie_summary.total_lines} non-empty lines.`);
+    if (cookie_summary.invalid_entries > 0) {
+        logs.push(`Detected ${cookie_summary.invalid_entries} entries that may not be valid Netscape cookie rows.`);
+    }
+
+    const args = [
+        '--skip-download',
+        '--no-warnings',
+        '--no-playlist',
+        '--dump-single-json',
+        '--cookies',
+        relative_cookie_path
+    ];
+    logs.push(`Testing URL: ${test_url}`);
+    logs.push(`Executing test command with cookies at ${relative_cookie_path}.`);
+
+    let run_response = null;
+    try {
+        run_response = await youtubedl_api.runYoutubeDL(test_url, args);
+    } catch (err) {
+        const error_message = normalizeCookieTestError(err);
+        logs.push(`Failed to start downloader process. ${error_message}`);
+        res.status(500).send({
+            success: false,
+            error: error_message,
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: true,
+            cookie_summary: cookie_summary
+        });
+        return;
+    }
+
+    if (!run_response || !run_response.callback) {
+        logs.push('Downloader process did not initialize correctly.');
+        res.status(500).send({
+            success: false,
+            error: 'Failed to initialize downloader process.',
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: true,
+            cookie_summary: cookie_summary
+        });
+        return;
+    }
+
+    const {parsed_output, err} = await run_response.callback;
+    if (parsed_output && parsed_output.length > 0) {
+        const info_obj = parsed_output[0];
+        const title = info_obj && info_obj.title ? info_obj.title : null;
+        const extractor = info_obj && info_obj.extractor ? info_obj.extractor : null;
+
+        if (title) logs.push(`Metadata fetch succeeded: "${title}".`);
+        else logs.push('Metadata fetch succeeded.');
+
+        if (extractor) logs.push(`Extractor used: ${extractor}.`);
+
+        res.send({
+            success: true,
+            logs: logs,
+            use_cookies_enabled: use_cookies_enabled,
+            cookie_file_found: true,
+            cookie_file_size: cookie_stats.size,
+            cookie_summary: cookie_summary,
+            result: {
+                title: title,
+                extractor: extractor
+            }
+        });
+        return;
+    }
+
+    const error_message = normalizeCookieTestError(err);
+    logs.push('Metadata fetch failed while using cookies.');
+    logs.push(error_message);
+    res.send({
+        success: false,
+        error: error_message,
+        logs: logs,
+        use_cookies_enabled: use_cookies_enabled,
+        cookie_file_found: true,
+        cookie_file_size: cookie_stats.size,
+        cookie_summary: cookie_summary
+    });
 });
 
 // Updater API calls
