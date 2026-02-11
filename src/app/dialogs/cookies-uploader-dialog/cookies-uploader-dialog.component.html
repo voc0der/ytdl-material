@@ -33,6 +33,29 @@
                     </tbody>
                 </table>
             </div>
+            <mat-divider></mat-divider>
+            <div class="cookie-test-section">
+                <h5 i18n="Cookies test section title">Test cookies</h5>
+                <p i18n="Cookies test section description">Run a metadata-only check with your uploaded cookies and inspect logs to verify the setup.</p>
+                <mat-form-field class="cookie-test-url">
+                    <mat-label i18n="Cookies test URL label">Test URL</mat-label>
+                    <input matInput [(ngModel)]="cookiesTestUrl" placeholder="https://www.youtube.com/watch?v=..." i18n-placeholder="Cookies test URL placeholder">
+                </mat-form-field>
+                <div class="cookie-test-actions">
+                    <button mat-flat-button color="accent" (click)="runCookiesTest()" [disabled]="testingCookies || !cookiesTestUrl || !cookiesTestUrl.trim()">
+                        <ng-container i18n="Run cookies test button">Run Cookie Test</ng-container>
+                    </button>
+                    <mat-spinner *ngIf="testingCookies" class="cookie-test-spinner" [diameter]="22"></mat-spinner>
+                </div>
+                <div class="cookie-test-status" *ngIf="cookiesTestComplete && cookiesTestSuccess !== null">
+                    <span *ngIf="cookiesTestSuccess" class="cookie-test-success" i18n="Cookies test success message">Cookies test passed.</span>
+                    <span *ngIf="cookiesTestSuccess === false" class="cookie-test-failed" i18n="Cookies test failure message">Cookies test failed.</span>
+                </div>
+                <div class="cookie-test-logs-wrapper" *ngIf="cookiesTestLogs.length > 0">
+                    <div class="cookie-test-logs-label" i18n="Cookies test logs title">Test logs</div>
+                    <pre class="cookie-test-logs">{{ cookiesTestLogs.join('\n') }}</pre>
+                </div>
+            </div>
         </div>
     </div>
 </mat-dialog-content>
