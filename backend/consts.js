@@ -174,6 +174,18 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_webhook_url',
         'path': 'YoutubeDLMaterial.API.webhook_URL'
     },
+    'ytdl_use_custom_webhook_template': {
+        'key': 'ytdl_use_custom_webhook_template',
+        'path': 'YoutubeDLMaterial.API.use_custom_webhook_template'
+    },
+    'ytdl_custom_webhook_title_template': {
+        'key': 'ytdl_custom_webhook_title_template',
+        'path': 'YoutubeDLMaterial.API.custom_webhook_title_template'
+    },
+    'ytdl_custom_webhook_body_template': {
+        'key': 'ytdl_custom_webhook_body_template',
+        'path': 'YoutubeDLMaterial.API.custom_webhook_body_template'
+    },
     'ytdl_discord_webhook_url': {
         'key': 'ytdl_discord_webhook_url',
         'path': 'YoutubeDLMaterial.API.discord_webhook_URL'

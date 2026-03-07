@@ -403,6 +403,12 @@
                 <mat-hint>Place endpoint URL here to integrate with services like Zapier, Automatisch, and Apprise (/notify/&lt;key&gt; or apprise(s)://host/&lt;key&gt;?tags=...).</mat-hint>
               </mat-form-field>
             </div>
+            <div class="col-12 mb-2 mt-1 webhook-template-actions">
+              <button class="checkbox-button" mat-stroked-button (click)="openWebhookTemplateDialog()"><ng-container i18n="Set webhook template button">Set Template</ng-container></button>
+              @if (new_config['API']['use_custom_webhook_template']) {
+                <span class="webhook-template-enabled" i18n="Webhook template enabled status">Custom webhook template enabled</span>
+              }
+            </div>
             <div class="col-12 mb-2 mt-3">
               <mat-form-field class="text-field" color="accent">
                 <mat-label i18n="Discord Webhook URL">Discord Webhook URL</mat-label>

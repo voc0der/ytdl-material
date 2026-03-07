@@ -15,6 +15,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Category, DBInfoResponse } from 'api-types';
 import { GenerateRssUrlComponent } from 'app/dialogs/generate-rss-url/generate-rss-url.component';
 import { filter, take } from 'rxjs/operators';
+import { WebhookTemplateDialogComponent, WebhookTemplateDialogResult } from 'app/dialogs/webhook-template-dialog/webhook-template-dialog.component';
 
 type CookiesTestResponse = {
   success: boolean;
@@ -265,6 +266,24 @@ export class SettingsComponent implements OnInit {
   openCookiesUploaderDialog(): void {
     this.dialog.open(CookiesUploaderDialogComponent, {
       width: '65vw'
+    });
+  }
+
+  openWebhookTemplateDialog(): void {
+    const dialogRef = this.dialog.open(WebhookTemplateDialogComponent, {
+      width: '680px',
+      data: {
+        customEnabled: !!this.new_config['API']['use_custom_webhook_template'],
+        titleTemplate: this.new_config['API']['custom_webhook_title_template'],
+        bodyTemplate: this.new_config['API']['custom_webhook_body_template']
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((res: WebhookTemplateDialogResult | null) => {
+      if (!res) return;
+      this.new_config['API']['use_custom_webhook_template'] = !!res.customEnabled;
+      this.new_config['API']['custom_webhook_title_template'] = typeof res.titleTemplate === 'string' ? res.titleTemplate : '';
+      this.new_config['API']['custom_webhook_body_template'] = typeof res.bodyTemplate === 'string' ? res.bodyTemplate : '';
     });
   }
 

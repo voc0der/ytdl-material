@@ -40,6 +40,17 @@
     margin-left: 15px;
 }
 
+.webhook-template-actions {
+    display: flex;
+    align-items: center;
+}
+
+.webhook-template-enabled {
+    margin-left: 12px;
+    font-size: 13px;
+    opacity: 0.85;
+}
+
 .category-list {
     width: 500px;
     max-width: 100%;
