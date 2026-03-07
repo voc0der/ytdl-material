@@ -24,11 +24,24 @@ const tables = {
             title: 'text',
             uploader: 'text',
             uid: 'text'
-        }
+        },
+        indexes: [
+            { keys: { registered: -1 } },
+            { keys: { user_uid: 1, registered: -1 } },
+            { keys: { sub_id: 1, registered: -1 } },
+            { keys: { isAudio: 1, registered: -1 } },
+            { keys: { favorite: 1, registered: -1 } },
+            { keys: { url: 1, sub_id: 1 } },
+            { keys: { path: 1, sub_id: 1 } },
+            { keys: { 'category.uid': 1 } }
+        ]
     },
     playlists: {
         name: 'playlists',
-        primary_key: 'id'
+        primary_key: 'id',
+        indexes: [
+            { keys: { user_uid: 1 } }
+        ]
     },
     categories: {
         name: 'categories',
@@ -36,14 +49,22 @@ const tables = {
     },
     subscriptions: {
         name: 'subscriptions',
-        primary_key: 'id'
+        primary_key: 'id',
+        indexes: [
+            { keys: { user_uid: 1 } },
+            { keys: { paused: 1, streamingOnly: 1 } }
+        ]
     },
     downloads: {
         name: 'downloads'
     },
     users: {
         name: 'users',
-        primary_key: 'uid'
+        primary_key: 'uid',
+        indexes: [
+            { keys: { name: 1 } },
+            { keys: { oidc_subject: 1 } }
+        ]
     },
     roles: {
         name: 'roles',
@@ -51,7 +72,14 @@ const tables = {
     },
     download_queue: {
         name: 'download_queue',
-        primary_key: 'uid'
+        primary_key: 'uid',
+        indexes: [
+            { keys: { finished: 1, paused: 1, finished_step: 1, timestamp_start: 1 } },
+            { keys: { user_uid: 1, finished: 1, paused: 1 } },
+            { keys: { sub_id: 1, error: 1, finished: 1 } },
+            { keys: { sub_id: 1, url: 1, error: 1, finished: 1 } },
+            { keys: { running: 1, sub_id: 1 } }
+        ]
     },
     tasks: {
         name: 'tasks',
@@ -59,10 +87,17 @@ const tables = {
     },
     notifications: {
         name: 'notifications',
-        primary_key: 'uid'
+        primary_key: 'uid',
+        indexes: [
+            { keys: { user_uid: 1 } }
+        ]
     },
     archives: {
-        name: 'archives'
+        name: 'archives',
+        indexes: [
+            { keys: { extractor: 1, id: 1, type: 1, sub_id: 1, user_uid: 1 } },
+            { keys: { sub_id: 1, user_uid: 1, type: 1 } }
+        ]
     },
     test: {
         name: 'test'
@@ -213,20 +248,27 @@ exports._connectToDB = async (custom_connection_string = null) => {
         const existing_collections = (await database.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name);
 
         const missing_tables = tables_list.filter(table => !(existing_collections.includes(table)));
-        missing_tables.forEach(async table => {
-            await database.createCollection(table);
-        });
+        await Promise.all(missing_tables.map(table => database.createCollection(table)));
 
-        tables_list.forEach(async table => {
+        for (const table of tables_list) {
+            const table_collection = database.collection(table);
+
             const primary_key = tables[table]['primary_key'];
             if (primary_key) {
-                await database.collection(table).createIndex({[primary_key]: 1}, { unique: true });
+                await table_collection.createIndex({[primary_key]: 1}, { unique: true });
             }
+
             const text_search = tables[table]['text_search'];
             if (text_search) {
-                await database.collection(table).createIndex(text_search);
+                await table_collection.createIndex(text_search);
             }
-        });
+
+            const extra_indexes = tables[table]['indexes'] || [];
+            for (const extra_index of extra_indexes) {
+                if (!extra_index || !extra_index.keys) continue;
+                await table_collection.createIndex(extra_index.keys, extra_index.options || {});
+            }
+        }
         using_local_db = false; // needs to happen for tests (in normal operation using_local_db is guaranteed false)
         return true;
     } catch(err) {

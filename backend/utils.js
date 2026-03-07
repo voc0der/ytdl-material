@@ -242,25 +242,46 @@ exports.addUIDsToCategory = (category, files) => {
 }
 
 exports.recFindByExt = async (base, ext, files, result, recursive = true) => {
-    files = files || (await fs.readdir(base))
-    result = result || []
+    const extension = `.${ext}`.toLowerCase();
+    const matching_files = result || [];
+    const directories_to_scan = [{dir: base, provided_files: Array.isArray(files) ? files : null}];
 
-    for (const file of files) {
-        var newbase = path.join(base,file)
-        if ( (await fs.stat(newbase)).isDirectory() )
-        {
-            if (!recursive) continue;
-            result = await exports.recFindByExt(newbase,ext,await fs.readdir(newbase),result)
+    while (directories_to_scan.length > 0) {
+        const current_scan = directories_to_scan.pop();
+        const current_dir = current_scan.dir;
+
+        let entries;
+        try {
+            if (current_scan.provided_files) {
+                entries = await Promise.all(current_scan.provided_files.map(async file_name => {
+                    const full_path = path.join(current_dir, file_name);
+                    const file_stats = await fs.stat(full_path);
+                    return {
+                        name: file_name,
+                        isDirectory: () => file_stats.isDirectory()
+                    };
+                }));
+            } else {
+                entries = await fs.readdir(current_dir, {withFileTypes: true});
+            }
+        } catch (err) {
+            continue;
         }
-        else
-        {
-            if ( file.substr(-1*(ext.length+1)) == '.' + ext )
-            {
-                result.push(newbase)
+
+        for (const entry of entries) {
+            const entry_path = path.join(current_dir, entry.name);
+            if (entry.isDirectory()) {
+                if (recursive) directories_to_scan.push({dir: entry_path, provided_files: null});
+                continue;
+            }
+
+            if (entry.name.toLowerCase().endsWith(extension)) {
+                matching_files.push(entry_path);
             }
         }
     }
-    return result
+
+    return matching_files;
 }
 
 exports.removeFileExtension = (filename) => {
