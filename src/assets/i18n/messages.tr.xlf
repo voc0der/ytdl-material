@@ -1504,8 +1504,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="cec82c0a545f37420d55a9b6c45c20546e82f94e" datatype="html">
-        <source>About YoutubeDL-Material</source>
-        <target state="translated">YoutubeDL-Material hakkında</target>
+        <source>About ytdl-material</source>
+        <target state="translated">ytdl-material hakkında</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/about-dialog/about-dialog.component.html</context>
           <context context-type="linenumber">1</context>
@@ -3246,8 +3246,8 @@
         <note priority="1" from="description">Generate NFO files setting</note>
       </trans-unit>
       <trans-unit id="7f09776373995003161235c0c8d02b7f91dbc4df" datatype="html">
-        <source>to download the official YoutubeDL-Material Chrome extension manually.</source>
-        <target state="translated">resmi YoutubeDL-Material Chrome uzantısını elle indirmek için.</target>
+        <source>to download the official ytdl-material Chrome extension manually.</source>
+        <target state="translated">resmi ytdl-material Chrome uzantısını elle indirmek için.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
           <context context-type="linenumber">288</context>
@@ -3264,8 +3264,8 @@
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
       <trans-unit id="9a2ec6da48771128384887525bdcac992632c863" datatype="html">
-        <source>to install the official YoutubeDL-Material Firefox extension right off the Firefox extensions page.</source>
-        <target state="translated">resmi YoutubeDL-Material Firefox uzantısını doğrudan Firefox uzantıları sayfasından yüklemek için.</target>
+        <source>to install the official ytdl-material Firefox extension right off the Firefox extensions page.</source>
+        <target state="translated">resmi ytdl-material Firefox uzantısını doğrudan Firefox uzantıları sayfasından yüklemek için.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
           <context context-type="linenumber">294</context>

@@ -24,11 +24,11 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Environment**
-- YoutubeDL-Material version
+- ytdl-material version
 - Docker tag: <tag> (optional)
 
 Ideally you'd copy the info as presented on the "About" dialogue
-in YoutubeDL-Material.
+in ytdl-material.
 (for that, click on the three dots on the top right and then
 check "installation details". On later versions of YoutubeDL-
 Material you will find pretty much all the crucial information

@@ -415,16 +415,16 @@
         <target state="translated" state-qualifier="leveraged-glossary">¡Haga clic aquí</target>
       </trans-unit>
       <trans-unit id="7f09776373995003161235c0c8d02b7f91dbc4df">
-        <source>to download the official YoutubeDL-Material Chrome extension manually.</source>
-        <target state="translated" state-qualifier="leveraged-glossary">para descargar la extensión Chrome oficial de YoutubeDL-Material manualmente.</target>
+        <source>to download the official ytdl-material Chrome extension manually.</source>
+        <target state="translated" state-qualifier="leveraged-glossary">para descargar la extensión Chrome oficial de ytdl-material manualmente.</target>
       </trans-unit>
       <trans-unit id="5b5296423906ab3371fdb2b5a5aaa83acaa2ee52">
         <source>You must manually load the extension and modify the extension's settings to set the frontend URL.</source>
         <target state="translated" state-qualifier="leveraged-glossary">Debe cargar manualmente la extensión y modificar la configuración de la extensión para establecer la URL de la interfaz.</target>
       </trans-unit>
       <trans-unit id="9a2ec6da48771128384887525bdcac992632c863">
-        <source>to install the official YoutubeDL-Material Firefox extension right off the Firefox extensions page.</source>
-        <target state="translated" state-qualifier="leveraged-glossary">para instalar la extensión Firefox oficial de YoutubeDL-Material directamente desde la página de extensiones de Firefox.</target>
+        <source>to install the official ytdl-material Firefox extension right off the Firefox extensions page.</source>
+        <target state="translated" state-qualifier="leveraged-glossary">para instalar la extensión Firefox oficial de ytdl-material directamente desde la página de extensiones de Firefox.</target>
       </trans-unit>
       <trans-unit id="eb81be6b49e195e5307811d1d08a19259d411f37">
         <source>Detailed setup instructions.</source>
@@ -479,8 +479,8 @@
         <target state="translated" state-qualifier="leveraged-glossary">{VAR_SELECT, select, true {Cerrar} false {Cancelar} other {Otro} }</target>
       </trans-unit>
       <trans-unit id="cec82c0a545f37420d55a9b6c45c20546e82f94e">
-        <source>About YoutubeDL-Material</source>
-        <target state="translated" state-qualifier="leveraged-glossary">Acerca de YoutubeDL-Material</target>
+        <source>About ytdl-material</source>
+        <target state="translated" state-qualifier="leveraged-glossary">Acerca de ytdl-material</target>
       </trans-unit>
       <trans-unit id="199c17e5d6a419313af3c325f06dcbb9645ca618">
         <source>is an open-source YouTube downloader built under Google's Material Design specifications. You can seamlessly download your favorite videos as video or audio files, and even subscribe to your favorite channels and playlists to keep updated with their new videos.</source>

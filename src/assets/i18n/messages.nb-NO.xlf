@@ -1836,7 +1836,7 @@
         <note priority="1" from="description">Chrome ext click here</note>
       </trans-unit>
       <trans-unit id="7f09776373995003161235c0c8d02b7f91dbc4df" datatype="html">
-        <source>to download the official YoutubeDL-Material Chrome extension manually.</source>
+        <source>to download the official ytdl-material Chrome extension manually.</source>
         <target/>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
@@ -1854,7 +1854,7 @@
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
       <trans-unit id="9a2ec6da48771128384887525bdcac992632c863" datatype="html">
-        <source>to install the official YoutubeDL-Material Firefox extension right off the Firefox extensions page.</source>
+        <source>to install the official ytdl-material Firefox extension right off the Firefox extensions page.</source>
         <target/>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
@@ -2124,7 +2124,7 @@
         <note priority="1" from="description">Search Filter</note>
       </trans-unit>
       <trans-unit id="cec82c0a545f37420d55a9b6c45c20546e82f94e" datatype="html">
-        <source>About YoutubeDL-Material</source>
+        <source>About ytdl-material</source>
         <target state="needs-translation">Om mateirell YouTube-DL</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/about-dialog/about-dialog.component.html</context>

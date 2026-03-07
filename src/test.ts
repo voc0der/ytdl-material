@@ -114,7 +114,7 @@ function createPostsServiceStub(): any {
         port: 17442
       },
       Extra: {
-        title_top: 'YoutubeDL-Material',
+        title_top: 'ytdl-material',
         enable_downloads_manager: false
       },
       Themes: {

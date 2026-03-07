@@ -211,7 +211,7 @@ const DEFAULT_CONFIG = {
         "download_rate_limit": ""
       },
       "Extra": {
-        "title_top": "YoutubeDL-Material",
+        "title_top": "ytdl-material",
         "file_manager_enabled": true,
         "allow_quality_select": true,
         "download_only_mode": false,

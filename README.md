@@ -1,11 +1,11 @@
-# YoutubeDL-Material
+# ytdl-material
 
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/youtubedl-material.svg)](https://hub.docker.com/r/voc0der/youtubedl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/youtubedl-material?sort=date)](https://hub.docker.com/r/voc0der/youtubedl-material)
-[![GitHub issues badge](https://img.shields.io/github/issues/voc0der/YoutubeDL-Material)](https://github.com/voc0der/YoutubeDL-Material/issues)
-[![License badge](https://img.shields.io/github/license/voc0der/YoutubeDL-Material)](https://github.com/voc0der/YoutubeDL-Material/blob/master/LICENSE.md)
+[![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
+[![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/master/LICENSE.md)
 
-YoutubeDL-Material is a Material Design frontend for [youtube-dl](https://rg3.github.io/youtube-dl/) / yt-dlp workflows. It's coded using [Angular 21](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend.
+ytdl-material is a Material Design frontend for [youtube-dl](https://rg3.github.io/youtube-dl/) / yt-dlp workflows. It's coded using [Angular 21](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend.
 
 <hr>
 
@@ -51,11 +51,11 @@ python3 -m pip install --user yt-dlp yt-dlp-ejs
 
 If you are using Docker, skip to the [Docker](#Docker) section. Otherwise, continue:
 
-1. First, download the [latest release](https://github.com/voc0der/YoutubeDL-Material/releases/latest)!
+1. First, download the [latest release](https://github.com/voc0der/ytdl-material/releases/latest)!
 
 2. Drag the `youtubedl-material` directory to an easily accessible directory. Navigate to the `appdata` folder and edit the `default.json` file.
 
-NOTE: If you are intending to use a [reverse proxy](https://github.com/voc0der/YoutubeDL-Material/wiki/Reverse-Proxy-Setup), this next step is not necessary
+NOTE: If you are intending to use a [reverse proxy](https://github.com/voc0der/ytdl-material/wiki/Reverse-Proxy-Setup), this next step is not necessary
 
 3. Port forward the port listed in `default.json`, which defaults to `17442`.
 
@@ -72,7 +72,7 @@ If you experience problems, know that it's usually caused by a configuration pro
 
 ## Build it yourself
 
-If you'd like to install YoutubeDL-Material, go to the Installation section. If you want to build it yourself and/or develop the repository, then this section is for you.
+If you'd like to install ytdl-material, go to the Installation section. If you want to build it yourself and/or develop the repository, then this section is for you.
 
 To deploy from source, clone the repository and go into the `youtubedl-material` directory.
 
@@ -108,22 +108,22 @@ npm -g install pm2
 npm start --prefix backend
 ```
 
-If you want your instance available outside your network, set up a [reverse proxy](https://github.com/voc0der/YoutubeDL-Material/wiki/Reverse-Proxy-Setup) or port forward the configured backend port (default `17442`).
+If you want your instance available outside your network, set up a [reverse proxy](https://github.com/voc0der/ytdl-material/wiki/Reverse-Proxy-Setup) or port forward the configured backend port (default `17442`).
 
 ## Docker
 
 ### Host-specific instructions
 
-If you're on a Synology NAS, unRAID, Raspberry Pi 4 or any other possible special case you can check if there's known issues or instructions both in the issue tracker and in the [Wiki!](https://github.com/voc0der/YoutubeDL-Material/wiki#environment-specific-guideshelp)
+If you're on a Synology NAS, unRAID, Raspberry Pi 4 or any other possible special case you can check if there's known issues or instructions both in the issue tracker and in the [Wiki!](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp)
 
 Note: official ARMv7 Docker image builds have been retired. Use `amd64` / `arm64` images or build locally for unsupported architectures.
 
 ### Setup
 
-If you are looking to setup YoutubeDL-Material with Docker, this section is for you. And you're in luck! Docker setup is quite simple.
+If you are looking to setup ytdl-material with Docker, this section is for you. And you're in luck! Docker setup is quite simple.
 
-1. Run `curl -L https://github.com/voc0der/YoutubeDL-Material/releases/latest/download/docker-compose.yml -o docker-compose.yml` to download the latest Docker Compose, or go to the [releases](https://github.com/voc0der/YoutubeDL-Material/releases/) page to grab the version you'd like.
-2. Run `docker compose pull` (or `docker-compose pull` on older Docker setups). This will download the official YoutubeDL-Material docker image.
+1. Run `curl -L https://github.com/voc0der/ytdl-material/releases/latest/download/docker-compose.yml -o docker-compose.yml` to download the latest Docker Compose, or go to the [releases](https://github.com/voc0der/ytdl-material/releases/) page to grab the version you'd like.
+2. Run `docker compose pull` (or `docker-compose pull` on older Docker setups). This will download the official ytdl-material docker image.
 3. Run `docker compose up -d` (or `docker-compose up -d`) to start it up. The container exposes port `17442` internally. Please check your `docker-compose.yml` file for the *external* port. If you downloaded the file as described above, it defaults to **8998**.
 4. Make sure you can connect to the specified URL + *external* port, and if so, you are done!
 
@@ -193,9 +193,9 @@ OIDC note: when `ytdl_oidc_enabled` is `'true'`, `ytdl_multi_user_mode` must als
 
 ## MongoDB
 
-For much better scaling with large datasets please run your YoutubeDL-Material instance with MongoDB backend rather than the json file-based default. It will fix a lot of performance problems (especially with datasets in the tens of thousands videos/audios)!
+For much better scaling with large datasets please run your ytdl-material instance with MongoDB backend rather than the json file-based default. It will fix a lot of performance problems (especially with datasets in the tens of thousands videos/audios)!
 
-[Tutorial](https://github.com/voc0der/YoutubeDL-Material/wiki/Setting-a-MongoDB-backend-to-use-as-database-provider-for-YTDL-M).
+[Tutorial](https://github.com/voc0der/ytdl-material/wiki/Setting-a-MongoDB-backend-to-use-as-database-provider-for-YTDL-M).
 
 ## API
 
@@ -207,11 +207,11 @@ Once you have enabled the API and have the key, you can start sending requests b
 
 ## Contributing
 
-If you're interested in contributing, first: awesome! Second, please refer to the guidelines/setup information located in the [Contributing](https://github.com/voc0der/YoutubeDL-Material/wiki/Contributing) wiki page, it's a helpful way to get you on your feet and coding away.
+If you're interested in contributing, first: awesome! Second, please refer to the guidelines/setup information located in the [Contributing](https://github.com/voc0der/ytdl-material/wiki/Contributing) wiki page, it's a helpful way to get you on your feet and coding away.
 
 Pull requests are always appreciated! If you're a bit rusty with coding, that's no problem: we can always help you learn. And if that's too scary, that's OK too! You can create issues for features you'd like to see or bugs you encounter, it all helps this project grow.
 
-If you're interested in translating the app into a new language, check out the [Translate](https://github.com/voc0der/YoutubeDL-Material/wiki/Translate) wiki page.
+If you're interested in translating the app into a new language, check out the [Translate](https://github.com/voc0der/ytdl-material/wiki/Translate) wiki page.
 
 ## Authors
 
@@ -224,7 +224,7 @@ Official translators:
 * German - UnlimitedCookies
 * Chinese - TyRoyal
 
-See also the list of [contributors](https://github.com/voc0der/YoutubeDL-Material/graphs/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/voc0der/ytdl-material/graphs/contributors) who participated in this project.
 
 ## License
 

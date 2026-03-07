@@ -1012,8 +1012,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="7f09776373995003161235c0c8d02b7f91dbc4df" datatype="html">
-        <source>to download the official YoutubeDL-Material Chrome extension manually.</source>
-        <target xml:lang="de-DE">um die offizielle YoutubeDL-Material Chrome-Erweiterung manuell herunterzuladen.</target>
+        <source>to download the official ytdl-material Chrome extension manually.</source>
+        <target xml:lang="de-DE">um die offizielle ytdl-material Chrome-Erweiterung manuell herunterzuladen.</target>
         <note from="description" priority="1">Chrome click here suffix</note>
         <context-group purpose="location">
           <context context-type="sourcefile">app/settings/settings.component.html</context>
@@ -1030,8 +1030,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="9a2ec6da48771128384887525bdcac992632c863" datatype="html">
-        <source>to install the official YoutubeDL-Material Firefox extension right off the Firefox extensions page.</source>
-        <target xml:lang="de-DE">um die offizielle YoutubeDL-Material Firefox-Erweiterung direkt aus dem Firefox-Addon-Store zu installieren.</target>
+        <source>to install the official ytdl-material Firefox extension right off the Firefox extensions page.</source>
+        <target xml:lang="de-DE">um die offizielle ytdl-material Firefox-Erweiterung direkt aus dem Firefox-Addon-Store zu installieren.</target>
         <note from="description" priority="1">Firefox click here suffix</note>
         <context-group purpose="location">
           <context context-type="sourcefile">app/settings/settings.component.html</context>
@@ -1160,8 +1160,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="cec82c0a545f37420d55a9b6c45c20546e82f94e" datatype="html">
-        <source>About YoutubeDL-Material</source>
-        <target xml:lang="de-DE">Über YoutubeDL-Material</target>
+        <source>About ytdl-material</source>
+        <target xml:lang="de-DE">Über ytdl-material</target>
         <note from="description" priority="1">About dialog title</note>
         <context-group purpose="location">
           <context context-type="sourcefile">app/dialogs/about-dialog/about-dialog.component.html</context>

@@ -354,7 +354,7 @@ async function startServer() {
 
         server = https.createServer(httpsOptions, app);
         server.listen(backendPort, function() {
-            logger.info(`YoutubeDL-Material ${CONSTS['CURRENT_VERSION']} started on HTTPS PORT ${backendPort}`);
+            logger.info(`ytdl-material ${CONSTS['CURRENT_VERSION']} started on HTTPS PORT ${backendPort}`);
         });
     } else {
         // Start HTTP server
@@ -364,7 +364,7 @@ async function startServer() {
 
         server = http.createServer(app);
         server.listen(backendPort, function() {
-            logger.info(`YoutubeDL-Material ${CONSTS['CURRENT_VERSION']} started on HTTP PORT ${backendPort}`);
+            logger.info(`ytdl-material ${CONSTS['CURRENT_VERSION']} started on HTTP PORT ${backendPort}`);
         });
     }
 }
@@ -508,7 +508,7 @@ async function downloadReleaseZip(tag) {
         // get name of zip file, which depends on the version
         const tag_without_v = safeTag.substring(1, safeTag.length);
         const zip_file_name = `youtubedl-material-${tag_without_v}.zip`;
-        const latest_zip_link = `https://github.com/voc0der/YoutubeDL-Material/releases/download/${encodeURIComponent(safeTag)}/${encodeURIComponent(zip_file_name)}`;
+        const latest_zip_link = `https://github.com/voc0der/ytdl-material/releases/download/${encodeURIComponent(safeTag)}/${encodeURIComponent(zip_file_name)}`;
 
         // download zip from release
         const res = await fetch(latest_zip_link);
@@ -2793,12 +2793,12 @@ app.get('/api/rss', async function (req, res) {
     const { Feed } = await import('feed');
     const feed = new Feed({
             title: 'Downloads',
-            description: 'YoutubeDL-Material downloads',
+            description: 'ytdl-material downloads',
             id: utils.getBaseURL(),
             link: utils.getBaseURL(),
-            image: 'https://github.com/voc0der/YoutubeDL-Material/blob/master/src/assets/images/logo_128px.png',
-            favicon: 'https://raw.githubusercontent.com/voc0der/YoutubeDL-Material/master/src/favicon.ico',
-            generator: 'YoutubeDL-Material'
+            image: 'https://github.com/voc0der/ytdl-material/blob/master/src/assets/images/logo_128px.png',
+            favicon: 'https://raw.githubusercontent.com/voc0der/ytdl-material/master/src/favicon.ico',
+            generator: 'ytdl-material'
     });
 
     files.forEach(file => {

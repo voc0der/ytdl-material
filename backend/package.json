@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "backend for YoutubeDL-Material",
+  "description": "backend for ytdl-material",
   "main": "index.js",
   "scripts": {
     "test": "mocha test --exit -s 1000",

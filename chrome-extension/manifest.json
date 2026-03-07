@@ -1,12 +1,12 @@
 {
     "manifest_version": 2,
-    "name": "YoutubeDL-Material",
+    "name": "ytdl-material",
     "version": "0.4",
-    "description": "The Official Firefox & Chrome Extension of YoutubeDL-Material, an open-source and self-hosted YouTube downloader.",
+    "description": "The Official Firefox & Chrome Extension of ytdl-material, an open-source and self-hosted YouTube downloader.",
     "browser_action": {
         "default_icon": "favicon.png",
         "default_popup": "popup.html",
-        "default_title": "YoutubeDL-Material"
+        "default_title": "ytdl-material"
     },
     "permissions": [
         "tabs",

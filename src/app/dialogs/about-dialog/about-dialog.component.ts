@@ -10,9 +10,9 @@ import { CURRENT_VERSION } from 'app/consts';
 })
 export class AboutDialogComponent implements OnInit {
 
-  projectLink = 'https://github.com/voc0der/YoutubeDL-Material';
-  issuesLink = 'https://github.com/voc0der/YoutubeDL-Material/issues';
-  latestUpdateLink = 'https://github.com/voc0der/YoutubeDL-Material/releases/latest'
+  projectLink = 'https://github.com/voc0der/ytdl-material';
+  issuesLink = 'https://github.com/voc0der/ytdl-material/issues';
+  latestUpdateLink = 'https://github.com/voc0der/ytdl-material/releases/latest'
   latestGithubRelease = null;
   checking_for_updates = true;
 

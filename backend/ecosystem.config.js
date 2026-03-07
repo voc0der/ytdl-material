@@ -1,6 +1,6 @@
 module.exports = {
   apps : [{
-    name   : "YoutubeDL-Material",
+    name   : "ytdl-material",
     script : "./app.js",
     watch  : "placeholder",
     watch_delay: 5000

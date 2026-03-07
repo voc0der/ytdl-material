@@ -307,7 +307,7 @@ async function sendDiscordNotification({body, title, type, url, thumbnail}) {
 
     const result = await api.webhooks.execute(webhook_id, webhook_token, {
         content: body,
-        username: 'YoutubeDL-Material',
+        username: 'ytdl-material',
         avatar_url: consts.ICON_URL,
         embeds: [embed],
     });

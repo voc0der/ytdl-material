@@ -1053,8 +1053,8 @@
         <note priority="1" from="description">Chrome ext click here</note>
       </trans-unit>
       <trans-unit id="7f09776373995003161235c0c8d02b7f91dbc4df" datatype="html">
-        <source>to download the official YoutubeDL-Material Chrome extension manually.</source>
-        <target>per scaricare manualmente l'estensione ufficiale per Chrome di YoutubeDL-Material.</target>
+        <source>to download the official ytdl-material Chrome extension manually.</source>
+        <target>per scaricare manualmente l'estensione ufficiale per Chrome di ytdl-material.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">app/settings/settings.component.html</context>
           <context context-type="linenumber">211</context>
@@ -1071,8 +1071,8 @@
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
       <trans-unit id="9a2ec6da48771128384887525bdcac992632c863" datatype="html">
-        <source>to install the official YoutubeDL-Material Firefox extension right off the Firefox extensions page.</source>
-        <target>per installare l'estensione ufficiale YoutubeDL-Material per Firefox direttamente dalla pagina delle estensioni di Firefox.</target>
+        <source>to install the official ytdl-material Firefox extension right off the Firefox extensions page.</source>
+        <target>per installare l'estensione ufficiale ytdl-material per Firefox direttamente dalla pagina delle estensioni di Firefox.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">app/settings/settings.component.html</context>
           <context context-type="linenumber">217</context>
@@ -1305,8 +1305,8 @@
         <note priority="1" from="description">Settings cancel and close button</note>
       </trans-unit>
       <trans-unit id="cec82c0a545f37420d55a9b6c45c20546e82f94e" datatype="html">
-        <source>About YoutubeDL-Material</source>
-        <target>Informazioni su YoutubeDL-Material</target>
+        <source>About ytdl-material</source>
+        <target>Informazioni su ytdl-material</target>
         <context-group purpose="location">
           <context context-type="sourcefile">app/dialogs/about-dialog/about-dialog.component.html</context>
           <context context-type="linenumber">1</context>
