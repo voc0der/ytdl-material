@@ -56,19 +56,38 @@ async function getCategories() {
 async function getCategoriesAsPlaylists() {
     const categories_as_playlists = [];
     const available_categories = await getCategories();
-    if (available_categories) {
-        for (let category of available_categories) {
-            const files_that_match = await db_api.getRecords('files', {'category.uid': category['uid']});
-            if (files_that_match && files_that_match.length > 0) {
-                category['thumbnailURL'] = files_that_match[0].thumbnailURL;
-                category['thumbnailPath'] = files_that_match[0].thumbnailPath;
-                category['duration'] = files_that_match.reduce((a, b) => a + utils.durationStringToNumber(b.duration), 0);
-                category['id'] = category['uid'];
-                category['auto'] = true;
-                categories_as_playlists.push(category);
-            }
+    if (!available_categories || available_categories.length === 0) return categories_as_playlists;
+
+    const category_uids = available_categories.map(category => category['uid']).filter(Boolean);
+    if (category_uids.length === 0) return categories_as_playlists;
+
+    const categorized_files = await db_api.getRecords('files', {'category.uid': {$in: category_uids}});
+    if (!categorized_files || categorized_files.length === 0) return categories_as_playlists;
+
+    const files_by_category_uid = new Map();
+    for (const categorized_file of categorized_files) {
+        const category_uid = categorized_file?.category?.uid;
+        if (!category_uid) continue;
+
+        if (!files_by_category_uid.has(category_uid)) {
+            files_by_category_uid.set(category_uid, []);
         }
+        files_by_category_uid.get(category_uid).push(categorized_file);
     }
+
+    for (const category of available_categories) {
+        const files_that_match = files_by_category_uid.get(category['uid']);
+        if (!files_that_match || files_that_match.length === 0) continue;
+
+        const category_playlist = {...category};
+        category_playlist['thumbnailURL'] = files_that_match[0].thumbnailURL;
+        category_playlist['thumbnailPath'] = files_that_match[0].thumbnailPath;
+        category_playlist['duration'] = files_that_match.reduce((a, b) => a + utils.durationStringToNumber(b.duration), 0);
+        category_playlist['id'] = category_playlist['uid'];
+        category_playlist['auto'] = true;
+        categories_as_playlists.push(category_playlist);
+    }
+
     return categories_as_playlists;
 }
 

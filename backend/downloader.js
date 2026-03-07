@@ -686,27 +686,53 @@ async function checkDownloadPercent(download_uid) {
         if (!resulting_file_size || !files_to_check_for_progress || files_to_check_for_progress.length === 0) return;
 
         let sum_size = 0;
+        const basenames_by_directory = new Map();
         for (let i = 0; i < files_to_check_for_progress.length; i++) {
             const file_to_check_for_progress = files_to_check_for_progress[i];
             const dir = path.dirname(file_to_check_for_progress);
-            if (!fs.existsSync(dir)) continue;
+            const file_basename = path.basename(file_to_check_for_progress);
 
-            let files = [];
+            if (!basenames_by_directory.has(dir)) {
+                basenames_by_directory.set(dir, new Set());
+            }
+            basenames_by_directory.get(dir).add(file_basename);
+        }
+
+        for (const [dir, file_basenames] of basenames_by_directory.entries()) {
+            if (!fs.existsSync(dir)) continue;
+            const file_basename_list = [...file_basenames];
+
+            let dir_entries = [];
             try {
-                files = await fs.readdir(dir);
+                dir_entries = await fs.readdir(dir, {withFileTypes: true});
             } catch (e) {
                 continue;
             }
 
-            for (let j = 0; j < files.length; j++) {
-                const file = files[j];
-                if (!file.includes(path.basename(file_to_check_for_progress))) continue;
+            const matching_file_paths = [];
+            for (let i = 0; i < dir_entries.length; i++) {
+                const dir_entry = dir_entries[i];
+                if (!dir_entry || typeof dir_entry.isDirectory !== 'function' || dir_entry.isDirectory()) continue;
+
+                const entry_name = dir_entry.name;
+                const entry_matches_progress_file = file_basename_list.some(file_basename => entry_name.includes(file_basename));
+                if (!entry_matches_progress_file) continue;
+                matching_file_paths.push(path.join(dir, entry_name));
+            }
+
+            const matching_file_stats = await Promise.all(matching_file_paths.map(async matching_file_path => {
                 try {
-                    const file_stats = await fs.stat(path.join(dir, file));
-                    if (file_stats && file_stats.size) {
-                        sum_size += file_stats.size;
-                    }
-                } catch (e) {}
+                    return await fs.stat(matching_file_path);
+                } catch (e) {
+                    return null;
+                }
+            }));
+
+            for (let i = 0; i < matching_file_stats.length; i++) {
+                const file_stats = matching_file_stats[i];
+                if (file_stats && file_stats.size) {
+                    sum_size += file_stats.size;
+                }
             }
         }
 
