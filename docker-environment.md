@@ -1,0 +1,71 @@
+# Docker Environment Variables
+
+Common Docker environment variables used by the provided `docker-compose.yml`:
+
+* `ytdl_mongodb_connection_string`: MongoDB connection string (default compose file points to `mongodb://ytdl-mongo-db:27017`)
+* `ytdl_use_local_db`: set to `'false'` to use MongoDB instead of the local JSON DB
+* `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
+* `UID` / `GID`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
+* `YTDL_LOG_LEVEL` (or `ytdl_log_level`): backend log level, default `info`
+* `ytdl_ssl_cert_path` / `ytdl_ssl_key_path`: enable HTTPS by pointing to mounted cert/key files
+* `ytdl_reverse_proxy_whitelist`: comma-separated CIDR ranges allowed to connect (reverse proxy IPs, not client IPs)
+* `ytdl_multi_user_mode`: set to `'true'` to enable user-scoped media; required when OIDC is enabled
+
+Valid log levels:
+
+* `error`
+* `warn`
+* `info`
+* `verbose`
+* `debug`
+
+## OIDC required variables
+
+* `ytdl_oidc_enabled`: set to `'true'`
+* `ytdl_oidc_issuer_url`: OIDC issuer URL
+* `ytdl_oidc_client_id`: OIDC client ID
+* `ytdl_oidc_client_secret`: OIDC client secret
+* `ytdl_oidc_redirect_uri`: callback URL (must end with `/api/auth/oidc/callback`)
+
+## OIDC optional variables
+
+* `ytdl_oidc_scope` (default `openid profile email`)
+* `ytdl_oidc_allowed_groups` (comma-separated allow-list)
+* `ytdl_oidc_group_claim` (default `groups`)
+* `ytdl_oidc_admin_claim` / `ytdl_oidc_admin_value` (defaults `groups` / `admin`)
+* `ytdl_oidc_auto_register` (default `'true'`)
+* `ytdl_oidc_username_claim` / `ytdl_oidc_display_name_claim`
+* `ytdl_oidc_migrate_videos`: optional one-time startup migration target (UID or username) for unassigned media ownership
+
+## Example `docker-compose.yml` snippet
+
+```yaml
+environment:
+  ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
+  ytdl_use_local_db: 'false'
+  write_ytdl_config: 'true'
+  # UID: 1000
+  # GID: 1000
+  # YTDL_LOG_LEVEL: debug
+  # ytdl_ssl_cert_path: /mnt/keys/fullchain.pem
+  # ytdl_ssl_key_path: /mnt/keys/privkey.pem
+  # ytdl_reverse_proxy_whitelist: 172.28.0.100/32
+  # ytdl_multi_user_mode: 'true'
+  # ytdl_oidc_enabled: 'true'
+  # ytdl_oidc_issuer_url: 'https://idp.example.com/realms/ytdl'
+  # ytdl_oidc_client_id: 'youtubedl-material'
+  # ytdl_oidc_client_secret: 'replace-with-secret'
+  # ytdl_oidc_redirect_uri: 'https://ytdl.example.com/api/auth/oidc/callback'
+  # ytdl_oidc_scope: 'openid profile email'
+  # ytdl_oidc_allowed_groups: 'media,admins'
+  # ytdl_oidc_admin_claim: 'groups'
+  # ytdl_oidc_admin_value: 'admin'
+  # ytdl_oidc_auto_register: 'true'
+  # ytdl_oidc_username_claim: 'preferred_username'
+  # ytdl_oidc_display_name_claim: 'name'
+  # ytdl_oidc_migrate_videos: 'admin'
+```
+
+If you prefer, you can use Docker's `user: "UID:GID"` setting instead of `UID`/`GID`.
+
+When `ytdl_oidc_enabled` is `'true'`, `ytdl_multi_user_mode` must also be `'true'` or backend startup will fail.
