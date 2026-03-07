@@ -1,7 +1,7 @@
 # ytdl-material
 
-[![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/youtubedl-material.svg)](https://hub.docker.com/r/voc0der/youtubedl-material)
-[![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/youtubedl-material?sort=date)](https://hub.docker.com/r/voc0der/youtubedl-material)
+[![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
+[![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
 [![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/master/LICENSE.md)
 
