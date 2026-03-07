@@ -1,7 +1,5 @@
 # YoutubeDL-Material
 
-[![Star History Chart](https://api.star-history.com/svg?repos=voc0der/YoutubeDL-Material&type=Date)](https://star-history.com/#voc0der/YoutubeDL-Material&Date)
-
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/youtubedl-material.svg)](https://hub.docker.com/r/voc0der/youtubedl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/youtubedl-material?sort=date)](https://hub.docker.com/r/voc0der/youtubedl-material)
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/YoutubeDL-Material)](https://github.com/voc0der/YoutubeDL-Material/issues)
@@ -238,5 +236,7 @@ This project is in no way affiliated with Google LLC, Alphabet Inc. or YouTube (
 
 ## Acknowledgments
 
-* youtube-dl
+* ytdl
 * [AllTube](https://github.com/Rudloff/alltube) (for the inspiration)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=voc0der/YoutubeDL-Material&type=Date)](https://star-history.com/#voc0der/YoutubeDL-Material&Date)
