@@ -123,6 +123,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
+    this.postsService.setPageTitle();
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
@@ -135,6 +136,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.audioFolderPath = this.postsService.config['Downloader']['path-audio'];
     this.videoFolderPath = this.postsService.config['Downloader']['path-video'];
     this.subscriptionFolderPath = this.postsService.config['Subscriptions']['subscriptions_base_path'];
+    this.postsService.setPageTitle();
 
     if (this.sub_id) {
       this.getSubscription();
@@ -232,8 +234,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const currentUID = this.currentItem?.uid;
     const currentIndex = currentUID ? this.playlist.findIndex(file_obj => file_obj.uid === currentUID) : this.currentIndex;
     this.currentIndex = currentIndex >= 0 ? currentIndex : 0;
-    this.currentItem = this.playlist[this.currentIndex];
-    this.syncCurrentSingleFileMetadata();
+    this.updateCurrentItem(this.playlist[this.currentIndex], this.currentIndex);
     this.original_playlist = JSON.stringify(this.playlist);
     this.show_player = true;
 
@@ -293,6 +294,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.syncCurrentSingleFileMetadata();
+    this.updatePageTitleForCurrentItem();
+  }
+
+  updatePageTitleForCurrentItem(): void {
+    const media_title = this.currentItem?.title ? this.currentItem.title : null;
+    this.postsService.setPageTitle(media_title);
   }
 
   playVideo(): void {
