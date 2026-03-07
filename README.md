@@ -18,11 +18,7 @@ Choose one path:
 
 Here's an image of what it'll look like once you're done:
 
-<img src="https://i.imgur.com/C6vFGbL.png" width="800">
-
-Dark mode:
-
-<img src="https://i.imgur.com/vOtvH5w.png" width="800">
+<img src="./docs/images/readme-home.png" width="1000" alt="ytdl-material interface">
 
 ## Docker
 
