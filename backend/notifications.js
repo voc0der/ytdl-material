@@ -338,14 +338,32 @@ function parseWebhookURL(webhook_url) {
     }
 
     try {
+        const parsed_url = new URL(request_url);
+        if (explicit_apprise) normalizeAppriseURL(parsed_url);
         return {
-            request_url: request_url,
-            parsed_url: new URL(request_url),
+            request_url: parsed_url.toString(),
+            parsed_url: parsed_url,
             explicit_apprise: explicit_apprise
         };
     } catch {
         return null;
     }
+}
+
+function normalizeAppriseURL(parsed_url) {
+    const key_pattern = /^[\w-]{1,128}$/;
+    const key_from_path = (parsed_url.pathname || '').match(/^\/apprise\/([\w-]{1,128})\/?$/i);
+    const query_key = parsed_url.searchParams.get('key');
+    const key_from_query = query_key && key_pattern.test(query_key) ? query_key : null;
+    const key = key_from_path ? key_from_path[1] : key_from_query;
+
+    const path = (parsed_url.pathname || '/').toLowerCase();
+    const apprise_alias = path === '/' || path === '/apprise' || path === '/apprise/';
+    if (apprise_alias || key_from_path) {
+        parsed_url.pathname = key ? `/notify/${key}` : '/notify';
+    }
+
+    if (key_from_query) parsed_url.searchParams.delete('key');
 }
 
 function mapNotificationTypeToAppriseType(type) {
