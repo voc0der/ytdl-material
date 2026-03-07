@@ -932,18 +932,24 @@ exports.applyFilterLocalDB = (db_path, filter_obj, operation) => {
                 filtered &= record[filter_prop] === undefined || record[filter_prop] === null;
             } else {
                 if (typeof filter_prop_value === 'object') {
+                    const record_value = filter_prop.includes('.')
+                        ? utils.searchObjectByString(record, filter_prop)
+                        : record[filter_prop];
                     if ('$regex' in filter_prop_value) {
-                        filtered &= (record[filter_prop].search(new RegExp(filter_prop_value['$regex'], filter_prop_value['$options'])) !== -1);
+                        filtered &= typeof record_value === 'string'
+                            && (record_value.search(new RegExp(filter_prop_value['$regex'], filter_prop_value['$options'])) !== -1);
                     } else if ('$ne' in filter_prop_value) {
-                        filtered &= filter_prop in record && record[filter_prop] !== filter_prop_value['$ne'];
+                        filtered &= record_value !== undefined && record_value !== filter_prop_value['$ne'];
                     } else if ('$lt' in filter_prop_value) {
-                        filtered &= filter_prop in record && record[filter_prop] < filter_prop_value['$lt'];
+                        filtered &= record_value !== undefined && record_value < filter_prop_value['$lt'];
                     } else if ('$gt' in filter_prop_value) {
-                        filtered &= filter_prop in record && record[filter_prop] > filter_prop_value['$gt'];
+                        filtered &= record_value !== undefined && record_value > filter_prop_value['$gt'];
                     } else if ('$lte' in filter_prop_value) {
-                        filtered &= filter_prop in record && record[filter_prop] <= filter_prop_value['$lt'];
+                        filtered &= record_value !== undefined && record_value <= filter_prop_value['$lte'];
                     } else if ('$gte' in filter_prop_value) {
-                        filtered &= filter_prop in record && record[filter_prop] >= filter_prop_value['$gt'];
+                        filtered &= record_value !== undefined && record_value >= filter_prop_value['$gte'];
+                    } else if ('$in' in filter_prop_value) {
+                        filtered &= Array.isArray(filter_prop_value['$in']) && filter_prop_value['$in'].includes(record_value);
                     }
                 } else {
                     // handle case of nested property check
@@ -962,4 +968,8 @@ exports.applyFilterLocalDB = (db_path, filter_obj, operation) => {
 // should only be used for tests
 exports.setLocalDBMode = (mode) => {
     using_local_db = mode;
+}
+
+exports.isUsingLocalDB = () => {
+    return using_local_db;
 }

@@ -45,7 +45,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   displayedColumnsBig: string[] = ['timestamp_start', 'title', 'sub_name', 'percent_complete', 'actions'];
   displayedColumnsSmall: string[] = ['title', 'percent_complete', 'actions'];
   displayedColumns: string[] = this.displayedColumnsBig;
-  dataSource = null; // new MatTableDataSource<Download>();
+  dataSource = new MatTableDataSource<Download>([]);
 
   // The purpose of this is to reduce code reuse for displaying these actions as icons or in a menu
   downloadActions: DownloadAction[] = [
@@ -144,19 +144,14 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   getCurrentDownloads(): void {
     this.postsService.getCurrentDownloads(this.uids).subscribe(res => {
-      if (res['downloads'] !== null 
-        && res['downloads'] !== undefined
-        && JSON.stringify(this.downloads) !== JSON.stringify(res['downloads'])) {
-          this.downloads = this.combineDownloads(this.downloads, res['downloads']);
-          // this.downloads = res['downloads'];
-          this.downloads.sort(this.sort_downloads);
-          this.dataSource = new MatTableDataSource<Download>(this.downloads);
-          this.dataSource.paginator = this.paginator;
-          this.dataSource.sort = this.sort;
-          this.paused_download_exists = this.downloads.find(download => download['paused'] && !download['error']);
-          this.running_download_exists = this.downloads.find(download => !download['paused'] && !download['finished']);
-      } else {
-        // failed to get downloads
+      if (res['downloads'] !== null && res['downloads'] !== undefined) {
+        this.downloads = this.combineDownloads(this.downloads, res['downloads']);
+        this.downloads.sort(this.sort_downloads);
+        this.dataSource.data = this.downloads;
+        this.dataSource.paginator = this.paginator;
+        this.dataSource.sort = this.sort;
+        this.paused_download_exists = !!this.downloads.find(download => download['paused'] && !download['error']);
+        this.running_download_exists = !!this.downloads.find(download => !download['paused'] && !download['finished']);
       }
       this.downloads_retrieved = true;
     });
@@ -275,24 +270,30 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   combineDownloads(downloads_old: Download[], downloads_new: Download[]): Download[] {
-    // only keeps downloads that exist in the new set
-    downloads_old = downloads_old.filter(download_old => downloads_new.some(download_new => download_new.uid === download_old.uid));
+    const old_by_uid = new Map<string, Download>();
+    downloads_old.forEach(download => old_by_uid.set(download.uid, download));
 
-    // add downloads from the new set that the old one doesn't have
-    const downloads_to_add = downloads_new.filter(download_new => !downloads_old.some(download_old => download_new.uid === download_old.uid));
-    downloads_old.push(...downloads_to_add);
-    downloads_old.forEach(download_old => {
-      const download_new = downloads_new.find(download_to_check => download_old.uid === download_to_check.uid);
-      Object.keys(download_new).forEach(key => {
-        download_old[key] = download_new[key];
-      });
-  
-      Object.keys(download_old).forEach(key => {
-        if (!download_new[key]) delete download_old[key];
-      });
-    });
+    const combined_downloads: Download[] = [];
+    for (let i = 0; i < downloads_new.length; i++) {
+      const incoming_download = downloads_new[i];
+      const existing_download = old_by_uid.get(incoming_download.uid);
 
-    return downloads_old;
+      if (!existing_download) {
+        combined_downloads.push({...incoming_download});
+        continue;
+      }
+
+      const incoming_keys = new Set(Object.keys(incoming_download));
+      Object.keys(existing_download).forEach(key => {
+        if (!incoming_keys.has(key)) {
+          delete existing_download[key];
+        }
+      });
+      Object.assign(existing_download, incoming_download);
+      combined_downloads.push(existing_download);
+    }
+
+    return combined_downloads;
   }
 
   showError(download: Download): void {

@@ -462,21 +462,37 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
 async function getFilesToDownload(sub, output_jsons) {
     const files_to_download = [];
+
+    const [existing_sub_files, pending_sub_downloads] = await Promise.all([
+        db_api.getRecords('files', {sub_id: sub.id}),
+        db_api.getRecords('download_queue', {sub_id: sub.id, error: null, finished: false})
+    ]);
+
+    const urls_with_existing_files = new Set(existing_sub_files.map(file => file.url));
+    const paths_with_existing_files = new Set(existing_sub_files.map(file => file.path));
+    const urls_with_pending_downloads = new Set(pending_sub_downloads.map(download => download.url));
+
     for (let i = 0; i < output_jsons.length; i++) {
         const output_json = output_jsons[i];
-        const file_missing = !(await db_api.getRecord('files', {sub_id: sub.id, url: output_json['webpage_url']})) && !(await db_api.getRecord('download_queue', {sub_id: sub.id, url: output_json['webpage_url'], error: null, finished: false}));
-        if (file_missing) {
-            const file_with_path_exists = await db_api.getRecord('files', {sub_id: sub.id, path: output_json['_filename']});
-            if (file_with_path_exists) {
-                // or maybe just overwrite???
-                logger.info(`Skipping adding file ${output_json['_filename']} for subscription ${sub.name} as a file with that path already exists.`)
-                continue;
-            }
-            const exists_in_archive = await archive_api.existsInArchive(output_json['extractor'], output_json['id'], sub.type, sub.user_uid, sub.id);
-            if (exists_in_archive) continue;
+        if (!output_json || !output_json['webpage_url']) continue;
 
-            files_to_download.push(output_json);
+        const output_url = output_json['webpage_url'];
+        const output_path = output_json['_filename'];
+
+        const file_missing = !urls_with_existing_files.has(output_url) && !urls_with_pending_downloads.has(output_url);
+        if (!file_missing) continue;
+
+        if (output_path && paths_with_existing_files.has(output_path)) {
+            // or maybe just overwrite???
+            logger.info(`Skipping adding file ${output_path} for subscription ${sub.name} as a file with that path already exists.`)
+            continue;
         }
+
+        const exists_in_archive = await archive_api.existsInArchive(output_json['extractor'], output_json['id'], sub.type, sub.user_uid, sub.id);
+        if (exists_in_archive) continue;
+
+        files_to_download.push(output_json);
+        urls_with_pending_downloads.add(output_url);
     }
     return files_to_download;
 }

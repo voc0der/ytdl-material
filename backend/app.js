@@ -1595,12 +1595,8 @@ app.post('/api/getPlaylist', optionalJwt, async (req, res) => {
     const file_objs = [];
 
     if (playlist && include_file_metadata) {
-        for (let i = 0; i < playlist['uids'].length; i++) {
-            const uid = playlist['uids'][i];
-            const file_obj = await files_api.getVideo(uid, uuid);
-            if (file_obj) file_objs.push(file_obj);
-            // TODO: remove file from playlist if could not be found
-        }
+        file_objs.push(...(await files_api.getVideosByUIDs(playlist['uids'], uuid)));
+        // TODO: remove file from playlist if could not be found
     }
 
     res.send({
@@ -2234,9 +2230,14 @@ app.post('/api/downloads', optionalJwt, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const uids = req.body.uids;
     const filter_obj = getScopedFilterByUser(user_uid);
-    let downloads = await db_api.getRecords('download_queue', filter_obj);
-
-    if (uids) downloads = downloads.filter(download => uids.includes(download['uid']));
+    if (Array.isArray(uids)) {
+        if (uids.length === 0) {
+            res.send({downloads: []});
+            return;
+        }
+        filter_obj['uid'] = {$in: uids};
+    }
+    const downloads = await db_api.getRecords('download_queue', filter_obj);
 
     res.send({downloads: downloads});
 });
