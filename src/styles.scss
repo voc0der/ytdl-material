@@ -58,6 +58,18 @@ $dark-theme: mat.m2-define-dark-theme((
   @include mat.all-component-colors($dark-theme);
 }
 
+.dark-theme .mat-toolbar,
+.dark-theme .mat-drawer,
+.dark-theme .mat-drawer-container,
+.dark-theme .mat-drawer-content,
+.dark-theme .mat-mdc-card,
+.dark-theme .mat-mdc-dialog-surface,
+.dark-theme .mat-mdc-menu-panel,
+.dark-theme .mat-mdc-select-panel,
+.dark-theme .mat-mdc-autocomplete-panel {
+  background-color: #161616 !important;
+}
+
 .mat-mdc-outlined-button, .mat-mdc-raised-button, .mat-mdc-flat-button {
   border-radius: 24px !important
 }

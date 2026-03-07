@@ -11,11 +11,11 @@ const THEMES_CONFIG = {
     },
     'dark': {
         'key': 'dark',
-        'background_color': '#141414',
-        'alternate_color': '#695959',
-        'ghost_primary': '#444444',
-        'ghost_secondary': '#141414',
-        'drawer_color': '#303030',
+        'background_color': '#0b0b0b',
+        'alternate_color': '#4d4444',
+        'ghost_primary': '#2a2a2a',
+        'ghost_secondary': '#101010',
+        'drawer_color': '#1a1a1a',
         'css_label': 'dark-theme',
         'social_theme': 'material-dark'
     },
