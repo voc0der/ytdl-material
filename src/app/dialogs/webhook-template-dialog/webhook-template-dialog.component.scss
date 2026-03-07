@@ -1,0 +1,33 @@
+.template-dialog {
+  width: 100%;
+  max-width: 680px;
+}
+
+.template-variables-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.template-variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.template-variables code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #c9ced6;
+  background: #f8f9fb;
+  font-size: 12px;
+}
+
+.template-checkbox-row {
+  margin-bottom: 8px;
+}
+
+.template-field {
+  width: 100%;
+}

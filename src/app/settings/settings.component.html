@@ -396,12 +396,18 @@
                 </mat-select>
               </mat-form-field>
             </div>
-            <div class="col-12 mb-2 mt-2">
-              <mat-form-field class="text-field" color="accent">
+            <div class="col-12 mb-2 mt-2 webhook-url-row">
+              <mat-form-field class="text-field webhook-url-field" color="accent">
                 <mat-label i18n="webhook URL">Webhook URL</mat-label>
                 <input placeholder="https://example.com/endpoint/12345" [(ngModel)]="new_config['API']['webhook_URL']" matInput>
                 <mat-hint>Place endpoint URL here to integrate with services like Zapier, Automatisch, and Apprise (/notify/&lt;key&gt; or apprise(s)://host/&lt;key&gt;?tags=...).</mat-hint>
               </mat-form-field>
+              <div class="webhook-template-actions">
+                <button class="webhook-template-button" mat-stroked-button (click)="openWebhookTemplateDialog()"><ng-container i18n="Set webhook template button">Set Template</ng-container></button>
+                @if (new_config['API']['use_custom_webhook_template']) {
+                  <span class="webhook-template-enabled" i18n="Webhook template enabled status">Custom webhook template enabled</span>
+                }
+              </div>
             </div>
             <div class="col-12 mb-2 mt-3">
               <mat-form-field class="text-field" color="accent">

@@ -66,7 +66,8 @@ exports.sendNotification = async (notification) => {
         exports.sendTelegramNotification(data);
     }
     if (config_api.getConfigItem('ytdl_webhook_url')) {
-        sendGenericNotification(data);
+        const webhook_data = applyCustomWebhookTemplate(notification, data);
+        sendGenericNotification(webhook_data);
     }
     if (config_api.getConfigItem('ytdl_discord_webhook_url')) {
         sendDiscordNotification(data);
@@ -118,6 +119,63 @@ exports.createNotification = (type, actions, data, user_uid) => {
 
 function notificationEnabled(type) {
     return config_api.getConfigItem('ytdl_enable_notifications') && (config_api.getConfigItem('ytdl_enable_all_notifications') || config_api.getConfigItem('ytdl_allowed_notification_types').includes(type));
+}
+
+function getTemplateValueByPath(context, path) {
+    if (!path) return '';
+
+    const segments = path.split('.').map(segment => segment.trim()).filter(segment => segment.length > 0);
+    if (segments.length === 0) return '';
+
+    let value = context;
+    for (const segment of segments) {
+        if (value === undefined || value === null || typeof value !== 'object' || !(segment in value)) return '';
+        value = value[segment];
+    }
+
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return `${value}`;
+}
+
+function renderWebhookTemplate(template, context) {
+    if (typeof template !== 'string') return '';
+    return template.replace(/{{\s*([^{}]+?)\s*}}/g, (_match, path) => getTemplateValueByPath(context, path));
+}
+
+function buildWebhookTemplateContext(notification, payload) {
+    const notification_data = notification['data'] ? notification['data'] : {};
+    const video_original_url = notification_data['original_url'] ? notification_data['original_url'] : (notification_data['download_url'] ? notification_data['download_url'] : '');
+    const context = Object.assign({}, notification_data);
+    context['data'] = notification_data;
+    context['event_name'] = payload['title'] ? payload['title'] : '';
+    context['event_type'] = notification['type'] ? notification['type'] : '';
+    context['event_body'] = payload['body'] ? payload['body'] : '';
+    context['notification_url'] = payload['url'] ? payload['url'] : '';
+    context['notification_thumbnail'] = payload['thumbnail'] ? payload['thumbnail'] : '';
+    context['notification_uid'] = notification['uid'] ? notification['uid'] : '';
+    context['timestamp'] = notification['timestamp'] ? notification['timestamp'] : '';
+    context['video_name'] = notification_data['file_title'] ? notification_data['file_title'] : '';
+    context['video_original_url'] = video_original_url;
+    context['video_url'] = video_original_url;
+    context['task_name'] = notification_data['task_title'] ? notification_data['task_title'] : '';
+    context['error_message'] = notification_data['download_error_message'] ? notification_data['download_error_message'] : '';
+    context['error_type'] = notification_data['download_error_type'] ? notification_data['download_error_type'] : '';
+    return context;
+}
+
+function applyCustomWebhookTemplate(notification, payload) {
+    const custom_enabled = config_api.getConfigItem('ytdl_use_custom_webhook_template');
+    if (!custom_enabled) return payload;
+
+    const title_template = config_api.getConfigItem('ytdl_custom_webhook_title_template');
+    const body_template = config_api.getConfigItem('ytdl_custom_webhook_body_template');
+    const context = buildWebhookTemplateContext(notification, payload);
+
+    return Object.assign({}, payload, {
+        title: renderWebhookTemplate(title_template, context),
+        body: renderWebhookTemplate(body_template, context)
+    });
 }
 
 // ntfy

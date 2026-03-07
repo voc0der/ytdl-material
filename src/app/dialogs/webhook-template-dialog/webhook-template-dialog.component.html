@@ -1,0 +1,35 @@
+<h4 mat-dialog-title i18n="Webhook template dialog title">Webhook Template</h4>
+
+<mat-dialog-content>
+  <div class="template-dialog">
+    <div class="template-variables-title" i18n="Webhook template variables title">Available Handlebars variables</div>
+    <div class="template-variables">
+      @for (variable of availableVariables; track variable) {
+        <code>{{variable}}</code>
+      }
+    </div>
+
+    <div class="template-checkbox-row">
+      <mat-checkbox color="accent" [(ngModel)]="customEnabled">
+        <ng-container i18n="Webhook template custom enabled checkbox">Use custom webhook template</ng-container>
+      </mat-checkbox>
+    </div>
+
+    <mat-form-field class="template-field" color="accent">
+      <mat-label i18n="Webhook template title label">Title template</mat-label>
+      <input matInput [(ngModel)]="titleTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_name}}'">
+      <mat-hint i18n="Webhook template title hint">Leave blank to send an empty title.</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field class="template-field" color="accent">
+      <mat-label i18n="Webhook template body label">Body template</mat-label>
+      <textarea matInput rows="5" [(ngModel)]="bodyTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_body}}'"></textarea>
+      <mat-hint i18n="Webhook template body hint">Leave blank to send an empty body.</mat-hint>
+    </mat-form-field>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button mat-stroked-button mat-dialog-close><ng-container i18n="Cancel">Cancel</ng-container></button>
+  <button mat-flat-button color="accent" (click)="save()"><ng-container i18n="Save">Save</ng-container></button>
+</mat-dialog-actions>

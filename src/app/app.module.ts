@@ -96,6 +96,7 @@ import { GenerateRssUrlComponent } from './dialogs/generate-rss-url/generate-rss
 import { SortPropertyComponent } from './components/sort-property/sort-property.component';
 import { OnlyNumberDirective } from './directives/only-number.directive';
 import { ArchiveViewerComponent } from './components/archive-viewer/archive-viewer.component';
+import { WebhookTemplateDialogComponent } from './dialogs/webhook-template-dialog/webhook-template-dialog.component';
 
 registerLocaleData(es, 'es');
 
@@ -146,6 +147,7 @@ registerLocaleData(es, 'es');
         NotificationsListComponent,
         TaskSettingsComponent,
         GenerateRssUrlComponent,
+        WebhookTemplateDialogComponent,
         SortPropertyComponent,
         OnlyNumberDirective,
         ArchiveViewerComponent

@@ -40,6 +40,37 @@
     margin-left: 15px;
 }
 
+.webhook-url-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px 12px;
+}
+
+.webhook-url-field {
+    flex: 1 1 500px;
+}
+
+.webhook-template-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 2px;
+}
+
+.webhook-template-button {
+    margin-left: 0;
+}
+
+.webhook-template-enabled {
+    font-size: 13px;
+    opacity: 0.85;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
 .category-list {
     width: 500px;
     max-width: 100%;
