@@ -37,7 +37,7 @@ Note: official ARMv7 Docker image builds have been retired. Use `amd64` / `arm64
 1. Download `docker-compose.yml`:
 
 ```bash
-curl -L https://github.com/voc0der/ytdl-material/releases/latest/download/docker-compose.yml -o docker-compose.yml
+curl -L https://raw.githubusercontent.com/voc0der/ytdl-material/refs/heads/main/docker-compose.yml -o docker-compose.yml
 ```
 
 2. Start it:
