@@ -50,7 +50,7 @@ RUN apt update && \
 
 # Build frontend
 ARG BUILDPLATFORM
-FROM --platform=${BUILDPLATFORM} node:24 AS frontend
+FROM --platform=${BUILDPLATFORM} node:25 AS frontend
 RUN npm install -g @angular/cli
 WORKDIR /build
 COPY [ ".npmrc", "package.json", "package-lock.json", "angular.json", "tsconfig.json", "/build/" ]
