@@ -47,7 +47,7 @@ docker compose pull   # optional
 docker compose up -d
 ```
 
-Docker environment variables were moved to [docker-environment.md](./docker-environment.md).
+Docker environment variables: [docker-environment.md](./docker-environment.md).
 
 ## MongoDB
 
@@ -55,9 +55,7 @@ For much better scaling with large datasets, run your ytdl-material instance wit
 
 ## API
 
-[API Docs](https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml)
-
-To get started, go to the settings menu and enable the public API from the *Extra* tab. You can generate an API key if one is missing.
+To get started, review the [API docs](https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml), then go to the settings menu and enable the public API from the *Extra* tab. You can generate an API key if one is missing.
 
 Once you have enabled the API and have the key, you can start sending requests by adding the query param `apiKey=API_KEY`. Replace `API_KEY` with your actual API key, and you should be good to go! Nearly all of the backend should be at your disposal. View available endpoints in the link above.
 
@@ -75,10 +73,5 @@ Pull requests are always appreciated! If you're a bit rusty with coding, that's 
 ## Legal Disclaimer
 
 This project is in no way affiliated with Google LLC, Alphabet Inc. or YouTube (or their subsidiaries) nor endorsed by them.
-
-## Acknowledgments
-
-* youtube-dl
-* [AllTube](https://github.com/Rudloff/alltube) (for the inspiration)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=voc0der/ytdl-material&type=Date)](https://star-history.com/#voc0der/ytdl-material&Date)
