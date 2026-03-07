@@ -61,7 +61,7 @@ services:
             - ./users:/app/users
         ports:
             - "8998:17442"
-        image: voc0der/youtubedl-material:nightly
+        image: voc0der/ytdl-material:nightly
     ytdl-mongo-db:
         # If you are using an older Raspberry Pi / 32-bit setup, use mongo:4.4.18
         image: mongo:8
