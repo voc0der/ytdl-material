@@ -12,6 +12,10 @@ function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
 }
 
+function escapeRegex(text = '') {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
     if (!file_object) {
@@ -228,15 +232,10 @@ exports.setPlaylistProperty = async (playlist_id, assignment_obj, user_uid = nul
 
 exports.calculatePlaylistDuration = async (playlist, playlist_file_objs = null) => {
     if (!playlist_file_objs) {
-        playlist_file_objs = [];
         const playlist_uids = Array.isArray(playlist['uids']) ? playlist['uids'] : [];
         const max_playlist_uids_to_scan = 10000;
         const playlist_uids_to_scan = playlist_uids.slice(0, max_playlist_uids_to_scan);
-        for (let i = 0; i < playlist_uids_to_scan.length; i++) {
-            const uid = playlist_uids_to_scan[i];
-            const file_obj = await exports.getVideo(uid, playlist.user_uid);
-            if (file_obj) playlist_file_objs.push(file_obj);
-        }
+        playlist_file_objs = await exports.getVideosByUIDs(playlist_uids_to_scan, playlist.user_uid);
     }
 
     return playlist_file_objs.reduce((a, b) => a + utils.durationStringToNumber(b.duration), 0);
@@ -343,17 +342,35 @@ exports.getVideo = async (file_uid, user_uid = null, sub_id = null) => {
     return await db_api.getRecord('files', filter_obj);
 }
 
+exports.getVideosByUIDs = async (file_uids = [], user_uid = null) => {
+    if (!Array.isArray(file_uids) || file_uids.length === 0) return [];
+
+    const ordered_uids = file_uids.filter(uid => uid !== undefined && uid !== null);
+    if (ordered_uids.length === 0) return [];
+
+    const unique_uids = [...new Set(ordered_uids)];
+    const filter_obj = {uid: {$in: unique_uids}};
+    if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
+
+    const file_objs = await db_api.getRecords('files', filter_obj);
+    const file_by_uid = new Map(file_objs.map(file_obj => [file_obj.uid, file_obj]));
+    return ordered_uids.map(uid => file_by_uid.get(uid)).filter(Boolean);
+}
+
 exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid) => {
     const filter_obj = {};
     if (config_api.getConfigItem('ytdl_multi_user_mode')) {
         filter_obj['user_uid'] = uuid;
     }
-    const regex = true;
+
     if (text_search) {
-        if (regex) {
-            filter_obj['title'] = {$regex: `.*${text_search}.*`, $options: 'i'};
-        } else {
-            filter_obj['$text'] = { $search: utils.createEdgeNGrams(text_search) };
+        const normalized_text_search = text_search.trim();
+        if (normalized_text_search !== '') {
+            if (db_api.isUsingLocalDB()) {
+                filter_obj['title'] = {$regex: escapeRegex(normalized_text_search), $options: 'i'};
+            } else {
+                filter_obj['$text'] = { $search: utils.createEdgeNGrams(normalized_text_search) };
+            }
         }
     }
 
@@ -367,8 +384,8 @@ exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorit
 
     if (file_type_filter === 'audio_only') filter_obj['isAudio'] = true;
     else if (file_type_filter === 'video_only') filter_obj['isAudio'] = false;
-    
-    const files = JSON.parse(JSON.stringify(await db_api.getRecords('files', filter_obj, false, sort, range, text_search)));
+
+    const files = await db_api.getRecords('files', filter_obj, false, sort, range);
     const file_count = await db_api.getRecords('files', filter_obj, true);
 
     return {files, file_count};

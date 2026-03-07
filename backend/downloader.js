@@ -175,7 +175,7 @@ async function fixDownloadState() {
 async function checkDownloads() {
     if (!should_check_downloads) return;
 
-    const downloads = await db_api.getRecords('download_queue');
+    const downloads = await db_api.getRecords('download_queue', {finished: false});
     downloads.sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
 
     await mutex.runExclusive(async () => {
