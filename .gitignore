@@ -76,3 +76,19 @@ audio/
 video/
 subscriptions/
 users/
+
+# Modern local/dev files
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.direnv/
+.pnpm-store/
+.npm/
+.nyc_output/
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.swp
+*.swo
