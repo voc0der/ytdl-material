@@ -193,7 +193,7 @@ export class PostsService {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
                 this.config = result['YoutubeDLMaterial'];
-                this.titleService.setTitle(this.config['Extra']['title_top']);
+                this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
                     if (!this.isOIDCEnabled()) {
                         this.checkAdminCreationStatus();
@@ -290,9 +290,25 @@ export class PostsService {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
                 this.config = result['YoutubeDLMaterial'];
+                this.setPageTitle();
                 this.config_reloaded.next(true);
             }
         });
+    }
+
+    getBaseTitle(): string {
+        if (this.config?.['Extra']?.['title_top']) return this.config['Extra']['title_top'];
+        return 'ytdl-material';
+    }
+
+    setPageTitle(mediaTitle: string = null): void {
+        const baseTitle = this.getBaseTitle();
+        if (!mediaTitle || mediaTitle.trim() === '') {
+            this.titleService.setTitle(baseTitle);
+            return;
+        }
+
+        this.titleService.setTitle(`${mediaTitle.trim()} - ${baseTitle}`);
     }
 
     // tslint:disable-next-line: max-line-length
