@@ -239,4 +239,4 @@ This project is in no way affiliated with Google LLC, Alphabet Inc. or YouTube (
 * ytdl
 * [AllTube](https://github.com/Rudloff/alltube) (for the inspiration)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=voc0der/YoutubeDL-Material&type=Date)](https://star-history.com/#voc0der/YoutubeDL-Material&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=voc0der/ytdl-material&type=Date)](https://star-history.com/#voc0der/ytdl-material&Date)
