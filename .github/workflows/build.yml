@@ -2,11 +2,11 @@ name: continuous integration
 
 on:
   push:
-    branches: [master, feat/*]
+    branches: [main, feat/*]
     tags:
       - v*
   pull_request:
-      branches: [master]
+      branches: [main]
 
 jobs:
   build:
