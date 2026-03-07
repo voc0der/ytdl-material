@@ -339,7 +339,7 @@ function parseWebhookURL(webhook_url) {
 
     try {
         const parsed_url = new URL(request_url);
-        if (explicit_apprise) normalizeAppriseURL(parsed_url);
+        if (explicit_apprise) normalizeExplicitAppriseURL(parsed_url);
         return {
             request_url: parsed_url.toString(),
             parsed_url: parsed_url,
@@ -350,20 +350,28 @@ function parseWebhookURL(webhook_url) {
     }
 }
 
-function normalizeAppriseURL(parsed_url) {
+function normalizeExplicitAppriseURL(parsed_url) {
     const key_pattern = /^[\w-]{1,128}$/;
-    const key_from_path = (parsed_url.pathname || '').match(/^\/apprise\/([\w-]{1,128})\/?$/i);
+    const segments = (parsed_url.pathname || '').split('/').filter(segment => !!segment);
     const query_key = parsed_url.searchParams.get('key');
     const key_from_query = query_key && key_pattern.test(query_key) ? query_key : null;
-    const key = key_from_path ? key_from_path[1] : key_from_query;
 
-    const path = (parsed_url.pathname || '/').toLowerCase();
-    const apprise_alias = path === '/' || path === '/apprise' || path === '/apprise/';
-    if (apprise_alias || key_from_path) {
-        parsed_url.pathname = key ? `/notify/${key}` : '/notify';
+    // Apprise URL semantics:
+    //   apprise(s)://host/<token>           -> https://host/notify/<token>
+    //   apprise(s)://host/<path>/<token>    -> https://host/<path>/notify/<token>
+    if (segments.length > 0 && !key_from_query) {
+        const token = segments[segments.length - 1];
+        const fullpath = segments.slice(0, -1);
+        parsed_url.pathname = `/${[...fullpath, 'notify', token].join('/')}`;
+        return;
     }
 
-    if (key_from_query) parsed_url.searchParams.delete('key');
+    // Convenience for existing URL style:
+    //   apprise(s)://host/apprise?key=<token> -> /notify/<token>
+    if (key_from_query) {
+        parsed_url.pathname = `/notify/${key_from_query}`;
+        parsed_url.searchParams.delete('key');
+    }
 }
 
 function mapNotificationTypeToAppriseType(type) {
