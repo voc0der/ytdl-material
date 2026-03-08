@@ -952,6 +952,14 @@ const authRateLimiter = rateLimit({
     }
 });
 
+const docsRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: rateLimitValidateOptions
+});
+
 app.use('/api', apiRateLimiter);
 app.use('/api/auth', authRateLimiter);
 
@@ -1017,7 +1025,7 @@ app.get('/api/versionInfo', (req, res) => {
     res.send({version_info: version_info});
 });
 
-app.get('/openapi.yaml', (req, res) => {
+app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
     if (!documentation_api_enabled) {
         res.sendStatus(404);
         return;
@@ -1027,7 +1035,7 @@ app.get('/openapi.yaml', (req, res) => {
     res.sendFile(OPENAPI_SPEC_PATH);
 });
 
-app.use('/docs', (req, res, next) => {
+app.use('/docs', docsRateLimiter, (req, res, next) => {
     if (!documentation_api_enabled || !documentation_api_handler) {
         res.sendStatus(404);
         return;
