@@ -245,12 +245,19 @@
             <div class="col-12 mt-3">
               <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_API_key']"><ng-container i18n="Enable Public API key setting">Enable Public API</ng-container></mat-checkbox>
             </div>
+            <div class="col-12 mt-1">
+              <mat-checkbox color="accent" [disabled]="!new_config['API']['use_API_key']" [(ngModel)]="new_config['API']['enable_documentation_api']">Enable Documentation API</mat-checkbox>
+            </div>
             <div class="col-12 mb-3">
               <div class="enable-api-key-div">
                 <mat-form-field class="text-field" color="accent">
                   <mat-label i18n="Public API Key">Public API Key</mat-label>
                   <input [disabled]="!new_config['API']['use_API_key']" [(ngModel)]="new_config['API']['API_key']" matInput required>
-                  <mat-hint><a target="_blank" href="https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml"><ng-container i18n="View API docs setting hint">View documentation</ng-container></a></mat-hint>
+                  @if (new_config['API']['use_API_key'] && new_config['API']['enable_documentation_api']) {
+                    <mat-hint><a target="_blank" href="/docs"><ng-container i18n="View API docs setting hint">View documentation</ng-container></a></mat-hint>
+                  } @else {
+                    <mat-hint>Enable Documentation API and restart the server to expose docs.</mat-hint>
+                  }
                 </mat-form-field>
               </div>
               <div class="api-key-div">

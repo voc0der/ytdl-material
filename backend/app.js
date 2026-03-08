@@ -148,6 +148,10 @@ let url_domain = null;
 let updaterStatus = null;
 
 const concurrentStreams = {};
+const OPENAPI_SPEC_PATH = path.resolve(__dirname, '..', 'Public API v1.yaml');
+
+let documentation_api_enabled = false;
+let documentation_api_handler = null;
 
 if (debugMode) logger.info('YTDL-Material in debug mode!');
 
@@ -718,6 +722,7 @@ async function setConfigFromEnv() {
 
 async function loadConfig() {
     loadConfigValues();
+    initializeDocumentationAPI();
 
     const oidc_enabled = oidc_api.isEnabled();
     if (oidc_enabled && !config_api.getConfigItem('ytdl_multi_user_mode')) {
@@ -782,6 +787,35 @@ function loadConfigValues() {
     utils.updateLoggerLevel(logger_level);
 
     configureExpressTrustProxy();
+}
+
+function initializeDocumentationAPI() {
+    const docs_enabled = !!config_api.getConfigItem('ytdl_enable_documentation_api');
+    const public_api_enabled = !!config_api.getConfigItem('ytdl_use_api_key');
+
+    documentation_api_enabled = false;
+    documentation_api_handler = null;
+
+    if (!docs_enabled) return;
+
+    if (!public_api_enabled) {
+        logger.warn('Documentation API is enabled in config but Public API is disabled. Skipping docs startup.');
+        return;
+    }
+
+    if (!fs.existsSync(OPENAPI_SPEC_PATH)) {
+        logger.error(`Documentation API startup failed: OpenAPI spec not found at '${OPENAPI_SPEC_PATH}'.`);
+        return;
+    }
+
+    const { apiReference } = require('@scalar/express-api-reference');
+    documentation_api_handler = apiReference({
+        url: '/openapi.yaml',
+        pageTitle: 'ytdl-material API Reference'
+    });
+    documentation_api_enabled = true;
+
+    logger.info('Documentation API enabled at /docs. Restart required for config changes to take effect.');
 }
 
 function getOrigin() {
@@ -981,6 +1015,25 @@ app.post('/api/setConfig', optionalJwt, function(req, res) {
 
 app.get('/api/versionInfo', (req, res) => {
     res.send({version_info: version_info});
+});
+
+app.get('/openapi.yaml', (req, res) => {
+    if (!documentation_api_enabled) {
+        res.sendStatus(404);
+        return;
+    }
+
+    res.type('application/yaml');
+    res.sendFile(OPENAPI_SPEC_PATH);
+});
+
+app.use('/docs', (req, res, next) => {
+    if (!documentation_api_enabled || !documentation_api_handler) {
+        res.sendStatus(404);
+        return;
+    }
+
+    documentation_api_handler(req, res, next);
 });
 
 app.post('/api/restartServer', optionalJwt, (req, res) => {

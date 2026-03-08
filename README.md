@@ -51,7 +51,7 @@ For much better scaling with large datasets, run your ytdl-material instance wit
 
 ## API
 
-Enable the public API in Settings -> *Extra* and generate an API key if needed, then use the [API docs](https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml) for endpoint details.
+Enable the public API in Settings -> *Extra*, generate an API key if needed, then enable API docs (restart required) for endpoint details.
 
 ## Contributing
 
