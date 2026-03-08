@@ -22,12 +22,6 @@ Here's an image of what it'll look like once you're done:
 
 ## Docker
 
-### Host-specific instructions
-
-If you're on a Synology NAS, unRAID, Raspberry Pi 4 or any other possible special case you can check if there's known issues or instructions both in the issue tracker and in the [Wiki!](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp)
-
-Note: official ARMv7 Docker image builds have been retired. Use `amd64` / `arm64` images or build locally for unsupported architectures.
-
 ### Setup
 
 1. Download `docker-compose.yml`:
@@ -39,11 +33,17 @@ curl -L https://raw.githubusercontent.com/voc0der/ytdl-material/refs/heads/main/
 2. Start it:
 
 ```bash
-docker compose pull   # optional
+docker compose pull   # if needed
 docker compose up -d
 ```
 
 Docker environment variables: [docker-environment.md](./docker-environment.md).
+
+### Host-specific instructions
+
+If you're on a Synology NAS, unRAID, Raspberry Pi 4 or any other possible special case you can check if there's known issues or instructions both in the issue tracker and in the [Wiki!](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp)
+
+Note: official ARMv7 Docker image builds have been retired. Use `amd64` / `arm64` images or build locally for unsupported architectures.
 
 ## MongoDB
 
@@ -51,20 +51,11 @@ For much better scaling with large datasets, run your ytdl-material instance wit
 
 ## API
 
-To get started, review the [API docs](https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml), then go to the settings menu and enable the public API from the *Extra* tab. You can generate an API key if one is missing.
-
-Once you have enabled the API and have the key, you can start sending requests by adding the query param `apiKey=API_KEY`. Replace `API_KEY` with your actual API key, and you should be good to go! Nearly all of the backend should be at your disposal. View available endpoints in the link above.
+Enable the public API in Settings -> *Extra* and generate an API key if needed, then use the [API docs](https://youtubedl-material.stoplight.io/docs/youtubedl-material/Public%20API%20v1.yaml) for endpoint details.
 
 ## Contributing
 
-If you're interested in contributing, first: awesome! Second, please refer to the guidelines/setup information located in the [Contributing](https://github.com/voc0der/ytdl-material/wiki/Contributing) wiki page, it's a helpful way to get you on your feet and coding away.
-
-Pull requests are always appreciated! If you're a bit rusty with coding, that's no problem: we can always help you learn. And if that's too scary, that's OK too! You can create issues for features you'd like to see or bugs you encounter, it all helps this project grow.
-
-## Authors
-
-* **Isaac Grynsztein** (me!) - *Initial work*
-* **voc0der** - *Current maintenance*
+Review the [Contributing](https://github.com/voc0der/ytdl-material/wiki/Contributing) wiki page for setup and guidelines; pull requests and issues for bugs or feature requests are welcome.
 
 ## Legal Disclaimer
 
