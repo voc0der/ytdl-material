@@ -148,10 +148,14 @@ let url_domain = null;
 let updaterStatus = null;
 
 const concurrentStreams = {};
-const OPENAPI_SPEC_PATH = path.resolve(__dirname, '..', 'Public API v1.yaml');
+const OPENAPI_SPEC_PATH_CANDIDATES = [
+    path.resolve(__dirname, '..', 'Public API v1.yaml'),
+    path.resolve(__dirname, 'Public API v1.yaml')
+];
 
 let documentation_api_enabled = false;
 let documentation_api_handler = null;
+let openapi_spec_path = null;
 
 if (debugMode) logger.info('YTDL-Material in debug mode!');
 
@@ -795,6 +799,7 @@ function initializeDocumentationAPI() {
 
     documentation_api_enabled = false;
     documentation_api_handler = null;
+    openapi_spec_path = null;
 
     if (!docs_enabled) return;
 
@@ -803,8 +808,9 @@ function initializeDocumentationAPI() {
         return;
     }
 
-    if (!fs.existsSync(OPENAPI_SPEC_PATH)) {
-        logger.error(`Documentation API startup failed: OpenAPI spec not found at '${OPENAPI_SPEC_PATH}'.`);
+    openapi_spec_path = OPENAPI_SPEC_PATH_CANDIDATES.find(spec_path => fs.existsSync(spec_path)) || null;
+    if (!openapi_spec_path) {
+        logger.error(`Documentation API startup failed: OpenAPI spec not found. Checked: ${OPENAPI_SPEC_PATH_CANDIDATES.join(', ')}`);
         return;
     }
 
@@ -1026,13 +1032,13 @@ app.get('/api/versionInfo', (req, res) => {
 });
 
 app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
-    if (!documentation_api_enabled) {
+    if (!documentation_api_enabled || !openapi_spec_path) {
         res.sendStatus(404);
         return;
     }
 
     res.type('application/yaml');
-    res.sendFile(OPENAPI_SPEC_PATH);
+    res.sendFile(openapi_spec_path);
 });
 
 app.use('/docs', docsRateLimiter, (req, res, next) => {
