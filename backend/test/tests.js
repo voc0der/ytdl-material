@@ -731,6 +731,33 @@ describe('youtube-dl', function() {
         config_api.setConfigItem('ytdl_default_downloader', original_fork);
     });
 
+    it('Does not redownload when details already exist for selected fork', async function() {
+        this.timeout(300000);
+
+        const selected_fork = config_api.getConfigItem('ytdl_default_downloader');
+        const current_details = fs.readJSONSync(CONSTS.DETAILS_BIN_PATH);
+        const current_version = current_details[selected_fork].version;
+
+        let update_called = false;
+        const original_get_latest = youtubedl_api.getLatestUpdateVersion;
+        const original_update = youtubedl_api.updateYoutubeDL;
+
+        try {
+            youtubedl_api.getLatestUpdateVersion = async () => current_version;
+            youtubedl_api.updateYoutubeDL = async () => { update_called = true; };
+
+            await youtubedl_api.checkForYoutubeDLUpdate();
+
+            const details_after = fs.readJSONSync(CONSTS.DETAILS_BIN_PATH);
+            assert(details_after[selected_fork]);
+            assert(details_after[selected_fork].version === current_version);
+            assert(!update_called);
+        } finally {
+            youtubedl_api.getLatestUpdateVersion = original_get_latest;
+            youtubedl_api.updateYoutubeDL = original_update;
+        }
+    });
+
     it('Run process', async function() {
         this.timeout(300000);
         const downloader_api = require('../downloader');
