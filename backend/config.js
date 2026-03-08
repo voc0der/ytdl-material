@@ -226,6 +226,7 @@ const DEFAULT_CONFIG = {
       "API": {
         "use_API_key": false,
         "API_key": "",
+        "enable_documentation_api": false,
         "use_youtube_API": false,
         "youtube_API_key": "",
         "twitch_auto_download_chat": false,

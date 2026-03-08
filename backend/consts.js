@@ -114,6 +114,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_api_key',
         'path': 'YoutubeDLMaterial.API.API_key'
     },
+    'ytdl_enable_documentation_api': {
+        'key': 'ytdl_enable_documentation_api',
+        'path': 'YoutubeDLMaterial.API.enable_documentation_api'
+    },
     'ytdl_use_youtube_api': {
         'key': 'ytdl_use_youtube_api',
         'path': 'YoutubeDLMaterial.API.use_youtube_API'

@@ -17,6 +17,11 @@ services:
             # Backend log level (optional): error, warn, info, verbose, debug
             # YTDL_LOG_LEVEL: info
 
+            # Public API docs (optional, requires restart)
+            # ytdl_use_api_key: 'true'
+            # ytdl_api_key: 'replace-with-api-key'
+            # ytdl_enable_documentation_api: 'true'
+
             # Multi-user mode (required for OIDC)
             # ytdl_multi_user_mode: 'true'
 

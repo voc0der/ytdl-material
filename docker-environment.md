@@ -7,9 +7,12 @@ Common Docker environment variables used by the provided `docker-compose.yml`:
 * `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
 * `UID` / `GID`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
+* `ytdl_use_api_key`: set to `'true'` to require `apiKey` for public API endpoints
+* `ytdl_api_key`: public API key value used when `ytdl_use_api_key` is enabled
 * `ytdl_ssl_cert_path` / `ytdl_ssl_key_path`: enable HTTPS by pointing to mounted cert/key files
 * `ytdl_reverse_proxy_whitelist`: comma-separated CIDR ranges allowed to connect (reverse proxy IPs, not client IPs)
 * `ytdl_multi_user_mode`: set to `'true'` to enable user-scoped media; required when OIDC is enabled
+* `ytdl_enable_documentation_api`: set to `'true'` to expose local API docs at `/docs` (requires `ytdl_use_api_key` and restart)
 
 ## OIDC required variables
 
@@ -39,6 +42,9 @@ environment:
   # UID: 1000
   # GID: 1000
   # ytdl_log_level: debug
+  # ytdl_use_api_key: 'true'
+  # ytdl_api_key: 'replace-with-api-key'
+  # ytdl_enable_documentation_api: 'true'
   # ytdl_ssl_cert_path: /mnt/keys/fullchain.pem
   # ytdl_ssl_key_path: /mnt/keys/privkey.pem
   # ytdl_reverse_proxy_whitelist: 172.28.0.100/32
