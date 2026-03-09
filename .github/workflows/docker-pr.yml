@@ -64,13 +64,13 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "push=${{ github.event.inputs.push_image }}" >> $GITHUB_OUTPUT
             if [ "${{ github.event.inputs.push_image }}" = "true" ]; then
-              echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/youtubedl-material:${{ github.event.inputs.image_tag }},ghcr.io/${{ github.repository_owner }}/youtubedl-material:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+              echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/ytdl-material:${{ github.event.inputs.image_tag }},ghcr.io/${{ github.repository_owner }}/ytdl-material:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
             else
-              echo "tags=youtubedl-material:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+              echo "tags=ytdl-material:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
             fi
           else
             echo "push=false" >> $GITHUB_OUTPUT
-            echo "tags=youtubedl-material:nightly-pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "tags=ytdl-material:nightly-pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
           fi
 
       - name: build & push images
