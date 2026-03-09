@@ -10,6 +10,18 @@ const debugMode = process.env.YTDL_MODE === 'debug';
 
 let configPath = debugMode ? '../src/assets/default.json' : 'appdata/default.json';
 exports.config_updated = new BehaviorSubject();
+const CONFIG_ROOT_KEY = 'YtdlMaterial';
+const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
+
+function normalizeConfigRoot(config_json) {
+    if (!config_json || typeof config_json !== 'object') return {normalized_config: config_json, migrated: false};
+    if (config_json[CONFIG_ROOT_KEY] !== undefined) return {normalized_config: config_json, migrated: false};
+    if (config_json[LEGACY_CONFIG_ROOT_KEY] === undefined) return {normalized_config: config_json, migrated: false};
+
+    config_json[CONFIG_ROOT_KEY] = config_json[LEGACY_CONFIG_ROOT_KEY];
+    delete config_json[LEGACY_CONFIG_ROOT_KEY];
+    return {normalized_config: config_json, migrated: true};
+}
 
 exports.initialize = () => {
     ensureConfigFileExists();
@@ -75,7 +87,12 @@ exports.getConfigFile = () => {
     try {
         let raw_data = fs.readFileSync(configPath);
         let parsed_data = JSON.parse(raw_data);
-        return parsed_data;
+        const {normalized_config, migrated} = normalizeConfigRoot(parsed_data);
+        if (migrated) {
+            fs.writeFileSync(configPath, JSON.stringify(normalized_config, null, 2));
+            logger.info(`Migrated config root key to '${CONFIG_ROOT_KEY}'.`);
+        }
+        return normalized_config;
     } catch(e) {
         logger.error('Failed to get config file');
         return null;
@@ -84,9 +101,10 @@ exports.getConfigFile = () => {
 
 exports.setConfigFile = (config) => {
     try {
+        const {normalized_config} = normalizeConfigRoot(config);
         const old_config = exports.getConfigFile();
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-        const changes = exports.findChangedConfigItems(old_config, config);
+        fs.writeFileSync(configPath, JSON.stringify(normalized_config, null, 2));
+        const changes = exports.findChangedConfigItems(old_config, normalized_config);
         if (changes.length > 0) {
             for (const change of changes) exports.config_updated.next(change);
         }
@@ -194,7 +212,7 @@ function getConfigItemKeyByPath(path) {
 }
 
 const DEFAULT_CONFIG = {
-    "YoutubeDLMaterial": {
+    "YtdlMaterial": {
       "Host": {
         "url": "http://example.com",
         "port": "17442"

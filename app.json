@@ -4,5 +4,5 @@
     "repository": "https://github.com/voc0der/ytdl-material",
     "stack": "container",
     "logo": "https://i.imgur.com/GPzvPiU.png",
-    "keywords": ["youtube-dl", "youtubedl-material", "nodejs"]
+    "keywords": ["youtube-dl", "ytdl-material", "nodejs"]
   }

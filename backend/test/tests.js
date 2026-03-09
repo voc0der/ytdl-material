@@ -1196,7 +1196,7 @@ describe('Categories', async function() {
 describe('Config', async function() {
     it('findChangedConfigItems', async function() {
         const old_config = {
-            "YoutubeDLMaterial": {
+            "YtdlMaterial": {
                 "test_object1": {
                     "test_prop1": true,
                     "test_prop2": false
@@ -1219,7 +1219,7 @@ describe('Config', async function() {
         };
 
         const new_config = {
-            "YoutubeDLMaterial": {
+            "YtdlMaterial": {
                 "test_object1": {
                     "test_prop1": false,
                     "test_prop2": false
