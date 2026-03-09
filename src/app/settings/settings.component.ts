@@ -103,7 +103,7 @@ export class SettingsComponent implements OnInit {
   }
 
   saveSettings(): void {
-    const settingsToSave = {'YoutubeDLMaterial': this.new_config};
+    const settingsToSave = {'YtdlMaterial': this.new_config};
     this.postsService.setConfig(settingsToSave).subscribe(res => {
       if (res['success']) {
         if (!this.initial_config['Advanced']['multi_user_mode'] && this.new_config['Advanced']['multi_user_mode']) {

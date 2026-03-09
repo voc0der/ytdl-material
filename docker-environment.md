@@ -51,7 +51,7 @@ environment:
   # ytdl_multi_user_mode: 'true'
   # ytdl_oidc_enabled: 'true'
   # ytdl_oidc_issuer_url: 'https://idp.example.com/realms/ytdl'
-  # ytdl_oidc_client_id: 'youtubedl-material'
+  # ytdl_oidc_client_id: 'ytdl-material'
   # ytdl_oidc_client_secret: 'replace-with-secret'
   # ytdl_oidc_redirect_uri: 'https://ytdl.example.com/api/auth/oidc/callback'
   # ytdl_oidc_scope: 'openid profile email'

@@ -1,5 +1,5 @@
 apiVersion: v2
-name: youtubedl-material
+name: ytdl-material
 description: A Helm chart for https://github.com/voc0der/ytdl-material
 
 # A chart can be either an 'application' or a 'library' chart.

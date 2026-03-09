@@ -31,7 +31,7 @@ python3 -m pip install --user yt-dlp yt-dlp-ejs
 ## Install from release (non-Docker)
 
 1. Download the [latest release](https://github.com/voc0der/ytdl-material/releases/latest).
-2. Put the `youtubedl-material` directory somewhere accessible.
+2. Put the `ytdl-material` directory somewhere accessible.
 3. Edit `appdata/default.json`.
 4. If you are not using a reverse proxy, port forward the configured port (default `17442`).
 5. Install and start the backend:
@@ -47,7 +47,7 @@ If you run into issues, check the browser console first.
 
 ## Build from source
 
-Clone the repo and enter the `youtubedl-material` directory.
+Clone the repo and enter the `ytdl-material` directory.
 
 Requirements for local builds:
 

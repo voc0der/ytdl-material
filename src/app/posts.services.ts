@@ -122,6 +122,8 @@ import { environment } from '../environments/environment';
 @Injectable()
 export class PostsService {
     path = '';
+    private readonly configRootKey = 'YtdlMaterial';
+    private readonly legacyConfigRootKey = ['Youtube', 'DLMaterial'].join('');
 
     // local settings
     THEMES_CONFIG = THEMES_CONFIG;
@@ -192,7 +194,7 @@ export class PostsService {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
-                this.config = result['YoutubeDLMaterial'];
+                this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
                     if (!this.isOIDCEnabled()) {
@@ -289,11 +291,15 @@ export class PostsService {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
-                this.config = result['YoutubeDLMaterial'];
+                this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 this.config_reloaded.next(true);
             }
         });
+    }
+
+    private extractConfigRoot(configFile) {
+        return configFile?.[this.configRootKey] || configFile?.[this.legacyConfigRootKey];
     }
 
     getBaseTitle(): string {
@@ -731,13 +737,13 @@ export class PostsService {
         return this.http.get<UpdaterStatus>(this.path + 'updaterStatus', this.httpOptions);
     }
 
-    // gets tag of the latest version of youtubedl-material
+    // gets tag of the latest version of ytdl-material
     getLatestGithubRelease() {
-        return this.http.get('https://api.github.com/repos/voc0der/youtubedl-material/releases/latest');
+        return this.http.get('https://api.github.com/repos/voc0der/ytdl-material/releases/latest');
     }
 
     getAvailableRelease() {
-        return this.http.get('https://api.github.com/repos/voc0der/youtubedl-material/releases');
+        return this.http.get('https://api.github.com/repos/voc0der/ytdl-material/releases');
     }
 
     afterLogin(user, token, permissions, available_permissions, redirect_path = '/home') {

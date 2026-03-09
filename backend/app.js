@@ -35,6 +35,18 @@ const files_api = require('./files');
 const notifications_api = require('./notifications');
 
 var app = express();
+const CONFIG_ROOT_KEY = 'YtdlMaterial';
+const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
+
+function normalizeConfigRoot(config_file) {
+    if (!config_file || typeof config_file !== 'object') return config_file;
+    if (config_file[CONFIG_ROOT_KEY] !== undefined) return config_file;
+    if (config_file[LEGACY_CONFIG_ROOT_KEY] === undefined) return config_file;
+
+    config_file[CONFIG_ROOT_KEY] = config_file[LEGACY_CONFIG_ROOT_KEY];
+    delete config_file[LEGACY_CONFIG_ROOT_KEY];
+    return config_file;
+}
 
 function parseTrustProxySetting(value) {
     if (value === undefined || value === null) return undefined;
@@ -451,10 +463,10 @@ async function downloadReleaseFiles(tag) {
         fs.removeSync(path.join(__dirname, 'public'));
         fs.mkdirSync(path.join(__dirname, 'public'));
 
-        let replace_ignore_list = ['youtubedl-material/appdata/default.json',
-                                    'youtubedl-material/appdata/db.json',
-                                    'youtubedl-material/appdata/users.json',
-                                    'youtubedl-material/appdata/*']
+        let replace_ignore_list = ['ytdl-material/appdata/default.json',
+                                    'ytdl-material/appdata/db.json',
+                                    'ytdl-material/appdata/users.json',
+                                    'ytdl-material/appdata/*']
         logger.info(`Installing update ${safeTag}...`)
 
         // downloads new package.json and adds new public dir files from the downloaded zip
@@ -462,9 +474,9 @@ async function downloadReleaseFiles(tag) {
         .on('entry', function (entry) {
             var fileName = entry.path;
             var is_dir = fileName.substring(fileName.length-1, fileName.length) === '/'
-            if (!is_dir && fileName.includes('youtubedl-material/public/')) {
+            if (!is_dir && fileName.includes('ytdl-material/public/')) {
                 // get public folder files
-                const actualFileName = fileName.replace('youtubedl-material/public/', '');
+                const actualFileName = fileName.replace('ytdl-material/public/', '');
                 if (actualFileName.length !== 0 && actualFileName.substring(actualFileName.length-1, actualFileName.length) !== '/') {
                     const publicBasePath = path.join(__dirname, 'public');
                     const targetPublicPath = path.resolve(publicBasePath, actualFileName);
@@ -482,7 +494,7 @@ async function downloadReleaseFiles(tag) {
                 }
             } else if (!is_dir && !replace_ignore_list.includes(fileName)) {
                 // get package.json
-                const actualFileName = fileName.replace('youtubedl-material/', '');
+                const actualFileName = fileName.replace('ytdl-material/', '');
                 const repoBasePath = path.resolve(__dirname);
                 const targetFilePath = path.resolve(repoBasePath, actualFileName);
                 const relativeRepoPath = path.relative(repoBasePath, targetFilePath);
@@ -515,7 +527,7 @@ async function downloadReleaseZip(tag) {
 
         // get name of zip file, which depends on the version
         const tag_without_v = safeTag.substring(1, safeTag.length);
-        const zip_file_name = `youtubedl-material-${tag_without_v}.zip`;
+        const zip_file_name = `ytdl-material-${tag_without_v}.zip`;
         const latest_zip_link = `https://github.com/voc0der/ytdl-material/releases/download/${encodeURIComponent(safeTag)}/${encodeURIComponent(zip_file_name)}`;
 
         // download zip from release
@@ -578,7 +590,7 @@ async function backupServerLite() {
 }
 
 async function isNewVersionAvailable() {
-    // gets tag of the latest version of youtubedl-material, compare to current version
+    // gets tag of the latest version of ytdl-material, compare to current version
     const latest_tag = await getLatestVersion();
     const current_tag = CONSTS['CURRENT_VERSION'];
     if (latest_tag > current_tag) {
@@ -589,7 +601,7 @@ async function isNewVersionAvailable() {
 }
 
 async function getLatestVersion() {
-    const res = await fetch('https://api.github.com/repos/voc0der/youtubedl-material/releases/latest', {method: 'Get'});
+    const res = await fetch('https://api.github.com/repos/voc0der/ytdl-material/releases/latest', {method: 'Get'});
     const json = await res.json();
 
     if (json['message']) {
@@ -846,7 +858,7 @@ function getSafeReleaseZipPath(tag) {
     const validTag = getValidatedReleaseTag(tag);
     if (!validTag) return null;
 
-    const resolvedOutputPath = path.resolve(__dirname, `youtubedl-material-release-${validTag}.zip`);
+    const resolvedOutputPath = path.resolve(__dirname, `ytdl-material-release-${validTag}.zip`);
     const relativeOutputPath = path.relative(__dirname, resolvedOutputPath);
     if (relativeOutputPath.startsWith('..') || path.isAbsolute(relativeOutputPath)) return null;
 
@@ -1014,8 +1026,8 @@ app.get('/api/config', function(req, res) {
 });
 
 app.post('/api/setConfig', optionalJwt, function(req, res) {
-    let new_config_file = req.body.new_config_file;
-    if (new_config_file && new_config_file['YoutubeDLMaterial']) {
+    let new_config_file = normalizeConfigRoot(req.body.new_config_file);
+    if (new_config_file && new_config_file[CONFIG_ROOT_KEY]) {
         let success = config_api.setConfigFile(new_config_file);
         loadConfigValues(); // reloads config values that exist as variables
         res.send({

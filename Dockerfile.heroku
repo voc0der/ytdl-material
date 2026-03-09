@@ -1,2 +1,2 @@
-FROM voc0der/youtubedl-material:latest
+FROM voc0der/ytdl-material:latest
 CMD [ "npm", "start" ]

@@ -53,7 +53,7 @@ jobs:
         uses: docker/metadata-action@v6
         # Defaults:
         #     DOCKERHUB_USERNAME  : voc0der
-        #     DOCKERHUB_REPO      : youtubedl-material
+        #     DOCKERHUB_REPO      : ytdl-material
         #     DOCKERHUB_MASTER_TAG: nightly
         with:
           images: |

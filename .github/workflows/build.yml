@@ -44,20 +44,20 @@ jobs:
         shell: pwsh
         run: |
           New-Item -Name build -ItemType Directory
-          New-Item -Path build -Name youtubedl-material -ItemType Directory
-          Copy-Item -Path ./backend/appdata -Recurse -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/audio -Recurse -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/authentication -Recurse -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/public -Recurse -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/subscriptions -Recurse -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/video -Recurse -Destination ./build/youtubedl-material
-          New-Item -Path ./build/youtubedl-material -Name users -ItemType Directory
-          Copy-Item -Path ./backend/*.js -Destination ./build/youtubedl-material
-          Copy-Item -Path ./backend/*.json -Destination ./build/youtubedl-material
+          New-Item -Path build -Name ytdl-material -ItemType Directory
+          Copy-Item -Path ./backend/appdata -Recurse -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/audio -Recurse -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/authentication -Recurse -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/public -Recurse -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/subscriptions -Recurse -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/video -Recurse -Destination ./build/ytdl-material
+          New-Item -Path ./build/ytdl-material -Name users -ItemType Directory
+          Copy-Item -Path ./backend/*.js -Destination ./build/ytdl-material
+          Copy-Item -Path ./backend/*.json -Destination ./build/ytdl-material
       - name: upload build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: youtubedl-material
+          name: ytdl-material
           path: build
   release:
     runs-on: ubuntu-latest
@@ -83,22 +83,22 @@ jobs:
       - name: download build artifact
         uses: actions/download-artifact@v8
         with:
-          name: youtubedl-material
-          path: ${{runner.temp}}/youtubedl-material
+          name: ytdl-material
+          path: ${{runner.temp}}/ytdl-material
       - name: extract tag name
         id: tag_name
         run: echo ::set-output name=tag_name::${GITHUB_REF#refs/tags/}
       - name: prepare release asset
         shell: pwsh
-        run: Compress-Archive -Path ${{runner.temp}}/youtubedl-material -DestinationPath youtubedl-material-${{ steps.tag_name.outputs.tag_name }}.zip
+        run: Compress-Archive -Path ${{runner.temp}}/ytdl-material -DestinationPath ytdl-material-${{ steps.tag_name.outputs.tag_name }}.zip
       - name: upload release asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./youtubedl-material-${{ steps.tag_name.outputs.tag_name }}.zip
-          asset_name: youtubedl-material-${{ steps.tag_name.outputs.tag_name }}.zip
+          asset_path: ./ytdl-material-${{ steps.tag_name.outputs.tag_name }}.zip
+          asset_name: ytdl-material-${{ steps.tag_name.outputs.tag_name }}.zip
           asset_content_type: application/zip
       - name: upload docker-compose asset
         uses: actions/upload-release-asset@v1

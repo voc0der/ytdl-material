@@ -11,7 +11,7 @@
 # First time...
 
 ## Setup
-Checkout the repository and navigate to the `youtubedl-material` directory.
+Checkout the repository and navigate to the `ytdl-material` directory.
 ```bash
 vim ./src/assets/default.json # Edit settings for your local environment. This config file is just the dev config file, if YTDL_MODE is not set to "debug", then ./backend/appdata/default.json will be used
 npm -g install pm2 # Install pm2
@@ -24,15 +24,15 @@ npm run build # Build the frontend
 This step have to be done only once.
 
 ## Startup
-Navigate to the `youtubedl-material/backend` directory and run `npm start`.
+Navigate to the `ytdl-material/backend` directory and run `npm start`.
 
 # Debugging the backend (VSC)
-Open the `youtubedl-material` directory in Visual Studio Code and run the launch configuration `Dev: Debug Backend`.
+Open the `ytdl-material` directory in Visual Studio Code and run the launch configuration `Dev: Debug Backend`.
 
 # Deploy changes
 
 ## Frontend
-Navigate to the `youtubedl-material` directory and run `npm run build`. Restart the backend.
+Navigate to the `ytdl-material` directory and run `npm run build`. Restart the backend.
 
 ## Backend
 Simply restart the backend.

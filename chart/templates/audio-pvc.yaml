@@ -2,9 +2,9 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: {{ template "youtubedl-material.fullname" . }}-audio
+  name: {{ template "ytdl-material.fullname" . }}-audio
   labels:
-    {{- include "youtubedl-material.labels" . | nindent 4 }}
+    {{- include "ytdl-material.labels" . | nindent 4 }}
 spec:
   accessModes:
     - {{ .Values.persistence.audio.accessMode | quote }}
