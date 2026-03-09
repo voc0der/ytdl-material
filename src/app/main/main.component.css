@@ -162,3 +162,37 @@ mat-form-field.mat-mdc-form-field {
 .url-input::-webkit-scrollbar {
     display: none;
 }
+
+.download-split-button {
+    display: inline-flex;
+    margin-left: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.download-main-action {
+    border-radius: 20px 0 0 20px;
+    border-right-width: 0;
+    margin: 0;
+}
+
+.download-menu-action {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+    border-radius: 0 20px 20px 0;
+    margin: 0;
+    border-left-width: 1px;
+}
+
+.download-menu-action mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    opacity: 0.78;
+    transition: opacity 120ms ease;
+}
+
+.download-menu-action:hover mat-icon {
+    opacity: 1;
+}

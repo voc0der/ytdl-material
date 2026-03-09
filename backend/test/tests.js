@@ -639,6 +639,37 @@ describe('Downloader', function() {
         assert(args.length > 0);
     });
 
+    it('Generate args includes SponsorBlock removal when enabled', async function() {
+        const original_use_sponsorblock = config_api.getConfigItem('ytdl_use_sponsorblock_api');
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_use_sponsorblock_api', true);
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', options);
+            const sponsorblock_index = args.indexOf('--sponsorblock-remove');
+            assert(sponsorblock_index !== -1);
+            assert(args[sponsorblock_index + 1] === 'sponsor');
+        } finally {
+            config_api.setConfigItem('ytdl_use_sponsorblock_api', original_use_sponsorblock);
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args can disable SponsorBlock per download', async function() {
+        const original_use_sponsorblock = config_api.getConfigItem('ytdl_use_sponsorblock_api');
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_use_sponsorblock_api', true);
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, disableSponsorBlock: true});
+            assert(args.indexOf('--sponsorblock-remove') === -1);
+            assert(args.indexOf('--sponsorblock-mark') === -1);
+        } finally {
+            config_api.setConfigItem('ytdl_use_sponsorblock_api', original_use_sponsorblock);
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
     it.skip('Generate args - subscription', async function() {
         const sub = await subscriptions_api.getSubscription(sub_id);
         const sub_options = subscriptions_api.generateOptionsForSubscriptionDownload(sub, 'admin');

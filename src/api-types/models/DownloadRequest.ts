@@ -49,4 +49,8 @@ export type DownloadRequest = {
      * If using youtube-dl archive, download will ignore it
      */
     ignoreArchive?: boolean;
+    /**
+     * Ignore SponsorBlock removal for this download, even when the setting is enabled.
+     */
+    disableSponsorBlock?: boolean;
 };

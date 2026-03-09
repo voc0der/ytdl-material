@@ -544,6 +544,20 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             downloadConfig = utils.injectArgs(downloadConfig, options.additionalArgs.split(',,'));
         }
 
+        const sponsorBlockEnabled = config_api.getConfigItem('ytdl_use_sponsorblock_api');
+        if (default_downloader === 'yt-dlp' && sponsorBlockEnabled) {
+            if (options.disableSponsorBlock) {
+                // Explicit per-download opt-out from UI.
+                downloadConfig = stripArgsWithValues(downloadConfig, ['--sponsorblock-remove', '--sponsorblock-mark', '--sponsorblock-api']);
+            } else {
+                const hasSponsorBlockArgs = downloadConfig.some(arg => typeof arg === 'string' && arg.startsWith('--sponsorblock-'));
+                if (!hasSponsorBlockArgs) {
+                    // Mirror the existing "skip ads" SponsorBlock setting for downloads.
+                    downloadConfig.push('--sponsorblock-remove', 'sponsor');
+                }
+            }
+        }
+
         const rate_limit = config_api.getConfigItem('ytdl_download_rate_limit');
         if (rate_limit && downloadConfig.indexOf('-r') === -1 && downloadConfig.indexOf('--limit-rate') === -1) {
             downloadConfig.push('-r', rate_limit);
@@ -662,6 +676,22 @@ function filterArgs(args, isAudio) {
     const video_only_args = ['--add-metadata', '--embed-subs', '--xattrs'];
     const audio_only_args = ['-x', '--extract-audio', '--embed-thumbnail'];
     return utils.filterArgs(args, isAudio ? video_only_args : audio_only_args);
+}
+
+function stripArgsWithValues(args = [], args_to_strip = []) {
+    const cleaned_args = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (args_to_strip.includes(arg)) {
+            i++;
+            continue;
+        }
+        if (typeof arg === 'string' && args_to_strip.some(flag => arg.startsWith(`${flag}=`))) {
+            continue;
+        }
+        cleaned_args.push(arg);
+    }
+    return cleaned_args;
 }
 
 async function checkDownloadPercent(download_uid) {
