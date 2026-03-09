@@ -1104,7 +1104,8 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
         cropFileSettings: req.body.cropFileSettings,
-        ignoreArchive: req.body.ignoreArchive
+        ignoreArchive: req.body.ignoreArchive,
+        disableSponsorBlock: req.body.disableSponsorBlock
     };
 
     const download = await downloader_api.createDownload(url, type, options, user_uid);
@@ -1135,7 +1136,8 @@ app.post('/api/generateArgs', optionalJwt, async function(req, res) {
         youtubeUsername: req.body.youtubeUsername,
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
-        cropFileSettings: req.body.cropFileSettings
+        cropFileSettings: req.body.cropFileSettings,
+        disableSponsorBlock: req.body.disableSponsorBlock
     };
 
     const args = await downloader_api.generateArgs(url, type, options, user_uid, true);

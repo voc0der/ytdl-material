@@ -1740,6 +1740,9 @@ components:
         ignoreArchive:
           type: boolean
           description: If using youtube-dl archive, download will ignore it
+        disableSponsorBlock:
+          type: boolean
+          description: Ignore SponsorBlock removal for this download, even when enabled globally.
     DownloadResponse:
       type: object
       properties:

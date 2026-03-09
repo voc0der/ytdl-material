@@ -93,11 +93,29 @@
       </div>
     </mat-card-content>
     <mat-card-actions>
-      <button style="margin-left: 8px; margin-bottom: 8px" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="submit" mat-stroked-button color="accent">
-        <ng-container i18n="Main download button">
-                    Download
-                </ng-container>
-      </button>
+      @if (sponsorBlockApiEnabled) {
+        <div class="download-split-button">
+          <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
+            <ng-container i18n="Main download button">
+                        Download
+                    </ng-container>
+          </button>
+          <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
+            <mat-icon>arrow_drop_down</mat-icon>
+          </button>
+        </div>
+        <mat-menu #downloadMenu="matMenu" xPosition="after">
+          <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
+            <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
+          </button>
+        </mat-menu>
+      } @else {
+        <button style="margin-left: 8px; margin-bottom: 8px" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="submit" mat-stroked-button color="accent">
+          <ng-container i18n="Main download button">
+                      Download
+                  </ng-container>
+        </button>
+      }
       @if (!!current_download) {
         <button (click)="cancelDownload()" style="margin-left: 8px; margin-bottom: 8px" mat-stroked-button color="warn">
           <ng-container i18n="Cancel download button">

@@ -162,3 +162,46 @@ mat-form-field.mat-mdc-form-field {
 .url-input::-webkit-scrollbar {
     display: none;
 }
+
+.download-split-button {
+    display: inline-flex;
+    margin-left: 8px;
+    margin-bottom: 8px;
+    align-items: stretch;
+}
+
+.download-split-button .mat-mdc-button-base {
+    margin: 0 !important;
+}
+
+.download-main-action.mat-mdc-outlined-button {
+    border-radius: 999px 0 0 999px !important;
+    border-right-width: 0 !important;
+    padding-right: 12px;
+}
+
+.download-menu-action.mat-mdc-outlined-button {
+    min-width: 40px !important;
+    width: 40px;
+    padding: 0 !important;
+    margin-left: -1px !important;
+    border-radius: 0 999px 999px 0 !important;
+}
+
+.download-menu-action.mat-mdc-outlined-button .mdc-button__label {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.download-menu-action.mat-mdc-outlined-button mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    opacity: 0.78;
+    transition: opacity 120ms ease;
+}
+
+.download-menu-action.mat-mdc-outlined-button:hover mat-icon {
+    opacity: 1;
+}

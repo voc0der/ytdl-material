@@ -52,6 +52,7 @@ export class MainComponent implements OnInit {
   allowQualitySelect = false;
   downloadOnlyMode = false;
   forceAutoplay = false;
+  sponsorBlockApiEnabled = false;
   globalCustomArgs = null;
   allowAdvancedDownload = false;
   useDefaultDownloadingAgent = true;
@@ -195,6 +196,7 @@ export class MainComponent implements OnInit {
     this.youtubeSearchEnabled = this.postsService.config['API'] && this.postsService.config['API']['use_youtube_API'] &&
         this.postsService.config['API']['youtube_API_key'];
     this.youtubeAPIKey = this.youtubeSearchEnabled ? this.postsService.config['API']['youtube_API_key'] : null;
+    this.sponsorBlockApiEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_sponsorblock_API']);
     this.allowQualitySelect = this.postsService.config['Extra']['allow_quality_select'];
     this.allowAdvancedDownload = this.postsService.config['Advanced']['allow_advanced_download']
                                   && this.postsService.hasPermission('advanced_download');
@@ -328,7 +330,7 @@ export class MainComponent implements OnInit {
   }
 
   // download click handler
-  downloadClicked(): void {
+  downloadClicked(disableSponsorBlock = false): void {
     // Sanitize single YouTube watch URLs (keep only v=...)
     const _urlsForSanitize = this.getURLArray(this.url || '');
     if (_urlsForSanitize.length === 1) {
@@ -385,7 +387,7 @@ export class MainComponent implements OnInit {
     for (let i = 0; i < urls.length; i++) {
       const url = this.sanitizeYouTubeWatchUrl(urls[i]);
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings).subscribe(res => {
+        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock).subscribe(res => {
           this.current_download = res['download'];
           this.downloads.push(res['download']);
           this.download_uids.push(res['download']['uid']);

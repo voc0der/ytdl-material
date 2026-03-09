@@ -312,7 +312,7 @@ export class PostsService {
     }
 
     // tslint:disable-next-line: max-line-length
-    downloadFile(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings: CropFileSettings = null) {
+    downloadFile(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings: CropFileSettings = null, disableSponsorBlock: boolean = false) {
         const body: DownloadRequest = {url: url,
             maxHeight: selectedQuality,
             customQualityConfiguration: customQualityConfiguration,
@@ -322,11 +322,12 @@ export class PostsService {
             youtubeUsername: youtubeUsername,
             youtubePassword: youtubePassword,
             type: type,
-            cropFileSettings: cropFileSettings}
+            cropFileSettings: cropFileSettings,
+            disableSponsorBlock: disableSponsorBlock}
         return this.http.post<DownloadResponse>(this.path + 'downloadFile', body, this.httpOptions);
     }
 
-    generateArgs(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings = null) {
+    generateArgs(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings = null, disableSponsorBlock: boolean = false) {
         const body: DownloadRequest = {url: url,
             maxHeight: selectedQuality,
             customQualityConfiguration: customQualityConfiguration,
@@ -336,7 +337,8 @@ export class PostsService {
             youtubeUsername: youtubeUsername,
             youtubePassword: youtubePassword,
             type: type,
-            cropFileSettings: cropFileSettings}
+            cropFileSettings: cropFileSettings,
+            disableSponsorBlock: disableSponsorBlock}
         return this.http.post<GenerateArgsResponse>(this.path + 'generateArgs', body, this.httpOptions);
     }
 
