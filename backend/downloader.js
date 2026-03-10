@@ -196,6 +196,27 @@ function sortBatchDownloadsForMerge(download1, download2) {
     return uid_1.localeCompare(uid_2);
 }
 
+function getDownloadContainerReference(container = null) {
+    if (!container || typeof container !== 'object') return null;
+
+    // Keep download queue payloads small. The UI only needs playlist id (or file uid)
+    // to navigate to the correct player view.
+    if (container.id) {
+        return {
+            id: container.id,
+            uids: []
+        };
+    }
+
+    if (container.uid) {
+        return {
+            uid: container.uid
+        };
+    }
+
+    return container;
+}
+
 async function finalizePlaylistBatchContainer(download_uid = null) {
     if (!download_uid) return null;
 
@@ -220,71 +241,79 @@ async function finalizePlaylistBatchContainer(download_uid = null) {
     const active_batch_download_exists = batch_downloads.some(download => !download.finished && !download.error && !download.cancelled);
     if (active_batch_download_exists) return null;
 
-    // Idempotency guard: if this batch was already finalized, reuse its container.
-    const finalized_batch_download = batch_downloads.find(download => download.playlist_batch_finalized && download.playlist_batch_container_id);
-    if (finalized_batch_download) {
-        const existing_playlist = await db_api.getRecord('playlists', {id: finalized_batch_download.playlist_batch_container_id});
-        if (existing_playlist) return existing_playlist;
-    }
-
     const successful_batch_downloads = batch_downloads
         .filter(download => download.finished && !download.error && Array.isArray(download.file_uids) && download.file_uids.length > 0)
         .sort(sortBatchDownloadsForMerge);
     if (successful_batch_downloads.length === 0) {
-        for (const batch_download of batch_downloads) {
-            await db_api.updateRecord('download_queue', {uid: batch_download.uid}, {playlist_batch_finalized: true, playlist_batch_container_id: null});
-        }
+        await db_api.updateRecords('download_queue', batch_filter, {playlist_batch_finalized: true, playlist_batch_container_id: null});
         return null;
     }
 
     let final_container = null;
-    if (successful_batch_downloads.length === 1) {
-        const successful_download = successful_batch_downloads[0];
-        if (successful_download.container) {
-            final_container = successful_download.container;
-        } else if (successful_download.file_uids.length > 1) {
-            final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_download), successful_download.file_uids, successful_download.user_uid);
-        } else {
-            final_container = await files_api.getVideo(successful_download.file_uids[0], successful_download.user_uid);
+    // Idempotency guard: if this batch was already finalized, reuse its container.
+    const finalized_batch_download = batch_downloads.find(download => download.playlist_batch_finalized && download.playlist_batch_container_id);
+    if (finalized_batch_download) {
+        const existing_playlist = await db_api.getRecord('playlists', {id: finalized_batch_download.playlist_batch_container_id});
+        if (existing_playlist) {
+            final_container = existing_playlist;
         }
-    } else {
-        const merged_file_uids = [];
-        const seen_file_uids = new Set();
-        for (const successful_download of successful_batch_downloads) {
-            const file_uids = Array.isArray(successful_download.file_uids) ? successful_download.file_uids : [];
-            for (const file_uid of file_uids) {
-                if (!file_uid || seen_file_uids.has(file_uid)) continue;
-                seen_file_uids.add(file_uid);
-                merged_file_uids.push(file_uid);
-            }
-        }
+    }
 
-        if (merged_file_uids.length > 1) {
-            final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_batch_downloads[0]), merged_file_uids, completed_download.user_uid);
-        } else if (merged_file_uids.length === 1) {
-            final_container = await files_api.getVideo(merged_file_uids[0], completed_download.user_uid);
+    if (!final_container) {
+        if (successful_batch_downloads.length === 1) {
+            const successful_download = successful_batch_downloads[0];
+            if (successful_download.container) {
+                final_container = successful_download.container;
+            } else if (successful_download.file_uids.length > 1) {
+                final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_download), successful_download.file_uids, successful_download.user_uid);
+            } else {
+                final_container = await files_api.getVideo(successful_download.file_uids[0], successful_download.user_uid);
+            }
+        } else {
+            const merged_file_uids = [];
+            const seen_file_uids = new Set();
+            for (const successful_download of successful_batch_downloads) {
+                const file_uids = Array.isArray(successful_download.file_uids) ? successful_download.file_uids : [];
+                for (const file_uid of file_uids) {
+                    if (!file_uid || seen_file_uids.has(file_uid)) continue;
+                    seen_file_uids.add(file_uid);
+                    merged_file_uids.push(file_uid);
+                }
+            }
+
+            if (merged_file_uids.length > 1) {
+                final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_batch_downloads[0]), merged_file_uids, completed_download.user_uid);
+            } else if (merged_file_uids.length === 1) {
+                final_container = await files_api.getVideo(merged_file_uids[0], completed_download.user_uid);
+            }
         }
     }
     if (!final_container) return null;
 
-    const final_playlist_id = final_container && final_container.id ? final_container.id : null;
+    const final_container_reference = getDownloadContainerReference(final_container);
+    const final_playlist_id = final_container_reference && final_container_reference.id ? final_container_reference.id : null;
     const chunk_playlist_ids_to_remove = new Set();
 
     for (const batch_download of batch_downloads) {
         const existing_container_id = batch_download && batch_download.container ? batch_download.container.id : null;
-        const update_obj = {
-            playlist_batch_finalized: true,
-            playlist_batch_container_id: final_playlist_id
-        };
-        if (batch_download.finished && !batch_download.error) {
-            update_obj['container'] = final_container;
-        }
-        await db_api.updateRecord('download_queue', {uid: batch_download.uid}, update_obj);
-
         if (existing_container_id && existing_container_id !== final_playlist_id) {
             chunk_playlist_ids_to_remove.add(existing_container_id);
         }
     }
+
+    await db_api.updateRecords('download_queue', batch_filter, {
+        playlist_batch_finalized: true,
+        playlist_batch_container_id: final_playlist_id
+    });
+
+    const successful_batch_filter = {
+        ...batch_filter,
+        finished: true,
+        error: null
+    };
+    await db_api.updateRecords('download_queue', successful_batch_filter, {
+        container: final_container_reference
+    });
 
     for (const chunk_playlist_id of chunk_playlist_ids_to_remove) {
         await db_api.removeRecord('playlists', {id: chunk_playlist_id});
@@ -934,10 +963,13 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             }
 
             let container = null;
+            const is_chunked_playlist_batch_download = !!(options && options.playlistBatchId && options.playlistChunkRange);
 
             if (file_objs.length > 1) {
-                // create playlist
-                container = await files_api.createPlaylist(download['title'], file_objs.map(file_obj => file_obj.uid), download['user_uid']);
+                if (!is_chunked_playlist_batch_download) {
+                    // create playlist
+                    container = await files_api.createPlaylist(download['title'], file_objs.map(file_obj => file_obj.uid), download['user_uid']);
+                }
             } else if (file_objs.length === 1) {
                 container = file_objs[0];
             } else {

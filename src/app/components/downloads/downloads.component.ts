@@ -55,7 +55,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     {
       tooltip: $localize`Watch content`,
       action: (download: Download) => this.watchContent(download),
-      show: (download: Download) => download.finished && !download.error,
+      show: (download: Download) => download.finished && !download.error && !!download['container'],
       icon: 'smart_display'
     },
     {
