@@ -739,6 +739,66 @@ describe('Downloader', function() {
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit(1, 1), true);
     });
 
+    it('Playlist/chunk downloads run in exclusive mode and block other queue starts', async function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_collect_info = downloader_api.collectInfo;
+        const original_download_queued_file = downloader_api.downloadQueuedFile;
+
+        const started_download_uids = [];
+        downloader_api.collectInfo = async (download_uid) => {
+            started_download_uids.push(download_uid);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {step_index: 1, finished_step: false, running: true});
+        };
+        downloader_api.downloadQueuedFile = async (download_uid) => {
+            started_download_uids.push(download_uid);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {step_index: 2, finished_step: false, running: true});
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 1);
+
+            const normal_running_download = await downloader_api.createDownload(`${url}&normal_running=1`, 'video', {ui_uid: uuid()});
+            const normal_waiting_download = await downloader_api.createDownload(`${url}&normal_waiting=1`, 'video', {ui_uid: uuid()});
+            const playlist_chunk_download_1 = await downloader_api.createDownload(playlist_url, 'video', {
+                ui_uid: uuid(),
+                playlistExclusive: true,
+                playlistBatchId: 'playlist-batch-test',
+                playlistChunkRange: '1-10'
+            });
+            const playlist_chunk_download_2 = await downloader_api.createDownload(playlist_url, 'video', {
+                ui_uid: uuid(),
+                playlistExclusive: true,
+                playlistBatchId: 'playlist-batch-test',
+                playlistChunkRange: '11-20'
+            });
+
+            await db_api.updateRecord('download_queue', {uid: normal_running_download['uid']}, {step_index: 1, finished_step: false, running: true});
+
+            // Exclusive playlist work should wait while another download is running.
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, []);
+
+            // Once the running non-playlist item finishes, first chunk starts.
+            await db_api.updateRecord('download_queue', {uid: normal_running_download['uid']}, {finished: true, running: false, finished_step: true, step_index: 3});
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, [playlist_chunk_download_1['uid']]);
+
+            // Completing chunk #1 should schedule chunk #2 before normal queue items.
+            await db_api.updateRecord('download_queue', {uid: playlist_chunk_download_1['uid']}, {finished: true, running: false, finished_step: true, step_index: 3});
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, [playlist_chunk_download_1['uid'], playlist_chunk_download_2['uid']]);
+
+            // Only after all chunks finish should regular downloads resume.
+            await db_api.updateRecord('download_queue', {uid: playlist_chunk_download_2['uid']}, {finished: true, running: false, finished_step: true, step_index: 3});
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, [playlist_chunk_download_1['uid'], playlist_chunk_download_2['uid'], normal_waiting_download['uid']]);
+        } finally {
+            downloader_api.collectInfo = original_collect_info;
+            downloader_api.downloadQueuedFile = original_download_queued_file;
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+    });
+
     it('Pause file', async function() {
         const returned_download = await downloader_api.createDownload(url, 'video', options);
         await downloader_api.pauseDownload(returned_download['uid']);

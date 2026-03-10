@@ -123,6 +123,50 @@ function shouldAutoChunkPlaylist(url, options = {}) {
     return true;
 }
 
+function shouldMarkPlaylistAsExclusive(url, options = {}) {
+    if (!isLikelyPlaylistURL(url)) return false;
+    if (!options || typeof options !== 'object') return true;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    const custom_args = parseDelimitedArgs(options.customArgs);
+
+    if (hasArg(additional_args, '--no-playlist') || hasArg(custom_args, '--no-playlist')) {
+        return false;
+    }
+    return true;
+}
+
+function isExclusivePlaylistDownload(download = null) {
+    if (!download || typeof download !== 'object') return false;
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    if (options.playlistExclusive === true) return true;
+    if (options.playlistChunkRange) return true;
+
+    if (!isLikelyPlaylistURL(download.url || '')) return false;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    const custom_args = parseDelimitedArgs(options.customArgs);
+    if (hasArg(additional_args, '--no-playlist') || hasArg(custom_args, '--no-playlist')) return false;
+
+    return true;
+}
+exports.isExclusivePlaylistDownload = isExclusivePlaylistDownload;
+
+function getExclusivePlaylistGroupKey(download = null) {
+    if (!isExclusivePlaylistDownload(download)) return null;
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    if (options.playlistBatchId) return `playlist-batch:${options.playlistBatchId}`;
+    if (options.ui_uid) return `playlist-ui:${options.ui_uid}`;
+
+    const user_uid = download && download.user_uid ? download.user_uid : 'global';
+    const type = download && download.type ? download.type : 'video';
+    const url = download && download.url ? download.url : '';
+    return `playlist-url:${user_uid}:${type}:${url}`;
+}
+exports.getExclusivePlaylistGroupKey = getExclusivePlaylistGroupKey;
+
 async function getPlaylistChunkingMetadata(url, options = {}) {
     const probe_args = ['--flat-playlist', '--dump-single-json', '--ignore-errors'];
     if (url.includes('list=') && !probe_args.includes('--yes-playlist')) {
@@ -310,16 +354,27 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
 exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
     const normalized_options = options && typeof options === 'object' ? options : {};
     const playlist_chunk_size = getConfiguredPlaylistChunkSize();
+    const should_mark_playlist_exclusive = shouldMarkPlaylistAsExclusive(url, normalized_options);
+    const playlist_batch_id = should_mark_playlist_exclusive
+        ? String(normalized_options.playlistBatchId || normalized_options.ui_uid || uuid())
+        : null;
+    const normalized_options_with_playlist_policy = should_mark_playlist_exclusive
+        ? {
+            ...normalized_options,
+            playlistExclusive: true,
+            playlistBatchId: playlist_batch_id
+        }
+        : normalized_options;
 
     if (!shouldAutoChunkPlaylist(url, normalized_options)) {
-        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused);
         return download ? [download] : [];
     }
 
     const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
     if (!playlist_metadata || playlist_metadata.entry_count <= playlist_chunk_size) {
         const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
-        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
+        const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
         return download ? [download] : [];
     }
 
@@ -336,8 +391,8 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
         const chunk_range = chunk_ranges[i];
         const chunk_title = formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist', chunk_range.label, i + 1, chunk_ranges.length);
         const chunk_options = {
-            ...normalized_options,
-            additionalArgs: appendAdditionalArgs(normalized_options.additionalArgs, ['--playlist-items', chunk_range.label]),
+            ...normalized_options_with_playlist_policy,
+            additionalArgs: appendAdditionalArgs(normalized_options_with_playlist_policy.additionalArgs, ['--playlist-items', chunk_range.label]),
             playlistChunkRange: chunk_range.label,
             playlistChunkIndex: i + 1,
             playlistChunkCount: chunk_ranges.length,
@@ -455,10 +510,53 @@ async function checkDownloads() {
 
     let running_downloads_count = downloads.filter(download => download['running']).length;
     const waiting_downloads = downloads.filter(download => !download['paused'] && download['finished_step'] && !download['finished']);
+    const running_downloads = downloads.filter(download => download['running']);
+
+    const running_exclusive_downloads = running_downloads
+        .filter(download => isExclusivePlaylistDownload(download))
+        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+    const waiting_exclusive_downloads = waiting_downloads
+        .filter(download => isExclusivePlaylistDownload(download))
+        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+
+    let exclusive_playlist_group_key = null;
+    if (running_exclusive_downloads.length > 0) {
+        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(running_exclusive_downloads[0]);
+    } else if (waiting_exclusive_downloads.length > 0) {
+        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(waiting_exclusive_downloads[0]);
+    }
+
     for (let i = 0; i < waiting_downloads.length; i++) {
         const waiting_download = waiting_downloads[i];
-        const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
-        if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
+        const waiting_download_is_exclusive = isExclusivePlaylistDownload(waiting_download);
+        const waiting_download_group_key = waiting_download_is_exclusive ? getExclusivePlaylistGroupKey(waiting_download) : null;
+
+        if (exclusive_playlist_group_key) {
+            if (!waiting_download_is_exclusive || waiting_download_group_key !== exclusive_playlist_group_key) {
+                continue;
+            }
+
+            const has_running_download_outside_group = running_downloads.some(download => {
+                if (!download['running']) return false;
+                if (!isExclusivePlaylistDownload(download)) return true;
+                return getExclusivePlaylistGroupKey(download) !== exclusive_playlist_group_key;
+            });
+            if (has_running_download_outside_group) {
+                continue;
+            }
+
+            const has_running_download_inside_group = running_downloads.some(download => {
+                if (!download['running']) return false;
+                if (!isExclusivePlaylistDownload(download)) return false;
+                return getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key;
+            });
+            if (has_running_download_inside_group) {
+                continue;
+            }
+        } else {
+            const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+            if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
+        }
 
         if (waiting_download['finished_step'] && !waiting_download['finished']) {
             if (waiting_download['sub_id']) {
@@ -475,9 +573,15 @@ async function checkDownloads() {
             } else if (waiting_download['step_index'] === 1) {
                 exports.downloadQueuedFile(waiting_download['uid']);
             }
+
+            if (exclusive_playlist_group_key) {
+                // Playlist/chunk downloads run in exclusive mode, one at a time.
+                break;
+            }
         }
     }
 }
+exports.checkDownloads = checkDownloads;
 
 function killActiveDownload(download) {
     const child_process = download_to_child_process[download['uid']];
