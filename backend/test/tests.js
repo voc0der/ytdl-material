@@ -698,6 +698,39 @@ describe('Downloader', function() {
         }
     });
 
+    it('Auto-chunking does not undercount playlists with unavailable entries', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        youtubedl_api.runYoutubeDL = async () => {
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'Fixture Playlist',
+                        playlist_count: 200,
+                        entries: Array.from({length: 200}, (_, i) => (i % 10 === 0 ? null : {id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            const created_downloads = await downloader_api.createDownloads(playlist_url, 'video', {...options, ui_uid: uuid()});
+            assert.strictEqual(created_downloads.length, 2);
+
+            const queue_downloads = await db_api.getRecords('download_queue');
+            queue_downloads.sort((a, b) => a.timestamp_start - b.timestamp_start);
+
+            const ranges = queue_downloads.map(download => {
+                const split_args = (download.options.additionalArgs || '').split(',,');
+                const playlist_items_index = split_args.indexOf('--playlist-items');
+                return playlist_items_index === -1 ? null : split_args[playlist_items_index + 1];
+            });
+            assert.deepStrictEqual(ranges, ['1-100', '101-200']);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
     it('Respect max concurrent downloads sentinel -1', function() {
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit(-1, 0), false);
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit('-1', 5), false);

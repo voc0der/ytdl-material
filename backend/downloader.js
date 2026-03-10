@@ -152,7 +152,8 @@ async function getPlaylistChunkingMetadata(url, options = {}) {
             const entries = playlist_root['entries'];
             const valid_entries = entries.filter(entry => !!entry).length;
             const fallback_entry_count = asFiniteNumber(playlist_root['playlist_count'], 0);
-            const entry_count = valid_entries || fallback_entry_count;
+            const indexed_entry_count = entries.length;
+            const entry_count = Math.max(indexed_entry_count, valid_entries, fallback_entry_count);
             if (!entry_count) return null;
             return {
                 entry_count: entry_count,
@@ -163,8 +164,12 @@ async function getPlaylistChunkingMetadata(url, options = {}) {
         // Fallback: when yt-dlp returns one JSON object per entry.
         if (parsed_output.length > 1) {
             const first = parsed_output[0] || {};
+            const max_playlist_index = parsed_output.reduce((max_index, entry) => {
+                if (!entry) return max_index;
+                return Math.max(max_index, asFiniteNumber(entry['playlist_index'], 0));
+            }, 0);
             return {
-                entry_count: parsed_output.filter(entry => !!entry).length,
+                entry_count: Math.max(parsed_output.filter(entry => !!entry).length, max_playlist_index),
                 title: first['playlist_title'] || first['playlist'] || null
             };
         }
