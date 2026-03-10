@@ -739,7 +739,7 @@ describe('Downloader', function() {
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit(1, 1), true);
     });
 
-    it('Playlist/chunk downloads run in exclusive mode and block other queue starts', async function() {
+    it('Playlist/chunk downloads honor lower explicit global cap and block other queue starts', async function() {
         const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
         const original_collect_info = downloader_api.collectInfo;
         const original_download_queued_file = downloader_api.downloadQueuedFile;
@@ -778,7 +778,7 @@ describe('Downloader', function() {
             await downloader_api.checkDownloads();
             assert.deepStrictEqual(started_download_uids, []);
 
-            // Once the running non-playlist item finishes, first chunk starts.
+            // With explicit max=1, only one chunk should start at a time.
             await db_api.updateRecord('download_queue', {uid: normal_running_download['uid']}, {finished: true, running: false, finished_step: true, step_index: 3});
             await downloader_api.checkDownloads();
             assert.deepStrictEqual(started_download_uids, [playlist_chunk_download_1['uid']]);
@@ -795,6 +795,92 @@ describe('Downloader', function() {
         } finally {
             downloader_api.collectInfo = original_collect_info;
             downloader_api.downloadQueuedFile = original_download_queued_file;
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+    });
+
+    it('Exclusive playlist mode starts up to 5 chunks when global cap is unbounded', async function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_collect_info = downloader_api.collectInfo;
+        const original_download_queued_file = downloader_api.downloadQueuedFile;
+
+        const started_download_uids = [];
+        downloader_api.collectInfo = async (download_uid) => {
+            started_download_uids.push(download_uid);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {step_index: 1, finished_step: false, running: true});
+        };
+        downloader_api.downloadQueuedFile = async (download_uid) => {
+            started_download_uids.push(download_uid);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {step_index: 2, finished_step: false, running: true});
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+            const playlist_batch_id = `playlist-batch-cap-${uuid()}`;
+
+            const normal_running_download = await downloader_api.createDownload(`${url}&cap_normal_running=1`, 'video', {ui_uid: uuid()});
+            const normal_waiting_download = await downloader_api.createDownload(`${url}&cap_normal_waiting=1`, 'video', {ui_uid: uuid()});
+            await db_api.updateRecord('download_queue', {uid: normal_running_download['uid']}, {step_index: 1, finished_step: false, running: true});
+
+            const chunk_downloads = [];
+            for (let i = 0; i < 6; i++) {
+                const chunk_download = await downloader_api.createDownload(playlist_url, 'video', {
+                    ui_uid: uuid(),
+                    playlistExclusive: true,
+                    playlistBatchId: playlist_batch_id,
+                    playlistChunkRange: `${i * 10 + 1}-${(i + 1) * 10}`
+                });
+                chunk_downloads.push(chunk_download);
+            }
+
+            // Wait while non-playlist download is running.
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, []);
+
+            // Start up to the playlist cap (5) when global cap is unbounded (-1).
+            await db_api.updateRecord('download_queue', {uid: normal_running_download['uid']}, {finished: true, running: false, finished_step: true, step_index: 3});
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, chunk_downloads.slice(0, 5).map(download => download.uid));
+            assert(!started_download_uids.includes(chunk_downloads[5].uid));
+            assert(!started_download_uids.includes(normal_waiting_download.uid));
+
+            // Free one slot; 6th chunk should start before normal queue items.
+            await db_api.updateRecord('download_queue', {uid: chunk_downloads[0].uid}, {finished: true, running: false, finished_step: true, step_index: 3});
+            await downloader_api.checkDownloads();
+            assert(started_download_uids.includes(chunk_downloads[5].uid));
+            assert(!started_download_uids.includes(normal_waiting_download.uid));
+
+            // Once all chunks are finished, regular queue can resume.
+            for (const chunk_download of chunk_downloads) {
+                await db_api.updateRecord('download_queue', {uid: chunk_download.uid}, {finished: true, running: false, finished_step: true, step_index: 3});
+            }
+            await downloader_api.checkDownloads();
+            assert(started_download_uids.includes(normal_waiting_download.uid));
+        } finally {
+            downloader_api.collectInfo = original_collect_info;
+            downloader_api.downloadQueuedFile = original_download_queued_file;
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+    });
+
+    it('Exclusive playlist cap helper uses lower explicit limits and clamps at 5 otherwise', function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 3);
+            assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 3);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 5);
+            assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 99);
+            assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+            assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 0);
+            assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 0);
+        } finally {
             config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
         }
     });

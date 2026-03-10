@@ -23,6 +23,7 @@ const download_to_child_process = {};
 const active_progress_checks = new Set();
 const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
+const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
 const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
 
 function asFiniteNumber(value, defaultValue = 0) {
@@ -451,6 +452,15 @@ function hasReachedConcurrentDownloadLimit(maxConcurrentDownloads, runningDownlo
 }
 exports.hasReachedConcurrentDownloadLimit = hasReachedConcurrentDownloadLimit;
 
+function getExclusivePlaylistConcurrencyLimit() {
+    const max_concurrent_downloads = Number(config_api.getConfigItem('ytdl_max_concurrent_downloads'));
+    if (Number.isFinite(max_concurrent_downloads) && max_concurrent_downloads >= 0 && max_concurrent_downloads < MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP) {
+        return max_concurrent_downloads;
+    }
+    return MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP;
+}
+exports.getExclusivePlaylistConcurrencyLimit = getExclusivePlaylistConcurrencyLimit;
+
 if (db_api.database_initialized) {
     exports.setupDownloads();
 } else {
@@ -681,6 +691,10 @@ async function checkDownloads() {
     } else if (waiting_exclusive_downloads.length > 0) {
         exclusive_playlist_group_key = getExclusivePlaylistGroupKey(waiting_exclusive_downloads[0]);
     }
+    let running_exclusive_group_count = exclusive_playlist_group_key
+        ? running_exclusive_downloads.filter(download => getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key).length
+        : 0;
+    const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
 
     for (let i = 0; i < waiting_downloads.length; i++) {
         const waiting_download = waiting_downloads[i];
@@ -701,12 +715,7 @@ async function checkDownloads() {
                 continue;
             }
 
-            const has_running_download_inside_group = running_downloads.some(download => {
-                if (!download['running']) return false;
-                if (!isExclusivePlaylistDownload(download)) return false;
-                return getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key;
-            });
-            if (has_running_download_inside_group) {
+            if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
                 continue;
             }
         } else {
@@ -730,9 +739,11 @@ async function checkDownloads() {
                 exports.downloadQueuedFile(waiting_download['uid']);
             }
 
-            if (exclusive_playlist_group_key) {
-                // Playlist/chunk downloads run in exclusive mode, one at a time.
-                break;
+            if (exclusive_playlist_group_key && waiting_download_group_key === exclusive_playlist_group_key) {
+                running_exclusive_group_count++;
+                if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                    break;
+                }
             }
         }
     }
