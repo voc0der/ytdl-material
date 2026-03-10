@@ -513,6 +513,7 @@ describe('Downloader', function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('download_queue');
         config_api.setConfigItem('ytdl_allow_playlist_categorization', true);
+        config_api.setConfigItem('ytdl_playlist_chunk_size', 100);
     });
 
     it('Get file info', async function() {

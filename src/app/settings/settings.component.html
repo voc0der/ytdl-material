@@ -187,6 +187,13 @@
             </div>
             <div class="col-12 mt-2 mb-4">
               <mat-form-field class="text-field" color="accent">
+                <mat-label i18n="Playlist chunk size">Playlist chunk size</mat-label>
+                <input type="number" [(ngModel)]="new_config['Downloader']['playlist_chunk_size']" matInput>
+                <mat-hint><ng-container i18n="Playlist chunk size input hint">Number of playlist items queued per batch when downloading large playlists. Smaller values start faster.</ng-container></mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="col-12 mt-2 mb-4">
+              <mat-form-field class="text-field" color="accent">
                 <mat-label i18n="Download rate limit">Download rate limit</mat-label>
                 <input [(ngModel)]="new_config['Downloader']['download_rate_limit']" matInput>
                 <mat-hint><ng-container i18n="Download rate limit input hint">Rate limits your downloads to the specified amount. Ex: 200K</ng-container></mat-hint>

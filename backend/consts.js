@@ -54,6 +54,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_max_concurrent_downloads',
         'path': 'YtdlMaterial.Downloader.max_concurrent_downloads'
     },
+    'ytdl_playlist_chunk_size': {
+        'key': 'ytdl_playlist_chunk_size',
+        'path': 'YtdlMaterial.Downloader.playlist_chunk_size'
+    },
     'ytdl_download_rate_limit': {
         'key': 'ytdl_download_rate_limit',
         'path': 'YtdlMaterial.Downloader.download_rate_limit'

@@ -21,7 +21,7 @@ let should_check_downloads = true;
 
 const download_to_child_process = {};
 const active_progress_checks = new Set();
-const DEFAULT_PLAYLIST_CHUNK_SIZE = Math.max(1, Number(process.env.YTDL_PLAYLIST_CHUNK_SIZE) || 100);
+const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
 const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
 
@@ -33,6 +33,10 @@ function asFiniteNumber(value, defaultValue = 0) {
 function parseDelimitedArgs(args_string = '') {
     if (typeof args_string !== 'string' || args_string.trim() === '') return [];
     return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
+}
+
+function getConfiguredPlaylistChunkSize() {
+    return Math.max(1, asFiniteNumber(config_api.getConfigItem('ytdl_playlist_chunk_size'), DEFAULT_PLAYLIST_CHUNK_SIZE));
 }
 
 function hasArg(args = [], target_arg = '') {
@@ -300,6 +304,7 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
 
 exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
     const normalized_options = options && typeof options === 'object' ? options : {};
+    const playlist_chunk_size = getConfiguredPlaylistChunkSize();
 
     if (!shouldAutoChunkPlaylist(url, normalized_options)) {
         const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
@@ -307,13 +312,13 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
     }
 
     const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
-    if (!playlist_metadata || playlist_metadata.entry_count <= DEFAULT_PLAYLIST_CHUNK_SIZE) {
+    if (!playlist_metadata || playlist_metadata.entry_count <= playlist_chunk_size) {
         const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
         const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
         return download ? [download] : [];
     }
 
-    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count);
+    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count, playlist_chunk_size);
     if (chunk_ranges.length <= 1) {
         const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
         return download ? [download] : [];
