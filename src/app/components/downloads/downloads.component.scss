@@ -27,6 +27,12 @@ mat-header-cell, mat-cell {
     margin-right: 10px;
 }
 
+.playlist-progress-button {
+    line-height: 24px;
+    min-width: 0;
+    padding: 0 6px;
+}
+
 .rounded-top {
     border-radius: 16px 16px 0px 0px !important;
 }

@@ -1,0 +1,34 @@
+<h4 mat-dialog-title i18n="Playlist progress dialog title">Playlist progress</h4>
+
+<mat-dialog-content>
+  <div class="overall-progress">
+    <span i18n="Overall progress label">Overall</span>
+    <strong>{{overall_percent}}%</strong>
+  </div>
+
+  @if (playlist_item_progress.length > 0) {
+    <div class="playlist-progress-list">
+      @for (item of playlist_item_progress; track item.index) {
+        <div class="playlist-progress-item">
+          <div class="playlist-progress-item-header">
+            <span class="playlist-progress-item-index">#{{item.index}}</span>
+            <span class="playlist-progress-item-title" [matTooltip]="item.title">{{item.title}}</span>
+            <span class="playlist-progress-item-status">{{getItemStatusLabel(item)}}</span>
+          </div>
+          <div class="playlist-progress-item-bar">
+            <mat-progress-bar mode="determinate" [value]="getItemPercent(item)"></mat-progress-bar>
+            <span>{{getItemPercent(item) | number: '1.0-2'}}%</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @if (playlist_item_progress.length === 0) {
+    <p i18n="No playlist progress details message">No item-level progress details available yet.</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button mat-button mat-dialog-close><ng-container i18n="Close playlist progress dialog button">Close</ng-container></button>
+</mat-dialog-actions>

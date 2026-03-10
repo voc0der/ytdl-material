@@ -226,6 +226,7 @@ const DEFAULT_CONFIG = {
         "include_thumbnail": true,
         "include_metadata": true,
         "max_concurrent_downloads": 5,
+        "playlist_chunk_size": 20,
         "download_rate_limit": ""
       },
       "Extra": {

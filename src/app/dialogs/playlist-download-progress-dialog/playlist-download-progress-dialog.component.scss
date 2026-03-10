@@ -1,0 +1,69 @@
+:host {
+    color: inherit;
+    display: block;
+}
+
+.overall-progress {
+    align-items: center;
+    color: inherit;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.playlist-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.playlist-progress-item {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    color: inherit;
+    padding: 8px;
+}
+
+:host-context(.dark-theme) .playlist-progress-item {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.playlist-progress-item-header {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.playlist-progress-item-index {
+    color: inherit;
+    flex-shrink: 0;
+    font-size: 12px;
+    min-width: 34px;
+    opacity: 0.75;
+}
+
+.playlist-progress-item-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playlist-progress-item-status {
+    color: inherit;
+    flex-shrink: 0;
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.playlist-progress-item-bar {
+    align-items: center;
+    color: inherit;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr auto;
+}

@@ -99,7 +99,11 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             logger.debug(`Error in callback: ${e.message}`);
             if (e.stdout) logger.debug(`stdout from failed process: ${e.stdout.substring(0, 500)}`);
             if (e.stderr) logger.debug(`stderr from failed process: ${e.stderr.substring(0, 500)}`);
-            resolve({parsed_output: null, err: e})
+
+            // Preserve partial JSON output from playlist runs where some entries fail.
+            const fallback_output_lines = e.stdout ? e.stdout.trim().split(/\r?\n/) : null;
+            const parsed_output = fallback_output_lines ? utils.parseOutputJSON(fallback_output_lines, e) : null;
+            resolve({parsed_output: parsed_output, err: e})
         }
     });
     return {child_process, callback}
@@ -132,13 +136,22 @@ exports.checkForYoutubeDLUpdate = async () => {
 
     const current_version = current_app_details[selected_fork]['version'];
     const current_fork = current_app_details[selected_fork]['downloader'];
+    const binary_exists = fs.existsSync(output_file_path);
 
     const latest_version = await exports.getLatestUpdateVersion(selected_fork);
+    const has_latest_version = !!latest_version;
+
     // if the binary does not exist, or default_downloader doesn't match existing fork, or if the fork has been updated, redownload
     // TODO: don't redownload if fork already exists
-    if (!fs.existsSync(output_file_path) || current_fork !== selected_fork || !current_version || current_version !== latest_version) {
+    const should_redownload = !binary_exists
+        || current_fork !== selected_fork
+        || !current_version
+        || (has_latest_version && current_version !== latest_version);
+
+    if (should_redownload) {
+        const target_version = latest_version || current_version || CONSTS.OUTDATED_YOUTUBEDL_VERSION;
         logger.warn(`Updating ${selected_fork} binary to '${output_file_path}', downloading...`);
-        await exports.updateYoutubeDL(latest_version);
+        await exports.updateYoutubeDL(target_version);
     }
 }
 
@@ -211,7 +224,8 @@ function updateDetailsJSON(new_version, fork, output_path) {
     const details_json = fs.existsSync(CONSTS.DETAILS_BIN_PATH) ? fs.readJSONSync(CONSTS.DETAILS_BIN_PATH) : {};
     if (!details_json[fork]) details_json[fork] = {};
     const fork_json = details_json[fork];
-    fork_json['version'] = new_version;
+    const sanitized_version = new_version || fork_json['version'] || CONSTS.OUTDATED_YOUTUBEDL_VERSION;
+    fork_json['version'] = sanitized_version;
     fork_json['downloader'] = fork;
     fork_json['path'] = output_path; // unused
     fork_json['exec'] = fork + file_ext; // unused

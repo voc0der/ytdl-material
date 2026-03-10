@@ -1120,10 +1120,10 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
         disableSponsorBlock: req.body.disableSponsorBlock
     };
 
-    const download = await downloader_api.createDownload(url, type, options, user_uid);
+    const downloads = await downloader_api.createDownloads(url, type, options, user_uid);
 
-    if (download) {
-        res.send({download: download});
+    if (downloads && downloads.length > 0) {
+        res.send({download: downloads[0], downloads: downloads});
     } else {
         res.sendStatus(500);
     }

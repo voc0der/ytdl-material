@@ -17,10 +17,436 @@ const notifications_api = require('./notifications');
 const archive_api = require('./archive');
 
 const mutex = new Mutex();
+const playlist_batch_finalization_mutex = new Mutex();
 let should_check_downloads = true;
 
 const download_to_child_process = {};
 const active_progress_checks = new Set();
+const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
+const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
+const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
+const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
+
+function asFiniteNumber(value, defaultValue = 0) {
+    const numeric_value = Number(value);
+    return Number.isFinite(numeric_value) ? numeric_value : defaultValue;
+}
+
+function parseDelimitedArgs(args_string = '') {
+    if (typeof args_string !== 'string' || args_string.trim() === '') return [];
+    return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
+}
+
+function getConfiguredPlaylistChunkSize() {
+    return Math.max(1, asFiniteNumber(config_api.getConfigItem('ytdl_playlist_chunk_size'), DEFAULT_PLAYLIST_CHUNK_SIZE));
+}
+exports.getConfiguredPlaylistChunkSize = getConfiguredPlaylistChunkSize;
+
+function hasArg(args = [], target_arg = '') {
+    if (!Array.isArray(args) || !target_arg) return false;
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (typeof arg !== 'string') continue;
+        if (arg === target_arg || arg.startsWith(`${target_arg}=`)) return true;
+    }
+    return false;
+}
+
+function hasPlaylistRangeArgs(args = []) {
+    if (!Array.isArray(args) || args.length === 0) return false;
+    return PLAYLIST_RANGE_ARG_KEYS.some(range_arg_key => hasArg(args, range_arg_key));
+}
+
+function isLikelyPlaylistURL(url = '') {
+    if (typeof url !== 'string' || url.trim() === '') return false;
+    try {
+        const parsed_url = new URL(url);
+        if (parsed_url.searchParams.has('list')) return true;
+        return parsed_url.pathname.includes('/playlist');
+    } catch (e) {
+        return url.includes('list=') || url.includes('/playlist');
+    }
+}
+
+function buildPlaylistChunkRanges(total_items, chunk_size = DEFAULT_PLAYLIST_CHUNK_SIZE, max_chunks = MAX_AUTOMATIC_PLAYLIST_CHUNKS) {
+    const normalized_total_items = Math.max(0, asFiniteNumber(total_items, 0));
+    if (!normalized_total_items) return [];
+
+    let normalized_chunk_size = Math.max(1, asFiniteNumber(chunk_size, DEFAULT_PLAYLIST_CHUNK_SIZE));
+    const normalized_max_chunks = Math.max(1, asFiniteNumber(max_chunks, MAX_AUTOMATIC_PLAYLIST_CHUNKS));
+
+    const initial_chunk_count = Math.ceil(normalized_total_items / normalized_chunk_size);
+    if (initial_chunk_count > normalized_max_chunks) {
+        normalized_chunk_size = Math.ceil(normalized_total_items / normalized_max_chunks);
+    }
+
+    const ranges = [];
+    for (let start = 1; start <= normalized_total_items; start += normalized_chunk_size) {
+        const end = Math.min(normalized_total_items, start + normalized_chunk_size - 1);
+        ranges.push({
+            start: start,
+            end: end,
+            label: `${start}-${end}`
+        });
+    }
+    return ranges;
+}
+exports.buildPlaylistChunkRanges = buildPlaylistChunkRanges;
+
+function formatChunkedPlaylistTitle(base_title = 'Playlist', chunk_range_label = null, chunk_index = null, chunk_count = null) {
+    const normalized_title = typeof base_title === 'string' && base_title.trim() !== '' ? base_title.trim() : 'Playlist';
+    if (!chunk_range_label) return normalized_title;
+
+    const normalized_chunk_index = Number(chunk_index);
+    const normalized_chunk_count = Number(chunk_count);
+    if (Number.isFinite(normalized_chunk_index) && Number.isFinite(normalized_chunk_count) && normalized_chunk_index > 0 && normalized_chunk_count > 0) {
+        return `${normalized_title} [Chunk ${normalized_chunk_index}/${normalized_chunk_count}: ${chunk_range_label}]`;
+    }
+
+    return `${normalized_title} [${chunk_range_label}]`;
+}
+
+function appendAdditionalArgs(existing_args_string = '', args_to_append = []) {
+    const existing_args = parseDelimitedArgs(existing_args_string);
+    const additional_args = (Array.isArray(args_to_append) ? args_to_append : []).filter(arg => arg !== undefined && arg !== null && String(arg).trim() !== '').map(arg => String(arg));
+    return existing_args.concat(additional_args).join(',,');
+}
+
+function shouldAutoChunkPlaylist(url, options = {}) {
+    if (!isLikelyPlaylistURL(url)) return false;
+    if (!options || typeof options !== 'object') return true;
+    if (typeof options.customArgs === 'string' && options.customArgs.trim() !== '') return false;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    if (additional_args.length === 0) return true;
+
+    if (hasArg(additional_args, '--no-playlist')) return false;
+    if (hasPlaylistRangeArgs(additional_args)) return false;
+
+    return true;
+}
+
+function shouldMarkPlaylistAsExclusive(url, options = {}) {
+    if (!isLikelyPlaylistURL(url)) return false;
+    if (!options || typeof options !== 'object') return true;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    const custom_args = parseDelimitedArgs(options.customArgs);
+
+    if (hasArg(additional_args, '--no-playlist') || hasArg(custom_args, '--no-playlist')) {
+        return false;
+    }
+    return true;
+}
+
+function isExclusivePlaylistDownload(download = null) {
+    if (!download || typeof download !== 'object') return false;
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    if (options.playlistExclusive === true) return true;
+    if (options.playlistChunkRange) return true;
+
+    if (!isLikelyPlaylistURL(download.url || '')) return false;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    const custom_args = parseDelimitedArgs(options.customArgs);
+    if (hasArg(additional_args, '--no-playlist') || hasArg(custom_args, '--no-playlist')) return false;
+
+    return true;
+}
+exports.isExclusivePlaylistDownload = isExclusivePlaylistDownload;
+
+function getExclusivePlaylistGroupKey(download = null) {
+    if (!isExclusivePlaylistDownload(download)) return null;
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    if (options.playlistBatchId) return `playlist-batch:${options.playlistBatchId}`;
+    if (options.ui_uid) return `playlist-ui:${options.ui_uid}`;
+
+    const user_uid = download && download.user_uid ? download.user_uid : 'global';
+    const type = download && download.type ? download.type : 'video';
+    const url = download && download.url ? download.url : '';
+    return `playlist-url:${user_uid}:${type}:${url}`;
+}
+exports.getExclusivePlaylistGroupKey = getExclusivePlaylistGroupKey;
+
+function getPlaylistBatchBaseTitle(download = null) {
+    if (!download || typeof download !== 'object') return 'Playlist';
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    if (typeof options.playlistChunkTitle === 'string' && options.playlistChunkTitle.trim() !== '') {
+        return options.playlistChunkTitle.trim();
+    }
+
+    const title = typeof download.title === 'string' ? download.title.trim() : '';
+    if (!title) return 'Playlist';
+
+    const stripped_title = title.replace(/\s*\[Chunk\s+\d+\/\d+:\s*[^\]]+\]\s*$/i, '').trim();
+    return stripped_title || title;
+}
+
+function sortBatchDownloadsForMerge(download1, download2) {
+    const chunk_index_1 = asFiniteNumber(download1 && download1.options ? download1.options.playlistChunkIndex : Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    const chunk_index_2 = asFiniteNumber(download2 && download2.options ? download2.options.playlistChunkIndex : Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+    if (chunk_index_1 !== chunk_index_2) return chunk_index_1 - chunk_index_2;
+
+    const timestamp_1 = asFiniteNumber(download1 ? download1.timestamp_start : 0, 0);
+    const timestamp_2 = asFiniteNumber(download2 ? download2.timestamp_start : 0, 0);
+    if (timestamp_1 !== timestamp_2) return timestamp_1 - timestamp_2;
+
+    const uid_1 = download1 && download1.uid ? download1.uid : '';
+    const uid_2 = download2 && download2.uid ? download2.uid : '';
+    return uid_1.localeCompare(uid_2);
+}
+
+function getDownloadContainerReference(container = null) {
+    if (!container || typeof container !== 'object') return null;
+
+    // Keep download queue payloads small. The UI only needs playlist id (or file uid)
+    // to navigate to the correct player view.
+    if (container.id) {
+        return {
+            id: container.id,
+            uids: []
+        };
+    }
+
+    if (container.uid) {
+        return {
+            uid: container.uid
+        };
+    }
+
+    return container;
+}
+
+async function finalizePlaylistBatchContainer(download_uid = null) {
+    return await playlist_batch_finalization_mutex.runExclusive(async () => {
+    if (!download_uid) return null;
+
+    const completed_download = await db_api.getRecord('download_queue', {uid: download_uid});
+    if (!completed_download || !isExclusivePlaylistDownload(completed_download)) return null;
+
+    const options = completed_download.options && typeof completed_download.options === 'object' ? completed_download.options : {};
+    const playlist_batch_id = options.playlistBatchId;
+    if (!playlist_batch_id) return null;
+
+    const batch_filter = {'options.playlistBatchId': playlist_batch_id};
+    if (completed_download.user_uid !== undefined && completed_download.user_uid !== null) {
+        batch_filter['user_uid'] = completed_download.user_uid;
+    }
+    if (completed_download.type) {
+        batch_filter['type'] = completed_download.type;
+    }
+
+    const batch_downloads = await db_api.getRecords('download_queue', batch_filter);
+    if (!Array.isArray(batch_downloads) || batch_downloads.length === 0) return null;
+
+    const active_batch_download_exists = batch_downloads.some(download => !download.finished && !download.error && !download.cancelled);
+    if (active_batch_download_exists) return null;
+
+    const successful_batch_downloads = batch_downloads
+        .filter(download => download.finished && !download.error && Array.isArray(download.file_uids) && download.file_uids.length > 0)
+        .sort(sortBatchDownloadsForMerge);
+    if (successful_batch_downloads.length === 0) {
+        await db_api.updateRecords('download_queue', batch_filter, {playlist_batch_finalized: true, playlist_batch_container_id: null});
+        return null;
+    }
+
+    let final_container = null;
+    // Idempotency guard: if this batch was already finalized, reuse its container.
+    const finalized_batch_download = batch_downloads.find(download => download.playlist_batch_finalized && download.playlist_batch_container_id);
+    if (finalized_batch_download) {
+        const existing_playlist = await db_api.getRecord('playlists', {id: finalized_batch_download.playlist_batch_container_id});
+        if (existing_playlist) {
+            final_container = existing_playlist;
+        }
+    }
+
+    if (!final_container) {
+        if (successful_batch_downloads.length === 1) {
+            const successful_download = successful_batch_downloads[0];
+            if (successful_download.container) {
+                final_container = successful_download.container;
+            } else if (successful_download.file_uids.length > 1) {
+                final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_download), successful_download.file_uids, successful_download.user_uid);
+            } else {
+                final_container = await files_api.getVideo(successful_download.file_uids[0], successful_download.user_uid);
+            }
+        } else {
+            const merged_file_uids = [];
+            const seen_file_uids = new Set();
+            for (const successful_download of successful_batch_downloads) {
+                const file_uids = Array.isArray(successful_download.file_uids) ? successful_download.file_uids : [];
+                for (const file_uid of file_uids) {
+                    if (!file_uid || seen_file_uids.has(file_uid)) continue;
+                    seen_file_uids.add(file_uid);
+                    merged_file_uids.push(file_uid);
+                }
+            }
+
+            if (merged_file_uids.length > 1) {
+                final_container = await files_api.createPlaylist(getPlaylistBatchBaseTitle(successful_batch_downloads[0]), merged_file_uids, completed_download.user_uid);
+            } else if (merged_file_uids.length === 1) {
+                final_container = await files_api.getVideo(merged_file_uids[0], completed_download.user_uid);
+            }
+        }
+    }
+    if (!final_container) return null;
+
+    const final_container_reference = getDownloadContainerReference(final_container);
+    const final_playlist_id = final_container_reference && final_container_reference.id ? final_container_reference.id : null;
+    const chunk_playlist_ids_to_remove = new Set();
+
+    for (const batch_download of batch_downloads) {
+        const existing_container_id = batch_download && batch_download.container ? batch_download.container.id : null;
+        if (existing_container_id && existing_container_id !== final_playlist_id) {
+            chunk_playlist_ids_to_remove.add(existing_container_id);
+        }
+    }
+
+    await db_api.updateRecords('download_queue', batch_filter, {
+        playlist_batch_finalized: true,
+        playlist_batch_container_id: final_playlist_id
+    });
+
+    const successful_batch_filter = {
+        ...batch_filter,
+        finished: true,
+        error: null
+    };
+    await db_api.updateRecords('download_queue', successful_batch_filter, {
+        container: final_container_reference
+    });
+
+    for (const chunk_playlist_id of chunk_playlist_ids_to_remove) {
+        await db_api.removeRecord('playlists', {id: chunk_playlist_id});
+    }
+
+    return final_container;
+    });
+}
+exports.finalizePlaylistBatchContainer = finalizePlaylistBatchContainer;
+
+async function getPlaylistChunkingMetadata(url, options = {}) {
+    const probe_args = ['--flat-playlist', '--dump-single-json', '--ignore-errors'];
+    if (url.includes('list=') && !probe_args.includes('--yes-playlist')) {
+        probe_args.push('--yes-playlist');
+    }
+
+    if (options.youtubeUsername && options.youtubePassword) {
+        probe_args.push('--username', options.youtubeUsername, '--password', options.youtubePassword);
+    }
+
+    const cookies_path = path.join(__dirname, 'appdata', 'cookies.txt');
+    if (!hasArg(probe_args, '--cookies') && await fs.pathExists(cookies_path)) {
+        probe_args.push('--cookies', path.join('appdata', 'cookies.txt'));
+    }
+
+    logger.debug(`Probing playlist metadata for automatic chunking: ${url}`);
+    try {
+        const run_result = await youtubedl_api.runYoutubeDL(url, probe_args);
+        if (!run_result || !run_result.callback) return null;
+        const {parsed_output} = await run_result.callback;
+        if (!Array.isArray(parsed_output) || parsed_output.length === 0) return null;
+
+        let playlist_root = parsed_output.find(item => item && Array.isArray(item['entries']));
+        if (!playlist_root && parsed_output.length === 1) playlist_root = parsed_output[0];
+
+        if (playlist_root && Array.isArray(playlist_root['entries'])) {
+            const entries = playlist_root['entries'];
+            const valid_entries = entries.filter(entry => !!entry).length;
+            const fallback_entry_count = asFiniteNumber(playlist_root['playlist_count'], 0);
+            const indexed_entry_count = entries.length;
+            const entry_count = Math.max(indexed_entry_count, valid_entries, fallback_entry_count);
+            if (!entry_count) return null;
+            return {
+                entry_count: entry_count,
+                title: playlist_root['title'] || playlist_root['playlist_title'] || playlist_root['playlist'] || null
+            };
+        }
+
+        // Fallback: when yt-dlp returns one JSON object per entry.
+        if (parsed_output.length > 1) {
+            const first = parsed_output[0] || {};
+            const max_playlist_index = parsed_output.reduce((max_index, entry) => {
+                if (!entry) return max_index;
+                return Math.max(max_index, asFiniteNumber(entry['playlist_index'], 0));
+            }, 0);
+            return {
+                entry_count: Math.max(parsed_output.filter(entry => !!entry).length, max_playlist_index),
+                title: first['playlist_title'] || first['playlist'] || null
+            };
+        }
+    } catch (e) {
+        logger.warn(`Failed to probe playlist metadata for automatic chunking: ${url}`);
+        logger.debug(e);
+    }
+
+    return null;
+}
+
+function buildPlaylistItemProgress(info = []) {
+    if (!Array.isArray(info) || info.length <= 1) return null;
+
+    return info.map((info_obj, index) => {
+        let expected_file_size = 0;
+        try {
+            expected_file_size = asFiniteNumber(utils.getExpectedFileSize(info_obj), 0);
+        } catch (e) {
+            expected_file_size = 0;
+        }
+
+        return {
+            index: index + 1,
+            id: info_obj && info_obj['id'] ? info_obj['id'] : null,
+            title: info_obj && info_obj['title'] ? info_obj['title'] : `Item ${index + 1}`,
+            expected_file_size: expected_file_size,
+            downloaded_size: 0,
+            percent_complete: 0,
+            status: 'pending',
+            progress_path_index: index
+        };
+    });
+}
+
+function finalizePlaylistItemProgress(existing_items = [], parsed_output = []) {
+    if (!Array.isArray(existing_items) || existing_items.length === 0) return null;
+
+    const completed_ids = new Set();
+    const completed_titles = new Set();
+    if (Array.isArray(parsed_output)) {
+        for (let i = 0; i < parsed_output.length; i++) {
+            const output_item = parsed_output[i];
+            if (!output_item) continue;
+            if (output_item['id']) completed_ids.add(output_item['id']);
+            if (output_item['title']) completed_titles.add(output_item['title']);
+        }
+    }
+
+    return existing_items.map(item => {
+        if (!item) return item;
+
+        const item_completed = (item.id && completed_ids.has(item.id))
+            || (item.title && completed_titles.has(item.title));
+
+        if (item_completed) {
+            const expected_file_size = asFiniteNumber(item.expected_file_size, 0);
+            const downloaded_size = Math.max(asFiniteNumber(item.downloaded_size, 0), expected_file_size);
+            return {
+                ...item,
+                downloaded_size: downloaded_size,
+                percent_complete: 100,
+                status: 'complete'
+            };
+        }
+
+        return {
+            ...item,
+            status: 'failed'
+        };
+    });
+}
 
 function hasReachedConcurrentDownloadLimit(maxConcurrentDownloads, runningDownloadsCount) {
     const normalizedLimit = Number(maxConcurrentDownloads);
@@ -29,6 +455,30 @@ function hasReachedConcurrentDownloadLimit(maxConcurrentDownloads, runningDownlo
     return runningDownloadsCount >= normalizedLimit;
 }
 exports.hasReachedConcurrentDownloadLimit = hasReachedConcurrentDownloadLimit;
+
+function getExclusivePlaylistConcurrencyLimit() {
+    const max_concurrent_downloads = Number(config_api.getConfigItem('ytdl_max_concurrent_downloads'));
+    if (Number.isFinite(max_concurrent_downloads) && max_concurrent_downloads >= 0 && max_concurrent_downloads < MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP) {
+        return max_concurrent_downloads;
+    }
+    return MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP;
+}
+exports.getExclusivePlaylistConcurrencyLimit = getExclusivePlaylistConcurrencyLimit;
+
+function getEffectivePlaylistChunkSize(entry_count = 0, configured_chunk_size = DEFAULT_PLAYLIST_CHUNK_SIZE, is_exclusive_playlist = false) {
+    const normalized_chunk_size = Math.max(1, asFiniteNumber(configured_chunk_size, DEFAULT_PLAYLIST_CHUNK_SIZE));
+    const normalized_entry_count = Math.max(0, asFiniteNumber(entry_count, 0));
+    if (!is_exclusive_playlist || normalized_entry_count <= 1) return normalized_chunk_size;
+
+    const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
+    if (!Number.isFinite(exclusive_playlist_concurrency_limit) || exclusive_playlist_concurrency_limit <= 0) {
+        return normalized_chunk_size;
+    }
+
+    const chunk_size_needed_for_concurrency = Math.max(1, Math.ceil(normalized_entry_count / exclusive_playlist_concurrency_limit));
+    return Math.min(normalized_chunk_size, chunk_size_needed_for_concurrency);
+}
+exports.getEffectivePlaylistChunkSize = getEffectivePlaylistChunkSize;
 
 if (db_api.database_initialized) {
     exports.setupDownloads();
@@ -57,12 +507,12 @@ We use checkDownloads() to move downloads through the steps and call their respe
 
 */
 
-exports.createDownload = async (url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
+exports.createDownload = async (url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false, display_title = null) => {
     return await mutex.runExclusive(async () => {
         const download = {
             url: url,
             type: type,
-            title: '',
+            title: display_title || '',
             user_uid: user_uid,
             sub_id: sub_id,
             sub_name: sub_name,
@@ -75,6 +525,7 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
             finished_step: true,
             error: null,
             percent_complete: null,
+            playlist_item_progress: null,
             finished: false,
             timestamp_start: Date.now()
         };
@@ -83,6 +534,63 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
         should_check_downloads = true;
         return download;
     });
+}
+
+exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
+    const normalized_options = options && typeof options === 'object' ? options : {};
+    const configured_playlist_chunk_size = getConfiguredPlaylistChunkSize();
+    const should_mark_playlist_exclusive = shouldMarkPlaylistAsExclusive(url, normalized_options);
+    const playlist_batch_id = should_mark_playlist_exclusive
+        ? String(normalized_options.playlistBatchId || normalized_options.ui_uid || uuid())
+        : null;
+    const normalized_options_with_playlist_policy = should_mark_playlist_exclusive
+        ? {
+            ...normalized_options,
+            playlistExclusive: true,
+            playlistBatchId: playlist_batch_id
+        }
+        : normalized_options;
+
+    if (!shouldAutoChunkPlaylist(url, normalized_options)) {
+        const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused);
+        return download ? [download] : [];
+    }
+
+    const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
+    const effective_playlist_chunk_size = playlist_metadata
+        ? getEffectivePlaylistChunkSize(playlist_metadata.entry_count, configured_playlist_chunk_size, should_mark_playlist_exclusive)
+        : configured_playlist_chunk_size;
+    if (!playlist_metadata || playlist_metadata.entry_count <= effective_playlist_chunk_size) {
+        const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
+        const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
+        return download ? [download] : [];
+    }
+
+    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count, effective_playlist_chunk_size);
+    if (chunk_ranges.length <= 1) {
+        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        return download ? [download] : [];
+    }
+
+    logger.info(`Auto-chunking playlist download for URL '${url}' into ${chunk_ranges.length} chunks (${playlist_metadata.entry_count} items).`);
+
+    const created_downloads = [];
+    for (let i = 0; i < chunk_ranges.length; i++) {
+        const chunk_range = chunk_ranges[i];
+        const chunk_title = formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist', chunk_range.label, i + 1, chunk_ranges.length);
+        const chunk_options = {
+            ...normalized_options_with_playlist_policy,
+            additionalArgs: appendAdditionalArgs(normalized_options_with_playlist_policy.additionalArgs, ['--playlist-items', chunk_range.label]),
+            playlistChunkRange: chunk_range.label,
+            playlistChunkIndex: i + 1,
+            playlistChunkCount: chunk_ranges.length,
+            playlistChunkTitle: playlist_metadata.title || null
+        };
+        const chunk_download = await exports.createDownload(url, type, chunk_options, user_uid, sub_id, sub_name, prefetched_info, paused, chunk_title);
+        if (chunk_download) created_downloads.push(chunk_download);
+    }
+
+    return created_downloads;
 }
 
 exports.pauseDownload = async (download_uid) => {
@@ -190,10 +698,52 @@ async function checkDownloads() {
 
     let running_downloads_count = downloads.filter(download => download['running']).length;
     const waiting_downloads = downloads.filter(download => !download['paused'] && download['finished_step'] && !download['finished']);
+    const running_downloads = downloads.filter(download => download['running']);
+
+    const running_exclusive_downloads = running_downloads
+        .filter(download => isExclusivePlaylistDownload(download))
+        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+    const waiting_exclusive_downloads = waiting_downloads
+        .filter(download => isExclusivePlaylistDownload(download))
+        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+
+    let exclusive_playlist_group_key = null;
+    if (running_exclusive_downloads.length > 0) {
+        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(running_exclusive_downloads[0]);
+    } else if (waiting_exclusive_downloads.length > 0) {
+        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(waiting_exclusive_downloads[0]);
+    }
+    let running_exclusive_group_count = exclusive_playlist_group_key
+        ? running_exclusive_downloads.filter(download => getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key).length
+        : 0;
+    const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
+
     for (let i = 0; i < waiting_downloads.length; i++) {
         const waiting_download = waiting_downloads[i];
-        const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
-        if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
+        const waiting_download_is_exclusive = isExclusivePlaylistDownload(waiting_download);
+        const waiting_download_group_key = waiting_download_is_exclusive ? getExclusivePlaylistGroupKey(waiting_download) : null;
+
+        if (exclusive_playlist_group_key) {
+            if (!waiting_download_is_exclusive || waiting_download_group_key !== exclusive_playlist_group_key) {
+                continue;
+            }
+
+            const has_running_download_outside_group = running_downloads.some(download => {
+                if (!download['running']) return false;
+                if (!isExclusivePlaylistDownload(download)) return true;
+                return getExclusivePlaylistGroupKey(download) !== exclusive_playlist_group_key;
+            });
+            if (has_running_download_outside_group) {
+                continue;
+            }
+
+            if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                continue;
+            }
+        } else {
+            const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+            if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
+        }
 
         if (waiting_download['finished_step'] && !waiting_download['finished']) {
             if (waiting_download['sub_id']) {
@@ -210,9 +760,17 @@ async function checkDownloads() {
             } else if (waiting_download['step_index'] === 1) {
                 exports.downloadQueuedFile(waiting_download['uid']);
             }
+
+            if (exclusive_playlist_group_key && waiting_download_group_key === exclusive_playlist_group_key) {
+                running_exclusive_group_count++;
+                if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                    break;
+                }
+            }
         }
     }
 }
+exports.checkDownloads = checkDownloads;
 
 function killActiveDownload(download) {
     const child_process = download_to_child_process[download['uid']];
@@ -247,6 +805,16 @@ exports.collectInfo = async (download_uid) => {
 
     if (!info || info.length === 0) {
         // info failed, error presumably already recorded
+        return;
+    }
+
+    info = info.filter(info_obj => info_obj && info_obj['_filename']);
+    if (info.length === 0) {
+        const error_message = `No downloadable items were found while retrieving info for URL ${url}`;
+        logger.error(error_message);
+        if (download_uid) {
+            await handleDownloadError(download_uid, error_message, 'info_retrieve_failed');
+        }
         return;
     }
 
@@ -289,7 +857,13 @@ exports.collectInfo = async (download_uid) => {
     // store info in download for future use
     for (let info_obj of info) files_to_check_for_progress.push(utils.removeFileExtension(info_obj['_filename']));
 
-    const title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const base_title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const chunk_range_label = options && options.playlistChunkRange ? options.playlistChunkRange : null;
+    const chunk_index = options && options.playlistChunkIndex ? options.playlistChunkIndex : null;
+    const chunk_count = options && options.playlistChunkCount ? options.playlistChunkCount : null;
+    const title = formatChunkedPlaylistTitle(base_title, chunk_range_label, chunk_index, chunk_count);
+    const playlist_item_progress = buildPlaylistItemProgress(info);
+
     await db_api.updateRecord('download_queue', {uid: download_uid}, {args: args,
                                                                     finished_step: true,
                                                                     running: false,
@@ -297,6 +871,7 @@ exports.collectInfo = async (download_uid) => {
                                                                     files_to_check_for_progress: files_to_check_for_progress,
                                                                     expected_file_size: expected_file_size,
                                                                     title: title,
+                                                                    playlist_item_progress: playlist_item_progress,
                                                                     category: stripped_category,
                                                                     prefetched_info: null
                                                                 });
@@ -360,6 +935,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
                 if (!output_json) {
                     continue;
                 }
+                if (!output_json['_filename']) {
+                    logger.warn(`Skipping output item without _filename for download '${download_uid}'.`);
+                    continue;
+                }
 
                 // get filepath with no extension
                 const filepath_no_extension = utils.removeFileExtension(output_json['_filename']);
@@ -404,6 +983,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
 
                 // registers file in DB
                 const file_obj = await files_api.registerFileDB(full_file_path, type, download['user_uid'], category, download['sub_id'] ? download['sub_id'] : null, options.cropFileSettings);
+                if (!file_obj) {
+                    logger.warn(`Failed to register downloaded file '${full_file_path}' in DB.`);
+                    continue;
+                }
 
                 await archive_api.addToArchive(output_json['extractor'], output_json['id'], type, output_json['title'], download['user_uid'], download['sub_id']);
 
@@ -413,10 +996,13 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             }
 
             let container = null;
+            const is_chunked_playlist_batch_download = !!(options && options.playlistBatchId && options.playlistChunkRange);
 
             if (file_objs.length > 1) {
-                // create playlist
-                container = await files_api.createPlaylist(download['title'], file_objs.map(file_obj => file_obj.uid), download['user_uid']);
+                if (!is_chunked_playlist_batch_download) {
+                    // create playlist
+                    container = await files_api.createPlaylist(download['title'], file_objs.map(file_obj => file_obj.uid), download['user_uid']);
+                }
             } else if (file_objs.length === 1) {
                 container = file_objs[0];
             } else {
@@ -426,7 +1012,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             }
 
             const file_uids = file_objs.map(file_obj => file_obj.uid);
-            await db_api.updateRecord('download_queue', {uid: download_uid}, {finished_step: true, finished: true, running: false, step_index: 3, percent_complete: 100, file_uids: file_uids, container: container});
+            const latest_download = await db_api.getRecord('download_queue', {uid: download_uid});
+            const playlist_item_progress = finalizePlaylistItemProgress(latest_download ? latest_download['playlist_item_progress'] : null, parsed_output);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {finished_step: true, finished: true, running: false, step_index: 3, percent_complete: 100, playlist_item_progress: playlist_item_progress, file_uids: file_uids, container: container});
+            await finalizePlaylistBatchContainer(download_uid);
             resolve(file_uids);
         }
     });
@@ -643,6 +1232,9 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     // Preserve safe args (notably -o/-f/-S) so progress prediction uses the real
     // filename and selected formats, but strip flags that write files/download data.
     const new_args = filterInfoLookupArgs(args);
+    if (url.includes('list=') && !new_args.includes('--ignore-errors')) {
+        new_args.push('--ignore-errors');
+    }
     new_args.push('--dump-json');
 
     // Only add cookies if they exist and args do not already provide them.
@@ -728,6 +1320,7 @@ async function checkDownloadPercent(download_uid) {
             basenames_by_directory.get(dir).add(file_basename);
         }
 
+        const basename_sizes = new Map();
         for (const [dir, file_basenames] of basenames_by_directory.entries()) {
             if (!fs.existsSync(dir)) continue;
             const file_basename_list = [...file_basenames];
@@ -739,29 +1332,31 @@ async function checkDownloadPercent(download_uid) {
                 continue;
             }
 
-            const matching_file_paths = [];
             for (let i = 0; i < dir_entries.length; i++) {
                 const dir_entry = dir_entries[i];
                 if (!dir_entry || typeof dir_entry.isDirectory !== 'function' || dir_entry.isDirectory()) continue;
 
                 const entry_name = dir_entry.name;
-                const entry_matches_progress_file = file_basename_list.some(file_basename => entry_name.includes(file_basename));
-                if (!entry_matches_progress_file) continue;
-                matching_file_paths.push(path.join(dir, entry_name));
-            }
+                const matched_basenames = file_basename_list.filter(file_basename => entry_name.includes(file_basename));
+                if (matched_basenames.length === 0) continue;
 
-            const matching_file_stats = await Promise.all(matching_file_paths.map(async matching_file_path => {
-                try {
-                    return await fs.stat(matching_file_path);
-                } catch (e) {
-                    return null;
-                }
-            }));
+                const matching_file_path = path.join(dir, entry_name);
+                const file_stats = await (async () => {
+                    try {
+                        return await fs.stat(matching_file_path);
+                    } catch (e) {
+                        return null;
+                    }
+                })();
 
-            for (let i = 0; i < matching_file_stats.length; i++) {
-                const file_stats = matching_file_stats[i];
-                if (file_stats && file_stats.size) {
-                    sum_size += file_stats.size;
+                if (!file_stats || !file_stats.size) continue;
+                sum_size += file_stats.size;
+
+                for (let j = 0; j < matched_basenames.length; j++) {
+                    const matched_basename = matched_basenames[j];
+                    const basename_key = `${dir}\u0000${matched_basename}`;
+                    const existing_size = basename_sizes.get(basename_key) || 0;
+                    basename_sizes.set(basename_key, existing_size + file_stats.size);
                 }
             }
         }
@@ -779,8 +1374,50 @@ async function checkDownloadPercent(download_uid) {
         const monotonic_percent = Math.max(Number.isFinite(current_percent) ? current_percent : 0, computed_percent);
         const percent_complete = monotonic_percent.toFixed(2);
 
+        let playlist_item_progress = null;
+        if (Array.isArray(latest_download['playlist_item_progress']) && latest_download['playlist_item_progress'].length > 1) {
+            playlist_item_progress = latest_download['playlist_item_progress'].map(item => {
+                if (!item || item['progress_path_index'] === undefined || item['progress_path_index'] === null) {
+                    return item;
+                }
+
+                const progress_path_index = asFiniteNumber(item['progress_path_index'], -1);
+                const file_path = files_to_check_for_progress[progress_path_index];
+                if (!file_path) return item;
+
+                const basename_key = `${path.dirname(file_path)}\u0000${path.basename(file_path)}`;
+                const observed_downloaded_size = asFiniteNumber(basename_sizes.get(basename_key), 0);
+                const previous_downloaded_size = asFiniteNumber(item['downloaded_size'], 0);
+                const downloaded_size = Math.max(previous_downloaded_size, observed_downloaded_size);
+
+                const expected_file_size = asFiniteNumber(item['expected_file_size'], 0);
+                let calculated_item_percent = expected_file_size > 0 ? (downloaded_size / expected_file_size) * 100 : 0;
+                calculated_item_percent = Math.min(100, Math.max(0, calculated_item_percent));
+
+                const previous_item_percent = asFiniteNumber(item['percent_complete'], 0);
+                const item_percent_complete = Math.max(previous_item_percent, calculated_item_percent);
+
+                let status = item['status'] || 'pending';
+                if (item_percent_complete >= 99.99) status = 'complete';
+                else if (downloaded_size > 0 && status !== 'complete') status = 'downloading';
+                else if (status !== 'complete') status = 'pending';
+
+                return {
+                    ...item,
+                    downloaded_size: downloaded_size,
+                    percent_complete: Number(item_percent_complete.toFixed(2)),
+                    status: status
+                };
+            });
+        }
+
+        const update_obj = {percent_complete: percent_complete};
+        if (playlist_item_progress) {
+            update_obj['playlist_item_progress'] = playlist_item_progress;
+        }
+
         // Avoid overwriting the final 100% once the completion update marks the download finished.
-        await db_api.updateRecord('download_queue', {uid: download_uid, finished: false}, {percent_complete: percent_complete});
+        await db_api.updateRecord('download_queue', {uid: download_uid, finished: false}, update_obj);
     } finally {
         active_progress_checks.delete(download_uid);
     }

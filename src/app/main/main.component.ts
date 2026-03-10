@@ -388,9 +388,21 @@ export class MainComponent implements OnInit {
       const url = this.sanitizeYouTubeWatchUrl(urls[i]);
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
         customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock).subscribe(res => {
-          this.current_download = res['download'];
-          this.downloads.push(res['download']);
-          this.download_uids.push(res['download']['uid']);
+          const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
+            ? res['downloads']
+            : (res['download'] ? [res['download']] : []);
+          if (queued_downloads.length === 0) {
+            this.downloadingfile = false;
+            this.current_download = null;
+            this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
+            return;
+          }
+
+          this.current_download = queued_downloads[0];
+          for (const queued_download of queued_downloads) {
+            this.downloads.push(queued_download);
+            this.download_uids.push(queued_download['uid']);
+          }
       }, () => { // can't access server
         this.downloadingfile = false;
         this.current_download = null;
