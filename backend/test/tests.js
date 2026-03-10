@@ -745,6 +745,10 @@ describe('youtube-dl', function() {
         this.timeout(300000);
         const original_fork = config_api.getConfigItem('ytdl_default_downloader');
         const latest_version = await youtubedl_api.getLatestUpdateVersion(original_fork);
+        if (!latest_version) {
+            logger.warn('Skipping latest version check: upstream tag API returned no version.');
+            this.skip();
+        }
         assert(latest_version > CONSTS.OUTDATED_YOUTUBEDL_VERSION);
     });
 
@@ -768,6 +772,12 @@ describe('youtube-dl', function() {
         const selected_fork = config_api.getConfigItem('ytdl_default_downloader');
         const current_details = fs.readJSONSync(CONSTS.DETAILS_BIN_PATH);
         const current_version = current_details[selected_fork].version;
+        const selected_binary_path = current_details[selected_fork].path;
+        const binary_existed_before = fs.existsSync(selected_binary_path);
+        if (!binary_existed_before) {
+            fs.ensureDirSync(path.dirname(selected_binary_path));
+            fs.writeFileSync(selected_binary_path, '');
+        }
 
         let update_called = false;
         const original_get_latest = youtubedl_api.getLatestUpdateVersion;
@@ -784,6 +794,9 @@ describe('youtube-dl', function() {
             assert(details_after[selected_fork].version === current_version);
             assert(!update_called);
         } finally {
+            if (!binary_existed_before && fs.existsSync(selected_binary_path)) {
+                fs.unlinkSync(selected_binary_path);
+            }
             youtubedl_api.getLatestUpdateVersion = original_get_latest;
             youtubedl_api.updateYoutubeDL = original_update;
         }
