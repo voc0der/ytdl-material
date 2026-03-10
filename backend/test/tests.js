@@ -731,6 +731,46 @@ describe('Downloader', function() {
         }
     });
 
+    it('Auto-chunks small exclusive playlists to fill concurrency cap workers', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_playlist_chunk_size = config_api.getConfigItem('ytdl_playlist_chunk_size');
+
+        youtubedl_api.runYoutubeDL = async () => {
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'Fixture Playlist',
+                        entries: Array.from({length: 10}, (_, i) => ({id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+            config_api.setConfigItem('ytdl_playlist_chunk_size', 20);
+
+            const created_downloads = await downloader_api.createDownloads(playlist_url, 'video', {...options, ui_uid: uuid()});
+            assert.strictEqual(created_downloads.length, 5);
+
+            const queue_downloads = await db_api.getRecords('download_queue');
+            queue_downloads.sort((a, b) => a.timestamp_start - b.timestamp_start);
+
+            const ranges = queue_downloads.map(download => {
+                const split_args = (download.options.additionalArgs || '').split(',,');
+                const playlist_items_index = split_args.indexOf('--playlist-items');
+                return playlist_items_index === -1 ? null : split_args[playlist_items_index + 1];
+            });
+            assert.deepStrictEqual(ranges, ['1-2', '3-4', '5-6', '7-8', '9-10']);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+            config_api.setConfigItem('ytdl_playlist_chunk_size', original_playlist_chunk_size);
+        }
+    });
+
     it('Respect max concurrent downloads sentinel -1', function() {
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit(-1, 0), false);
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit('-1', 5), false);
@@ -868,18 +908,30 @@ describe('Downloader', function() {
         try {
             config_api.setConfigItem('ytdl_max_concurrent_downloads', 3);
             assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 3);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 4);
 
             config_api.setConfigItem('ytdl_max_concurrent_downloads', 5);
             assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 2);
 
             config_api.setConfigItem('ytdl_max_concurrent_downloads', 99);
             assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 2);
 
             config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
             assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 5);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 2);
 
             config_api.setConfigItem('ytdl_max_concurrent_downloads', 0);
             assert.strictEqual(downloader_api.getExclusivePlaylistConcurrencyLimit(), 0);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 20);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 1);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, true), 10);
+
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 1, true), 1);
+            assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, false), 20);
         } finally {
             config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
         }

@@ -39,6 +39,7 @@ function parseDelimitedArgs(args_string = '') {
 function getConfiguredPlaylistChunkSize() {
     return Math.max(1, asFiniteNumber(config_api.getConfigItem('ytdl_playlist_chunk_size'), DEFAULT_PLAYLIST_CHUNK_SIZE));
 }
+exports.getConfiguredPlaylistChunkSize = getConfiguredPlaylistChunkSize;
 
 function hasArg(args = [], target_arg = '') {
     if (!Array.isArray(args) || !target_arg) return false;
@@ -461,6 +462,21 @@ function getExclusivePlaylistConcurrencyLimit() {
 }
 exports.getExclusivePlaylistConcurrencyLimit = getExclusivePlaylistConcurrencyLimit;
 
+function getEffectivePlaylistChunkSize(entry_count = 0, configured_chunk_size = DEFAULT_PLAYLIST_CHUNK_SIZE, is_exclusive_playlist = false) {
+    const normalized_chunk_size = Math.max(1, asFiniteNumber(configured_chunk_size, DEFAULT_PLAYLIST_CHUNK_SIZE));
+    const normalized_entry_count = Math.max(0, asFiniteNumber(entry_count, 0));
+    if (!is_exclusive_playlist || normalized_entry_count <= 1) return normalized_chunk_size;
+
+    const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
+    if (!Number.isFinite(exclusive_playlist_concurrency_limit) || exclusive_playlist_concurrency_limit <= 0) {
+        return normalized_chunk_size;
+    }
+
+    const chunk_size_needed_for_concurrency = Math.max(1, Math.ceil(normalized_entry_count / exclusive_playlist_concurrency_limit));
+    return Math.min(normalized_chunk_size, chunk_size_needed_for_concurrency);
+}
+exports.getEffectivePlaylistChunkSize = getEffectivePlaylistChunkSize;
+
 if (db_api.database_initialized) {
     exports.setupDownloads();
 } else {
@@ -519,7 +535,7 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
 
 exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
     const normalized_options = options && typeof options === 'object' ? options : {};
-    const playlist_chunk_size = getConfiguredPlaylistChunkSize();
+    const configured_playlist_chunk_size = getConfiguredPlaylistChunkSize();
     const should_mark_playlist_exclusive = shouldMarkPlaylistAsExclusive(url, normalized_options);
     const playlist_batch_id = should_mark_playlist_exclusive
         ? String(normalized_options.playlistBatchId || normalized_options.ui_uid || uuid())
@@ -538,13 +554,16 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
     }
 
     const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
-    if (!playlist_metadata || playlist_metadata.entry_count <= playlist_chunk_size) {
+    const effective_playlist_chunk_size = playlist_metadata
+        ? getEffectivePlaylistChunkSize(playlist_metadata.entry_count, configured_playlist_chunk_size, should_mark_playlist_exclusive)
+        : configured_playlist_chunk_size;
+    if (!playlist_metadata || playlist_metadata.entry_count <= effective_playlist_chunk_size) {
         const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
         const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
         return download ? [download] : [];
     }
 
-    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count, playlist_chunk_size);
+    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count, effective_playlist_chunk_size);
     if (chunk_ranges.length <= 1) {
         const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
         return download ? [download] : [];
