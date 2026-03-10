@@ -1043,6 +1043,108 @@ describe('Downloader', function() {
         }
     });
 
+    it('Concurrent batch finalization only creates one merged playlist container', async function() {
+        const batch_id = `playlist-batch-concurrent-merge-${uuid()}`;
+        const playlist_name = `Concurrent Batch Merge ${uuid().slice(0, 8)}`;
+        const created_download_uids = [];
+        const created_file_uids = [];
+        const original_create_playlist = files_api.createPlaylist;
+        let create_playlist_calls = 0;
+
+        files_api.createPlaylist = async (...args) => {
+            create_playlist_calls += 1;
+            return await original_create_playlist(...args);
+        };
+
+        try {
+            const now = Date.now();
+            const file_uids = [uuid(), uuid(), uuid(), uuid()];
+            for (let i = 0; i < file_uids.length; i++) {
+                const file_uid = file_uids[i];
+                created_file_uids.push(file_uid);
+                await db_api.insertRecordIntoTable('files', {
+                    uid: file_uid,
+                    id: `batch-concurrent-merge-file-${i + 1}`,
+                    title: `Batch Concurrent Merge File ${i + 1}`,
+                    thumbnailURL: `https://example.com/concurrent-thumb-${i + 1}.jpg`,
+                    isAudio: false,
+                    duration: 60,
+                    url: `https://example.com/concurrent-video-${i + 1}`,
+                    uploader: 'Batch Concurrent Merge',
+                    size: 1024,
+                    path: `/tmp/batch-concurrent-merge-${file_uid}.mp4`,
+                    upload_date: '2026-03-10',
+                    description: null,
+                    view_count: 0,
+                    registered: now + i
+                });
+            }
+
+            const chunk_download_1 = await downloader_api.createDownload(playlist_url, 'video', {
+                ui_uid: uuid(),
+                playlistExclusive: true,
+                playlistBatchId: batch_id,
+                playlistChunkRange: '1-2',
+                playlistChunkIndex: 1,
+                playlistChunkCount: 2,
+                playlistChunkTitle: playlist_name
+            });
+            const chunk_download_2 = await downloader_api.createDownload(playlist_url, 'video', {
+                ui_uid: uuid(),
+                playlistExclusive: true,
+                playlistBatchId: batch_id,
+                playlistChunkRange: '3-4',
+                playlistChunkIndex: 2,
+                playlistChunkCount: 2,
+                playlistChunkTitle: playlist_name
+            });
+            created_download_uids.push(chunk_download_1.uid, chunk_download_2.uid);
+
+            await db_api.updateRecord('download_queue', {uid: chunk_download_1.uid}, {
+                finished: true,
+                finished_step: true,
+                running: false,
+                step_index: 3,
+                file_uids: [file_uids[0], file_uids[1]],
+                container: null
+            });
+            await db_api.updateRecord('download_queue', {uid: chunk_download_2.uid}, {
+                finished: true,
+                finished_step: true,
+                running: false,
+                step_index: 3,
+                file_uids: [file_uids[2], file_uids[3]],
+                container: null
+            });
+
+            const [merged_container_1, merged_container_2] = await Promise.all([
+                downloader_api.finalizePlaylistBatchContainer(chunk_download_1.uid),
+                downloader_api.finalizePlaylistBatchContainer(chunk_download_2.uid)
+            ]);
+
+            assert(merged_container_1);
+            assert(merged_container_2);
+            assert.strictEqual(merged_container_1.id, merged_container_2.id);
+            assert.strictEqual(create_playlist_calls, 1);
+
+            const matching_playlists = await db_api.getRecords('playlists', {name: playlist_name});
+            assert.strictEqual(matching_playlists.length, 1);
+            assert.deepStrictEqual(matching_playlists[0].uids, file_uids);
+        } finally {
+            files_api.createPlaylist = original_create_playlist;
+            for (const download_uid of created_download_uids) {
+                await db_api.removeRecord('download_queue', {uid: download_uid});
+            }
+            const playlists_to_remove = await db_api.getRecords('playlists', {name: playlist_name});
+            for (const playlist of playlists_to_remove) {
+                await db_api.removeRecord('playlists', {id: playlist.id});
+            }
+            for (const file_uid of created_file_uids) {
+                await db_api.removeRecord('files', {uid: file_uid});
+            }
+        }
+    });
+
     it('Pause file', async function() {
         const returned_download = await downloader_api.createDownload(url, 'video', options);
         await downloader_api.pauseDownload(returned_download['uid']);

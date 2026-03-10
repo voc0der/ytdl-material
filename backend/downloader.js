@@ -17,6 +17,7 @@ const notifications_api = require('./notifications');
 const archive_api = require('./archive');
 
 const mutex = new Mutex();
+const playlist_batch_finalization_mutex = new Mutex();
 let should_check_downloads = true;
 
 const download_to_child_process = {};
@@ -220,6 +221,7 @@ function getDownloadContainerReference(container = null) {
 }
 
 async function finalizePlaylistBatchContainer(download_uid = null) {
+    return await playlist_batch_finalization_mutex.runExclusive(async () => {
     if (!download_uid) return null;
 
     const completed_download = await db_api.getRecord('download_queue', {uid: download_uid});
@@ -322,6 +324,7 @@ async function finalizePlaylistBatchContainer(download_uid = null) {
     }
 
     return final_container;
+    });
 }
 exports.finalizePlaylistBatchContainer = finalizePlaylistBatchContainer;
 
