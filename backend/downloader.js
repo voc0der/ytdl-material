@@ -86,6 +86,19 @@ function buildPlaylistChunkRanges(total_items, chunk_size = DEFAULT_PLAYLIST_CHU
 }
 exports.buildPlaylistChunkRanges = buildPlaylistChunkRanges;
 
+function formatChunkedPlaylistTitle(base_title = 'Playlist', chunk_range_label = null, chunk_index = null, chunk_count = null) {
+    const normalized_title = typeof base_title === 'string' && base_title.trim() !== '' ? base_title.trim() : 'Playlist';
+    if (!chunk_range_label) return normalized_title;
+
+    const normalized_chunk_index = Number(chunk_index);
+    const normalized_chunk_count = Number(chunk_count);
+    if (Number.isFinite(normalized_chunk_index) && Number.isFinite(normalized_chunk_count) && normalized_chunk_index > 0 && normalized_chunk_count > 0) {
+        return `${normalized_title} [Chunk ${normalized_chunk_index}/${normalized_chunk_count}: ${chunk_range_label}]`;
+    }
+
+    return `${normalized_title} [${chunk_range_label}]`;
+}
+
 function appendAdditionalArgs(existing_args_string = '', args_to_append = []) {
     const existing_args = parseDelimitedArgs(existing_args_string);
     const additional_args = (Array.isArray(args_to_append) ? args_to_append : []).filter(arg => arg !== undefined && arg !== null && String(arg).trim() !== '').map(arg => String(arg));
@@ -256,12 +269,12 @@ We use checkDownloads() to move downloads through the steps and call their respe
 
 */
 
-exports.createDownload = async (url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
+exports.createDownload = async (url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false, display_title = null) => {
     return await mutex.runExclusive(async () => {
         const download = {
             url: url,
             type: type,
-            title: '',
+            title: display_title || '',
             user_uid: user_uid,
             sub_id: sub_id,
             sub_name: sub_name,
@@ -295,7 +308,8 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
 
     const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
     if (!playlist_metadata || playlist_metadata.entry_count <= DEFAULT_PLAYLIST_CHUNK_SIZE) {
-        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
+        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
         return download ? [download] : [];
     }
 
@@ -310,6 +324,7 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
     const created_downloads = [];
     for (let i = 0; i < chunk_ranges.length; i++) {
         const chunk_range = chunk_ranges[i];
+        const chunk_title = formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist', chunk_range.label, i + 1, chunk_ranges.length);
         const chunk_options = {
             ...normalized_options,
             additionalArgs: appendAdditionalArgs(normalized_options.additionalArgs, ['--playlist-items', chunk_range.label]),
@@ -318,7 +333,7 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
             playlistChunkCount: chunk_ranges.length,
             playlistChunkTitle: playlist_metadata.title || null
         };
-        const chunk_download = await exports.createDownload(url, type, chunk_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        const chunk_download = await exports.createDownload(url, type, chunk_options, user_uid, sub_id, sub_name, prefetched_info, paused, chunk_title);
         if (chunk_download) created_downloads.push(chunk_download);
     }
 
@@ -541,7 +556,9 @@ exports.collectInfo = async (download_uid) => {
 
     const base_title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
     const chunk_range_label = options && options.playlistChunkRange ? options.playlistChunkRange : null;
-    const title = chunk_range_label ? `${base_title} [${chunk_range_label}]` : base_title;
+    const chunk_index = options && options.playlistChunkIndex ? options.playlistChunkIndex : null;
+    const chunk_count = options && options.playlistChunkCount ? options.playlistChunkCount : null;
+    const title = formatChunkedPlaylistTitle(base_title, chunk_range_label, chunk_index, chunk_count);
     const playlist_item_progress = buildPlaylistItemProgress(info);
 
     await db_api.updateRecord('download_queue', {uid: download_uid}, {args: args,

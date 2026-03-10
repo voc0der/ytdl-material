@@ -659,6 +659,10 @@ describe('Downloader', function() {
                 return playlist_items_index === -1 ? null : split_args[playlist_items_index + 1];
             });
             assert.deepStrictEqual(ranges, ['1-100', '101-200', '201-205']);
+            assert(queue_downloads[0].title.includes('Fixture Playlist'));
+            assert(queue_downloads[0].title.includes('Chunk 1/3'));
+            assert(queue_downloads[1].title.includes('Chunk 2/3'));
+            assert(queue_downloads[2].title.includes('Chunk 3/3'));
         } finally {
             youtubedl_api.runYoutubeDL = original_runYoutubeDL;
         }
