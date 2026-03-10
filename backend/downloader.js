@@ -22,6 +22,73 @@ let should_check_downloads = true;
 const download_to_child_process = {};
 const active_progress_checks = new Set();
 
+function asFiniteNumber(value, defaultValue = 0) {
+    const numeric_value = Number(value);
+    return Number.isFinite(numeric_value) ? numeric_value : defaultValue;
+}
+
+function buildPlaylistItemProgress(info = []) {
+    if (!Array.isArray(info) || info.length <= 1) return null;
+
+    return info.map((info_obj, index) => {
+        let expected_file_size = 0;
+        try {
+            expected_file_size = asFiniteNumber(utils.getExpectedFileSize(info_obj), 0);
+        } catch (e) {
+            expected_file_size = 0;
+        }
+
+        return {
+            index: index + 1,
+            id: info_obj && info_obj['id'] ? info_obj['id'] : null,
+            title: info_obj && info_obj['title'] ? info_obj['title'] : `Item ${index + 1}`,
+            expected_file_size: expected_file_size,
+            downloaded_size: 0,
+            percent_complete: 0,
+            status: 'pending',
+            progress_path_index: index
+        };
+    });
+}
+
+function finalizePlaylistItemProgress(existing_items = [], parsed_output = []) {
+    if (!Array.isArray(existing_items) || existing_items.length === 0) return null;
+
+    const completed_ids = new Set();
+    const completed_titles = new Set();
+    if (Array.isArray(parsed_output)) {
+        for (let i = 0; i < parsed_output.length; i++) {
+            const output_item = parsed_output[i];
+            if (!output_item) continue;
+            if (output_item['id']) completed_ids.add(output_item['id']);
+            if (output_item['title']) completed_titles.add(output_item['title']);
+        }
+    }
+
+    return existing_items.map(item => {
+        if (!item) return item;
+
+        const item_completed = (item.id && completed_ids.has(item.id))
+            || (item.title && completed_titles.has(item.title));
+
+        if (item_completed) {
+            const expected_file_size = asFiniteNumber(item.expected_file_size, 0);
+            const downloaded_size = Math.max(asFiniteNumber(item.downloaded_size, 0), expected_file_size);
+            return {
+                ...item,
+                downloaded_size: downloaded_size,
+                percent_complete: 100,
+                status: 'complete'
+            };
+        }
+
+        return {
+            ...item,
+            status: 'failed'
+        };
+    });
+}
+
 function hasReachedConcurrentDownloadLimit(maxConcurrentDownloads, runningDownloadsCount) {
     const normalizedLimit = Number(maxConcurrentDownloads);
     // `-1` (and other negative values) mean "no limit" in the UI/config.
@@ -75,6 +142,7 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
             finished_step: true,
             error: null,
             percent_complete: null,
+            playlist_item_progress: null,
             finished: false,
             timestamp_start: Date.now()
         };
@@ -250,6 +318,16 @@ exports.collectInfo = async (download_uid) => {
         return;
     }
 
+    info = info.filter(info_obj => info_obj && info_obj['_filename']);
+    if (info.length === 0) {
+        const error_message = `No downloadable items were found while retrieving info for URL ${url}`;
+        logger.error(error_message);
+        if (download_uid) {
+            await handleDownloadError(download_uid, error_message, 'info_retrieve_failed');
+        }
+        return;
+    }
+
     // in subscriptions we don't care if archive mode is enabled, but we already removed archived videos from subs by this point
     const useYoutubeDLArchive = config_api.getConfigItem('ytdl_use_youtubedl_archive');
     if (useYoutubeDLArchive && !options.ignoreArchive && info.length === 1) {
@@ -290,6 +368,8 @@ exports.collectInfo = async (download_uid) => {
     for (let info_obj of info) files_to_check_for_progress.push(utils.removeFileExtension(info_obj['_filename']));
 
     const title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const playlist_item_progress = buildPlaylistItemProgress(info);
+
     await db_api.updateRecord('download_queue', {uid: download_uid}, {args: args,
                                                                     finished_step: true,
                                                                     running: false,
@@ -297,6 +377,7 @@ exports.collectInfo = async (download_uid) => {
                                                                     files_to_check_for_progress: files_to_check_for_progress,
                                                                     expected_file_size: expected_file_size,
                                                                     title: title,
+                                                                    playlist_item_progress: playlist_item_progress,
                                                                     category: stripped_category,
                                                                     prefetched_info: null
                                                                 });
@@ -360,6 +441,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
                 if (!output_json) {
                     continue;
                 }
+                if (!output_json['_filename']) {
+                    logger.warn(`Skipping output item without _filename for download '${download_uid}'.`);
+                    continue;
+                }
 
                 // get filepath with no extension
                 const filepath_no_extension = utils.removeFileExtension(output_json['_filename']);
@@ -404,6 +489,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
 
                 // registers file in DB
                 const file_obj = await files_api.registerFileDB(full_file_path, type, download['user_uid'], category, download['sub_id'] ? download['sub_id'] : null, options.cropFileSettings);
+                if (!file_obj) {
+                    logger.warn(`Failed to register downloaded file '${full_file_path}' in DB.`);
+                    continue;
+                }
 
                 await archive_api.addToArchive(output_json['extractor'], output_json['id'], type, output_json['title'], download['user_uid'], download['sub_id']);
 
@@ -426,7 +515,9 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             }
 
             const file_uids = file_objs.map(file_obj => file_obj.uid);
-            await db_api.updateRecord('download_queue', {uid: download_uid}, {finished_step: true, finished: true, running: false, step_index: 3, percent_complete: 100, file_uids: file_uids, container: container});
+            const latest_download = await db_api.getRecord('download_queue', {uid: download_uid});
+            const playlist_item_progress = finalizePlaylistItemProgress(latest_download ? latest_download['playlist_item_progress'] : null, parsed_output);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {finished_step: true, finished: true, running: false, step_index: 3, percent_complete: 100, playlist_item_progress: playlist_item_progress, file_uids: file_uids, container: container});
             resolve(file_uids);
         }
     });
@@ -643,6 +734,9 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     // Preserve safe args (notably -o/-f/-S) so progress prediction uses the real
     // filename and selected formats, but strip flags that write files/download data.
     const new_args = filterInfoLookupArgs(args);
+    if (url.includes('list=') && !new_args.includes('--ignore-errors')) {
+        new_args.push('--ignore-errors');
+    }
     new_args.push('--dump-json');
 
     // Only add cookies if they exist and args do not already provide them.
@@ -728,6 +822,7 @@ async function checkDownloadPercent(download_uid) {
             basenames_by_directory.get(dir).add(file_basename);
         }
 
+        const basename_sizes = new Map();
         for (const [dir, file_basenames] of basenames_by_directory.entries()) {
             if (!fs.existsSync(dir)) continue;
             const file_basename_list = [...file_basenames];
@@ -739,29 +834,31 @@ async function checkDownloadPercent(download_uid) {
                 continue;
             }
 
-            const matching_file_paths = [];
             for (let i = 0; i < dir_entries.length; i++) {
                 const dir_entry = dir_entries[i];
                 if (!dir_entry || typeof dir_entry.isDirectory !== 'function' || dir_entry.isDirectory()) continue;
 
                 const entry_name = dir_entry.name;
-                const entry_matches_progress_file = file_basename_list.some(file_basename => entry_name.includes(file_basename));
-                if (!entry_matches_progress_file) continue;
-                matching_file_paths.push(path.join(dir, entry_name));
-            }
+                const matched_basenames = file_basename_list.filter(file_basename => entry_name.includes(file_basename));
+                if (matched_basenames.length === 0) continue;
 
-            const matching_file_stats = await Promise.all(matching_file_paths.map(async matching_file_path => {
-                try {
-                    return await fs.stat(matching_file_path);
-                } catch (e) {
-                    return null;
-                }
-            }));
+                const matching_file_path = path.join(dir, entry_name);
+                const file_stats = await (async () => {
+                    try {
+                        return await fs.stat(matching_file_path);
+                    } catch (e) {
+                        return null;
+                    }
+                })();
 
-            for (let i = 0; i < matching_file_stats.length; i++) {
-                const file_stats = matching_file_stats[i];
-                if (file_stats && file_stats.size) {
-                    sum_size += file_stats.size;
+                if (!file_stats || !file_stats.size) continue;
+                sum_size += file_stats.size;
+
+                for (let j = 0; j < matched_basenames.length; j++) {
+                    const matched_basename = matched_basenames[j];
+                    const basename_key = `${dir}\u0000${matched_basename}`;
+                    const existing_size = basename_sizes.get(basename_key) || 0;
+                    basename_sizes.set(basename_key, existing_size + file_stats.size);
                 }
             }
         }
@@ -779,8 +876,50 @@ async function checkDownloadPercent(download_uid) {
         const monotonic_percent = Math.max(Number.isFinite(current_percent) ? current_percent : 0, computed_percent);
         const percent_complete = monotonic_percent.toFixed(2);
 
+        let playlist_item_progress = null;
+        if (Array.isArray(latest_download['playlist_item_progress']) && latest_download['playlist_item_progress'].length > 1) {
+            playlist_item_progress = latest_download['playlist_item_progress'].map(item => {
+                if (!item || item['progress_path_index'] === undefined || item['progress_path_index'] === null) {
+                    return item;
+                }
+
+                const progress_path_index = asFiniteNumber(item['progress_path_index'], -1);
+                const file_path = files_to_check_for_progress[progress_path_index];
+                if (!file_path) return item;
+
+                const basename_key = `${path.dirname(file_path)}\u0000${path.basename(file_path)}`;
+                const observed_downloaded_size = asFiniteNumber(basename_sizes.get(basename_key), 0);
+                const previous_downloaded_size = asFiniteNumber(item['downloaded_size'], 0);
+                const downloaded_size = Math.max(previous_downloaded_size, observed_downloaded_size);
+
+                const expected_file_size = asFiniteNumber(item['expected_file_size'], 0);
+                let calculated_item_percent = expected_file_size > 0 ? (downloaded_size / expected_file_size) * 100 : 0;
+                calculated_item_percent = Math.min(100, Math.max(0, calculated_item_percent));
+
+                const previous_item_percent = asFiniteNumber(item['percent_complete'], 0);
+                const item_percent_complete = Math.max(previous_item_percent, calculated_item_percent);
+
+                let status = item['status'] || 'pending';
+                if (item_percent_complete >= 99.99) status = 'complete';
+                else if (downloaded_size > 0 && status !== 'complete') status = 'downloading';
+                else if (status !== 'complete') status = 'pending';
+
+                return {
+                    ...item,
+                    downloaded_size: downloaded_size,
+                    percent_complete: Number(item_percent_complete.toFixed(2)),
+                    status: status
+                };
+            });
+        }
+
+        const update_obj = {percent_complete: percent_complete};
+        if (playlist_item_progress) {
+            update_obj['playlist_item_progress'] = playlist_item_progress;
+        }
+
         // Avoid overwriting the final 100% once the completion update marks the download finished.
-        await db_api.updateRecord('download_queue', {uid: download_uid, finished: false}, {percent_complete: percent_complete});
+        await db_api.updateRecord('download_queue', {uid: download_uid, finished: false}, update_obj);
     } finally {
         active_progress_checks.delete(download_uid);
     }

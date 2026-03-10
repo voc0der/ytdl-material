@@ -35,14 +35,21 @@
       <ng-container matColumnDef="percent_complete">
         <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Progress">Progress</ng-container> </mat-header-cell>
         <mat-cell *matCellDef="let element">
-          @if (!element.error && element.step_index !== 2) {
+          @if (!element.error && !shouldShowPercentComplete(element)) {
             {{STEP_INDEX_TO_LABEL[element.step_index]}}
           }
-          @if (!element.error && element.step_index === 2) {
-            @if (element.percent_complete) {
-              {{+(element.percent_complete) > 100 ? '100' : element.percent_complete}}%
+          @if (!element.error && shouldShowPercentComplete(element)) {
+            @if (getNormalizedPercent(element)) {
+              @if (hasPlaylistItemProgress(element)) {
+                <button class="playlist-progress-button" mat-button (click)="showPlaylistProgress(element); $event.stopPropagation()">
+                  {{getNormalizedPercent(element)}}%
+                </button>
+              }
+              @if (!hasPlaylistItemProgress(element)) {
+                {{getNormalizedPercent(element)}}%
+              }
             }
-            @if (!element.percent_complete) {
+            @if (!getNormalizedPercent(element)) {
               N/A
             }
           }

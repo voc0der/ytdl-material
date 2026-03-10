@@ -10,6 +10,7 @@ import { MatSort } from '@angular/material/sort';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
+import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 
 @Component({
     selector: 'app-downloads',
@@ -297,7 +298,6 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   showError(download: Download): void {
-    console.log(download)
     const copyToClipboardEmitter = new EventEmitter<boolean>();
     this.dialog.open(ConfirmDialogComponent, {
       data: {
@@ -318,6 +318,36 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     });
   }
 
+  shouldShowPercentComplete(download: Download): boolean {
+    if (!download || download.error) return false;
+    if (download.step_index === 2) return true;
+    return download.finished && this.hasPlaylistItemProgress(download);
+  }
+
+  getNormalizedPercent(download: Download): string | null {
+    if (!download) return null;
+    if (download.finished) return '100.00';
+
+    const numeric_percent = Number(download['percent_complete']);
+    if (!Number.isFinite(numeric_percent)) return null;
+    return Math.min(100, Math.max(0, numeric_percent)).toFixed(2);
+  }
+
+  hasPlaylistItemProgress(download: Download): boolean {
+    const playlist_item_progress = (download as DownloadWithPlaylistProgress)['playlist_item_progress'];
+    return Array.isArray(playlist_item_progress) && playlist_item_progress.length > 1;
+  }
+
+  showPlaylistProgress(download: Download): void {
+    if (!this.hasPlaylistItemProgress(download)) return;
+
+    this.dialog.open(PlaylistDownloadProgressDialogComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: {download: download as DownloadWithPlaylistProgress}
+    });
+  }
+
   recalculateColumns() {
     if (this.innerWidth < 650) this.displayedColumns = this.displayedColumnsSmall;
     else                       this.displayedColumns = this.displayedColumnsBig;
@@ -335,4 +365,19 @@ interface DownloadAction {
   show: (download: Download) => boolean,
   icon: string,
   loading?: (download: Download) => boolean
+}
+
+interface PlaylistDownloadProgressItem {
+  index: number,
+  id?: string | null,
+  title: string,
+  expected_file_size: number,
+  downloaded_size: number,
+  percent_complete: number,
+  status: string,
+  progress_path_index?: number
+}
+
+interface DownloadWithPlaylistProgress extends Download {
+  playlist_item_progress?: PlaylistDownloadProgressItem[] | null
 }

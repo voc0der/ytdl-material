@@ -99,7 +99,11 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             logger.debug(`Error in callback: ${e.message}`);
             if (e.stdout) logger.debug(`stdout from failed process: ${e.stdout.substring(0, 500)}`);
             if (e.stderr) logger.debug(`stderr from failed process: ${e.stderr.substring(0, 500)}`);
-            resolve({parsed_output: null, err: e})
+
+            // Preserve partial JSON output from playlist runs where some entries fail.
+            const fallback_output_lines = e.stdout ? e.stdout.trim().split(/\r?\n/) : null;
+            const parsed_output = fallback_output_lines ? utils.parseOutputJSON(fallback_output_lines, e) : null;
+            resolve({parsed_output: parsed_output, err: e})
         }
     });
     return {child_process, callback}
