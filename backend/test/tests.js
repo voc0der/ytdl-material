@@ -619,6 +619,80 @@ describe('Downloader', function() {
         assert(returned_download);
     });
 
+    it('Build playlist chunk ranges', function() {
+        const ranges = downloader_api.buildPlaylistChunkRanges(205, 100, 20);
+        assert.deepStrictEqual(ranges.map(range => range.label), ['1-100', '101-200', '201-205']);
+
+        const capped_ranges = downloader_api.buildPlaylistChunkRanges(5000, 100, 20);
+        assert.strictEqual(capped_ranges.length, 20);
+        assert.strictEqual(capped_ranges[0].label, '1-250');
+        assert.strictEqual(capped_ranges[19].label, '4751-5000');
+    });
+
+    it('Auto-chunks large playlist requests into multiple downloads', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        let runYoutubeDL_calls = 0;
+        youtubedl_api.runYoutubeDL = async () => {
+            runYoutubeDL_calls += 1;
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'Fixture Playlist',
+                        entries: Array.from({length: 205}, (_, i) => ({id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            const created_downloads = await downloader_api.createDownloads(playlist_url, 'video', {...options, ui_uid: uuid()});
+            assert.strictEqual(runYoutubeDL_calls, 1);
+            assert.strictEqual(created_downloads.length, 3);
+
+            const queue_downloads = await db_api.getRecords('download_queue');
+            queue_downloads.sort((a, b) => a.timestamp_start - b.timestamp_start);
+
+            const ranges = queue_downloads.map(download => {
+                const split_args = (download.options.additionalArgs || '').split(',,');
+                const playlist_items_index = split_args.indexOf('--playlist-items');
+                return playlist_items_index === -1 ? null : split_args[playlist_items_index + 1];
+            });
+            assert.deepStrictEqual(ranges, ['1-100', '101-200', '201-205']);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
+    it('Skips auto-chunking when playlist range args are already provided', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        let runYoutubeDL_called = false;
+        youtubedl_api.runYoutubeDL = async () => {
+            runYoutubeDL_called = true;
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'Fixture Playlist',
+                        entries: Array.from({length: 205}, (_, i) => ({id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            const created_downloads = await downloader_api.createDownloads(playlist_url, 'video', {
+                ...options,
+                ui_uid: uuid(),
+                additionalArgs: '--playlist-items,,1-25'
+            });
+            assert.strictEqual(created_downloads.length, 1);
+            assert.strictEqual(runYoutubeDL_called, false);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
     it('Respect max concurrent downloads sentinel -1', function() {
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit(-1, 0), false);
         assert.strictEqual(downloader_api.hasReachedConcurrentDownloadLimit('-1', 5), false);

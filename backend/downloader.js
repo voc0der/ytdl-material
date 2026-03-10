@@ -21,10 +21,142 @@ let should_check_downloads = true;
 
 const download_to_child_process = {};
 const active_progress_checks = new Set();
+const DEFAULT_PLAYLIST_CHUNK_SIZE = Math.max(1, Number(process.env.YTDL_PLAYLIST_CHUNK_SIZE) || 100);
+const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
+const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
 
 function asFiniteNumber(value, defaultValue = 0) {
     const numeric_value = Number(value);
     return Number.isFinite(numeric_value) ? numeric_value : defaultValue;
+}
+
+function parseDelimitedArgs(args_string = '') {
+    if (typeof args_string !== 'string' || args_string.trim() === '') return [];
+    return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
+}
+
+function hasArg(args = [], target_arg = '') {
+    if (!Array.isArray(args) || !target_arg) return false;
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (typeof arg !== 'string') continue;
+        if (arg === target_arg || arg.startsWith(`${target_arg}=`)) return true;
+    }
+    return false;
+}
+
+function hasPlaylistRangeArgs(args = []) {
+    if (!Array.isArray(args) || args.length === 0) return false;
+    return PLAYLIST_RANGE_ARG_KEYS.some(range_arg_key => hasArg(args, range_arg_key));
+}
+
+function isLikelyPlaylistURL(url = '') {
+    if (typeof url !== 'string' || url.trim() === '') return false;
+    try {
+        const parsed_url = new URL(url);
+        if (parsed_url.searchParams.has('list')) return true;
+        return parsed_url.pathname.includes('/playlist');
+    } catch (e) {
+        return url.includes('list=') || url.includes('/playlist');
+    }
+}
+
+function buildPlaylistChunkRanges(total_items, chunk_size = DEFAULT_PLAYLIST_CHUNK_SIZE, max_chunks = MAX_AUTOMATIC_PLAYLIST_CHUNKS) {
+    const normalized_total_items = Math.max(0, asFiniteNumber(total_items, 0));
+    if (!normalized_total_items) return [];
+
+    let normalized_chunk_size = Math.max(1, asFiniteNumber(chunk_size, DEFAULT_PLAYLIST_CHUNK_SIZE));
+    const normalized_max_chunks = Math.max(1, asFiniteNumber(max_chunks, MAX_AUTOMATIC_PLAYLIST_CHUNKS));
+
+    const initial_chunk_count = Math.ceil(normalized_total_items / normalized_chunk_size);
+    if (initial_chunk_count > normalized_max_chunks) {
+        normalized_chunk_size = Math.ceil(normalized_total_items / normalized_max_chunks);
+    }
+
+    const ranges = [];
+    for (let start = 1; start <= normalized_total_items; start += normalized_chunk_size) {
+        const end = Math.min(normalized_total_items, start + normalized_chunk_size - 1);
+        ranges.push({
+            start: start,
+            end: end,
+            label: `${start}-${end}`
+        });
+    }
+    return ranges;
+}
+exports.buildPlaylistChunkRanges = buildPlaylistChunkRanges;
+
+function appendAdditionalArgs(existing_args_string = '', args_to_append = []) {
+    const existing_args = parseDelimitedArgs(existing_args_string);
+    const additional_args = (Array.isArray(args_to_append) ? args_to_append : []).filter(arg => arg !== undefined && arg !== null && String(arg).trim() !== '').map(arg => String(arg));
+    return existing_args.concat(additional_args).join(',,');
+}
+
+function shouldAutoChunkPlaylist(url, options = {}) {
+    if (!isLikelyPlaylistURL(url)) return false;
+    if (!options || typeof options !== 'object') return true;
+    if (typeof options.customArgs === 'string' && options.customArgs.trim() !== '') return false;
+
+    const additional_args = parseDelimitedArgs(options.additionalArgs);
+    if (additional_args.length === 0) return true;
+
+    if (hasArg(additional_args, '--no-playlist')) return false;
+    if (hasPlaylistRangeArgs(additional_args)) return false;
+
+    return true;
+}
+
+async function getPlaylistChunkingMetadata(url, options = {}) {
+    const probe_args = ['--flat-playlist', '--dump-single-json', '--ignore-errors'];
+    if (url.includes('list=') && !probe_args.includes('--yes-playlist')) {
+        probe_args.push('--yes-playlist');
+    }
+
+    if (options.youtubeUsername && options.youtubePassword) {
+        probe_args.push('--username', options.youtubeUsername, '--password', options.youtubePassword);
+    }
+
+    const cookies_path = path.join(__dirname, 'appdata', 'cookies.txt');
+    if (!hasArg(probe_args, '--cookies') && await fs.pathExists(cookies_path)) {
+        probe_args.push('--cookies', path.join('appdata', 'cookies.txt'));
+    }
+
+    logger.debug(`Probing playlist metadata for automatic chunking: ${url}`);
+    try {
+        const run_result = await youtubedl_api.runYoutubeDL(url, probe_args);
+        if (!run_result || !run_result.callback) return null;
+        const {parsed_output} = await run_result.callback;
+        if (!Array.isArray(parsed_output) || parsed_output.length === 0) return null;
+
+        let playlist_root = parsed_output.find(item => item && Array.isArray(item['entries']));
+        if (!playlist_root && parsed_output.length === 1) playlist_root = parsed_output[0];
+
+        if (playlist_root && Array.isArray(playlist_root['entries'])) {
+            const entries = playlist_root['entries'];
+            const valid_entries = entries.filter(entry => !!entry).length;
+            const fallback_entry_count = asFiniteNumber(playlist_root['playlist_count'], 0);
+            const entry_count = valid_entries || fallback_entry_count;
+            if (!entry_count) return null;
+            return {
+                entry_count: entry_count,
+                title: playlist_root['title'] || playlist_root['playlist_title'] || playlist_root['playlist'] || null
+            };
+        }
+
+        // Fallback: when yt-dlp returns one JSON object per entry.
+        if (parsed_output.length > 1) {
+            const first = parsed_output[0] || {};
+            return {
+                entry_count: parsed_output.filter(entry => !!entry).length,
+                title: first['playlist_title'] || first['playlist'] || null
+            };
+        }
+    } catch (e) {
+        logger.warn(`Failed to probe playlist metadata for automatic chunking: ${url}`);
+        logger.debug(e);
+    }
+
+    return null;
 }
 
 function buildPlaylistItemProgress(info = []) {
@@ -151,6 +283,46 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
         should_check_downloads = true;
         return download;
     });
+}
+
+exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
+    const normalized_options = options && typeof options === 'object' ? options : {};
+
+    if (!shouldAutoChunkPlaylist(url, normalized_options)) {
+        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        return download ? [download] : [];
+    }
+
+    const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
+    if (!playlist_metadata || playlist_metadata.entry_count <= DEFAULT_PLAYLIST_CHUNK_SIZE) {
+        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        return download ? [download] : [];
+    }
+
+    const chunk_ranges = buildPlaylistChunkRanges(playlist_metadata.entry_count);
+    if (chunk_ranges.length <= 1) {
+        const download = await exports.createDownload(url, type, normalized_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        return download ? [download] : [];
+    }
+
+    logger.info(`Auto-chunking playlist download for URL '${url}' into ${chunk_ranges.length} chunks (${playlist_metadata.entry_count} items).`);
+
+    const created_downloads = [];
+    for (let i = 0; i < chunk_ranges.length; i++) {
+        const chunk_range = chunk_ranges[i];
+        const chunk_options = {
+            ...normalized_options,
+            additionalArgs: appendAdditionalArgs(normalized_options.additionalArgs, ['--playlist-items', chunk_range.label]),
+            playlistChunkRange: chunk_range.label,
+            playlistChunkIndex: i + 1,
+            playlistChunkCount: chunk_ranges.length,
+            playlistChunkTitle: playlist_metadata.title || null
+        };
+        const chunk_download = await exports.createDownload(url, type, chunk_options, user_uid, sub_id, sub_name, prefetched_info, paused);
+        if (chunk_download) created_downloads.push(chunk_download);
+    }
+
+    return created_downloads;
 }
 
 exports.pauseDownload = async (download_uid) => {
@@ -367,7 +539,9 @@ exports.collectInfo = async (download_uid) => {
     // store info in download for future use
     for (let info_obj of info) files_to_check_for_progress.push(utils.removeFileExtension(info_obj['_filename']));
 
-    const title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const base_title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const chunk_range_label = options && options.playlistChunkRange ? options.playlistChunkRange : null;
+    const title = chunk_range_label ? `${base_title} [${chunk_range_label}]` : base_title;
     const playlist_item_progress = buildPlaylistItemProgress(info);
 
     await db_api.updateRecord('download_queue', {uid: download_uid}, {args: args,

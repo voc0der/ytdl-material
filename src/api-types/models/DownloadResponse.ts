@@ -6,4 +6,5 @@ import type { Download } from './Download';
 
 export type DownloadResponse = {
     download?: Download;
+    downloads?: Array<Download>;
 };
