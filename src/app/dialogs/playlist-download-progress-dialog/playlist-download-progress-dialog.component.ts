@@ -16,7 +16,11 @@ export class PlaylistDownloadProgressDialogComponent implements OnInit {
   constructor(@Inject(MAT_DIALOG_DATA) public data: PlaylistDownloadProgressDialogData) { }
 
   ngOnInit(): void {
-    this.download = this.data && this.data.download ? this.data.download : null;
+    this.updateDownload(this.data && this.data.download ? this.data.download : null);
+  }
+
+  updateDownload(download: DownloadWithPlaylistProgress): void {
+    this.download = download;
 
     const incoming_items = this.download && Array.isArray(this.download.playlist_item_progress)
       ? this.download.playlist_item_progress

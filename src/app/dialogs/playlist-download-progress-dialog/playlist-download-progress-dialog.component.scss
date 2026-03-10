@@ -1,5 +1,11 @@
+:host {
+    color: inherit;
+    display: block;
+}
+
 .overall-progress {
     align-items: center;
+    color: inherit;
     display: flex;
     justify-content: space-between;
     margin-bottom: 12px;
@@ -17,7 +23,12 @@
 .playlist-progress-item {
     background: rgba(0, 0, 0, 0.03);
     border-radius: 8px;
+    color: inherit;
     padding: 8px;
+}
+
+:host-context(.dark-theme) .playlist-progress-item {
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .playlist-progress-item-header {
@@ -28,10 +39,11 @@
 }
 
 .playlist-progress-item-index {
-    color: rgba(0, 0, 0, 0.6);
+    color: inherit;
     flex-shrink: 0;
     font-size: 12px;
     min-width: 34px;
+    opacity: 0.75;
 }
 
 .playlist-progress-item-title {
@@ -42,13 +54,15 @@
 }
 
 .playlist-progress-item-status {
-    color: rgba(0, 0, 0, 0.7);
+    color: inherit;
     flex-shrink: 0;
     font-size: 12px;
+    opacity: 0.85;
 }
 
 .playlist-progress-item-bar {
     align-items: center;
+    color: inherit;
     display: grid;
     gap: 8px;
     grid-template-columns: 1fr auto;

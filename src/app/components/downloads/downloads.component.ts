@@ -4,7 +4,7 @@ import { trigger, transition, animateChild, stagger, query, style, animate } fro
 import { Router } from '@angular/router';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MatSort } from '@angular/material/sort';
 import { Clipboard } from '@angular/cdk/clipboard';
@@ -47,6 +47,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   displayedColumnsSmall: string[] = ['title', 'percent_complete', 'actions'];
   displayedColumns: string[] = this.displayedColumnsBig;
   dataSource = new MatTableDataSource<Download>([]);
+  playlist_progress_dialog_ref: MatDialogRef<PlaylistDownloadProgressDialogComponent> = null;
+  playlist_progress_dialog_uid: string = null;
 
   // The purpose of this is to reduce code reuse for displaying these actions as icons or in a menu
   downloadActions: DownloadAction[] = [
@@ -141,6 +143,9 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.interval_id) { clearInterval(this.interval_id) }
+    if (this.playlist_progress_dialog_ref) {
+      this.playlist_progress_dialog_ref.close();
+    }
   }
 
   getCurrentDownloads(): void {
@@ -151,6 +156,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
         this.dataSource.data = this.downloads;
         this.dataSource.paginator = this.paginator;
         this.dataSource.sort = this.sort;
+        this.refreshOpenPlaylistProgressDialog();
         this.paused_download_exists = !!this.downloads.find(download => download['paused'] && !download['error']);
         this.running_download_exists = !!this.downloads.find(download => !download['paused'] && !download['finished']);
       }
@@ -341,11 +347,37 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   showPlaylistProgress(download: Download): void {
     if (!this.hasPlaylistItemProgress(download)) return;
 
-    this.dialog.open(PlaylistDownloadProgressDialogComponent, {
+    if (this.playlist_progress_dialog_ref && this.dialog.openDialogs.includes(this.playlist_progress_dialog_ref)) {
+      this.playlist_progress_dialog_ref.close();
+    }
+
+    const dialog_ref = this.dialog.open(PlaylistDownloadProgressDialogComponent, {
       width: '720px',
       maxWidth: '95vw',
       data: {download: download as DownloadWithPlaylistProgress}
     });
+    this.playlist_progress_dialog_ref = dialog_ref;
+    this.playlist_progress_dialog_uid = download.uid;
+
+    dialog_ref.afterClosed().pipe(take(1)).subscribe(() => {
+      if (this.playlist_progress_dialog_ref === dialog_ref) {
+        this.playlist_progress_dialog_ref = null;
+        this.playlist_progress_dialog_uid = null;
+      }
+    });
+  }
+
+  private refreshOpenPlaylistProgressDialog(): void {
+    if (!this.playlist_progress_dialog_ref || !this.playlist_progress_dialog_uid) return;
+    if (!this.dialog.openDialogs.includes(this.playlist_progress_dialog_ref)) {
+      this.playlist_progress_dialog_ref = null;
+      this.playlist_progress_dialog_uid = null;
+      return;
+    }
+
+    const matching_download = this.downloads.find(download => download.uid === this.playlist_progress_dialog_uid);
+    if (!matching_download) return;
+    this.playlist_progress_dialog_ref.componentInstance.updateDownload(matching_download as DownloadWithPlaylistProgress);
   }
 
   recalculateColumns() {
