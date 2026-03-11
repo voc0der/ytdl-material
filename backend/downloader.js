@@ -26,6 +26,9 @@ const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
 const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
 const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
+const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
+const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
+let filename_sanitization_non_ytdlp_warned = false;
 
 function asFiniteNumber(value, defaultValue = 0) {
     const numeric_value = Number(value);
@@ -51,6 +54,52 @@ function hasArg(args = [], target_arg = '') {
     }
     return false;
 }
+
+function escapeRegexCharacterClassChar(char = '') {
+    return String(char).replace(/[\\\]\^-]/g, '\\$&');
+}
+
+function buildFilenameSanitizationRegexChars(invalid_chars = '') {
+    if (typeof invalid_chars !== 'string') return null;
+    const unique_chars = [];
+    for (const char of invalid_chars) {
+        if (!unique_chars.includes(char)) unique_chars.push(char);
+    }
+    if (unique_chars.length === 0) return null;
+    return `[${unique_chars.map(char => escapeRegexCharacterClassChar(char)).join('')}]`;
+}
+
+function appendFilenameSanitizationArgs(download_args = [], default_downloader = '') {
+    if (!Array.isArray(download_args)) return download_args;
+    const replace_invalid_chars = !!config_api.getConfigItem('ytdl_replace_invalid_filename_chars');
+    if (!replace_invalid_chars) return download_args;
+
+    if (hasArg(download_args, '--replace-in-metadata') || hasArg(download_args, '--windows-filenames') || hasArg(download_args, '--restrict-filenames')) {
+        return download_args;
+    }
+
+    if (default_downloader === 'yt-dlp') {
+        const configured_invalid_chars = config_api.getConfigItem('ytdl_invalid_filename_chars');
+        const invalid_chars = (typeof configured_invalid_chars === 'string' && configured_invalid_chars.length > 0) ? configured_invalid_chars : DEFAULT_INVALID_FILENAME_CHARS;
+        const invalid_chars_regex = buildFilenameSanitizationRegexChars(invalid_chars);
+        if (!invalid_chars_regex) return download_args;
+
+        const configured_replacement = config_api.getConfigItem('ytdl_invalid_filename_replacement');
+        const replacement = configured_replacement === undefined || configured_replacement === null ? '' : String(configured_replacement);
+        download_args.push('--replace-in-metadata', METADATA_FIELDS_FOR_FILENAME_SANITIZATION, invalid_chars_regex, replacement);
+        return download_args;
+    }
+
+    // youtube-dl/youtube-dlc do not support configurable metadata replacements like yt-dlp.
+    download_args.push('--windows-filenames');
+    if (!filename_sanitization_non_ytdlp_warned) {
+        logger.warn('Custom filename character replacement requires yt-dlp. Falling back to --windows-filenames.');
+        filename_sanitization_non_ytdlp_warned = true;
+    }
+
+    return download_args;
+}
+exports.appendFilenameSanitizationArgs = appendFilenameSanitizationArgs;
 
 function hasPlaylistRangeArgs(args = []) {
     if (!Array.isArray(args) || args.length === 0) return false;
@@ -1132,6 +1181,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         if (options.additionalArgs && options.additionalArgs !== '') {
             downloadConfig = utils.injectArgs(downloadConfig, options.additionalArgs.split(',,'));
         }
+
+        downloadConfig = appendFilenameSanitizationArgs(downloadConfig, default_downloader);
 
         const sponsorBlockEnabled = config_api.getConfigItem('ytdl_use_sponsorblock_api');
         if (default_downloader === 'yt-dlp' && sponsorBlockEnabled) {

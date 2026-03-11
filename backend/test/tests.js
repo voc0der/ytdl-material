@@ -557,6 +557,32 @@ describe('Downloader', function() {
         assert(!captured_args.includes('--no-simulate'));
     });
 
+    it('Generate args supports configured invalid filename replacement', async function() {
+        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        const original_replace_invalid = config_api.getConfigItem('ytdl_replace_invalid_filename_chars');
+        const original_invalid_chars = config_api.getConfigItem('ytdl_invalid_filename_chars');
+        const original_replacement = config_api.getConfigItem('ytdl_invalid_filename_replacement');
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            config_api.setConfigItem('ytdl_replace_invalid_filename_chars', true);
+            config_api.setConfigItem('ytdl_invalid_filename_chars', '|');
+            config_api.setConfigItem('ytdl_invalid_filename_replacement', '_');
+
+            const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
+            const replace_index = args.indexOf('--replace-in-metadata');
+            assert(replace_index !== -1);
+            assert.strictEqual(args[replace_index + 1], 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist');
+            assert.strictEqual(args[replace_index + 2], '[|]');
+            assert.strictEqual(args[replace_index + 3], '_');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
+            config_api.setConfigItem('ytdl_replace_invalid_filename_chars', original_replace_invalid);
+            config_api.setConfigItem('ytdl_invalid_filename_chars', original_invalid_chars);
+            config_api.setConfigItem('ytdl_invalid_filename_replacement', original_replacement);
+        }
+    });
+
     it('Download file', async function() {
         this.timeout(300000);
         await downloader_api.setupDownloads();
