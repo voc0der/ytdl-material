@@ -14,7 +14,8 @@
       "include_thumbnail": true,
       "include_metadata": true,
       "max_concurrent_downloads": 0,
-      "download_rate_limit": ""
+      "download_rate_limit": "",
+      "playlist_chunk_size": 20
     },
     "Extra": {
       "title_top": "ytdl-material",
@@ -52,7 +53,11 @@
       "telegram_webhook_proxy": "",
       "webhook_URL": "",
       "discord_webhook_URL": "",
-      "slack_webhook_URL": ""
+      "slack_webhook_URL": "",
+      "enable_documentation_api": false,
+      "use_custom_webhook_template": false,
+      "custom_webhook_title_template": "{{event_name}}",
+      "custom_webhook_body_template": "{{event_body}}"
     },
     "Themes": {
       "default_theme": "default",
