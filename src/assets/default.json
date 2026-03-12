@@ -13,6 +13,9 @@
       "include_thumbnail": false,
       "include_metadata": true,
       "default_file_output": "",
+      "replace_invalid_filename_chars": false,
+      "invalid_filename_chars": "\\/:*?\"<>|",
+      "invalid_filename_replacement": "_",
       "max_concurrent_downloads": 5,
       "playlist_chunk_size": 20,
       "download_rate_limit": ""

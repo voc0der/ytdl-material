@@ -426,6 +426,9 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
         downloadConfig.push(...customArgsArray);
     }
 
+    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+    downloadConfig = downloader_api.appendFilenameSanitizationArgs(downloadConfig, default_downloader);
+
     if (sub.timerange && !redownload) {
         downloadConfig.push('--dateafter', sub.timerange);
     }
@@ -448,7 +451,6 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
         downloadConfig.push('-r', rate_limit);
     }
 
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
     if (default_downloader === 'yt-dlp') {
         downloadConfig.push('--no-clean-info-json');
         // Note: yt-dlp-ejs is installed via pip and will be automatically detected

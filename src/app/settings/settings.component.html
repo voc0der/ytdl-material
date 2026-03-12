@@ -119,6 +119,25 @@
                 </mat-hint>
               </mat-form-field>
             </div>
+            <div class="col-12 mt-2">
+              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['replace_invalid_filename_chars']">
+                <ng-container i18n="Replace invalid filename characters setting">Replace invalid filename characters</ng-container>
+              </mat-checkbox>
+            </div>
+            <div class="col-12 mt-2">
+              <mat-form-field class="text-field" color="accent">
+                <mat-label i18n="Invalid filename characters">Invalid filename characters</mat-label>
+                <input matInput [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_chars']">
+                <mat-hint><ng-container i18n="Invalid filename characters input hint">Characters to replace before writing filenames. Default: \/:*?"&lt;&gt;|</ng-container></mat-hint>
+              </mat-form-field>
+            </div>
+            <div class="col-12 mt-2 mb-1">
+              <mat-form-field class="text-field" color="accent">
+                <mat-label i18n="Filename replacement character">Filename replacement character</mat-label>
+                <input matInput [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_replacement']">
+                <mat-hint><ng-container i18n="Filename replacement character input hint">Replacement text used for each invalid character (yt-dlp only).</ng-container></mat-hint>
+              </mat-form-field>
+            </div>
             <div class="col-12 mt-4 mb-5">
               <mat-form-field class="text-field" style="margin-right: 12px;" color="accent">
                 <mat-label i18n="Global custom args">Global custom args</mat-label>

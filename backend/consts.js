@@ -34,6 +34,18 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_default_file_output',
         'path': 'YtdlMaterial.Downloader.default_file_output'
     },
+    'ytdl_replace_invalid_filename_chars': {
+        'key': 'ytdl_replace_invalid_filename_chars',
+        'path': 'YtdlMaterial.Downloader.replace_invalid_filename_chars'
+    },
+    'ytdl_invalid_filename_chars': {
+        'key': 'ytdl_invalid_filename_chars',
+        'path': 'YtdlMaterial.Downloader.invalid_filename_chars'
+    },
+    'ytdl_invalid_filename_replacement': {
+        'key': 'ytdl_invalid_filename_replacement',
+        'path': 'YtdlMaterial.Downloader.invalid_filename_replacement'
+    },
     'ytdl_use_youtubedl_archive': {
         'key': 'ytdl_use_youtubedl_archive',
         'path': 'YtdlMaterial.Downloader.use_youtubedl_archive'
