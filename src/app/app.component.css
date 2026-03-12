@@ -52,6 +52,7 @@
     max-height: 55vh;
     overflow-y: auto;
     padding: 8px 10px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
 }
 
 .active-downloads-empty-state {
@@ -78,6 +79,7 @@
     border: 1px solid rgba(127, 127, 127, 0.25);
     border-radius: 8px;
     padding: 8px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
 }
 
 .active-download-item-top-row {
@@ -104,10 +106,26 @@
     width: 30px;
     height: 30px;
     padding: 3px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
+}
+
+.active-download-actions .mat-mdc-icon-button mat-icon {
+    color: inherit;
 }
 
 .active-download-progress-label {
     font-size: 12px;
     margin-bottom: 6px;
     opacity: 0.8;
+}
+
+:host-context(.dark-theme) .active-download-item {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+:host-context(.light-theme) .active-download-item,
+:host-context(.default-theme) .active-download-item {
+    border-color: rgba(0, 0, 0, 0.14);
+    background: rgba(0, 0, 0, 0.015);
 }
