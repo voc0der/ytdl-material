@@ -119,8 +119,8 @@
 
 .chapter-dropdown-trigger {
     align-items: center;
-    background: rgba(18, 24, 32, 0.95);
-    border: 1px solid rgba(140, 160, 180, 0.25);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 999px;
     color: inherit;
     cursor: pointer;
@@ -132,7 +132,7 @@
 }
 
 .chapter-dropdown-trigger:hover {
-    background: rgba(24, 32, 42, 0.98);
+    filter: brightness(0.98);
 }
 
 .chapter-dropdown-current {
@@ -151,8 +151,8 @@
 }
 
 .chapter-dropdown-menu {
-    background: rgba(18, 24, 32, 0.98);
-    border: 1px solid rgba(140, 160, 180, 0.25);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 10px;
     left: 0;
     margin-top: 8px;
@@ -179,11 +179,47 @@
 }
 
 .chapter-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
 }
 
 .chapter-item.active {
+    background: transparent;
+}
+
+:host-context(.dark-theme) .chapter-dropdown-trigger {
+    background: rgba(18, 24, 32, 0.95);
+    border-color: rgba(140, 160, 180, 0.25);
+}
+
+:host-context(.dark-theme) .chapter-dropdown-menu {
+    background: rgba(18, 24, 32, 0.98);
+    border-color: rgba(140, 160, 180, 0.25);
+}
+
+:host-context(.dark-theme) .chapter-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:host-context(.dark-theme) .chapter-item.active {
     background: rgba(255, 255, 255, 0.16);
+}
+
+:host-context(.light-theme) .chapter-dropdown-trigger {
+    background: rgba(245, 245, 245, 0.98);
+    border-color: rgba(0, 0, 0, 0.16);
+}
+
+:host-context(.light-theme) .chapter-dropdown-menu {
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(0, 0, 0, 0.16);
+}
+
+:host-context(.light-theme) .chapter-item:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+:host-context(.light-theme) .chapter-item.active {
+    background: rgba(0, 0, 0, 0.12);
 }
 
 .chapter-time {
