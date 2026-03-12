@@ -93,6 +93,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_queue_file_objs: DatabaseFile[] = [];
   currentChapters: IChapter[] = [];
   chapterDropdownOpen = false;
+  currentChapterLabel = $localize`Chapters`;
+  activeChapterIndex = -1;
+  chapterCacheByUID = new Map<string, IChapter[]>();
+  chapterLoadInFlight = new Set<string>();
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
 
@@ -271,6 +275,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.api.getDefaultMedia().subscriptions.loadedMetadata.subscribe(this.playVideo.bind(this));
       this.api.getDefaultMedia().subscriptions.ended.subscribe(this.nextVideo.bind(this));
+      this.api.getDefaultMedia().subscriptions.timeUpdate.subscribe(this.onPlaybackTimeUpdate.bind(this));
 
       if (this.timestamp) {
         this.api.seekTime(+this.timestamp);
@@ -503,6 +508,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   createMediaObject(file_obj: DatabaseFile): IMedia {
     const mime_type = file_obj.isAudio ? 'audio/mp3' : 'video/mp4';
+    const hasChapterPayload = Array.isArray(file_obj.chapters);
+    const normalizedChapters = hasChapterPayload ? this.normalizeChapters(file_obj.chapters) : undefined;
+    if (hasChapterPayload && file_obj.uid) {
+      this.chapterCacheByUID.set(file_obj.uid, normalizedChapters);
+    }
     const mediaObject: IMedia = {
       title: file_obj.title,
       src: this.createStreamURL(file_obj.uid),
@@ -510,7 +520,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       label: file_obj.title,
       url: file_obj.url,
       uid: file_obj.uid,
-      chapters: this.normalizeChapters(file_obj.chapters)
+      chapters: normalizedChapters
     };
     return mediaObject;
   }
@@ -570,7 +580,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const textSearch = this.queue_search?.trim() ? this.queue_search.trim() : null;
     const queueSubID = this.queue_sub_id || null;
 
-    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, true).subscribe(res => {
+    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, false).subscribe(res => {
       if (!this.autoplay_enabled) {
         this.autoplay_queue_loading = false;
         this.pending_autoplay_advance = false;
@@ -588,9 +598,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       if (currentIndex === -1) return;
 
       this.playlist = newPlaylist;
-      this.currentIndex = currentIndex;
-      this.currentItem = this.playlist[currentIndex];
-      this.syncCurrentSingleFileMetadata();
+      this.updateCurrentItem(this.playlist[currentIndex], currentIndex);
       this.original_playlist = JSON.stringify(this.playlist);
       this.autoplay_queue_initialized = true;
 
@@ -618,7 +626,21 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   syncCurrentChapters(): void {
-    this.currentChapters = this.currentItem?.chapters ?? [];
+    const current_uid = this.currentItem?.uid;
+    if (Array.isArray(this.currentItem?.chapters)) {
+      this.currentChapters = this.currentItem.chapters;
+      if (current_uid) {
+        this.chapterCacheByUID.set(current_uid, this.currentChapters);
+      }
+    } else if (current_uid && this.chapterCacheByUID.has(current_uid)) {
+      this.currentChapters = this.chapterCacheByUID.get(current_uid) ?? [];
+      this.currentItem.chapters = this.currentChapters;
+    } else {
+      this.currentChapters = [];
+    }
+
+    this.refreshCurrentChapterState();
+    this.ensureCurrentItemChaptersLoaded();
     this.chapterDropdownOpen = false;
   }
 
@@ -639,14 +661,14 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isChapterActive(chapter: IChapter): boolean {
-    if (!this.api) return false;
-    const current_time = this.api.currentTime || 0;
-    return current_time >= chapter.start_time && current_time < chapter.end_time;
+    return this.currentChapters[this.activeChapterIndex] === chapter;
   }
 
   jumpToChapter(chapter: IChapter): void {
     if (!this.api) return;
-    this.setPlaybackTimestamp(Math.floor(chapter.start_time));
+    const target_time = Math.floor(chapter.start_time);
+    this.setPlaybackTimestamp(target_time);
+    this.refreshCurrentChapterState(target_time);
   }
 
   toggleChapterDropdown(event: MouseEvent): void {
@@ -662,12 +684,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getCurrentChapter(): IChapter | null {
     if (this.currentChapters.length === 0) return null;
-    const active_chapter = this.currentChapters.find(chapter => this.isChapterActive(chapter));
+    const current_time = this.api?.currentTime ?? 0;
+    const active_chapter = this.currentChapters.find(chapter => current_time >= chapter.start_time && current_time < chapter.end_time);
     return active_chapter ?? this.currentChapters[0];
   }
 
   getCurrentChapterLabel(): string {
-    return this.getCurrentChapter()?.title ?? $localize`Chapters`;
+    return this.currentChapterLabel;
   }
 
   formatChapterTimestamp(total_seconds: number): string {
@@ -686,6 +709,66 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const idx = this.autoplay_queue_file_objs.findIndex(file_obj => file_obj.uid === updated_file.uid);
     if (idx >= 0) {
       this.autoplay_queue_file_objs[idx] = updated_file;
+    }
+  }
+
+  onPlaybackTimeUpdate(): void {
+    this.refreshCurrentChapterState();
+  }
+
+  refreshCurrentChapterState(current_time = this.api?.currentTime ?? 0): void {
+    if (this.currentChapters.length === 0) {
+      this.activeChapterIndex = -1;
+      this.currentChapterLabel = $localize`Chapters`;
+      return;
+    }
+
+    const next_active_index = this.currentChapters.findIndex(chapter => current_time >= chapter.start_time && current_time < chapter.end_time);
+    this.activeChapterIndex = next_active_index >= 0 ? next_active_index : 0;
+    this.currentChapterLabel = this.currentChapters[this.activeChapterIndex]?.title ?? $localize`Chapters`;
+  }
+
+  ensureCurrentItemChaptersLoaded(): void {
+    const current_uid = this.currentItem?.uid;
+    if (!current_uid || this.chapterLoadInFlight.has(current_uid)) {
+      return;
+    }
+
+    if (this.chapterCacheByUID.has(current_uid)) {
+      this.applyChaptersToMedia(current_uid, this.chapterCacheByUID.get(current_uid) ?? []);
+      return;
+    }
+
+    this.chapterLoadInFlight.add(current_uid);
+    this.postsService.getFile(current_uid, this.uuid).subscribe(res => {
+      this.chapterLoadInFlight.delete(current_uid);
+      const normalized_chapters = this.normalizeChapters(res?.file?.chapters);
+      this.chapterCacheByUID.set(current_uid, normalized_chapters);
+      this.applyChaptersToMedia(current_uid, normalized_chapters);
+    }, () => {
+      this.chapterLoadInFlight.delete(current_uid);
+    });
+  }
+
+  applyChaptersToMedia(uid: string, chapters: IChapter[]): void {
+    const playlist_item = this.playlist.find(media => media.uid === uid);
+    if (playlist_item) {
+      playlist_item.chapters = chapters;
+    }
+
+    const current_queue_file = this.autoplay_queue_file_objs.find(file_obj => file_obj.uid === uid);
+    if (current_queue_file) {
+      current_queue_file.chapters = chapters;
+    }
+
+    if (this.db_file?.uid === uid) {
+      this.db_file.chapters = chapters;
+    }
+
+    if (this.currentItem?.uid === uid) {
+      this.currentItem.chapters = chapters;
+      this.currentChapters = chapters;
+      this.refreshCurrentChapterState();
     }
   }
 
