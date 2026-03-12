@@ -353,20 +353,26 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     });
   }
 
+  private parseNumericPercent(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const numeric_value = Number(value);
+    if (!Number.isFinite(numeric_value)) return null;
+    return numeric_value;
+  }
+
   shouldShowPercentComplete(download: Download): boolean {
     if (!download || download.error) return false;
     if (download.finished) return false;
-    const numeric_percent = Number(download['percent_complete']);
-    if (Number.isFinite(numeric_percent)) return true;
-    return download.step_index === 2;
+    const numeric_percent = this.parseNumericPercent(download['percent_complete']);
+    return numeric_percent !== null;
   }
 
   getNormalizedPercent(download: Download): string | null {
     if (!download) return null;
     if (download.finished) return '100.00';
 
-    const numeric_percent = Number(download['percent_complete']);
-    if (!Number.isFinite(numeric_percent)) return null;
+    const numeric_percent = this.parseNumericPercent(download['percent_complete']);
+    if (numeric_percent === null) return null;
     return Math.min(100, Math.max(0, numeric_percent)).toFixed(2);
   }
 
@@ -606,15 +612,15 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     if (playlist_percent !== null) return playlist_percent;
 
     const chunk_percents = batch_downloads
-      .map(download => Number(download.percent_complete))
-      .filter(percent => Number.isFinite(percent));
+      .map(download => this.parseNumericPercent(download.percent_complete))
+      .filter(percent => percent !== null) as number[];
     if (chunk_percents.length > 0) {
       const average_percent = chunk_percents.reduce((sum, percent) => sum + percent, 0) / chunk_percents.length;
       return Math.max(0, Math.min(100, average_percent));
     }
 
-    const normalized_fallback_percent = Number(fallback_percent);
-    if (Number.isFinite(normalized_fallback_percent)) return Math.max(0, Math.min(100, normalized_fallback_percent));
+    const normalized_fallback_percent = this.parseNumericPercent(fallback_percent);
+    if (normalized_fallback_percent !== null) return Math.max(0, Math.min(100, normalized_fallback_percent));
     return 0;
   }
 
@@ -633,8 +639,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      const item_percent = Number(item.percent_complete);
-      if (Number.isFinite(item_percent)) {
+      const item_percent = this.parseNumericPercent(item.percent_complete);
+      if (item_percent !== null) {
         total_expected_size += 100;
         total_downloaded_size += Math.max(0, Math.min(100, item_percent));
       }

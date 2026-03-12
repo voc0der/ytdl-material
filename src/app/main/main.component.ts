@@ -877,8 +877,8 @@ export class MainComponent implements OnInit {
     this.postsService.getCurrentDownload(this.current_download['uid']).subscribe(res => {
       if (res['download']) {
         this.current_download = res['download'];
-        const numeric_percent = Number(this.current_download.percent_complete);
-        this.percentDownloaded = Number.isFinite(numeric_percent)
+        const numeric_percent = this.parseNumericPercent(this.current_download.percent_complete);
+        this.percentDownloaded = numeric_percent !== null
           ? Math.max(0, Math.min(100, numeric_percent))
           : null;
 
@@ -899,8 +899,15 @@ export class MainComponent implements OnInit {
     });
   }
 
+  private parseNumericPercent(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const numeric_value = Number(value);
+    if (!Number.isFinite(numeric_value)) return null;
+    return numeric_value;
+  }
+
   hasCurrentDownloadPercent(): boolean {
-    return Number.isFinite(Number(this.percentDownloaded));
+    return this.parseNumericPercent(this.percentDownloaded) !== null;
   }
 
   reloadRecentVideos(is_playlist = false): void {

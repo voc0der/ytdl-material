@@ -22,7 +22,6 @@ let should_check_downloads = true;
 
 const download_to_child_process = {};
 const active_progress_checks = new Set();
-const output_progress_by_download = new Map();
 const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
 const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
@@ -30,7 +29,6 @@ const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--play
 const DEFAULT_PROGRESS_CHECK_INTERVAL_MS = 1000;
 const FAST_PROGRESS_CHECK_INTERVAL_MS = 250;
 const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
-const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
 let filename_sanitization_non_ytdlp_warned = false;
@@ -105,113 +103,6 @@ function appendFilenameSanitizationArgs(download_args = [], default_downloader =
     return download_args;
 }
 exports.appendFilenameSanitizationArgs = appendFilenameSanitizationArgs;
-
-function appendRealtimeProgressArgs(download_args = []) {
-    if (!Array.isArray(download_args)) return [];
-
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-    if (default_downloader !== 'yt-dlp') return download_args;
-    if (hasArg(download_args, '--newline')) return download_args;
-    if (hasArg(download_args, '--no-progress') || hasArg(download_args, '-q') || hasArg(download_args, '--quiet')) {
-        return download_args;
-    }
-
-    return download_args.concat(['--newline']);
-}
-exports.appendRealtimeProgressArgs = appendRealtimeProgressArgs;
-
-function stripANSIEscapeSequences(input = '') {
-    if (typeof input !== 'string' || input.length === 0) return '';
-    return input.replace(ANSI_ESCAPE_SEQUENCE_REGEX, '');
-}
-
-function parseYoutubeDLProgressPercent(progress_line = '') {
-    if (typeof progress_line !== 'string' || progress_line.trim() === '') return null;
-    const normalized_progress_line = stripANSIEscapeSequences(progress_line).trim();
-    if (!normalized_progress_line) return null;
-
-    const primary_match = normalized_progress_line.match(/\[download\]\s*(\d+(?:\.\d+)?)%/i);
-    const fallback_match = normalized_progress_line.match(/(\d+(?:\.\d+)?)%\s*(?:of|at|ETA|in|$)/i);
-    const selected_match = primary_match || fallback_match;
-    if (!selected_match || !selected_match[1]) return null;
-
-    const numeric_percent = Number(selected_match[1]);
-    if (!Number.isFinite(numeric_percent)) return null;
-    return Math.max(0, Math.min(100, numeric_percent));
-}
-exports.parseYoutubeDLProgressPercent = parseYoutubeDLProgressPercent;
-
-async function updateDownloadPercentFromProcessOutput(download_uid, candidate_percent) {
-    if (!download_uid) return;
-    const normalized_candidate_percent = Math.max(0, Math.min(99.99, asFiniteNumber(candidate_percent, 0)));
-
-    const existing_progress_state = output_progress_by_download.get(download_uid) || {last_written_percent: 0};
-    if (normalized_candidate_percent <= existing_progress_state.last_written_percent + 0.05) return;
-
-    const latest_download = await db_api.getRecord('download_queue', {uid: download_uid});
-    if (!latest_download || latest_download['finished']) return;
-
-    const current_percent = asFiniteNumber(latest_download['percent_complete'], 0);
-    const next_percent = Math.max(current_percent, normalized_candidate_percent);
-    if (next_percent <= current_percent + 0.01) return;
-
-    await db_api.updateRecord('download_queue', {uid: download_uid, finished: false}, {percent_complete: next_percent.toFixed(2)});
-    output_progress_by_download.set(download_uid, {last_written_percent: next_percent});
-}
-
-function attachDownloadProgressOutputListeners(download_uid, child_process = null) {
-    if (!download_uid || !child_process || typeof child_process !== 'object') {
-        return () => output_progress_by_download.delete(download_uid);
-    }
-
-    const listeners = [];
-    const attach_listener = (stream) => {
-        if (!stream || typeof stream.on !== 'function') return;
-
-        let stream_buffer = '';
-        const handle_progress_line = (line = '') => {
-            const parsed_percent = parseYoutubeDLProgressPercent(line);
-            if (parsed_percent === null || parsed_percent >= 100) return;
-            updateDownloadPercentFromProcessOutput(download_uid, parsed_percent).catch(() => {});
-        };
-
-        const on_data = (chunk) => {
-            stream_buffer += chunk.toString();
-            const lines = stream_buffer.split(/\r?\n|\r/g);
-            stream_buffer = lines.pop() || '';
-            for (const line of lines) handle_progress_line(line);
-        };
-
-        const on_end = () => {
-            if (!stream_buffer) return;
-            handle_progress_line(stream_buffer);
-            stream_buffer = '';
-        };
-
-        stream.on('data', on_data);
-        stream.on('end', on_end);
-        listeners.push({stream: stream, data_handler: on_data, end_handler: on_end});
-    };
-
-    attach_listener(child_process.stdout);
-    attach_listener(child_process.stderr);
-
-    return () => {
-        for (const listener of listeners) {
-            if (!listener.stream) continue;
-            if (listener.stream && typeof listener.stream.off === 'function') {
-                listener.stream.off('data', listener.data_handler);
-                listener.stream.off('end', listener.end_handler);
-                continue;
-            }
-            if (listener.stream && typeof listener.stream.removeListener === 'function') {
-                listener.stream.removeListener('data', listener.data_handler);
-                listener.stream.removeListener('end', listener.end_handler);
-            }
-        }
-        output_progress_by_download.delete(download_uid);
-    };
-}
 
 function getProgressCheckIntervalMs(download = null) {
     if (!download || typeof download !== 'object') return DEFAULT_PROGRESS_CHECK_INTERVAL_MS;
@@ -1068,7 +959,6 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         const type = download['type'];
         const options = download['options'];
         const args = download['args'];
-        const runtime_download_args = appendRealtimeProgressArgs(Array.isArray(args) ? [...args] : []);
         const category = download['category'];
         let fileFolderPath = type === 'audio' ? audioFolderPath : videoFolderPath;
         if (options.customFileFolderPath) {
@@ -1086,11 +976,9 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         checkDownloadPercent(download['uid']);
         const file_objs = [];
         // download file
-        let {child_process, callback} = await youtubedl_api.runYoutubeDL(url, runtime_download_args, customDownloadHandler);
-        const detach_output_progress_listeners = attachDownloadProgressOutputListeners(download['uid'], child_process);
+        let {child_process, callback} = await youtubedl_api.runYoutubeDL(url, args, customDownloadHandler);
         if (child_process) download_to_child_process[download['uid']] = child_process;
         const {parsed_output, err} = await callback;
-        detach_output_progress_listeners();
         clearInterval(download_checker);
         let end_time = Date.now();
         let difference = (end_time - start_time)/1000;

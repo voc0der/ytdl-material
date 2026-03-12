@@ -178,131 +178,6 @@ describe('Downloader', function() {
         assert(success);
     });
 
-    it('Single download records intermediate progress before 100% completion', async function() {
-        this.timeout(300000);
-        const { PassThrough } = require('stream');
-        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
-        const original_update_record = db_api.updateRecord;
-        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-
-        const written_percents = [];
-        let captured_args = null;
-
-        db_api.updateRecord = async (table, filter_obj, update_obj, nested_mode = false) => {
-            if (table === 'download_queue' && update_obj && update_obj.percent_complete !== undefined) {
-                const numeric_percent = Number(update_obj.percent_complete);
-                if (Number.isFinite(numeric_percent)) {
-                    written_percents.push(numeric_percent);
-                }
-            }
-            return await original_update_record(table, filter_obj, update_obj, nested_mode);
-        };
-
-        youtubedl_api.runYoutubeDL = async (requested_url, run_args) => {
-            captured_args = run_args;
-            const stdout = new PassThrough();
-            const stderr = new PassThrough();
-
-            setTimeout(() => {
-                // Simulate yt-dlp progress output that must land before completion.
-                stderr.write('\u001b[0;33m[download]\u001b[0m  15.50% of 4.20MiB at 1.20MiB/s ETA 00:02\r');
-                stderr.write('[download] 35.00% of 4.20MiB at 1.20MiB/s ETA 00:01\r');
-                stderr.end();
-                stdout.end();
-            }, 15);
-
-            const callback = new Promise(resolve => {
-                setTimeout(() => resolve({parsed_output: fixture_single, err: null}), 80);
-            });
-
-            return {
-                child_process: {stdout, stderr},
-                callback
-            };
-        };
-
-        try {
-            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
-
-            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
-            await downloader_api.collectInfo(returned_download['uid']);
-            await downloader_api.downloadQueuedFile(returned_download['uid']);
-        } finally {
-            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
-            db_api.updateRecord = original_update_record;
-            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
-        }
-
-        const intermediate_percent_index = written_percents.findIndex(percent => percent > 0 && percent < 100);
-        const final_percent_index = written_percents.findIndex((percent, index) => percent >= 100 && index >= intermediate_percent_index);
-        assert(intermediate_percent_index !== -1, `Expected an intermediate percent update, got: ${JSON.stringify(written_percents)}`);
-        assert(final_percent_index !== -1, `Expected final 100% update, got: ${JSON.stringify(written_percents)}`);
-        assert(intermediate_percent_index < final_percent_index, `Intermediate percent should be written before 100: ${JSON.stringify(written_percents)}`);
-        assert(captured_args && captured_args.includes('--newline'), `Expected runtime args to include --newline, got: ${JSON.stringify(captured_args)}`);
-    });
-
-    it('Playlist download records intermediate progress before 100% completion', async function() {
-        this.timeout(300000);
-        const { PassThrough } = require('stream');
-        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
-        const original_update_record = db_api.updateRecord;
-        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-
-        const written_percents = [];
-        let target_download_uid = null;
-
-        db_api.updateRecord = async (table, filter_obj, update_obj, nested_mode = false) => {
-            const update_download_uid = filter_obj && filter_obj.uid ? filter_obj.uid : null;
-            if (table === 'download_queue' && update_download_uid === target_download_uid && update_obj && update_obj.percent_complete !== undefined) {
-                const numeric_percent = Number(update_obj.percent_complete);
-                if (Number.isFinite(numeric_percent)) {
-                    written_percents.push(numeric_percent);
-                }
-            }
-            return await original_update_record(table, filter_obj, update_obj, nested_mode);
-        };
-
-        youtubedl_api.runYoutubeDL = async () => {
-            const stdout = new PassThrough();
-            const stderr = new PassThrough();
-
-            setTimeout(() => {
-                stderr.write('[download] 22.00% of 8.00MiB at 1.20MiB/s ETA 00:02\r');
-                stderr.write('[download] 48.50% of 8.00MiB at 1.20MiB/s ETA 00:01\r');
-                stderr.end();
-                stdout.end();
-            }, 15);
-
-            const callback = new Promise(resolve => {
-                setTimeout(() => resolve({parsed_output: fixture_playlist, err: null}), 80);
-            });
-
-            return {
-                child_process: {stdout, stderr},
-                callback
-            };
-        };
-
-        try {
-            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
-
-            const returned_download = await downloader_api.createDownload(playlist_url, 'video', {ui_uid: uuid()});
-            target_download_uid = returned_download['uid'];
-            await downloader_api.collectInfo(target_download_uid);
-            await downloader_api.downloadQueuedFile(target_download_uid);
-        } finally {
-            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
-            db_api.updateRecord = original_update_record;
-            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
-        }
-
-        const intermediate_percent_index = written_percents.findIndex(percent => percent > 0 && percent < 100);
-        const final_percent_index = written_percents.findIndex((percent, index) => percent >= 100 && index >= intermediate_percent_index);
-        assert(intermediate_percent_index !== -1, `Expected an intermediate playlist percent update, got: ${JSON.stringify(written_percents)}`);
-        assert(final_percent_index !== -1, `Expected final playlist 100% update, got: ${JSON.stringify(written_percents)}`);
-        assert(intermediate_percent_index < final_percent_index, `Playlist intermediate percent should be written before 100: ${JSON.stringify(written_percents)}`);
-    });
-
     it('Downloader - categorize', async function() {
         this.timeout(300000);
         await createCategory(url);
@@ -687,44 +562,6 @@ describe('Downloader', function() {
         }), 1000);
     });
 
-    it('Parses yt-dlp progress output lines with ANSI escapes', function() {
-        assert.strictEqual(
-            downloader_api.parseYoutubeDLProgressPercent('\u001b[0;33m[download]\u001b[0m  12.34% of 4.20MiB at 1.20MiB/s ETA 00:02'),
-            12.34
-        );
-        assert.strictEqual(
-            downloader_api.parseYoutubeDLProgressPercent('[download] 99.9% at 5.00MiB/s ETA 00:00'),
-            99.9
-        );
-        assert.strictEqual(
-            downloader_api.parseYoutubeDLProgressPercent('nothing useful here'),
-            null
-        );
-    });
-
-    it('Adds --newline for yt-dlp runtime progress unless disabled', function() {
-        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-
-        try {
-            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
-
-            const with_newline = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s']);
-            assert(with_newline.includes('--newline'));
-
-            const already_present = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s', '--newline']);
-            assert.deepStrictEqual(already_present, ['-o', '/tmp/%(title)s.%(ext)s', '--newline']);
-
-            const no_progress = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s', '--no-progress']);
-            assert.deepStrictEqual(no_progress, ['-o', '/tmp/%(title)s.%(ext)s', '--no-progress']);
-
-            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
-            const non_ytdlp_args = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s']);
-            assert.deepStrictEqual(non_ytdlp_args, ['-o', '/tmp/%(title)s.%(ext)s']);
-        } finally {
-            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
-        }
-    });
-
     it('Merges completed chunk playlists into a single playlist container', async function() {
         const batch_id = `playlist-batch-merge-${uuid()}`;
         const playlist_name = `Batch Merge ${uuid().slice(0, 8)}`;
@@ -1041,3 +878,4 @@ describe('Downloader', function() {
         });
     });
 });
+
