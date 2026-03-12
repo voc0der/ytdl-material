@@ -25,6 +25,12 @@ describe('PlayerComponent', () => {
         }
       },
       setPageTitle: jasmine.createSpy('setPageTitle'),
+      getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue({
+        subscribe: () => ({ unsubscribe() {} })
+      }),
+      getFile: jasmine.createSpy('getFile').and.returnValue({
+        subscribe: () => ({ unsubscribe() {} })
+      }),
       service_initialized: {
         pipe: () => ({
           subscribe: () => ({ unsubscribe() {} })
@@ -167,5 +173,46 @@ describe('PlayerComponent', () => {
     expect(clickEvent.stopPropagation).toHaveBeenCalled();
     expect(seekSpy).toHaveBeenCalledWith(42);
     expect(component.chapterDropdownOpen).toBeFalse();
+  });
+
+  it('should request autoplay queue without chapter metadata in bulk mode', () => {
+    const media: IMedia = {
+      title: 'Single file',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Single file',
+      url: 'https://example.com/video',
+      uid: 'uid-single'
+    };
+    component.uid = 'uid-single';
+    component.playlist = [media];
+    component.currentItem = media;
+    component.autoplay_enabled = true;
+    component.autoplay_queue_initialized = false;
+    component.autoplay_queue_loading = false;
+
+    component.ensureAutoplayQueueReady();
+
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalled();
+    expect(postsServiceStub.getAllFiles.calls.mostRecent().args[6]).toBeFalse();
+  });
+
+  it('should cache active chapter index and label from playback time', () => {
+    component.currentChapters = [
+      { title: 'Intro', start_time: 0, end_time: 30 },
+      { title: 'Part 2', start_time: 30, end_time: 90 }
+    ];
+    component.api = { currentTime: 45 } as unknown as VgApiService;
+
+    component.refreshCurrentChapterState();
+
+    expect(component.activeChapterIndex).toBe(1);
+    expect(component.currentChapterLabel).toBe('Part 2');
+
+    component.api = { currentTime: 5 } as unknown as VgApiService;
+    component.onPlaybackTimeUpdate();
+
+    expect(component.activeChapterIndex).toBe(0);
+    expect(component.currentChapterLabel).toBe('Intro');
   });
 });

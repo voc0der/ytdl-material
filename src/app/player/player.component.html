@@ -27,13 +27,13 @@
                   <div class="col-auto chapter-column">
                     <div class="chapter-dropdown-wrapper" (click)="$event.stopPropagation()">
                       <button class="chapter-dropdown-trigger" type="button" (click)="toggleChapterDropdown($event)">
-                        <span class="chapter-dropdown-current">{{getCurrentChapterLabel()}}</span>
+                        <span class="chapter-dropdown-current">{{currentChapterLabel}}</span>
                         <mat-icon class="chapter-dropdown-icon" [class.open]="chapterDropdownOpen">chevron_right</mat-icon>
                       </button>
                       @if (chapterDropdownOpen) {
                         <div class="chapter-dropdown-menu">
-                          @for (chapter of currentChapters; track chapter.start_time) {
-                            <button class="chapter-item" [class.active]="isChapterActive(chapter)" (click)="selectChapterFromDropdown(chapter, $event)" type="button" [title]="chapter.title">
+                          @for (chapter of currentChapters; track chapter.start_time; let chapterIndex = $index) {
+                            <button class="chapter-item" [class.active]="chapterIndex === activeChapterIndex" (click)="selectChapterFromDropdown(chapter, $event)" type="button" [title]="chapter.title">
                               <span class="chapter-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
                               <span class="chapter-label">{{chapter.title}}</span>
                             </button>
