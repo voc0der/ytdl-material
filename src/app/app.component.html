@@ -39,6 +39,11 @@
                               {{download.title || download.url}}
                             </div>
                             <div class="active-download-actions">
+                              @if (hasPlaylistItemProgress(download)) {
+                                <button mat-icon-button (click)="openPlaylistProgress(download, $event)" matTooltip="Playlist progress" i18n-matTooltip="View playlist download progress">
+                                  <mat-icon>format_list_bulleted</mat-icon>
+                                </button>
+                              }
                               <button mat-icon-button (click)="pauseActiveDownload(download, $event)" matTooltip="Pause" i18n-matTooltip="Pause active download">
                                 <mat-icon>pause</mat-icon>
                               </button>

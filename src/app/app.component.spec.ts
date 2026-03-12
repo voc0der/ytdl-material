@@ -1,11 +1,12 @@
 import { AppComponent } from './app.component';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { Download } from 'api-types';
 
 describe('AppComponent', () => {
   let component: AppComponent;
   let posts_service_mock: any;
   let active_downloads_trigger_mock: any;
+  let dialog_mock: any;
 
   const createDownload = (overrides: Partial<Download>): Download => ({
     uid: 'download-1',
@@ -42,7 +43,7 @@ describe('AppComponent', () => {
       theme: {key: 'default', css_label: 'light-theme', background_color: '#fff'}
     };
     const snack_bar_mock: any = {};
-    const dialog_mock: any = { open: () => ({ afterClosed: () => of(null) }) };
+    dialog_mock = { open: () => ({ afterClosed: () => of(null) }), openDialogs: [] };
     const router_mock: any = { events: of(), navigate: () => {}, navigateByUrl: () => {}, url: '/home' };
     const overlay_container_mock: any = { getContainerElement: () => ({ classList: { remove: () => {}, add: () => {} } }) };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
@@ -151,6 +152,57 @@ describe('AppComponent', () => {
     expect(component.getActiveDownloadsBadgeValue()).toBe(1);
     expect(component.getActiveDownloadsBadgeColor()).toBe('warn');
     expect(component.getActiveDownloadsIndicatorIcon()).toBe('download');
+  });
+
+  it('detects playlist item progress only when multiple playlist items exist', () => {
+    expect(component.hasPlaylistItemProgress(createDownload({
+      uid: 'playlist-1',
+      playlist_item_progress: [{index: 1} as any]
+    } as any))).toBeFalse();
+
+    expect(component.hasPlaylistItemProgress(createDownload({
+      uid: 'playlist-2',
+      playlist_item_progress: [{index: 1} as any, {index: 2} as any]
+    } as any))).toBeTrue();
+  });
+
+  it('opens playlist progress dialog from topbar row icon', () => {
+    const close_subject = new Subject<void>();
+    const dialog_ref_mock: any = {
+      afterClosed: () => close_subject.asObservable(),
+      componentInstance: { updateDownload: jasmine.createSpy('updateDownload') }
+    };
+    const open_spy = spyOn(dialog_mock, 'open').and.returnValue(dialog_ref_mock);
+    dialog_mock.openDialogs = [dialog_ref_mock];
+    const click_event_mock = { stopPropagation: jasmine.createSpy('stopPropagation') } as any;
+    const playlist_download = createDownload({
+      uid: 'playlist-3'
+    } as any) as any;
+    playlist_download.playlist_item_progress = [{index: 1}, {index: 2}];
+
+    component.openPlaylistProgress(playlist_download, click_event_mock);
+
+    expect(click_event_mock.stopPropagation).toHaveBeenCalled();
+    expect(open_spy).toHaveBeenCalled();
+    expect((component as any).playlist_progress_dialog_ref).toBe(dialog_ref_mock);
+  });
+
+  it('refreshes opened playlist progress dialog with latest matching download data', () => {
+    const update_download_spy = jasmine.createSpy('updateDownload');
+    const dialog_ref_mock: any = {
+      componentInstance: { updateDownload: update_download_spy }
+    };
+    (component as any).playlist_progress_dialog_ref = dialog_ref_mock;
+    (component as any).playlist_progress_dialog_key = 'playlist-4';
+    dialog_mock.openDialogs = [dialog_ref_mock];
+    component.active_downloads = [
+      createDownload({uid: 'playlist-4'} as any) as any
+    ];
+    (component.active_downloads[0] as any).playlist_item_progress = [{index: 1}, {index: 2}];
+
+    (component as any).refreshOpenPlaylistProgressDialog();
+
+    expect(update_download_spy).toHaveBeenCalledWith(component.active_downloads[0] as any);
   });
 
   it('pause action calls pauseDownload for the selected download', () => {

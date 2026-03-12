@@ -15,6 +15,7 @@ import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-p
 import { SetDefaultAdminDialogComponent } from './dialogs/set-default-admin-dialog/set-default-admin-dialog.component';
 import { NotificationsComponent } from './components/notifications/notifications.component';
 import { ArchiveViewerComponent } from './components/archive-viewer/archive-viewer.component';
+import { PlaylistDownloadProgressDialogComponent } from './dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
 
@@ -70,6 +71,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private active_downloads_initialized = false;
   private active_downloads_auto_opened = false;
   private active_downloads_opened_manually = false;
+  private playlist_progress_dialog_ref: MatDialogRef<PlaylistDownloadProgressDialogComponent> = null;
+  private playlist_progress_dialog_key: string = null;
 
   constructor(public postsService: PostsService, public snackBar: MatSnackBar, private dialog: MatDialog,
     public router: Router, public overlayContainer: OverlayContainer, private elementRef: ElementRef,
@@ -133,6 +136,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.clearActiveDownloadsAutoCloseTimer();
     this.clearCompletionBadgeTimer();
+    if (this.playlist_progress_dialog_ref) {
+      this.playlist_progress_dialog_ref.close();
+    }
   }
 
   toggleSidenav(): void {
@@ -354,6 +360,35 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.show_completion_badge && this.active_download_count === 0 ? 'active-downloads-complete-badge' : '';
   }
 
+  hasPlaylistItemProgress(download: Download): boolean {
+    const playlist_item_progress = (download as DownloadWithPlaylistProgress)?.playlist_item_progress;
+    return Array.isArray(playlist_item_progress) && playlist_item_progress.length > 1;
+  }
+
+  openPlaylistProgress(download: Download, event: MouseEvent): void {
+    event.stopPropagation();
+    if (!this.hasPlaylistItemProgress(download)) return;
+
+    if (this.playlist_progress_dialog_ref && this.dialog.openDialogs.includes(this.playlist_progress_dialog_ref)) {
+      this.playlist_progress_dialog_ref.close();
+    }
+
+    const dialog_ref = this.dialog.open(PlaylistDownloadProgressDialogComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: {download: download as DownloadWithPlaylistProgress}
+    });
+    this.playlist_progress_dialog_ref = dialog_ref;
+    this.playlist_progress_dialog_key = this.getPlaylistProgressDialogKey(download);
+
+    dialog_ref.afterClosed().pipe(take(1)).subscribe(() => {
+      if (this.playlist_progress_dialog_ref === dialog_ref) {
+        this.playlist_progress_dialog_ref = null;
+        this.playlist_progress_dialog_key = null;
+      }
+    });
+  }
+
   shouldShowActiveDownloadPercent(download: Download): boolean {
     if (!download || download.error || download.finished || download.paused) return false;
     return this.parseNumericPercent(download.percent_complete) !== null;
@@ -416,6 +451,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.active_downloads = active_downloads;
     this.active_download_count = active_downloads.length;
     this.active_download_uids = new Set(active_downloads.map(download => download.uid));
+    this.refreshOpenPlaylistProgressDialog();
 
     if (this.active_download_count > 0) {
       this.show_completion_badge = false;
@@ -511,6 +547,24 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return successful_completion_detected;
   }
 
+  private refreshOpenPlaylistProgressDialog(): void {
+    if (!this.playlist_progress_dialog_ref || !this.playlist_progress_dialog_key) return;
+    if (!this.dialog.openDialogs.includes(this.playlist_progress_dialog_ref)) {
+      this.playlist_progress_dialog_ref = null;
+      this.playlist_progress_dialog_key = null;
+      return;
+    }
+
+    const matching_download = this.active_downloads.find(download => this.getPlaylistProgressDialogKey(download) === this.playlist_progress_dialog_key);
+    if (!matching_download) return;
+    this.playlist_progress_dialog_ref.componentInstance.updateDownload(matching_download as DownloadWithPlaylistProgress);
+  }
+
+  private getPlaylistProgressDialogKey(download: Download): string | null {
+    if (!download || !download.uid) return null;
+    return download.uid;
+  }
+
   private parseNumericPercent(value: unknown): number | null {
     if (value === null || value === undefined || value === '') return null;
     const numeric_value = Number(value);
@@ -518,4 +572,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return numeric_value;
   }
 
+}
+
+interface PlaylistDownloadProgressItem {
+  index: number,
+  id?: string | null,
+  title: string,
+  expected_file_size: number,
+  downloaded_size: number,
+  percent_complete: number,
+  status: string,
+  progress_path_index?: number
+}
+
+interface DownloadWithPlaylistProgress extends Download {
+  playlist_item_progress?: PlaylistDownloadProgressItem[] | null
 }
