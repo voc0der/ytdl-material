@@ -46,9 +46,22 @@
     position: relative;
 }
 
+.player-toolbar-section {
+    height: fit-content;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.player-toolbar-container {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
 .media-info-row {
     align-items: center;
     flex-wrap: nowrap;
+    width: 100%;
 }
 
 .view-column {
@@ -239,6 +252,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.watch-together-section {
+    padding-left: 12px;
+    padding-right: 12px;
+    width: 100%;
+}
+
+.watch-together-section app-concurrent-stream {
+    display: block;
+    width: 100%;
 }
 
 .save-button {
