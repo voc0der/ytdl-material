@@ -243,32 +243,6 @@
     </div>
   }
   <br/>
-  @if (current_download && autoplay) {
-    <div class="centered big" id="bar_div">
-      <div class="margined">
-        @if (hasCurrentDownloadPercent()) {
-          <div [ngClass]="(+percentDownloaded > 99)?'make-room-for-spinner':'equal-sizes'" style="display: inline-block; width: 100%; padding-left: 20px">
-            <mat-progress-bar style="border-radius: 5px;" mode="determinate" value="{{percentDownloaded}}"></mat-progress-bar>
-            <br/>
-          </div>
-        } @else {
-          <mat-progress-bar style="border-radius: 5px;" mode="indeterminate"></mat-progress-bar>
-        }
-        @if (+percentDownloaded > 99) {
-          <div class="spinner">
-            <mat-spinner [diameter]="25"></mat-spinner>
-          </div>
-        }
-      </div>
-      <br/>
-    </div>
-  }
-
-  @if (downloads && downloads.length > 0 && !autoplay) {
-    <div style="display: flex; justify-content: center;">
-      <app-downloads style="width: 80%; min-width: 350px; margin-bottom: 10px" [uids]="download_uids"></app-downloads>
-    </div>
-  }
 
   @if (cachedFileManagerEnabled || fileManagerEnabled) {
     <app-recent-videos #recentVideos></app-recent-videos>

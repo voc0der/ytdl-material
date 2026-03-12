@@ -15,6 +15,57 @@
             </div>
           </div>
           <div class="col-6" style="text-align: right; align-items: flex-end; display: inline-block">
+            @if (active_download_count > 0) {
+              <button #activeDownloadsTrigger="matMenuTrigger" [matMenuTriggerFor]="activeDownloadsMenu" (click)="activeDownloadsMenuButtonClicked()" (menuOpened)="activeDownloadsMenuOpened()" mat-icon-button>
+                <mat-icon [matBadge]="active_download_count" matBadgeColor="warn" matBadgeSize="small">download</mat-icon>
+              </button>
+              <mat-menu [classList]="'active-downloads-menu'" (close)="activeDownloadsMenuClosed()" #activeDownloadsMenu="matMenu">
+                <div class="active-downloads-menu-content" (click)="$event.stopPropagation()">
+                  @if (active_downloads.length === 0) {
+                    <div class="active-downloads-empty-state" i18n="No active downloads available">No active downloads</div>
+                  }
+                  @if (active_downloads.length > 0) {
+                    <div class="active-downloads-list">
+                      @for (download of active_downloads; track download.uid) {
+                        <div class="active-download-item">
+                          <div class="active-download-item-top-row">
+                            <div class="active-download-title" [matTooltip]="download.title || download.url">
+                              {{download.title || download.url}}
+                            </div>
+                            <div class="active-download-actions">
+                              <button mat-icon-button (click)="pauseActiveDownload(download, $event)" matTooltip="Pause" i18n-matTooltip="Pause active download">
+                                <mat-icon>pause</mat-icon>
+                              </button>
+                              <button mat-icon-button (click)="cancelActiveDownload(download, $event)" matTooltip="Cancel" i18n-matTooltip="Cancel active download">
+                                <mat-icon>cancel</mat-icon>
+                              </button>
+                            </div>
+                          </div>
+                          <div class="active-download-progress-label">
+                            @if (shouldShowActiveDownloadPercent(download)) {
+                              {{getActiveDownloadPercent(download)}}%
+                            } @else {
+                              {{getActiveDownloadStepLabel(download)}}
+                            }
+                          </div>
+                          @if (getActiveDownloadProgressValue(download) !== null) {
+                            <mat-progress-bar mode="determinate" [value]="getActiveDownloadProgressValue(download)"></mat-progress-bar>
+                          } @else {
+                            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+                @if (canOpenDownloadsPage()) {
+                  <button mat-menu-item routerLink='/downloads'>
+                    <mat-icon>open_in_new</mat-icon>
+                    <span i18n="Active downloads dropdown link to downloads page">View Downloads Page</span>
+                  </button>
+                }
+              </mat-menu>
+            }
             @if (postsService.config?.Extra.enable_notifications) {
               <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button>@if (notification_count > 0) {
                 <mat-icon [matBadge]="notification_count" matBadgeColor="warn" matBadgeSize="small">notifications</mat-icon>
