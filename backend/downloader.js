@@ -26,6 +26,9 @@ const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
 const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
 const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
+const DEFAULT_PROGRESS_CHECK_INTERVAL_MS = 1000;
+const FAST_PROGRESS_CHECK_INTERVAL_MS = 250;
+const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
 let filename_sanitization_non_ytdlp_warned = false;
@@ -100,6 +103,20 @@ function appendFilenameSanitizationArgs(download_args = [], default_downloader =
     return download_args;
 }
 exports.appendFilenameSanitizationArgs = appendFilenameSanitizationArgs;
+
+function getProgressCheckIntervalMs(download = null) {
+    if (!download || typeof download !== 'object') return DEFAULT_PROGRESS_CHECK_INTERVAL_MS;
+    if (Array.isArray(download['playlist_item_progress']) && download['playlist_item_progress'].length > 1) {
+        return DEFAULT_PROGRESS_CHECK_INTERVAL_MS;
+    }
+
+    const expected_file_size = asFiniteNumber(download['expected_file_size'], 0);
+    if (expected_file_size > 0 && expected_file_size <= FAST_PROGRESS_SIZE_THRESHOLD_BYTES) {
+        return FAST_PROGRESS_CHECK_INTERVAL_MS;
+    }
+    return DEFAULT_PROGRESS_CHECK_INTERVAL_MS;
+}
+exports.getProgressCheckIntervalMs = getProgressCheckIntervalMs;
 
 function hasPlaylistRangeArgs(args = []) {
     if (!Array.isArray(args) || args.length === 0) return false;
@@ -953,7 +970,10 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
 
         const start_time = Date.now();
 
-        const download_checker = setInterval(() => checkDownloadPercent(download['uid']), 1000);
+        const progress_check_interval_ms = getProgressCheckIntervalMs(download);
+        const download_checker = setInterval(() => checkDownloadPercent(download['uid']), progress_check_interval_ms);
+        // Kick off an immediate check so fast downloads do not wait a full interval before first update.
+        checkDownloadPercent(download['uid']);
         const file_objs = [];
         // download file
         let {child_process, callback} = await youtubedl_api.runYoutubeDL(url, args, customDownloadHandler);

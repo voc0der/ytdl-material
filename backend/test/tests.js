@@ -963,6 +963,27 @@ describe('Downloader', function() {
         }
     });
 
+    it('Uses faster progress polling for smaller single-file downloads', function() {
+        assert.strictEqual(downloader_api.getProgressCheckIntervalMs(null), 1000);
+
+        assert.strictEqual(downloader_api.getProgressCheckIntervalMs({
+            expected_file_size: 50 * 1024 * 1024
+        }), 250);
+
+        assert.strictEqual(downloader_api.getProgressCheckIntervalMs({
+            expected_file_size: 100 * 1024 * 1024
+        }), 250);
+
+        assert.strictEqual(downloader_api.getProgressCheckIntervalMs({
+            expected_file_size: 100 * 1024 * 1024 + 1
+        }), 1000);
+
+        assert.strictEqual(downloader_api.getProgressCheckIntervalMs({
+            expected_file_size: 10 * 1024 * 1024,
+            playlist_item_progress: [{index: 1}, {index: 2}]
+        }), 1000);
+    });
+
     it('Merges completed chunk playlists into a single playlist container', async function() {
         const batch_id = `playlist-batch-merge-${uuid()}`;
         const playlist_name = `Batch Merge ${uuid().slice(0, 8)}`;
