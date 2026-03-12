@@ -178,4 +178,58 @@ describe('MainComponent', () => {
     expect(component.download_uids).toEqual(['download-9']);
     expect(component.current_download && component.current_download.uid).toBe('download-9');
   });
+
+  it('shows playlist download option for single YouTube URL with list param', () => {
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
+
+    expect(component.hasPlaylistUrlInInput()).toBeTrue();
+    expect(component.shouldShowDownloadMenu()).toBeTrue();
+  });
+
+  it('does not show playlist download option for non-playlist URL', () => {
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
+
+    expect(component.hasPlaylistUrlInInput()).toBeFalse();
+  });
+
+  it('keeps download menu visible when sponsorblock option is enabled', () => {
+    component.sponsorBlockApiEnabled = true;
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
+
+    expect(component.shouldShowDownloadMenu()).toBeTrue();
+  });
+
+  it('maps playlist menu action to canonical playlist URL', () => {
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
+    const download_spy = spyOn(component, 'downloadClicked');
+
+    component.downloadPlaylistClicked();
+
+    expect(download_spy).toHaveBeenCalledWith(
+      false,
+      'https://www.youtube.com/playlist?list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL',
+      false
+    );
+  });
+
+  it('falls back to normal download when playlist action is unavailable', () => {
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
+    const download_spy = spyOn(component, 'downloadClicked');
+
+    component.downloadPlaylistClicked();
+
+    expect(download_spy).toHaveBeenCalledWith();
+  });
+
+  it('keeps main download as single-video for watch URLs that include list param', () => {
+    const download_file_spy = jasmine.createSpy('downloadFile').and.returnValue(of({download: {uid: 'queued-1'}}));
+    (component as any).postsService.downloadFile = download_file_spy;
+    component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
+    component.autoplay = true;
+
+    component.downloadClicked();
+
+    const called_url = download_file_spy.calls.argsFor(0)[0];
+    expect(called_url).toBe('https://www.youtube.com/watch?v=wOWhfNB_r-0');
+  });
 });

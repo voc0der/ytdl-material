@@ -330,16 +330,39 @@ export class MainComponent implements OnInit {
   }
 
   // download click handler
-  downloadClicked(disableSponsorBlock = false): void {
+  shouldShowDownloadMenu(): boolean {
+    return this.sponsorBlockApiEnabled || this.hasPlaylistUrlInInput();
+  }
+
+  hasPlaylistUrlInInput(): boolean {
+    return this.getPlaylistDownloadUrl(this.url || '') !== null;
+  }
+
+  downloadPlaylistClicked(): void {
+    const playlist_url = this.getPlaylistDownloadUrl(this.url || '');
+    if (!playlist_url) {
+      this.downloadClicked();
+      return;
+    }
+    this.downloadClicked(false, playlist_url, false);
+  }
+
+  downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true): void {
+    let effective_url = typeof urlOverride === 'string' ? urlOverride : (this.url || '');
+
     // Sanitize single YouTube watch URLs (keep only v=...)
-    const _urlsForSanitize = this.getURLArray(this.url || '');
-    if (_urlsForSanitize.length === 1) {
-      const _sanitized = this.sanitizeYouTubeWatchUrl(_urlsForSanitize[0]);
-      if (_sanitized && _sanitized !== _urlsForSanitize[0]) {
-        this.url = _sanitized;
+    const urls_for_sanitize = this.getURLArray(effective_url);
+    if (sanitizeSingleWatchUrl && urls_for_sanitize.length === 1) {
+      const sanitized = this.sanitizeYouTubeWatchUrl(urls_for_sanitize[0]);
+      if (sanitized && sanitized !== urls_for_sanitize[0]) {
+        effective_url = sanitized;
+        if (urlOverride === null) {
+          this.url = sanitized;
+        }
       }
     }
-    if (!this.ValidURL(this.url)) {
+
+    if (!this.ValidURL(effective_url)) {
       this.urlError = true;
       return;
     }
@@ -383,9 +406,9 @@ export class MainComponent implements OnInit {
     this.selectedQuality = '';
     this.downloadingfile = true;
 
-    const urls = this.getURLArray(this.url);
+    const urls = this.getURLArray(effective_url);
     for (let i = 0; i < urls.length; i++) {
-      const url = this.sanitizeYouTubeWatchUrl(urls[i]);
+      const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
         customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock).subscribe(res => {
           const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
@@ -529,17 +552,6 @@ export class MainComponent implements OnInit {
 
   inputChanged(new_val: string): void {
     this.selectedQuality = '';
-
-    // Sanitize YouTube watch URLs (keep only v=...) so a \"video-from-playlist\" link
-    // doesn't get treated like a playlist by the downloader.
-    const urls = this.getURLArray(new_val || '');
-    if (urls.length === 1) {
-      const sanitized = this.sanitizeYouTubeWatchUrl(urls[0]);
-      if (sanitized && sanitized !== urls[0]) {
-        this.url = sanitized;
-        new_val = sanitized;
-      }
-    }
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -614,6 +626,24 @@ export class MainComponent implements OnInit {
     } catch {
       return null;
     }
+  }
+
+  private getPlaylistDownloadUrl(raw: string): string | null {
+    const urls = this.getURLArray(raw || '');
+    if (urls.length !== 1) return null;
+    const playlist_id = this.getYouTubePlaylistId(urls[0]);
+    if (!playlist_id) return null;
+    return `https://www.youtube.com/playlist?list=${encodeURIComponent(playlist_id)}`;
+  }
+
+  private getYouTubePlaylistId(raw: string): string | null {
+    const parsed_url = this.safeParseURL(raw);
+    if (!parsed_url) return null;
+    const host = parsed_url.hostname.replace(/^www\./, '').toLowerCase();
+    const is_youtube_host = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com' || host === 'youtu.be';
+    if (!is_youtube_host) return null;
+    const playlist_id = parsed_url.searchParams.get('list');
+    return playlist_id || null;
   }
 
   // If this is a YouTube watch URL (or youtu.be), return a canonical single-video URL with ONLY v=
