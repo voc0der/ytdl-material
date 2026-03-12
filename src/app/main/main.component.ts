@@ -877,7 +877,10 @@ export class MainComponent implements OnInit {
     this.postsService.getCurrentDownload(this.current_download['uid']).subscribe(res => {
       if (res['download']) {
         this.current_download = res['download'];
-        this.percentDownloaded = this.current_download.percent_complete;
+        const numeric_percent = Number(this.current_download.percent_complete);
+        this.percentDownloaded = Number.isFinite(numeric_percent)
+          ? Math.max(0, Math.min(100, numeric_percent))
+          : null;
 
         if (this.current_download['finished'] && !this.current_download['error']) {
           const container = this.current_download['container'];
@@ -894,6 +897,10 @@ export class MainComponent implements OnInit {
         // console.log('failed to get new download');
       }
     });
+  }
+
+  hasCurrentDownloadPercent(): boolean {
+    return Number.isFinite(Number(this.percentDownloaded));
   }
 
   reloadRecentVideos(is_playlist = false): void {

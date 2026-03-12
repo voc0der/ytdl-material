@@ -356,6 +356,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   shouldShowPercentComplete(download: Download): boolean {
     if (!download || download.error) return false;
     if (download.finished) return false;
+    const numeric_percent = Number(download['percent_complete']);
+    if (Number.isFinite(numeric_percent)) return true;
     return download.step_index === 2;
   }
 
