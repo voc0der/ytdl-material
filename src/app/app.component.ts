@@ -356,10 +356,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.show_completion_badge && this.active_download_count === 0 ? 'accent' : 'warn';
   }
 
-  getActiveDownloadsBadgeClass(): string {
-    return this.show_completion_badge && this.active_download_count === 0 ? 'active-downloads-complete-badge' : '';
-  }
-
   hasPlaylistItemProgress(download: Download): boolean {
     const playlist_item_progress = (download as DownloadWithPlaylistProgress)?.playlist_item_progress;
     return Array.isArray(playlist_item_progress) && playlist_item_progress.length > 1;

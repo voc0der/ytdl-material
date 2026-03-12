@@ -130,7 +130,7 @@
     background: rgba(0, 0, 0, 0.015);
 }
 
-::ng-deep .mat-badge-content.active-downloads-complete-badge {
+:host ::ng-deep .active-downloads-complete .mat-badge-content {
     background-color: #2e7d32 !important;
     color: #ffffff !important;
     font-weight: 700;

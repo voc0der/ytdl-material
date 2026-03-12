@@ -20,7 +20,7 @@
                 <mat-icon
                   [matBadge]="getActiveDownloadsBadgeValue()"
                   [matBadgeColor]="getActiveDownloadsBadgeColor()"
-                  [matBadgeClass]="getActiveDownloadsBadgeClass()"
+                  [class.active-downloads-complete]="show_completion_badge && active_download_count === 0"
                   matBadgeSize="small">
                   {{getActiveDownloadsIndicatorIcon()}}
                 </mat-icon>
