@@ -129,3 +129,9 @@
     border-color: rgba(0, 0, 0, 0.14);
     background: rgba(0, 0, 0, 0.015);
 }
+
+::ng-deep .mat-badge-content.active-downloads-complete-badge {
+    background-color: #2e7d32 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}

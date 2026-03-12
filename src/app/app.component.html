@@ -15,9 +15,15 @@
             </div>
           </div>
           <div class="col-6" style="text-align: right; align-items: flex-end; display: inline-block">
-            @if (active_download_count > 0) {
+            @if (shouldShowActiveDownloadsIndicator()) {
               <button #activeDownloadsTrigger="matMenuTrigger" [matMenuTriggerFor]="activeDownloadsMenu" (click)="activeDownloadsMenuButtonClicked()" (menuOpened)="activeDownloadsMenuOpened()" mat-icon-button>
-                <mat-icon [matBadge]="active_download_count" matBadgeColor="warn" matBadgeSize="small">download</mat-icon>
+                <mat-icon
+                  [matBadge]="getActiveDownloadsBadgeValue()"
+                  [matBadgeColor]="getActiveDownloadsBadgeColor()"
+                  [matBadgeClass]="getActiveDownloadsBadgeClass()"
+                  matBadgeSize="small">
+                  {{getActiveDownloadsIndicatorIcon()}}
+                </mat-icon>
               </button>
               <mat-menu [classList]="'active-downloads-menu'" (close)="activeDownloadsMenuClosed()" #activeDownloadsMenu="matMenu">
                 <div class="active-downloads-menu-content" (click)="$event.stopPropagation()">

@@ -51,6 +51,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   notification_count = 0;
   active_downloads: Download[] = [];
   active_download_count = 0;
+  show_completion_badge = false;
   readonly ACTIVE_DOWNLOAD_STEP_LABELS: {[key: number]: string} = {
     0: $localize`Creating download`,
     1: $localize`Getting info`,
@@ -60,9 +61,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly ACTIVE_DOWNLOADS_POLL_INTERVAL_MS = 1000;
   private readonly ACTIVE_DOWNLOADS_AUTO_CLOSE_MS = 5000;
+  private readonly ACTIVE_DOWNLOADS_COMPLETION_BADGE_MS = 2500;
   private active_downloads_poll_interval_id: number = null;
   private active_downloads_auto_close_timeout_id: number = null;
+  private active_downloads_completion_badge_timeout_id: number = null;
   private active_download_uids = new Set<string>();
+  private previous_download_states = new Map<string, {finished: boolean, errored: boolean}>();
   private active_downloads_initialized = false;
   private active_downloads_auto_opened = false;
   private active_downloads_opened_manually = false;
@@ -128,6 +132,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.active_downloads_poll_interval_id = null;
     }
     this.clearActiveDownloadsAutoCloseTimer();
+    this.clearCompletionBadgeTimer();
   }
 
   toggleSidenav(): void {
@@ -329,6 +334,26 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.enableDownloadsManager && this.postsService.hasPermission('downloads_manager');
   }
 
+  shouldShowActiveDownloadsIndicator(): boolean {
+    return this.active_download_count > 0 || this.show_completion_badge;
+  }
+
+  getActiveDownloadsIndicatorIcon(): string {
+    return this.show_completion_badge && this.active_download_count === 0 ? 'download_done' : 'download';
+  }
+
+  getActiveDownloadsBadgeValue(): string | number {
+    return this.show_completion_badge && this.active_download_count === 0 ? '✓' : this.active_download_count;
+  }
+
+  getActiveDownloadsBadgeColor(): 'warn' | 'accent' {
+    return this.show_completion_badge && this.active_download_count === 0 ? 'accent' : 'warn';
+  }
+
+  getActiveDownloadsBadgeClass(): string {
+    return this.show_completion_badge && this.active_download_count === 0 ? 'active-downloads-complete-badge' : '';
+  }
+
   shouldShowActiveDownloadPercent(download: Download): boolean {
     if (!download || download.error || download.finished || download.paused) return false;
     return this.parseNumericPercent(download.percent_complete) !== null;
@@ -366,21 +391,23 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private refreshActiveDownloads(): void {
     const multi_user_mode_enabled = !!this.postsService.config?.Advanced?.multi_user_mode;
     if (multi_user_mode_enabled && !this.postsService.isLoggedIn) {
-      this.setActiveDownloads([]);
+      this.previous_download_states.clear();
+      this.setActiveDownloads([], false);
       return;
     }
 
     this.postsService.getCurrentDownloads().subscribe(res => {
       const downloads = Array.isArray(res && res['downloads']) ? res['downloads'] : [];
+      const successful_completion_detected = this.detectSuccessfulCompletion(downloads);
       const active_downloads = downloads
         .filter(download => this.isActiveDownload(download))
         .sort((download1, download2) => Number(download2.timestamp_start) - Number(download1.timestamp_start));
 
-      this.setActiveDownloads(active_downloads);
+      this.setActiveDownloads(active_downloads, successful_completion_detected);
     }, () => {});
   }
 
-  private setActiveDownloads(active_downloads: Download[]): void {
+  private setActiveDownloads(active_downloads: Download[], successful_completion_detected = false): void {
     const previous_count = this.active_download_count;
     const previous_uids = this.active_download_uids;
     const active_download_count_increased = this.active_downloads_initialized && active_downloads.length > previous_count;
@@ -390,8 +417,17 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.active_download_count = active_downloads.length;
     this.active_download_uids = new Set(active_downloads.map(download => download.uid));
 
+    if (this.active_download_count > 0) {
+      this.show_completion_badge = false;
+      this.clearCompletionBadgeTimer();
+    }
+
     if (this.active_download_count === 0 && this.activeDownloadsTrigger?.menuOpen) {
       this.activeDownloadsTrigger.closeMenu();
+    }
+
+    if (this.active_download_count === 0 && previous_count > 0 && successful_completion_detected) {
+      this.showCompletionBadgeTemporarily();
     }
 
     if (active_download_count_increased || has_new_active_download) {
@@ -436,6 +472,43 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.active_downloads_auto_close_timeout_id);
       this.active_downloads_auto_close_timeout_id = null;
     }
+  }
+
+  private showCompletionBadgeTemporarily(): void {
+    this.show_completion_badge = true;
+    this.clearCompletionBadgeTimer();
+    this.active_downloads_completion_badge_timeout_id = window.setTimeout(() => {
+      this.show_completion_badge = false;
+      this.active_downloads_completion_badge_timeout_id = null;
+    }, this.ACTIVE_DOWNLOADS_COMPLETION_BADGE_MS);
+  }
+
+  private clearCompletionBadgeTimer(): void {
+    if (this.active_downloads_completion_badge_timeout_id) {
+      clearTimeout(this.active_downloads_completion_badge_timeout_id);
+      this.active_downloads_completion_badge_timeout_id = null;
+    }
+  }
+
+  private detectSuccessfulCompletion(downloads: Download[]): boolean {
+    const current_download_states = new Map<string, {finished: boolean, errored: boolean}>();
+    let successful_completion_detected = false;
+
+    for (const download of downloads) {
+      if (!download || !download.uid) continue;
+
+      const finished = !!download.finished;
+      const errored = !!download.error;
+      const previous_state = this.previous_download_states.get(download.uid);
+      if (this.active_downloads_initialized && finished && !errored && previous_state && !previous_state.finished) {
+        successful_completion_detected = true;
+      }
+
+      current_download_states.set(download.uid, {finished: finished, errored: errored});
+    }
+
+    this.previous_download_states = current_download_states;
+    return successful_completion_detected;
   }
 
   private parseNumericPercent(value: unknown): number | null {

@@ -122,6 +122,37 @@ describe('AppComponent', () => {
     jasmine.clock().uninstall();
   });
 
+  it('shows green completion badge for a short time after final successful completion', () => {
+    jasmine.clock().install();
+    (component as any).active_downloads_initialized = true;
+    component.active_download_count = 1;
+    (component as any).active_download_uids = new Set<string>(['active-1']);
+
+    (component as any).setActiveDownloads([], true);
+
+    expect(component.show_completion_badge).toBeTrue();
+    expect(component.shouldShowActiveDownloadsIndicator()).toBeTrue();
+    expect(component.getActiveDownloadsBadgeValue()).toBe('✓');
+    expect(component.getActiveDownloadsBadgeColor()).toBe('accent');
+    expect(component.getActiveDownloadsIndicatorIcon()).toBe('download_done');
+
+    jasmine.clock().tick(2501);
+    expect(component.show_completion_badge).toBeFalse();
+    expect(component.shouldShowActiveDownloadsIndicator()).toBeFalse();
+    jasmine.clock().uninstall();
+  });
+
+  it('clears completion badge immediately when new active downloads appear', () => {
+    component.show_completion_badge = true;
+    component.active_download_count = 0;
+    (component as any).setActiveDownloads([createDownload({uid: 'active-1'})], false);
+
+    expect(component.show_completion_badge).toBeFalse();
+    expect(component.getActiveDownloadsBadgeValue()).toBe(1);
+    expect(component.getActiveDownloadsBadgeColor()).toBe('warn');
+    expect(component.getActiveDownloadsIndicatorIcon()).toBe('download');
+  });
+
   it('pause action calls pauseDownload for the selected download', () => {
     const pause_spy = spyOn(posts_service_mock, 'pauseDownload').and.returnValue(of({success: true}));
     const event_mock = { stopPropagation: jasmine.createSpy('stopPropagation') } as any;
