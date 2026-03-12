@@ -46,9 +46,22 @@
     position: relative;
 }
 
+.player-toolbar-section {
+    height: fit-content;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.player-toolbar-container {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
 .media-info-row {
     align-items: center;
     flex-wrap: nowrap;
+    width: 100%;
 }
 
 .view-column {
@@ -70,6 +83,12 @@
     font-size: 18px;
     height: 18px;
     width: 18px;
+}
+
+.chapter-column {
+    align-items: center;
+    display: flex;
+    padding-right: 0;
 }
 
 .media-description-column {
@@ -109,6 +128,141 @@
     height: 40px;
     padding: 8px;
     width: 40px;
+}
+
+.chapter-dropdown-wrapper {
+    position: relative;
+}
+
+.chapter-dropdown-trigger {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    gap: 4px;
+    max-width: 100%;
+    min-height: 38px;
+    padding: 0 16px;
+}
+
+.chapter-dropdown-trigger:hover {
+    filter: brightness(0.98);
+}
+
+.chapter-dropdown-current {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chapter-dropdown-icon {
+    transform: rotate(0deg);
+    transition: transform 0.16s ease;
+}
+
+.chapter-dropdown-icon.open {
+    transform: rotate(90deg);
+}
+
+.chapter-dropdown-menu {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    left: 0;
+    margin-top: 6px;
+    max-height: 220px;
+    min-width: min(520px, calc(100vw - 24px));
+    overflow-y: auto;
+    position: absolute;
+    top: 100%;
+    width: min(620px, calc(100vw - 24px));
+    z-index: 4;
+}
+
+.chapter-item {
+    width: 100%;
+    border: none;
+    background: rgba(0, 0, 0, 0);
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+}
+
+.chapter-item:hover {
+    background: transparent;
+}
+
+.chapter-item.active {
+    background: transparent;
+}
+
+:host-context(.dark-theme) .chapter-dropdown-trigger {
+    background: rgba(10, 15, 22, 0.96);
+    border-color: rgba(60, 104, 152, 0.6);
+}
+
+:host-context(.dark-theme) .chapter-dropdown-menu {
+    background: rgba(42, 45, 50, 0.98);
+    border-color: rgba(88, 95, 110, 0.8);
+}
+
+:host-context(.dark-theme) .chapter-item:hover {
+    background: rgba(255, 255, 255, 0.11);
+}
+
+:host-context(.dark-theme) .chapter-item.active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+:host-context(.light-theme) .chapter-dropdown-trigger {
+    background: rgba(246, 248, 252, 1);
+    border-color: rgba(126, 142, 164, 0.45);
+}
+
+:host-context(.light-theme) .chapter-dropdown-menu {
+    background: rgba(255, 255, 255, 0.99);
+    border-color: rgba(145, 157, 176, 0.5);
+}
+
+:host-context(.light-theme) .chapter-item:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+:host-context(.light-theme) .chapter-item.active {
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.chapter-time {
+    min-width: 56px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.chapter-label {
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.watch-together-section {
+    padding-left: 12px;
+    padding-right: 12px;
+    width: 100%;
+}
+
+.watch-together-section app-concurrent-stream {
+    display: block;
+    width: 100%;
 }
 
 .save-button {

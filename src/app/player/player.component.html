@@ -12,9 +12,9 @@
               }
             </vg-player>
           </div>
-          <div style="height: fit-content; width: 100%; margin-top: 10px;">
-            <div class="container">
-              <div class="row media-info-row">
+          <div class="player-toolbar-section">
+            <div class="container-fluid player-toolbar-container">
+              <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
                   @if (db_file) {
                     <span class="view-count" [matTooltip]="(db_file['local_view_count'] ? db_file['local_view_count']+1 : 1) + ' views'" i18n-matTooltip="View count tooltip">
@@ -23,6 +23,26 @@
                     </span>
                   }
                 </div>
+                @if (currentChapters.length > 0) {
+                  <div class="col-auto chapter-column">
+                    <div class="chapter-dropdown-wrapper" (click)="$event.stopPropagation()">
+                      <button class="chapter-dropdown-trigger" type="button" (click)="toggleChapterDropdown($event)">
+                        <span class="chapter-dropdown-current">{{getCurrentChapterLabel()}}</span>
+                        <mat-icon class="chapter-dropdown-icon" [class.open]="chapterDropdownOpen">chevron_right</mat-icon>
+                      </button>
+                      @if (chapterDropdownOpen) {
+                        <div class="chapter-dropdown-menu">
+                          @for (chapter of currentChapters; track chapter.start_time) {
+                            <button class="chapter-item" [class.active]="isChapterActive(chapter)" (click)="selectChapterFromDropdown(chapter, $event)" type="button" [title]="chapter.title">
+                              <span class="chapter-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
+                              <span class="chapter-label">{{chapter.title}}</span>
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
                 <div style="white-space: pre-line;" class="col media-description-column">
                   @if (db_file && db_file['description']) {
                     <p class="media-description">
@@ -86,7 +106,9 @@
             </mat-button-toggle-group>
           </div>
           @if (db_file && api && api.time && postsService.config) {
-            <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
+            <div class="watch-together-section">
+              <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
+            </div>
           }
           <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [opened]="db_file && db_file['chat_exists']">
             @if (api_ready && db_file && db_file.url.includes('twitch.tv')) {

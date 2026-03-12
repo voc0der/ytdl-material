@@ -18,6 +18,13 @@ export interface IMedia {
   label: string;
   url: string;
   uid?: string;
+  chapters?: IChapter[];
+}
+
+export interface IChapter {
+  title: string;
+  start_time: number;
+  end_time: number;
 }
 
 const AUTOPLAY_STORAGE_KEY = 'player_autoplay_enabled';
@@ -84,6 +91,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
   autoplay_queue_file_objs: DatabaseFile[] = [];
+  currentChapters: IChapter[] = [];
+  chapterDropdownOpen = false;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
 
@@ -124,6 +133,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
     this.postsService.setPageTitle();
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.chapterDropdownOpen = false;
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
@@ -294,6 +308,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.syncCurrentSingleFileMetadata();
+    this.syncCurrentChapters();
     this.updatePageTitleForCurrentItem();
   }
 
@@ -494,7 +509,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       type: mime_type,
       label: file_obj.title,
       url: file_obj.url,
-      uid: file_obj.uid
+      uid: file_obj.uid,
+      chapters: this.normalizeChapters(file_obj.chapters)
     };
     return mediaObject;
   }
@@ -554,7 +570,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const textSearch = this.queue_search?.trim() ? this.queue_search.trim() : null;
     const queueSubID = this.queue_sub_id || null;
 
-    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID).subscribe(res => {
+    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, true).subscribe(res => {
       if (!this.autoplay_enabled) {
         this.autoplay_queue_loading = false;
         this.pending_autoplay_advance = false;
@@ -599,6 +615,71 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (current_file) {
       this.db_file = current_file;
     }
+  }
+
+  syncCurrentChapters(): void {
+    this.currentChapters = this.currentItem?.chapters ?? [];
+    this.chapterDropdownOpen = false;
+  }
+
+  normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
+    if (!Array.isArray(chapters)) return [];
+
+    return chapters
+      .map(chapter => {
+        const start_time = Number(chapter.start_time);
+        const end_time = Number(chapter.end_time);
+        const title = typeof chapter.title === 'string' ? chapter.title.trim() : '';
+        if (!Number.isFinite(start_time) || start_time < 0) return null;
+        if (!Number.isFinite(end_time) || end_time <= start_time) return null;
+        if (!title) return null;
+        return {title, start_time, end_time};
+      })
+      .filter((chapter): chapter is IChapter => !!chapter);
+  }
+
+  isChapterActive(chapter: IChapter): boolean {
+    if (!this.api) return false;
+    const current_time = this.api.currentTime || 0;
+    return current_time >= chapter.start_time && current_time < chapter.end_time;
+  }
+
+  jumpToChapter(chapter: IChapter): void {
+    if (!this.api) return;
+    this.setPlaybackTimestamp(Math.floor(chapter.start_time));
+  }
+
+  toggleChapterDropdown(event: MouseEvent): void {
+    event.stopPropagation();
+    this.chapterDropdownOpen = !this.chapterDropdownOpen;
+  }
+
+  selectChapterFromDropdown(chapter: IChapter, event: MouseEvent): void {
+    event.stopPropagation();
+    this.jumpToChapter(chapter);
+    this.chapterDropdownOpen = false;
+  }
+
+  getCurrentChapter(): IChapter | null {
+    if (this.currentChapters.length === 0) return null;
+    const active_chapter = this.currentChapters.find(chapter => this.isChapterActive(chapter));
+    return active_chapter ?? this.currentChapters[0];
+  }
+
+  getCurrentChapterLabel(): string {
+    return this.getCurrentChapter()?.title ?? $localize`Chapters`;
+  }
+
+  formatChapterTimestamp(total_seconds: number): string {
+    const safe_seconds = Math.max(0, Math.floor(total_seconds || 0));
+    const hours = Math.floor(safe_seconds / 3600);
+    const minutes = Math.floor((safe_seconds % 3600) / 60);
+    const seconds = safe_seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   patchAutoplayQueueFile(updated_file: DatabaseFile): void {

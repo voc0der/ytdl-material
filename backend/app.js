@@ -1212,6 +1212,7 @@ app.post('/api/getFile', optionalJwt, async function (req, res) {
 
     // check if chat exists for twitch videos
     if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
+    if (file) file = files_api.attachFileChapters(file);
 
     if (file) {
         res.send({
@@ -1233,12 +1234,14 @@ app.post('/api/getAllFiles', optionalJwt, async function (req, res) {
     const file_type_filter = req.body.file_type_filter;
     const favorite_filter = req.body.favorite_filter;
     const sub_id = req.body.sub_id;
+    const include_chapters = req.body.include_chapters === true;
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const {files, file_count} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid);
+    const parsed_files = include_chapters ? files_api.attachFileChaptersCollection(files) : files;
 
     res.send({
-        files: files,
+        files: parsed_files,
         file_count: file_count,
     });
 });
@@ -1570,7 +1573,7 @@ app.post('/api/getSubscription', optionalJwt, async (req, res) => {
     // get sub videos
     if (subscription.name) {
         const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
-        var parsed_files = await db_api.getRecords('files', sub_files_filter); // subscription.videos;
+        var parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
         subscription['videos'] = parsed_files;
         // loop through files for extra processing
         for (let i = 0; i < parsed_files.length; i++) {
@@ -1676,7 +1679,7 @@ app.post('/api/getPlaylist', optionalJwt, async (req, res) => {
     const file_objs = [];
 
     if (playlist && include_file_metadata) {
-        file_objs.push(...(await files_api.getVideosByUIDs(playlist['uids'], uuid)));
+        file_objs.push(...files_api.attachFileChaptersCollection(await files_api.getVideosByUIDs(playlist['uids'], uuid)));
         // TODO: remove file from playlist if could not be found
     }
 

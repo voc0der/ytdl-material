@@ -41,5 +41,13 @@ export type DatabaseFile = {
      * In Kbps
      */
     abr?: number;
+    /**
+     * Chapter metadata from the sidecar .info.json file, when available
+     */
+    chapters?: Array<{
+        title: string;
+        start_time: number;
+        end_time: number;
+    }>;
     favorite: boolean;
 };
