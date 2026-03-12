@@ -562,6 +562,44 @@ describe('Downloader', function() {
         }), 1000);
     });
 
+    it('Parses yt-dlp progress output lines with ANSI escapes', function() {
+        assert.strictEqual(
+            downloader_api.parseYoutubeDLProgressPercent('\u001b[0;33m[download]\u001b[0m  12.34% of 4.20MiB at 1.20MiB/s ETA 00:02'),
+            12.34
+        );
+        assert.strictEqual(
+            downloader_api.parseYoutubeDLProgressPercent('[download] 99.9% at 5.00MiB/s ETA 00:00'),
+            99.9
+        );
+        assert.strictEqual(
+            downloader_api.parseYoutubeDLProgressPercent('nothing useful here'),
+            null
+        );
+    });
+
+    it('Adds --newline for yt-dlp runtime progress unless disabled', function() {
+        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+
+            const with_newline = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s']);
+            assert(with_newline.includes('--newline'));
+
+            const already_present = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s', '--newline']);
+            assert.deepStrictEqual(already_present, ['-o', '/tmp/%(title)s.%(ext)s', '--newline']);
+
+            const no_progress = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s', '--no-progress']);
+            assert.deepStrictEqual(no_progress, ['-o', '/tmp/%(title)s.%(ext)s', '--no-progress']);
+
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const non_ytdlp_args = downloader_api.appendRealtimeProgressArgs(['-o', '/tmp/%(title)s.%(ext)s']);
+            assert.deepStrictEqual(non_ytdlp_args, ['-o', '/tmp/%(title)s.%(ext)s']);
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
+        }
+    });
+
     it('Merges completed chunk playlists into a single playlist container', async function() {
         const batch_id = `playlist-batch-merge-${uuid()}`;
         const playlist_name = `Batch Merge ${uuid().slice(0, 8)}`;
@@ -878,4 +916,3 @@ describe('Downloader', function() {
         });
     });
 });
-
