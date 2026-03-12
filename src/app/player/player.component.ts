@@ -92,6 +92,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   pending_autoplay_advance = false;
   autoplay_queue_file_objs: DatabaseFile[] = [];
   currentChapters: IChapter[] = [];
+  chapterDropdownOpen = false;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
 
@@ -132,6 +133,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
     this.postsService.setPageTitle();
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.chapterDropdownOpen = false;
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
@@ -613,6 +619,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   syncCurrentChapters(): void {
     this.currentChapters = this.currentItem?.chapters ?? [];
+    this.chapterDropdownOpen = false;
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -639,7 +646,28 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   jumpToChapter(chapter: IChapter): void {
     if (!this.api) return;
-    this.setPlaybackTimestamp(chapter.start_time);
+    this.setPlaybackTimestamp(Math.floor(chapter.start_time));
+  }
+
+  toggleChapterDropdown(event: MouseEvent): void {
+    event.stopPropagation();
+    this.chapterDropdownOpen = !this.chapterDropdownOpen;
+  }
+
+  selectChapterFromDropdown(chapter: IChapter, event: MouseEvent): void {
+    event.stopPropagation();
+    this.jumpToChapter(chapter);
+    this.chapterDropdownOpen = false;
+  }
+
+  getCurrentChapter(): IChapter | null {
+    if (this.currentChapters.length === 0) return null;
+    const active_chapter = this.currentChapters.find(chapter => this.isChapterActive(chapter));
+    return active_chapter ?? this.currentChapters[0];
+  }
+
+  getCurrentChapterLabel(): string {
+    return this.getCurrentChapter()?.title ?? $localize`Chapters`;
   }
 
   formatChapterTimestamp(total_seconds: number): string {

@@ -79,16 +79,21 @@
             </div>
           </div>
           @if (currentChapters.length > 0) {
-            <div class="chapters-section">
-              <h3 class="chapters-title" i18n="Video chapters header">Chapters</h3>
-              <div class="chapters-list">
-                @for (chapter of currentChapters; track chapter.start_time) {
-                  <button class="chapter-item" [class.active]="isChapterActive(chapter)" (click)="jumpToChapter(chapter)" type="button">
-                    <span class="chapter-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
-                    <span class="chapter-label">{{chapter.title}}</span>
-                  </button>
-                }
-              </div>
+            <div class="chapter-dropdown-wrapper" (click)="$event.stopPropagation()">
+              <button class="chapter-dropdown-trigger" type="button" (click)="toggleChapterDropdown($event)">
+                <span class="chapter-dropdown-current">{{getCurrentChapterLabel()}}</span>
+                <mat-icon class="chapter-dropdown-icon" [class.open]="chapterDropdownOpen">chevron_right</mat-icon>
+              </button>
+              @if (chapterDropdownOpen) {
+                <div class="chapter-dropdown-menu">
+                  @for (chapter of currentChapters; track chapter.start_time) {
+                    <button class="chapter-item" [class.active]="isChapterActive(chapter)" (click)="selectChapterFromDropdown(chapter, $event)" type="button" [title]="chapter.title">
+                      <span class="chapter-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
+                      <span class="chapter-label">{{chapter.title}}</span>
+                    </button>
+                  }
+                </div>
+              }
             </div>
           }
           <div style="height: fit-content; width: 100%; margin-top: 10px;">
