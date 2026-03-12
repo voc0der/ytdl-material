@@ -168,19 +168,89 @@ exports.getExpectedFileSize = (input_info_jsons) => {
     // treat single videos as arrays to have the file sizes checked/added to. makes the code cleaner
     const info_jsons = Array.isArray(input_info_jsons) ? input_info_jsons : [input_info_jsons];
 
+    const getNumericSize = (value) => {
+        const numeric_value = Number(value);
+        return Number.isFinite(numeric_value) && numeric_value > 0 ? numeric_value : 0;
+    };
+
+    const estimateSizeFromBitrate = (bitrate_kbps, duration_seconds) => {
+        const normalized_bitrate_kbps = getNumericSize(bitrate_kbps);
+        const normalized_duration_seconds = getNumericSize(duration_seconds);
+        if (normalized_bitrate_kbps === 0 || normalized_duration_seconds === 0) return 0;
+
+        // yt-dlp reports tbr/abr/vbr in KBit/s.
+        return (normalized_bitrate_kbps * 1000 / 8) * normalized_duration_seconds;
+    };
+
+    const getDurationSeconds = (info_json = {}) => {
+        return getNumericSize(info_json.duration);
+    };
+
+    const getFormatBitrateKbps = (format_obj = {}) => {
+        return getNumericSize(format_obj.tbr) || getNumericSize(format_obj.vbr) || getNumericSize(format_obj.abr);
+    };
+
+    const getSizeFromFormatObj = (format_obj = null, duration_fallback_seconds = 0) => {
+        if (!format_obj || typeof format_obj !== 'object') return 0;
+        const exact_or_approx_size = getNumericSize(format_obj.filesize) || getNumericSize(format_obj.filesize_approx);
+        if (exact_or_approx_size > 0) return exact_or_approx_size;
+
+        const format_duration_seconds = getNumericSize(format_obj.duration) || duration_fallback_seconds;
+        const format_bitrate_kbps = getFormatBitrateKbps(format_obj);
+        return estimateSizeFromBitrate(format_bitrate_kbps, format_duration_seconds);
+    };
+
+    const getSizeFromRequestedFormats = (info_json = {}) => {
+        if (!Array.isArray(info_json.requested_formats)) return 0;
+        const duration_fallback_seconds = getDurationSeconds(info_json);
+        return info_json.requested_formats.reduce((sum, requested_format) => {
+            return sum + getSizeFromFormatObj(requested_format, duration_fallback_seconds);
+        }, 0);
+    };
+
+    const getSizeFromRequestedDownloads = (info_json = {}) => {
+        if (!Array.isArray(info_json.requested_downloads)) return 0;
+        const duration_fallback_seconds = getDurationSeconds(info_json);
+        return info_json.requested_downloads.reduce((sum, requested_download) => {
+            return sum + getSizeFromFormatObj(requested_download, duration_fallback_seconds);
+        }, 0);
+    };
+
     let expected_filesize = 0;
     info_jsons.forEach(info_json => {
-        const formats = info_json['format_id'].split('+');
+        if (!info_json || typeof info_json !== 'object') return;
+
+        const duration_fallback_seconds = getDurationSeconds(info_json);
+        const format_id = typeof info_json['format_id'] === 'string' ? info_json['format_id'] : '';
+        const selected_format = format_id.split('/')[0];
+        const formats = selected_format.split('+').map(part => part.trim()).filter(part => part !== '');
         let individual_expected_filesize = 0;
         formats.forEach(format_id => {
             if (info_json.formats !== undefined) {
                 info_json.formats.forEach(available_format => {
-                  if (available_format.format_id === format_id && (available_format.filesize || available_format.filesize_approx)) {
-                    individual_expected_filesize += (available_format.filesize ? available_format.filesize : available_format.filesize_approx);
+                  if (available_format.format_id === format_id) {
+                    individual_expected_filesize += getSizeFromFormatObj(available_format, duration_fallback_seconds);
                   }
                 });
             }
         });
+
+        // yt-dlp often provides sizes for selected streams in requested_formats / requested_downloads
+        // while omitting filesize metadata in the full formats list.
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getSizeFromRequestedFormats(info_json);
+        }
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getSizeFromRequestedDownloads(info_json);
+        }
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getNumericSize(info_json.filesize) || getNumericSize(info_json.filesize_approx);
+        }
+        if (individual_expected_filesize === 0) {
+            const top_level_bitrate_kbps = getFormatBitrateKbps(info_json);
+            individual_expected_filesize = estimateSizeFromBitrate(top_level_bitrate_kbps, duration_fallback_seconds);
+        }
+
         expected_filesize += individual_expected_filesize;
     });
 

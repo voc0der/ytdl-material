@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+const { PassThrough } = require('stream');
 const {
     assert,
     path,
@@ -202,6 +203,67 @@ describe('Downloader', function() {
         const returned_download_fail = await downloader_api.createDownload(playlist_url, 'video', options);
         await downloader_api.collectInfo(returned_download_fail['uid']);
         assert(!returned_download_fail['category']);
+    });
+
+    it('Collect info keeps single-download expected size when yt-dlp only provides requested formats', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const fixture_with_requested_formats = [{
+            ...fixture_single[0],
+            format_id: '401+251',
+            formats: [
+                {format_id: '401'},
+                {format_id: '251'}
+            ],
+            requested_formats: [
+                {format_id: '401', filesize_approx: 1000},
+                {format_id: '251', filesize: 500}
+            ],
+            filesize: undefined,
+            filesize_approx: 1500
+        }];
+
+        try {
+            downloader_api.getVideoInfoByURL = async () => fixture_with_requested_formats;
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            assert.strictEqual(updated_download.expected_file_size, 1500);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert.strictEqual(updated_download.percent_complete, null);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
+    it('Collect info estimates expected size from bitrate when yt-dlp omits filesize fields', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const fixture_with_bitrate_only = [{
+            ...fixture_single[0],
+            format_id: '401+251',
+            duration: 10,
+            formats: [
+                {format_id: '401'},
+                {format_id: '251'}
+            ],
+            requested_formats: [
+                {format_id: '401', tbr: 1000},
+                {format_id: '251', abr: 128}
+            ],
+            filesize: undefined,
+            filesize_approx: undefined
+        }];
+
+        try {
+            downloader_api.getVideoInfoByURL = async () => fixture_with_bitrate_only;
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            assert(updated_download.expected_file_size > 0);
+            assert.strictEqual(updated_download.expected_file_size, ((1000 + 128) * 1000 / 8) * 10);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
     });
 
     it('Tag file', async function() {
@@ -562,6 +624,108 @@ describe('Downloader', function() {
         }), 1000);
     });
 
+    it('Appends realtime progress arg for yt-dlp downloads', function() {
+        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            assert.deepStrictEqual(
+                downloader_api.appendRealtimeProgressArgs(['-f', 'bestvideo+bestaudio']),
+                ['-f', 'bestvideo+bestaudio', '--newline']
+            );
+            assert.deepStrictEqual(
+                downloader_api.appendRealtimeProgressArgs(['-f', 'bestvideo+bestaudio', '--newline']),
+                ['-f', 'bestvideo+bestaudio', '--newline']
+            );
+            assert.deepStrictEqual(
+                downloader_api.appendRealtimeProgressArgs(['--quiet']),
+                ['--quiet']
+            );
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
+        }
+    });
+
+    it('Parses yt-dlp process output progress and playlist state lines', function() {
+        assert.strictEqual(
+            downloader_api.parseYoutubeDLProgressPercent('\u001b[0;32m[download] 45.3% of 10.00MiB at 2.00MiB/s ETA 00:03\u001b[0m'),
+            45.3
+        );
+        assert.deepStrictEqual(
+            downloader_api.parseYoutubeDLPlaylistProgressState('[download] Downloading item 2 of 5'),
+            {current_item_index: 2, total_items: 5}
+        );
+    });
+
+    it('Updates single-download percent from process output listeners', async function() {
+        const test_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+        await db_api.updateRecord('download_queue', {uid: test_download.uid}, {
+            finished: false,
+            running: true,
+            step_index: 2,
+            percent_complete: null
+        });
+
+        const fake_child_process = {
+            stdout: new PassThrough(),
+            stderr: new PassThrough()
+        };
+        const detach = downloader_api.attachDownloadProgressOutputListeners(test_download.uid, fake_child_process, test_download);
+        try {
+            fake_child_process.stderr.write('[download] 12.50% of 10.00MiB at 2.00MiB/s ETA 00:04\n');
+            await utils.wait(100);
+
+            const updated_download = await db_api.getRecord('download_queue', {uid: test_download.uid});
+            assert(updated_download);
+            assert.strictEqual(Number(updated_download.percent_complete).toFixed(2), '12.50');
+        } finally {
+            detach();
+            fake_child_process.stdout.end();
+            fake_child_process.stderr.end();
+            await db_api.removeRecord('download_queue', {uid: test_download.uid});
+        }
+    });
+
+    it('Updates playlist percent from process output listeners', async function() {
+        const test_download = await downloader_api.createDownload(playlist_url, 'video', {ui_uid: uuid()});
+        await db_api.updateRecord('download_queue', {uid: test_download.uid}, {
+            finished: false,
+            running: true,
+            step_index: 2,
+            percent_complete: null,
+            playlist_item_progress: [
+                {index: 1, title: 'Item 1', expected_file_size: 100, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 0},
+                {index: 2, title: 'Item 2', expected_file_size: 100, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 1},
+                {index: 3, title: 'Item 3', expected_file_size: 100, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 2}
+            ]
+        });
+
+        const latest_download = await db_api.getRecord('download_queue', {uid: test_download.uid});
+        const fake_child_process = {
+            stdout: new PassThrough(),
+            stderr: new PassThrough()
+        };
+        const detach = downloader_api.attachDownloadProgressOutputListeners(test_download.uid, fake_child_process, latest_download);
+        try {
+            fake_child_process.stderr.write('[download] Downloading item 2 of 3\n');
+            fake_child_process.stderr.write('[download] 50.0% of 10.00MiB at 2.00MiB/s ETA 00:04\n');
+            await utils.wait(150);
+
+            const updated_download = await db_api.getRecord('download_queue', {uid: test_download.uid});
+            assert(updated_download);
+            // ((item 2 - 1) + 0.5) / 3 * 100 = 50.00
+            assert.strictEqual(Number(updated_download.percent_complete).toFixed(2), '50.00');
+            assert(Array.isArray(updated_download.playlist_item_progress));
+            assert.strictEqual(updated_download.playlist_item_progress[0].percent_complete, 100);
+            assert(updated_download.playlist_item_progress[1].percent_complete >= 50);
+            assert.strictEqual(updated_download.playlist_item_progress[1].status, 'downloading');
+        } finally {
+            detach();
+            fake_child_process.stdout.end();
+            fake_child_process.stderr.end();
+            await db_api.removeRecord('download_queue', {uid: test_download.uid});
+        }
+    });
+
     it('Merges completed chunk playlists into a single playlist container', async function() {
         const batch_id = `playlist-batch-merge-${uuid()}`;
         const playlist_name = `Batch Merge ${uuid().slice(0, 8)}`;
@@ -878,4 +1042,3 @@ describe('Downloader', function() {
         });
     });
 });
-

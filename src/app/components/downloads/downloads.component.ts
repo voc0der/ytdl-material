@@ -581,28 +581,98 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   private mergeBatchPlaylistProgress(batch_downloads: DownloadWithPlaylistProgress[]): PlaylistDownloadProgressItem[] | null {
-    const merged_items: PlaylistDownloadProgressItem[] = [];
+    const merged_items: (PlaylistDownloadProgressItem & {
+      sort_global_index?: number,
+      sort_chunk_start?: number,
+      sort_local_index?: number
+    })[] = [];
     for (const download of batch_downloads) {
+      const chunk_start = this.getChunkRangeStart(download);
       if (!Array.isArray(download.playlist_item_progress)) continue;
       for (const item of download.playlist_item_progress) {
-        merged_items.push({...item});
+        const local_index = this.getLocalPlaylistItemIndex(item);
+        const global_index = chunk_start !== null && local_index !== null
+          ? chunk_start + local_index - 1
+          : null;
+        const normalized_index = Number.isFinite(Number(item.index)) ? Number(item.index) : null;
+
+        merged_items.push({
+          ...item,
+          index: global_index !== null ? global_index : (normalized_index !== null ? normalized_index : 0),
+          sort_global_index: global_index !== null ? global_index : Number.MAX_SAFE_INTEGER,
+          sort_chunk_start: chunk_start !== null ? chunk_start : Number.MAX_SAFE_INTEGER,
+          sort_local_index: local_index !== null ? local_index : Number.MAX_SAFE_INTEGER
+        });
       }
     }
 
     if (merged_items.length === 0) return null;
 
     merged_items.sort((item1, item2) => {
-      const path_index_1 = Number.isFinite(Number(item1.progress_path_index)) ? Number(item1.progress_path_index) : Number.MAX_SAFE_INTEGER;
-      const path_index_2 = Number.isFinite(Number(item2.progress_path_index)) ? Number(item2.progress_path_index) : Number.MAX_SAFE_INTEGER;
-      if (path_index_1 !== path_index_2) return path_index_1 - path_index_2;
+      const global_index_1 = Number.isFinite(Number(item1.sort_global_index)) ? Number(item1.sort_global_index) : Number.MAX_SAFE_INTEGER;
+      const global_index_2 = Number.isFinite(Number(item2.sort_global_index)) ? Number(item2.sort_global_index) : Number.MAX_SAFE_INTEGER;
+      if (global_index_1 !== global_index_2) return global_index_1 - global_index_2;
 
-      const index_1 = Number.isFinite(Number(item1.index)) ? Number(item1.index) : Number.MAX_SAFE_INTEGER;
-      const index_2 = Number.isFinite(Number(item2.index)) ? Number(item2.index) : Number.MAX_SAFE_INTEGER;
-      if (index_1 !== index_2) return index_1 - index_2;
+      const chunk_start_1 = Number.isFinite(Number(item1.sort_chunk_start)) ? Number(item1.sort_chunk_start) : Number.MAX_SAFE_INTEGER;
+      const chunk_start_2 = Number.isFinite(Number(item2.sort_chunk_start)) ? Number(item2.sort_chunk_start) : Number.MAX_SAFE_INTEGER;
+      if (chunk_start_1 !== chunk_start_2) return chunk_start_1 - chunk_start_2;
+
+      const local_index_1 = Number.isFinite(Number(item1.sort_local_index)) ? Number(item1.sort_local_index) : Number.MAX_SAFE_INTEGER;
+      const local_index_2 = Number.isFinite(Number(item2.sort_local_index)) ? Number(item2.sort_local_index) : Number.MAX_SAFE_INTEGER;
+      if (local_index_1 !== local_index_2) return local_index_1 - local_index_2;
 
       return String(item1.title || '').localeCompare(String(item2.title || ''));
     });
-    return merged_items;
+
+    const seen_indices = new Set<number>();
+    let has_invalid_or_duplicate_indices = false;
+    for (const item of merged_items) {
+      const normalized_index = Number.isFinite(Number(item.index)) ? Number(item.index) : 0;
+      if (normalized_index <= 0 || seen_indices.has(normalized_index)) {
+        has_invalid_or_duplicate_indices = true;
+        break;
+      }
+      seen_indices.add(normalized_index);
+    }
+    if (has_invalid_or_duplicate_indices) {
+      merged_items.forEach((item, index) => {
+        item.index = index + 1;
+      });
+    }
+
+    return merged_items.map(item => {
+      const clean_item = {...item};
+      delete clean_item.sort_global_index;
+      delete clean_item.sort_chunk_start;
+      delete clean_item.sort_local_index;
+      return clean_item;
+    });
+  }
+
+  private getChunkRangeStart(download: DownloadWithPlaylistProgress): number | null {
+    const options = (download as DownloadWithOptions).options;
+    const chunk_range = options && typeof options.playlistChunkRange === 'string'
+      ? options.playlistChunkRange.trim()
+      : '';
+    if (!chunk_range) return null;
+
+    const chunk_match = chunk_range.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+    if (!chunk_match || !chunk_match[1]) return null;
+
+    const start_index = Number(chunk_match[1]);
+    return Number.isFinite(start_index) && start_index > 0 ? start_index : null;
+  }
+
+  private getLocalPlaylistItemIndex(item: PlaylistDownloadProgressItem): number | null {
+    const progress_path_index = Number(item && item.progress_path_index);
+    if (Number.isFinite(progress_path_index) && progress_path_index >= 0) {
+      return progress_path_index + 1;
+    }
+    const item_index = Number(item && item.index);
+    if (Number.isFinite(item_index) && item_index > 0) {
+      return item_index;
+    }
+    return null;
   }
 
   private getAggregatePercentComplete(batch_downloads: Download[], playlist_progress: PlaylistDownloadProgressItem[] | null, fallback_percent: number): number {

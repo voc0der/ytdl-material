@@ -78,4 +78,48 @@ describe('MainComponent', () => {
     expect(component.percentDownloaded).toBeNull();
     expect(component.hasCurrentDownloadPercent()).toBeFalse();
   });
+
+  it('reloads videos when a finished download has no container metadata', () => {
+    const api_download = {
+      uid: 'download-2',
+      percent_complete: 100,
+      finished: true,
+      error: null,
+      file_uids: null,
+      type: 'video',
+      container: null
+    };
+    const reload_spy = spyOn(component, 'reloadRecentVideos');
+    const helper_spy = spyOn(component, 'downloadHelper');
+    (component as any).postsService.getCurrentDownload = () => of({download: api_download});
+    component.current_download = {uid: 'download-2'} as any;
+    component.downloadingfile = true;
+
+    component.getCurrentDownload();
+
+    expect(helper_spy).not.toHaveBeenCalled();
+    expect(reload_spy).toHaveBeenCalledWith(false);
+    expect(component.downloadingfile).toBeFalse();
+    expect(component.current_download).toBeNull();
+  });
+
+  it('routes finished downloads through downloadHelper when metadata is present', () => {
+    const api_download = {
+      uid: 'download-3',
+      percent_complete: 100,
+      finished: true,
+      error: null,
+      file_uids: ['file-1'],
+      type: 'video',
+      container: {uid: 'file-1'}
+    };
+    const helper_spy = spyOn(component, 'downloadHelper');
+    (component as any).postsService.getCurrentDownload = () => of({download: api_download});
+    component.current_download = {uid: 'download-3'} as any;
+
+    component.getCurrentDownload();
+
+    expect(helper_spy).toHaveBeenCalledWith(api_download.container as any, 'video', false, false);
+    expect(component.current_download).toBeNull();
+  });
 });

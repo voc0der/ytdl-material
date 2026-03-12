@@ -74,4 +74,31 @@ describe('DownloadsComponent', () => {
 
     expect(component.getNormalizedPercent(download)).toBe('100.00');
   });
+
+  it('merges chunked playlist progress with global sequential indices', () => {
+    const chunk_1 = {
+      uid: 'chunk-1',
+      options: {playlistChunkRange: '1-3'},
+      playlist_item_progress: [
+        {index: 1, title: 'A', expected_file_size: 1, downloaded_size: 1, percent_complete: 100, status: 'complete', progress_path_index: 0},
+        {index: 2, title: 'B', expected_file_size: 1, downloaded_size: 0, percent_complete: 10, status: 'downloading', progress_path_index: 1},
+        {index: 3, title: 'C', expected_file_size: 1, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 2}
+      ]
+    };
+    const chunk_2 = {
+      uid: 'chunk-2',
+      options: {playlistChunkRange: '4-6'},
+      playlist_item_progress: [
+        {index: 1, title: 'D', expected_file_size: 1, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 0},
+        {index: 2, title: 'E', expected_file_size: 1, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 1},
+        {index: 3, title: 'F', expected_file_size: 1, downloaded_size: 0, percent_complete: 0, status: 'pending', progress_path_index: 2}
+      ]
+    };
+
+    const merged = (component as any).mergeBatchPlaylistProgress([chunk_2 as any, chunk_1 as any]);
+
+    expect(Array.isArray(merged)).toBeTrue();
+    expect(merged.map(item => item.index)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(merged.map(item => item.title)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+  });
 });
