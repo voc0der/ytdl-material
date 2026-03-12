@@ -122,4 +122,60 @@ describe('MainComponent', () => {
     expect(helper_spy).toHaveBeenCalledWith(api_download.container as any, 'video', false, false);
     expect(component.current_download).toBeNull();
   });
+
+  it('advances to the next queued download after a finished item without container metadata', () => {
+    const api_download = {
+      uid: 'download-4',
+      percent_complete: 100,
+      finished: true,
+      error: null,
+      file_uids: ['file-1', 'file-2'],
+      type: 'video',
+      container: null
+    };
+    const reload_spy = spyOn(component, 'reloadRecentVideos');
+    (component as any).postsService.getCurrentDownload = () => of({download: api_download});
+    component.current_download = {uid: 'download-4'} as any;
+    component.downloads = [{uid: 'download-4'} as any, {uid: 'download-5'} as any];
+    component.download_uids = ['download-4', 'download-5'];
+
+    component.getCurrentDownload();
+
+    expect(component.download_uids).toEqual(['download-5']);
+    expect(component.current_download && component.current_download.uid).toBe('download-5');
+    expect(reload_spy).not.toHaveBeenCalled();
+  });
+
+  it('removes finished errored downloads and continues polling remaining queue', () => {
+    const api_download = {
+      uid: 'download-6',
+      percent_complete: 100,
+      finished: true,
+      error: 'failed',
+      file_uids: null,
+      type: 'video',
+      container: null
+    };
+    (component as any).postsService.getCurrentDownload = () => of({download: api_download});
+    component.current_download = {uid: 'download-6'} as any;
+    component.downloads = [{uid: 'download-6'} as any, {uid: 'download-7'} as any];
+    component.download_uids = ['download-6', 'download-7'];
+
+    component.getCurrentDownload();
+
+    expect(component.download_uids).toEqual(['download-7']);
+    expect(component.current_download && component.current_download.uid).toBe('download-7');
+  });
+
+  it('removes downloads by uid even when object references differ', () => {
+    component.current_download = {uid: 'download-8'} as any;
+    component.downloads = [{uid: 'download-8'} as any, {uid: 'download-9'} as any];
+    component.download_uids = ['download-8', 'download-9'];
+
+    const removed = component.removeDownloadFromCurrentDownloads({uid: 'download-8'} as any);
+
+    expect(removed).toBeTrue();
+    expect(component.download_uids).toEqual(['download-9']);
+    expect(component.current_download && component.current_download.uid).toBe('download-9');
+  });
 });

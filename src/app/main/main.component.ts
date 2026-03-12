@@ -398,11 +398,19 @@ export class MainComponent implements OnInit {
             return;
           }
 
-          this.current_download = queued_downloads[0];
           for (const queued_download of queued_downloads) {
-            this.downloads.push(queued_download);
-            this.download_uids.push(queued_download['uid']);
+            if (!queued_download || !queued_download.uid) continue;
+            const existing_download = this.getDownloadByUID(queued_download.uid);
+            if (existing_download) {
+              Object.assign(existing_download, queued_download);
+            } else {
+              this.downloads.push(queued_download);
+            }
+            if (!this.download_uids.includes(queued_download.uid)) {
+              this.download_uids.push(queued_download.uid);
+            }
           }
+          if (!this.current_download) this.setNextCurrentDownload();
       }, () => { // can't access server
         this.downloadingfile = false;
         this.current_download = null;
@@ -464,14 +472,18 @@ export class MainComponent implements OnInit {
   }
 
   removeDownloadFromCurrentDownloads(download_to_remove: Download): boolean {
-    if (this.current_download === download_to_remove) {
+    if (!download_to_remove || !download_to_remove.uid) return false;
+    if (this.current_download && this.current_download.uid === download_to_remove.uid) {
       this.current_download = null;
     }
-    const index = this.downloads.indexOf(download_to_remove);
+    this.download_uids = this.download_uids.filter(uid => uid !== download_to_remove.uid);
+    const index = this.downloads.findIndex(download => download.uid === download_to_remove.uid);
     if (index !== -1) {
       this.downloads.splice(index, 1);
+      this.setNextCurrentDownload();
       return true;
     } else {
+      this.setNextCurrentDownload();
       return false;
     }
   }
@@ -888,17 +900,25 @@ export class MainComponent implements OnInit {
           const file_uids = Array.isArray(completed_download['file_uids']) ? completed_download['file_uids'] : [];
           const is_playlist = file_uids.length > 1;
           const type = completed_download['type'];
+          const completed_uid = completed_download.uid;
           this.current_download = null;
           this.downloadingfile = false;
+          this.downloads = this.downloads.filter(download => download && download.uid !== completed_uid);
+          this.download_uids = this.download_uids.filter(uid => uid !== completed_uid);
+          this.setNextCurrentDownload();
 
           if (container && type) {
             this.downloadHelper(container, type, is_playlist, false);
-          } else {
+          } else if (!this.current_download) {
             this.reloadRecentVideos(is_playlist);
           }
         } else if (this.current_download['finished'] && this.current_download['error']) {
+          const failed_download_uid = this.current_download.uid;
           this.downloadingfile = false;
           this.current_download = null;
+          this.downloads = this.downloads.filter(download => download && download.uid !== failed_download_uid);
+          this.download_uids = this.download_uids.filter(uid => uid !== failed_download_uid);
+          this.setNextCurrentDownload();
           this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
         }
       } else {
@@ -916,6 +936,22 @@ export class MainComponent implements OnInit {
 
   hasCurrentDownloadPercent(): boolean {
     return this.parseNumericPercent(this.percentDownloaded) !== null;
+  }
+
+  private setNextCurrentDownload(): void {
+    if (this.current_download) return;
+    if (!Array.isArray(this.download_uids) || this.download_uids.length === 0) return;
+
+    for (const download_uid of this.download_uids) {
+      if (!download_uid) continue;
+      const queued_download = this.getDownloadByUID(download_uid);
+      if (queued_download) {
+        this.current_download = queued_download;
+        return;
+      }
+      this.current_download = {uid: download_uid} as Download;
+      return;
+    }
   }
 
   reloadRecentVideos(is_playlist = false): void {
