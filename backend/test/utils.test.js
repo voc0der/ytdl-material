@@ -45,5 +45,51 @@ describe('Utils', async function() {
             '-o', '%(title)s.%(ext)s'
         ]);
     });
-});
 
+    it('Parses expected file size from formats for selected format ids', function() {
+        const info = {
+            format_id: '137+251',
+            formats: [
+                {format_id: '137', filesize: 100},
+                {format_id: '251', filesize_approx: 25},
+                {format_id: '999', filesize: 999}
+            ]
+        };
+        assert.strictEqual(utils.getExpectedFileSize(info), 125);
+    });
+
+    it('Falls back to requested_formats when formats sizes are unavailable', function() {
+        const info = {
+            format_id: '137+251',
+            formats: [
+                {format_id: '137'},
+                {format_id: '251'}
+            ],
+            requested_formats: [
+                {format_id: '137', filesize_approx: 1000},
+                {format_id: '251', filesize: 500}
+            ]
+        };
+        assert.strictEqual(utils.getExpectedFileSize(info), 1500);
+    });
+
+    it('Falls back to top-level filesize approximation when needed', function() {
+        const info = {
+            format_id: 'bestvideo+bestaudio',
+            formats: [],
+            filesize_approx: 4096
+        };
+        assert.strictEqual(utils.getExpectedFileSize(info), 4096);
+    });
+
+    it('Handles fallback format expressions without overcounting all variants', function() {
+        const info = {
+            format_id: '22/18',
+            formats: [
+                {format_id: '22', filesize: 2200},
+                {format_id: '18', filesize: 1800}
+            ]
+        };
+        assert.strictEqual(utils.getExpectedFileSize(info), 2200);
+    });
+});

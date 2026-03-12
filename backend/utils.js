@@ -168,9 +168,37 @@ exports.getExpectedFileSize = (input_info_jsons) => {
     // treat single videos as arrays to have the file sizes checked/added to. makes the code cleaner
     const info_jsons = Array.isArray(input_info_jsons) ? input_info_jsons : [input_info_jsons];
 
+    const getNumericSize = (value) => {
+        const numeric_value = Number(value);
+        return Number.isFinite(numeric_value) && numeric_value > 0 ? numeric_value : 0;
+    };
+
+    const getSizeFromFormatObj = (format_obj = null) => {
+        if (!format_obj || typeof format_obj !== 'object') return 0;
+        return getNumericSize(format_obj.filesize) || getNumericSize(format_obj.filesize_approx);
+    };
+
+    const getSizeFromRequestedFormats = (info_json = {}) => {
+        if (!Array.isArray(info_json.requested_formats)) return 0;
+        return info_json.requested_formats.reduce((sum, requested_format) => {
+            return sum + getSizeFromFormatObj(requested_format);
+        }, 0);
+    };
+
+    const getSizeFromRequestedDownloads = (info_json = {}) => {
+        if (!Array.isArray(info_json.requested_downloads)) return 0;
+        return info_json.requested_downloads.reduce((sum, requested_download) => {
+            return sum + getSizeFromFormatObj(requested_download);
+        }, 0);
+    };
+
     let expected_filesize = 0;
     info_jsons.forEach(info_json => {
-        const formats = info_json['format_id'].split('+');
+        if (!info_json || typeof info_json !== 'object') return;
+
+        const format_id = typeof info_json['format_id'] === 'string' ? info_json['format_id'] : '';
+        const selected_format = format_id.split('/')[0];
+        const formats = selected_format.split('+').map(part => part.trim()).filter(part => part !== '');
         let individual_expected_filesize = 0;
         formats.forEach(format_id => {
             if (info_json.formats !== undefined) {
@@ -181,6 +209,19 @@ exports.getExpectedFileSize = (input_info_jsons) => {
                 });
             }
         });
+
+        // yt-dlp often provides sizes for selected streams in requested_formats / requested_downloads
+        // while omitting filesize metadata in the full formats list.
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getSizeFromRequestedFormats(info_json);
+        }
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getSizeFromRequestedDownloads(info_json);
+        }
+        if (individual_expected_filesize === 0) {
+            individual_expected_filesize = getNumericSize(info_json.filesize) || getNumericSize(info_json.filesize_approx);
+        }
+
         expected_filesize += individual_expected_filesize;
     });
 

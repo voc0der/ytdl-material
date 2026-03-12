@@ -204,6 +204,37 @@ describe('Downloader', function() {
         assert(!returned_download_fail['category']);
     });
 
+    it('Collect info keeps single-download expected size when yt-dlp only provides requested formats', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const fixture_with_requested_formats = [{
+            ...fixture_single[0],
+            format_id: '401+251',
+            formats: [
+                {format_id: '401'},
+                {format_id: '251'}
+            ],
+            requested_formats: [
+                {format_id: '401', filesize_approx: 1000},
+                {format_id: '251', filesize: 500}
+            ],
+            filesize: undefined,
+            filesize_approx: 1500
+        }];
+
+        try {
+            downloader_api.getVideoInfoByURL = async () => fixture_with_requested_formats;
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            assert.strictEqual(updated_download.expected_file_size, 1500);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert.strictEqual(updated_download.percent_complete, null);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
     it('Tag file', async function() {
         const success = await generateEmptyAudioFile('test/sample_mp3.mp3');
         const audio_path = './test/sample_mp3.mp3';
@@ -878,4 +909,3 @@ describe('Downloader', function() {
         });
     });
 });
-

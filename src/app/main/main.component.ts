@@ -883,11 +883,19 @@ export class MainComponent implements OnInit {
           : null;
 
         if (this.current_download['finished'] && !this.current_download['error']) {
-          const container = this.current_download['container'];
-          const is_playlist = this.current_download['file_uids'].length > 1;
-          const type = this.current_download['type'];
-          this.current_download = null;  
-          this.downloadHelper(container, type, is_playlist, false);
+          const completed_download = this.current_download;
+          const container = completed_download['container'];
+          const file_uids = Array.isArray(completed_download['file_uids']) ? completed_download['file_uids'] : [];
+          const is_playlist = file_uids.length > 1;
+          const type = completed_download['type'];
+          this.current_download = null;
+          this.downloadingfile = false;
+
+          if (container && type) {
+            this.downloadHelper(container, type, is_playlist, false);
+          } else {
+            this.reloadRecentVideos(is_playlist);
+          }
         } else if (this.current_download['finished'] && this.current_download['error']) {
           this.downloadingfile = false;
           this.current_download = null;
