@@ -16,6 +16,47 @@ function escapeRegex(text = '') {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function normalizeChapter(raw_chapter) {
+    if (!raw_chapter || typeof raw_chapter !== 'object') return null;
+
+    const start_time = Number(raw_chapter.start_time);
+    const end_time = Number(raw_chapter.end_time);
+    const title = typeof raw_chapter.title === 'string' ? raw_chapter.title.trim() : '';
+
+    if (!Number.isFinite(start_time) || start_time < 0) return null;
+    if (!Number.isFinite(end_time) || end_time <= start_time) return null;
+    if (!title) return null;
+
+    return {
+        title,
+        start_time,
+        end_time
+    };
+}
+
+function getChaptersForFile(file_obj) {
+    if (!file_obj || !file_obj.path) return [];
+
+    const type = file_obj.isAudio ? 'audio' : 'video';
+    const metadata_json = utils.getJSON(file_obj.path, type);
+    if (!metadata_json || !Array.isArray(metadata_json.chapters)) return [];
+
+    return metadata_json.chapters.map(normalizeChapter).filter(Boolean);
+}
+
+exports.attachFileChapters = (file_obj = null) => {
+    if (!file_obj) return file_obj;
+    return {
+        ...file_obj,
+        chapters: getChaptersForFile(file_obj)
+    };
+}
+
+exports.attachFileChaptersCollection = (file_objs = []) => {
+    if (!Array.isArray(file_objs)) return [];
+    return file_objs.map(file_obj => exports.attachFileChapters(file_obj));
+}
+
 exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
     if (!file_object) {

@@ -21,4 +21,8 @@ export type GetAllFilesRequest = {
      * Include if you want to filter by subscription
      */
     sub_id?: string;
+    /**
+     * Include chapters from sidecar metadata for each file
+     */
+    include_chapters?: boolean;
 };

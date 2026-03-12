@@ -409,8 +409,8 @@ export class PostsService {
         return this.http.post<GetFileResponse>(this.path + 'getFile', body, this.httpOptions);
     }
 
-    getAllFiles(sort: Sort = null, range: number[] = null, text_search: string = null, file_type_filter: FileTypeFilter = FileTypeFilter.BOTH, favorite_filter = false, sub_id: string = null) {
-        const body: GetAllFilesRequest = {sort: sort, range: range, text_search: text_search, file_type_filter: file_type_filter, favorite_filter: favorite_filter, sub_id: sub_id};
+    getAllFiles(sort: Sort = null, range: number[] = null, text_search: string = null, file_type_filter: FileTypeFilter = FileTypeFilter.BOTH, favorite_filter = false, sub_id: string = null, include_chapters = false) {
+        const body: GetAllFilesRequest = {sort: sort, range: range, text_search: text_search, file_type_filter: file_type_filter, favorite_filter: favorite_filter, sub_id: sub_id, include_chapters: include_chapters};
         return this.http.post<GetAllFilesResponse>(this.path + 'getAllFiles', body, this.httpOptions);
     }
 

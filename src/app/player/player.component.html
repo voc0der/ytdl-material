@@ -78,6 +78,19 @@
               </div>
             </div>
           </div>
+          @if (currentChapters.length > 0) {
+            <div class="chapters-section">
+              <h3 class="chapters-title" i18n="Video chapters header">Chapters</h3>
+              <div class="chapters-list">
+                @for (chapter of currentChapters; track chapter.start_time) {
+                  <button class="chapter-item" [class.active]="isChapterActive(chapter)" (click)="jumpToChapter(chapter)" type="button">
+                    <span class="chapter-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
+                    <span class="chapter-label">{{chapter.title}}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
           <div style="height: fit-content; width: 100%; margin-top: 10px;">
             <mat-button-toggle-group cdkDropList [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical name="videoSelect" aria-label="Video Select" #group="matButtonToggleGroup">
               @for (playlist_item of playlist; track (playlist_item.uid ?? playlist_item.url ?? $index); let i = $index) {
