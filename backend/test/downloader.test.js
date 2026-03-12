@@ -235,6 +235,36 @@ describe('Downloader', function() {
         }
     });
 
+    it('Collect info estimates expected size from bitrate when yt-dlp omits filesize fields', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const fixture_with_bitrate_only = [{
+            ...fixture_single[0],
+            format_id: '401+251',
+            duration: 10,
+            formats: [
+                {format_id: '401'},
+                {format_id: '251'}
+            ],
+            requested_formats: [
+                {format_id: '401', tbr: 1000},
+                {format_id: '251', abr: 128}
+            ],
+            filesize: undefined,
+            filesize_approx: undefined
+        }];
+
+        try {
+            downloader_api.getVideoInfoByURL = async () => fixture_with_bitrate_only;
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            assert(updated_download.expected_file_size > 0);
+            assert.strictEqual(updated_download.expected_file_size, ((1000 + 128) * 1000 / 8) * 10);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
     it('Tag file', async function() {
         const success = await generateEmptyAudioFile('test/sample_mp3.mp3');
         const audio_path = './test/sample_mp3.mp3';

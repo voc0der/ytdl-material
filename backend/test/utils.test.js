@@ -92,4 +92,27 @@ describe('Utils', async function() {
         };
         assert.strictEqual(utils.getExpectedFileSize(info), 2200);
     });
+
+    it('Estimates size from requested format bitrate and duration when filesize is unavailable', function() {
+        const info = {
+            format_id: '401+251',
+            duration: 10,
+            requested_formats: [
+                {format_id: '401', tbr: 1000},
+                {format_id: '251', abr: 128}
+            ]
+        };
+        const expected = ((1000 + 128) * 1000 / 8) * 10;
+        assert.strictEqual(utils.getExpectedFileSize(info), expected);
+    });
+
+    it('Estimates size from top-level bitrate and duration as final fallback', function() {
+        const info = {
+            format_id: 'bestvideo+bestaudio',
+            duration: 12,
+            tbr: 1500
+        };
+        const expected = (1500 * 1000 / 8) * 12;
+        assert.strictEqual(utils.getExpectedFileSize(info), expected);
+    });
 });
