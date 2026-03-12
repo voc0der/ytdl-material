@@ -52,17 +52,7 @@ describe('MainComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('does not treat null percent as determinate progress', () => {
-    component.percentDownloaded = null;
-    expect(component.hasCurrentDownloadPercent()).toBeFalse();
-  });
-
-  it('treats numeric percent as determinate progress', () => {
-    component.percentDownloaded = 42.5;
-    expect(component.hasCurrentDownloadPercent()).toBeTrue();
-  });
-
-  it('keeps percentDownloaded null when API returns null percent_complete', () => {
+  it('keeps polling state for unfinished downloads even when percent is null', () => {
     const api_download = {
       uid: 'download-1',
       percent_complete: null,
@@ -71,12 +61,12 @@ describe('MainComponent', () => {
     };
     (component as any).postsService.getCurrentDownload = () => of({download: api_download});
     component.current_download = {uid: 'download-1'} as any;
-    component.percentDownloaded = 50;
+    component.downloadingfile = true;
 
     component.getCurrentDownload();
 
-    expect(component.percentDownloaded).toBeNull();
-    expect(component.hasCurrentDownloadPercent()).toBeFalse();
+    expect(component.current_download).toEqual(api_download as any);
+    expect(component.downloadingfile).toBeTrue();
   });
 
   it('reloads videos when a finished download has no container metadata', () => {

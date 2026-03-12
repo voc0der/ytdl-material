@@ -41,3 +41,97 @@
     max-width: 100% !important;
     min-width: 280px !important;
 }
+
+::ng-deep .active-downloads-menu {
+    width: 340px !important;
+    max-width: calc(100vw - 16px) !important;
+    min-width: 280px !important;
+}
+
+.active-downloads-menu-content {
+    max-height: 55vh;
+    overflow-y: auto;
+    padding: 8px 10px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
+}
+
+.active-downloads-empty-state {
+    text-align: center;
+    margin: 8px 0;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
+}
+
+:host-context(.dark-theme) .active-downloads-empty-state {
+    color: rgba(255, 255, 255, 0.87);
+}
+
+:host-context(.light-theme) .active-downloads-empty-state {
+    color: rgba(0, 0, 0, 0.87);
+}
+
+.active-downloads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.active-download-item {
+    border: 1px solid rgba(127, 127, 127, 0.25);
+    border-radius: 8px;
+    padding: 8px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
+}
+
+.active-download-item-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.active-download-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+}
+
+.active-download-actions {
+    flex: 0 0 auto;
+}
+
+.active-download-actions .mat-mdc-icon-button {
+    width: 30px;
+    height: 30px;
+    padding: 3px;
+    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
+}
+
+.active-download-actions .mat-mdc-icon-button mat-icon {
+    color: inherit;
+}
+
+.active-download-progress-label {
+    font-size: 12px;
+    margin-bottom: 6px;
+    opacity: 0.8;
+}
+
+:host-context(.dark-theme) .active-download-item {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+:host-context(.light-theme) .active-download-item,
+:host-context(.default-theme) .active-download-item {
+    border-color: rgba(0, 0, 0, 0.14);
+    background: rgba(0, 0, 0, 0.015);
+}
+
+:host ::ng-deep .active-downloads-complete .mat-badge-content {
+    background-color: #2e7d32 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}

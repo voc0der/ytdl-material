@@ -44,7 +44,6 @@ export class MainComponent implements OnInit {
   path: string | string[] = '';
   url = '';
   exists = '';
-  percentDownloaded: number;
   autoStartDownload = false;
 
   // global settings
@@ -919,10 +918,6 @@ export class MainComponent implements OnInit {
     this.postsService.getCurrentDownload(this.current_download['uid']).subscribe(res => {
       if (res['download']) {
         this.current_download = res['download'];
-        const numeric_percent = this.parseNumericPercent(this.current_download.percent_complete);
-        this.percentDownloaded = numeric_percent !== null
-          ? Math.max(0, Math.min(100, numeric_percent))
-          : null;
 
         if (this.current_download['finished'] && !this.current_download['error']) {
           const completed_download = this.current_download;
@@ -955,17 +950,6 @@ export class MainComponent implements OnInit {
         // console.log('failed to get new download');
       }
     });
-  }
-
-  private parseNumericPercent(value: unknown): number | null {
-    if (value === null || value === undefined || value === '') return null;
-    const numeric_value = Number(value);
-    if (!Number.isFinite(numeric_value)) return null;
-    return numeric_value;
-  }
-
-  hasCurrentDownloadPercent(): boolean {
-    return this.parseNumericPercent(this.percentDownloaded) !== null;
   }
 
   private setNextCurrentDownload(): void {
