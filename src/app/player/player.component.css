@@ -72,6 +72,12 @@
     width: 18px;
 }
 
+.chapter-column {
+    align-items: center;
+    display: flex;
+    padding-right: 0;
+}
+
 .media-description-column {
     min-width: 0;
 }
@@ -112,8 +118,6 @@
 }
 
 .chapter-dropdown-wrapper {
-    width: 80%;
-    margin: 12px auto 0 auto;
     position: relative;
 }
 
@@ -127,8 +131,8 @@
     display: inline-flex;
     gap: 4px;
     max-width: 100%;
-    min-height: 40px;
-    padding: 0 14px;
+    min-height: 38px;
+    padding: 0 16px;
 }
 
 .chapter-dropdown-trigger:hover {
@@ -155,12 +159,13 @@
     border: 1px solid transparent;
     border-radius: 10px;
     left: 0;
-    margin-top: 8px;
+    margin-top: 6px;
     max-height: 220px;
+    min-width: min(520px, calc(100vw - 24px));
     overflow-y: auto;
     position: absolute;
     top: 100%;
-    width: min(460px, 100%);
+    width: min(620px, calc(100vw - 24px));
     z-index: 4;
 }
 
@@ -187,31 +192,31 @@
 }
 
 :host-context(.dark-theme) .chapter-dropdown-trigger {
-    background: rgba(18, 24, 32, 0.95);
-    border-color: rgba(140, 160, 180, 0.25);
+    background: rgba(10, 15, 22, 0.96);
+    border-color: rgba(60, 104, 152, 0.6);
 }
 
 :host-context(.dark-theme) .chapter-dropdown-menu {
-    background: rgba(18, 24, 32, 0.98);
-    border-color: rgba(140, 160, 180, 0.25);
+    background: rgba(42, 45, 50, 0.98);
+    border-color: rgba(88, 95, 110, 0.8);
 }
 
 :host-context(.dark-theme) .chapter-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.11);
 }
 
 :host-context(.dark-theme) .chapter-item.active {
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 :host-context(.light-theme) .chapter-dropdown-trigger {
-    background: rgba(245, 245, 245, 0.98);
-    border-color: rgba(0, 0, 0, 0.16);
+    background: rgba(246, 248, 252, 1);
+    border-color: rgba(126, 142, 164, 0.45);
 }
 
 :host-context(.light-theme) .chapter-dropdown-menu {
-    background: rgba(255, 255, 255, 0.98);
-    border-color: rgba(0, 0, 0, 0.16);
+    background: rgba(255, 255, 255, 0.99);
+    border-color: rgba(145, 157, 176, 0.5);
 }
 
 :host-context(.light-theme) .chapter-item:hover {
