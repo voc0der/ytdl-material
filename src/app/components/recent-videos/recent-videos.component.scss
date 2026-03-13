@@ -51,9 +51,125 @@
     top: 12px;
 }
 
+.library-header {
+    padding-top: 8px;
+}
+
+.library-switcher-shell {
+    display: flex;
+    justify-content: center;
+}
+
+.library-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    color: inherit;
+}
+
+.library-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.52;
+    font: inherit;
+    line-height: 1.1;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+}
+
+.library-switch::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0;
+    transform: scaleX(0.7);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.library-switch:hover {
+    opacity: 0.74;
+}
+
+.library-switch.active {
+    opacity: 0.96;
+}
+
+.library-switch.active::after {
+    opacity: 0.72;
+    transform: scaleX(1);
+}
+
+.library-switch:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: 6px;
+    border-radius: 4px;
+}
+
+.library-switch-count {
+    font-size: 0.76rem;
+    opacity: 0.7;
+}
+
+.library-switch-divider {
+    width: 18px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.16;
+}
+
+.playlist-empty-state {
+    width: min(100%, 420px);
+    margin-top: 18px;
+    padding: 28px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
 @media (max-width: 576px) {
     .my-videos-title {
         top: 0px;
+    }
+
+    .library-switcher {
+        gap: 10px;
+    }
+
+    .library-switch {
+        gap: 5px;
+        letter-spacing: 0.02em;
+    }
+
+    .library-switch::after {
+        bottom: -4px;
+    }
+
+    .library-switch-divider {
+        width: 12px;
+    }
+
+    .search-bar {
+        float: none;
+    }
+
+    .search-bar-unfocused,
+    .search-bar-focused {
+        width: min(100%, 280px);
     }
 }
 

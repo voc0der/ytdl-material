@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
-import { DatabaseFile, FileType, FileTypeFilter, Sort } from '../../../api-types';
+import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../../api-types';
 import { MatPaginator } from '@angular/material/paginator';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take } from 'rxjs/operators';
@@ -9,6 +9,8 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatChipListboxChange } from '@angular/material/chips';
 import { MatSelectionListChange } from '@angular/material/list';
 import { saveAs } from 'file-saver';
+import { MatDialog } from '@angular/material/dialog';
+import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 
 @Component({
     selector: 'app-recent-videos',
@@ -18,6 +20,7 @@ import { saveAs } from 'file-saver';
 })
 export class RecentVideosComponent implements OnInit {
   readonly pageSizeStorageKey = 'recent_videos_page_size';
+  readonly libraryTabStorageKey = 'recent_videos_library_tab';
 
   @Input() usePaginator = true;
 
@@ -51,6 +54,9 @@ export class RecentVideosComponent implements OnInit {
   search_text = '';
   searchIsFocused = false;
   descendingMode = true;
+  activeLibraryTab = 0;
+  playlistSearchText = '';
+  playlistSearchIsFocused = false;
 
   fileFilters = {
     video_only: {
@@ -73,14 +79,22 @@ export class RecentVideosComponent implements OnInit {
 
   sortProperty = 'registered';
   
-  playlists = null;
+  playlists: Playlist[] = [];
+  playlistLibraryItems: Playlist[] = [];
+  playlistLibraryReceived = false;
+  playlistLoadingCards = Array(6).fill(0);
 
   @ViewChild('paginator') paginator: MatPaginator
 
-  constructor(public postsService: PostsService, private router: Router) {
+  constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog) {
     const saved_page_size = +localStorage.getItem(this.pageSizeStorageKey);
     if ([5, 10, 25, 100, 250].includes(saved_page_size)) {
       this.pageSize = saved_page_size;
+    }
+
+    const saved_library_tab = +localStorage.getItem(this.libraryTabStorageKey);
+    if ([0, 1].includes(saved_library_tab)) {
+      this.activeLibraryTab = saved_library_tab;
     }
 
     // get cached file count
@@ -120,13 +134,19 @@ export class RecentVideosComponent implements OnInit {
 
     if (this.postsService.initialized) {
       this.getAllFiles();
-      this.getAllPlaylists();
+      this.getAvailablePlaylists();
+      if (this.showLibraryTabs) {
+        this.getPlaylistLibraryItems();
+      }
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
         .subscribe(() => {
           this.getAllFiles();
-          this.getAllPlaylists();
+          this.getAvailablePlaylists();
+          if (this.showLibraryTabs) {
+            this.getPlaylistLibraryItems();
+          }
         });
     }
 
@@ -138,7 +158,10 @@ export class RecentVideosComponent implements OnInit {
 
     this.postsService.playlists_changed.subscribe(changed => {
       if (changed) {
-        this.getAllPlaylists();
+        this.getAvailablePlaylists();
+        if (this.showLibraryTabs) {
+          this.getPlaylistLibraryItems();
+        }
       }
     });
 
@@ -156,14 +179,49 @@ export class RecentVideosComponent implements OnInit {
         } else {
           this.search_mode = false;
         }
-        this.getAllFiles();
+        if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
+          this.getAllFiles();
+        }
       });
   }
 
+  get showLibraryTabs(): boolean {
+    return !this.selectMode && !this.sub_id;
+  }
+
   getAllPlaylists(): void {
+    this.getAvailablePlaylists();
+    if (this.showLibraryTabs) {
+      this.getPlaylistLibraryItems();
+    }
+  }
+
+  getAvailablePlaylists(): void {
     this.postsService.getPlaylists().subscribe(res => {
       this.playlists = res['playlists'];
     });
+  }
+
+  getPlaylistLibraryItems(): void {
+    this.playlistLibraryReceived = false;
+    this.postsService.getPlaylists(true).subscribe(res => {
+      this.playlistLibraryItems = res['playlists'];
+      this.playlistLibraryReceived = true;
+    });
+  }
+
+  get visiblePlaylists(): Playlist[] {
+    const normalized_search_text = this.playlistSearchText.trim().toLowerCase();
+    const filtered_playlists = this.playlistLibraryItems.filter(playlist => {
+      if (!normalized_search_text) {
+        return true;
+      }
+
+      const playlist_title = (playlist.name || '').toLowerCase();
+      return playlist_title.includes(normalized_search_text);
+    });
+
+    return filtered_playlists.slice().sort((a, b) => this.comparePlaylistValues(a, b));
   }
 
   // search
@@ -173,13 +231,33 @@ export class RecentVideosComponent implements OnInit {
     this.searchChangedSubject.next(newvalue);
   }
 
+  onPlaylistSearchInputChanged(newvalue: string): void {
+    this.playlistSearchText = newvalue;
+  }
+
+  libraryTabChanged(index: number): void {
+    this.activeLibraryTab = index;
+    localStorage.setItem(this.libraryTabStorageKey, `${index}`);
+
+    if (index === 0) {
+      this.getAllFiles();
+      return;
+    }
+
+    if (this.showLibraryTabs && !this.playlistLibraryReceived) {
+      this.getPlaylistLibraryItems();
+    }
+  }
+
   sortOptionChanged(value: Sort): void {
     localStorage.setItem('sort_property', value['by']);
     localStorage.setItem('recent_videos_sort_order', value['order'] === -1 ? 'descending' : 'ascending');
     this.descendingMode = value['order'] === -1;
     this.sortProperty = value['by'];
     
-    this.getAllFiles();
+    if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
+      this.getAllFiles();
+    }
   }
 
   filterChanged(value: string): void {
@@ -369,15 +447,46 @@ export class RecentVideosComponent implements OnInit {
     const playlist = this.playlists.find(potential_playlist => potential_playlist['id'] === playlist_id);
     this.postsService.addFileToPlaylist(playlist_id, file['uid']).subscribe(res => {
       if (res['success']) {
-        this.postsService.openSnackBar(`Successfully added ${file.title} to ${playlist.title}!`);
+        this.postsService.openSnackBar(`Successfully added ${file.title} to ${playlist?.name || 'playlist'}!`);
         this.postsService.playlists_changed.next(true);
       } else {
-        this.postsService.openSnackBar(`Failed to add ${file.title} to ${playlist.title}! Unknown error.`);
+        this.postsService.openSnackBar(`Failed to add ${file.title} to ${playlist?.name || 'playlist'}! Unknown error.`);
       }
     }, err => {
       console.error(err);
-      this.postsService.openSnackBar(`Failed to add ${file.title} to ${playlist.title}! See browser console for error.`);
+      this.postsService.openSnackBar(`Failed to add ${file.title} to ${playlist?.name || 'playlist'}! See browser console for error.`);
     });
+  }
+
+  comparePlaylistValues(a: Playlist, b: Playlist): number {
+    const direction = this.descendingMode ? -1 : 1;
+
+    let left_value: string | number;
+    let right_value: string | number;
+
+    switch (this.sortProperty) {
+      case 'title':
+        left_value = (a.name || '').toLowerCase();
+        right_value = (b.name || '').toLowerCase();
+        break;
+      case 'duration':
+        left_value = a.duration ?? 0;
+        right_value = b.duration ?? 0;
+        break;
+      case 'registered':
+      default:
+        left_value = a.registered ?? 0;
+        right_value = b.registered ?? 0;
+        break;
+    }
+
+    if (left_value < right_value) {
+      return direction;
+    }
+    if (left_value > right_value) {
+      return -direction;
+    }
+    return 0;
   }
 
   // sorting and filtering
@@ -451,5 +560,103 @@ export class RecentVideosComponent implements OnInit {
   toggleFavorite(file_obj): void {
     file_obj.favorite = !file_obj.favorite;
     this.postsService.updateFile(file_obj.uid, {favorite: file_obj.favorite}).subscribe(res => {});
+  }
+
+  openCreatePlaylistDialog(): void {
+    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
+      data: {
+        create_mode: true
+      },
+      minWidth: '90vw',
+      minHeight: '95vh'
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.getAllPlaylists();
+        this.postsService.openSnackBar($localize`Successfully created playlist!`);
+      } else if (result === false) {
+        this.postsService.openSnackBar($localize`ERROR: failed to create playlist!`);
+      }
+    });
+  }
+
+  goToPlaylist(info_obj: { file: Playlist; event?: KeyboardEvent | MouseEvent | { ctrlKey?: boolean } }): void {
+    const playlist = info_obj.file;
+    const open_in_new_tab = !!info_obj.event?.ctrlKey;
+
+    if (!playlist) {
+      return;
+    }
+
+    if (this.postsService.config['Extra']['download_only_mode']) {
+      this.downloadPlaylist(playlist.id, playlist.name);
+      return;
+    }
+
+    this.navigateToPlaylist(playlist, open_in_new_tab);
+  }
+
+  navigateToPlaylist(playlist: Playlist, new_tab: boolean): void {
+    localStorage.setItem('player_navigator', this.router.url);
+    const routeParams = this.getPlaylistRouteParams(playlist);
+
+    if (!new_tab) {
+      this.router.navigate(['/player', routeParams]);
+      return;
+    }
+
+    const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
+    window.open(`/#${routeURL}`);
+  }
+
+  getPlaylistRouteParams(playlist: Playlist): Record<string, string> {
+    const routeParams: Record<string, string> = {
+      playlist_id: playlist.id
+    };
+
+    if (playlist.auto) {
+      routeParams['auto'] = `${playlist.auto}`;
+    }
+
+    return routeParams;
+  }
+
+  downloadPlaylist(playlist_id: string, playlist_name: string): void {
+    this.downloading_content[playlist_id] = true;
+    this.postsService.downloadPlaylistFromServer(playlist_id).subscribe(res => {
+      this.downloading_content[playlist_id] = false;
+      const blob: Blob = res;
+      saveAs(blob, playlist_name + '.zip');
+    });
+  }
+
+  deletePlaylist(args: { file: Playlist; index: number; }): void {
+    const playlist = args.file;
+    const playlist_id = playlist.id;
+    this.postsService.removePlaylist(playlist_id).subscribe(res => {
+      if (res['success']) {
+        this.playlistLibraryItems = this.playlistLibraryItems.filter(existing_playlist => existing_playlist.id !== playlist_id);
+        this.playlists = this.playlists.filter(existing_playlist => existing_playlist.id !== playlist_id);
+        this.postsService.openSnackBar($localize`Playlist successfully removed.`);
+      }
+      this.getAllPlaylists();
+    });
+  }
+
+  editPlaylistDialog(args: { playlist: Playlist; }): void {
+    const playlist = args.playlist;
+    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
+      data: {
+        playlist_id: playlist.id,
+        create_mode: false
+      },
+      minWidth: '85vw'
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      if (dialogRef.componentInstance.playlist_updated) {
+        this.getAllPlaylists();
+      }
+    });
   }
 }

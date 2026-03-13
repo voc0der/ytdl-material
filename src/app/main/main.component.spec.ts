@@ -222,4 +222,40 @@ describe('MainComponent', () => {
     const called_url = download_file_spy.calls.argsFor(0)[0];
     expect(called_url).toBe('https://www.youtube.com/watch?v=wOWhfNB_r-0');
   });
+
+  it('shows the playlist shortcut only when the library is on the playlists tab', () => {
+    component.recentVideos = {
+      showLibraryTabs: true,
+      activeLibraryTab: 1,
+      openCreatePlaylistDialog: () => {}
+    } as any;
+
+    expect(component.showCreatePlaylistShortcut).toBeTrue();
+
+    component.recentVideos.activeLibraryTab = 0;
+    expect(component.showCreatePlaylistShortcut).toBeFalse();
+
+    component.recentVideos = {
+      showLibraryTabs: false,
+      activeLibraryTab: 1,
+      openCreatePlaylistDialog: () => {}
+    } as any;
+    expect(component.showCreatePlaylistShortcut).toBeFalse();
+
+    component.recentVideos = null;
+    expect(component.showCreatePlaylistShortcut).toBeFalse();
+  });
+
+  it('delegates playlist creation to the recent videos component', () => {
+    const open_dialog_spy = jasmine.createSpy('openCreatePlaylistDialog');
+    component.recentVideos = {
+      showLibraryTabs: true,
+      activeLibraryTab: 1,
+      openCreatePlaylistDialog: open_dialog_spy
+    } as any;
+
+    component.openCreatePlaylistDialog();
+
+    expect(open_dialog_spy).toHaveBeenCalled();
+  });
 });

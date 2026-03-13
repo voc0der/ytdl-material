@@ -106,6 +106,47 @@ mat-form-field.mat-mdc-form-field {
     padding-bottom: 5px;
 }
 
+.main-pane-audio-toggle {
+    float: left;
+    margin-top: -12px;
+    margin-left: 4px;
+}
+
+.main-pane-autoplay-toggle {
+    float: right;
+    margin-top: -12px;
+}
+
+.playlist-shortcut-action.mat-mdc-button-base {
+    float: right;
+    min-width: 0;
+    padding: 0 2px 0 4px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    line-height: 28px;
+    color: inherit !important;
+    opacity: 0.68;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    transition: opacity 160ms ease;
+}
+
+.playlist-shortcut-action.mat-mdc-button-base:hover {
+    opacity: 0.92;
+}
+
+.playlist-shortcut-action.mat-mdc-button-base:focus-visible {
+    opacity: 0.92;
+}
+
+.playlist-shortcut-action .mat-icon {
+    margin-right: 6px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    opacity: 0.84;
+}
+
 .download-progress-bar {
     z-index: 999;
     position: absolute;
@@ -151,6 +192,10 @@ mat-form-field.mat-mdc-form-field {
 @media (max-width: 576px) {
     .download-progress-bar {
         width: 125px;
+    }
+
+    .main-pane-audio-toggle {
+        margin-left: 4px;
     }
 }
 
