@@ -636,11 +636,11 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
   }
 
   formatPageSizeOption(page_size_option: PageSizeOption): string {
-    return page_size_option === this.autoPageSizeOption ? $localize`100+ (Auto)` : `${page_size_option}`;
+    return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
   }
 
   getPageSizeTriggerLabel(page_size_option: PageSizeOption): string {
-    return page_size_option === this.autoPageSizeOption ? '100+' : `${page_size_option}`;
+    return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
   }
 
   getAutoRangeLabel(): string {

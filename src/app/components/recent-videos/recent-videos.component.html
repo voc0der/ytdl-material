@@ -154,7 +154,7 @@
       <div class="paginator-page-size">
         <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
         <mat-form-field appearance="outline" class="paginator-page-size-select">
-          <mat-select [value]="pageSizeSelectorValue" (selectionChange)="pageSizeOptionChanged($event.value)">
+          <mat-select [value]="pageSizeSelectorValue" [panelWidth]="null" panelClass="recent-videos-page-size-panel" (selectionChange)="pageSizeOptionChanged($event.value)">
             <mat-select-trigger>
               {{getPageSizeTriggerLabel(pageSizeSelectorValue)}}
             </mat-select-trigger>
