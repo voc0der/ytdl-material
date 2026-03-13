@@ -79,7 +79,7 @@ describe('MainComponent', () => {
       type: 'video',
       container: null
     };
-    const reload_spy = spyOn(component, 'reloadRecentVideos');
+    const reload_spy = spyOn(component, 'reloadMediaLibrary');
     const helper_spy = spyOn(component, 'downloadHelper');
     (component as any).postsService.getCurrentDownload = () => of({download: api_download});
     component.current_download = {uid: 'download-2'} as any;
@@ -123,7 +123,7 @@ describe('MainComponent', () => {
       type: 'video',
       container: null
     };
-    const reload_spy = spyOn(component, 'reloadRecentVideos');
+    const reload_spy = spyOn(component, 'reloadMediaLibrary');
     (component as any).postsService.getCurrentDownload = () => of({download: api_download});
     component.current_download = {uid: 'download-4'} as any;
     component.downloads = [{uid: 'download-4'} as any, {uid: 'download-5'} as any];
@@ -224,7 +224,7 @@ describe('MainComponent', () => {
   });
 
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {
-    component.recentVideos = {
+    component.mediaLibrary = {
       showLibraryTabs: true,
       activeLibraryTab: 1,
       openCreatePlaylistDialog: () => {}
@@ -232,23 +232,23 @@ describe('MainComponent', () => {
 
     expect(component.showCreatePlaylistShortcut).toBeTrue();
 
-    component.recentVideos.activeLibraryTab = 0;
+    component.mediaLibrary.activeLibraryTab = 0;
     expect(component.showCreatePlaylistShortcut).toBeFalse();
 
-    component.recentVideos = {
+    component.mediaLibrary = {
       showLibraryTabs: false,
       activeLibraryTab: 1,
       openCreatePlaylistDialog: () => {}
     } as any;
     expect(component.showCreatePlaylistShortcut).toBeFalse();
 
-    component.recentVideos = null;
+    component.mediaLibrary = null;
     expect(component.showCreatePlaylistShortcut).toBeFalse();
   });
 
-  it('delegates playlist creation to the recent videos component', () => {
+  it('delegates playlist creation to the media library component', () => {
     const open_dialog_spy = jasmine.createSpy('openCreatePlaylistDialog');
-    component.recentVideos = {
+    component.mediaLibrary = {
       showLibraryTabs: true,
       activeLibraryTab: 1,
       openCreatePlaylistDialog: open_dialog_spy

@@ -77,7 +77,7 @@ import { CookiesUploaderDialogComponent } from './dialogs/cookies-uploader-dialo
 import { LogsViewerComponent } from './components/logs-viewer/logs-viewer.component';
 import { ConfirmDialogComponent } from './dialogs/confirm-dialog/confirm-dialog.component';
 import { UnifiedFileCardComponent } from './components/unified-file-card/unified-file-card.component';
-import { RecentVideosComponent } from './components/recent-videos/recent-videos.component';
+import { MediaLibraryComponent } from './components/media-library/media-library.component';
 import { EditSubscriptionDialogComponent } from './dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
 import { CustomPlaylistsComponent } from './components/custom-playlists/custom-playlists.component';
 import { EditCategoryDialogComponent } from './dialogs/edit-category-dialog/edit-category-dialog.component';
@@ -133,7 +133,7 @@ registerLocaleData(es, 'es');
         LogsViewerComponent,
         ConfirmDialogComponent,
         UnifiedFileCardComponent,
-        RecentVideosComponent,
+        MediaLibraryComponent,
         EditSubscriptionDialogComponent,
         CustomPlaylistsComponent,
         EditCategoryDialogComponent,

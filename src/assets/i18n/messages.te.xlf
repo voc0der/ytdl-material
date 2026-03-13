@@ -1016,7 +1016,7 @@
         <source>My videos</source>
         <target>నా వీడియోలు</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My videos title</note>
@@ -1025,7 +1025,7 @@
         <source>Search</source>
         <target>శోధన</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">24</context>
         </context-group>
         <context-group purpose="location">
@@ -1042,7 +1042,7 @@
         <source>File type</source>
         <target>ఫైల్ రకం</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">52</context>
         </context-group>
         <note priority="1" from="description">File type</note>
@@ -1051,7 +1051,7 @@
         <source>Both</source>
         <target>రెండు</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">54</context>
         </context-group>
         <note priority="1" from="description">Both</note>
@@ -1060,7 +1060,7 @@
         <source>Video only</source>
         <target>వీడియో మాత్రమే</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">55</context>
         </context-group>
         <note priority="1" from="description">Video only</note>
@@ -1069,7 +1069,7 @@
         <source>Audio only</source>
         <target>ధ్వని మాత్రమే</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">56</context>
         </context-group>
         <note priority="1" from="description">Audio only</note>
@@ -1078,7 +1078,7 @@
         <source>No videos found.</source>
         <target>వీడియోలు ఏవీ కనుగొనబడలేదు.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">38</context>
         </context-group>
         <note priority="1" from="description">No videos found</note>

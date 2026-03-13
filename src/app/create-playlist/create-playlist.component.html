@@ -15,7 +15,7 @@
             <input [(ngModel)]="name" matInput type="text" required aria-required [ngModelOptions]="{standalone: true}">
           </mat-form-field>
         </div>
-        <app-recent-videos [selectMode]="true" [defaultSelected]="preselected_files" [customHeader]="'Select files'" (fileSelectionEmitter)="fileSelectionChanged($event)" [selectedIndex]="create_mode ? 1 : 0"></app-recent-videos>
+        <app-media-library [selectMode]="true" [defaultSelected]="preselected_files" [customHeader]="'Select files'" (fileSelectionEmitter)="fileSelectionChanged($event)" [selectedIndex]="create_mode ? 1 : 0"></app-media-library>
       </div>
     }
   </form>

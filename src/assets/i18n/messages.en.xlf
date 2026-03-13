@@ -999,7 +999,7 @@
           <context context-type="linenumber">7</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">15</context>
         </context-group>
         <note priority="1" from="description">Search</note>
@@ -1228,7 +1228,7 @@
       <trans-unit id="52e0fa8ada52c3f29774a4508582fd98250b9f93" datatype="html">
         <source>My files</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">9</context>
         </context-group>
         <note priority="1" from="description">My files title</note>
@@ -1236,7 +1236,7 @@
       <trans-unit id="6827066f436adfc56a142d5816a8be6113d73b01" datatype="html">
         <source>No files found.</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">39</context>
         </context-group>
         <note priority="1" from="description">No files found</note>
@@ -1244,7 +1244,7 @@
       <trans-unit id="5704ec2049d007c5f5fb495a5d8b607e68d58081" datatype="html">
         <source>Order</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">54</context>
         </context-group>
         <note priority="1" from="description">Order</note>
@@ -1252,7 +1252,7 @@
       <trans-unit id="33026f57ea65cd9c8a5d917a08083f71a718933a" datatype="html">
         <source>Normal order </source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">56</context>
         </context-group>
         <note priority="1" from="description">Normal order</note>
@@ -1260,7 +1260,7 @@
       <trans-unit id="29376982b1205d9d6ea3d289e8e2f8e1ac2839b1" datatype="html">
         <source>Reverse order </source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">57</context>
         </context-group>
         <note priority="1" from="description">Reverse order</note>
@@ -1268,7 +1268,7 @@
       <trans-unit id="ae9a5141f5c6bd62cee4ce837598ea8b0904e5cf" datatype="html">
         <source>Select files</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">72</context>
         </context-group>
         <note priority="1" from="description">Select files</note>
@@ -1276,65 +1276,65 @@
       <trans-unit id="7911845622864460134" datatype="html">
         <source>Video only</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">55</context>
         </context-group>
       </trans-unit>
       <trans-unit id="6437411876967154040" datatype="html">
         <source>Audio only</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4665451070906079743" datatype="html">
         <source>Favorited</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4050356167294261426" datatype="html">
         <source>Delete success!</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">302</context>
         </context-group>
       </trans-unit>
       <trans-unit id="8348223454028662277" datatype="html">
         <source>OK.</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">302</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">305</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
       <trans-unit id="7405156667148936748" datatype="html">
         <source>Delete failed!</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">305</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
       <trans-unit id="8937901770314883418" datatype="html">
         <source>Successfully deleted file: </source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">322</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">329</context>
         </context-group>
       </trans-unit>

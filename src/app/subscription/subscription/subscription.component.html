@@ -19,7 +19,7 @@
 <!-- Extra margin added for floating buttons to have room -->
 @if (subscription) {
   <div style="margin-bottom: 100px;">
-    <app-recent-videos #recentVideos [sub_id]="subscription.id"></app-recent-videos>
+    <app-media-library #mediaLibrary [sub_id]="subscription.id"></app-media-library>
   </div>
 }
 <div class="check-button">
