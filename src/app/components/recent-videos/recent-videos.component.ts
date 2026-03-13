@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
 import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../../api-types';
@@ -23,7 +23,7 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'recent_videos_page_size';
   readonly libraryTabStorageKey = 'recent_videos_library_tab';
   readonly autoPageSizeOption: PageSizeOption = 'auto';
-  readonly autoPageBatchSize = 25;
+  readonly autoPageBufferRows = 1;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
 
   @Input() usePaginator = true;
@@ -93,12 +93,18 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
 
   private autoLoadObserver: IntersectionObserver = null;
   private autoLoadAnchorElement: HTMLElement = null;
+  private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
 
   @ViewChild('autoLoadAnchor')
   set autoLoadAnchor(anchor: ElementRef<HTMLElement> | undefined) {
     this.autoLoadAnchorElement = anchor?.nativeElement ?? null;
     this.syncAutoLoadObserver();
+  }
+
+  @ViewChild('videoGridContainer')
+  set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
+    this.videoGridContainerElement = container?.nativeElement ?? null;
   }
 
   constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private ngZone: NgZone) {
@@ -211,6 +217,16 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.disconnectAutoLoadObserver();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (!this.autoPaginationEnabled || !this.isVideoLibraryActive()) {
+      return;
+    }
+
+    this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
+    this.syncAutoLoadObserver();
   }
 
   get showLibraryTabs(): boolean {
@@ -573,20 +589,29 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
   }
 
   getLoadingPlaceholderCount(): number {
-    return this.autoPaginationEnabled ? this.autoPageBatchSize : this.pageSize;
+    return this.autoPaginationEnabled ? this.getAutoPageBatchSize() : this.pageSize;
   }
 
   getRequestedFileRange(cache_mode = false, append = false): number[] {
     if (this.autoPaginationEnabled) {
+      const auto_page_batch_size = this.getAutoPageBatchSize();
+      const auto_page_columns = this.getAutoPageColumns();
       if (append) {
         const start = this.paged_data?.length ?? 0;
-        return [start, start + this.autoPageBatchSize];
+        const remainder = start % auto_page_columns;
+        const alignment_count = remainder === 0 ? 0 : auto_page_columns - remainder;
+        const append_count = alignment_count + Math.max(
+          alignment_count === 0 ? auto_page_batch_size : 0,
+          Math.ceil(Math.max(0, auto_page_batch_size - alignment_count) / auto_page_columns) * auto_page_columns
+        );
+        return [start, start + append_count];
       }
 
       const target_count = cache_mode && Array.isArray(this.paged_data) && this.paged_data.length > 0
-        ? Math.max(this.paged_data.length, this.autoPageBatchSize)
-        : this.autoPageBatchSize;
-      return [0, target_count];
+        ? Math.max(this.paged_data.length, auto_page_batch_size)
+        : auto_page_batch_size;
+      const aligned_target_count = Math.ceil(target_count / auto_page_columns) * auto_page_columns;
+      return [0, aligned_target_count];
     }
 
     const current_file_index = this.manualPageIndex * this.pageSize;
@@ -616,6 +641,42 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
 
   isVideoLibraryActive(): boolean {
     return !this.showLibraryTabs || this.activeLibraryTab === 0;
+  }
+
+  getAutoPageColumns(): number {
+    if (this.postsService.card_size === 'large') {
+      return 1;
+    }
+
+    const viewport_width = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    if (this.postsService.card_size === 'small') {
+      return viewport_width < 768 ? 4 : 6;
+    }
+
+    return viewport_width >= 992 ? 3 : 2;
+  }
+
+  getAutoCardRowHeight(): number {
+    switch (this.postsService.card_size) {
+      case 'small':
+        return 166;
+      case 'large':
+        return 266;
+      case 'medium':
+      default:
+        return 216;
+    }
+  }
+
+  getAutoPageBatchSize(): number {
+    const columns = this.getAutoPageColumns();
+    const row_height = this.getAutoCardRowHeight();
+    const viewport_height = typeof window !== 'undefined' ? window.innerHeight : row_height * 4;
+    const grid_top = this.videoGridContainerElement?.getBoundingClientRect()?.top;
+    const estimated_grid_top = typeof grid_top === 'number' ? grid_top : viewport_height * 0.3;
+    const available_height = Math.max(row_height, viewport_height - estimated_grid_top);
+    const visible_rows = Math.max(1, Math.ceil(available_height / row_height));
+    return columns * (visible_rows + this.autoPageBufferRows);
   }
 
   pageSizeOptionChanged(page_size_option: PageSizeOption): void {

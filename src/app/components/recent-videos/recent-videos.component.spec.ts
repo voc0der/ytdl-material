@@ -64,6 +64,8 @@ describe('RecentVideosComponent', () => {
   });
 
   it('should request the first auto-pagination batch from the server', () => {
+    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
+    spyOn(component, 'getAutoPageColumns').and.returnValue(3);
     postsServiceStub.getAllFiles.and.returnValue(of({
       files: [
         { uid: 'file-1', duration: 12 },
@@ -77,7 +79,7 @@ describe('RecentVideosComponent', () => {
 
     expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
       { by: 'registered', order: -1 },
-      [0, component.autoPageBatchSize],
+      [0, 12],
       null,
       'both',
       false,
@@ -88,6 +90,8 @@ describe('RecentVideosComponent', () => {
   });
 
   it('should append the next auto-pagination batch without duplicating files', () => {
+    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
+    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
     component.file_count = 50;
@@ -108,7 +112,7 @@ describe('RecentVideosComponent', () => {
 
     expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
       { by: 'registered', order: -1 },
-      [2, 2 + component.autoPageBatchSize],
+      [2, 14],
       null,
       'both',
       false,
@@ -121,6 +125,7 @@ describe('RecentVideosComponent', () => {
     spyOn(localStorage, 'setItem');
     component.manualPageIndex = 4;
     spyOn(component, 'getAllFiles');
+    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
 
     component.pageSizeOptionChanged(component.autoPageSizeOption);
 
@@ -128,5 +133,17 @@ describe('RecentVideosComponent', () => {
     expect(component.manualPageIndex).toBe(0);
     expect(localStorage.setItem).toHaveBeenCalledWith(component.pageSizeStorageKey, 'auto');
     expect(component.getAllFiles).toHaveBeenCalled();
+  });
+
+  it('should calculate an auto batch size that fills full rows', () => {
+    postsServiceStub.card_size = 'medium';
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    (component as any).videoGridContainerElement = {
+      getBoundingClientRect: () => ({ top: 240 })
+    };
+
+    expect(component.getAutoPageColumns()).toBe(3);
+    expect(component.getAutoPageBatchSize()).toBe(15);
   });
 });

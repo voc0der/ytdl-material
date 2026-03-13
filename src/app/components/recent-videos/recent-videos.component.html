@@ -45,7 +45,7 @@
     </div>
   </div>
 
-  <div class="container" style="margin-bottom: 16px">
+  <div #videoGridContainer class="container" style="margin-bottom: 16px">
     <div class="row justify-content-center">
       @if (playlistLibraryReceived) {
         @for (playlist of visiblePlaylists; track playlist.id; let i = $index) {
