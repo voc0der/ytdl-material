@@ -87,6 +87,21 @@
 
 .paginator-page-size-select ::ng-deep .mat-mdc-select-trigger {
     justify-content: center;
+}
+
+.paginator-page-size-select ::ng-deep .mat-mdc-select-value {
+    display: flex;
+    justify-content: center;
+}
+
+.paginator-page-size-select ::ng-deep .mat-mdc-select-value-text {
+    width: 100%;
+}
+
+.paginator-page-size-select ::ng-deep .mat-mdc-select-value-text > mat-select-trigger {
+    display: inline-block;
+    width: 100%;
+    position: relative;
     bottom: 20%;
 }
 
