@@ -55,22 +55,77 @@
     padding-top: 8px;
 }
 
-.library-tab-group {
-    margin: 0 auto;
+.library-switcher-shell {
+    display: flex;
+    justify-content: center;
 }
 
-.tab-count {
+.library-switcher {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    margin-left: 8px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    font-size: 12px;
-    line-height: 1;
+    gap: 12px;
+    color: inherit;
+}
+
+.library-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.52;
+    font: inherit;
+    line-height: 1.1;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+}
+
+.library-switch::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0;
+    transform: scaleX(0.7);
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.library-switch:hover {
+    opacity: 0.74;
+}
+
+.library-switch.active {
+    opacity: 0.96;
+}
+
+.library-switch.active::after {
+    opacity: 0.72;
+    transform: scaleX(1);
+}
+
+.library-switch:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: 6px;
+    border-radius: 4px;
+}
+
+.library-switch-count {
+    font-size: 0.76rem;
+    opacity: 0.7;
+}
+
+.library-switch-divider {
+    width: 18px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.16;
 }
 
 .create-playlist-button {
@@ -95,6 +150,23 @@
 @media (max-width: 576px) {
     .my-videos-title {
         top: 0px;
+    }
+
+    .library-switcher {
+        gap: 10px;
+    }
+
+    .library-switch {
+        gap: 5px;
+        letter-spacing: 0.02em;
+    }
+
+    .library-switch::after {
+        bottom: -4px;
+    }
+
+    .library-switch-divider {
+        width: 12px;
     }
 
     .search-bar {
@@ -180,8 +252,4 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-}
-
-:host ::ng-deep .library-tab-group .mat-mdc-tab-header {
-    margin-bottom: 12px;
 }

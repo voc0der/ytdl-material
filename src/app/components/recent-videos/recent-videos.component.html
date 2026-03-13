@@ -1,79 +1,87 @@
 @if (!selectMode) {
-  @if (showLibraryTabs) {
-    <mat-tab-group class="library-tab-group" [selectedIndex]="activeLibraryTab" (selectedIndexChange)="libraryTabChanged($event)">
-      <mat-tab>
-        <ng-template mat-tab-label>
-          <span i18n="Videos tab label">Videos</span>
-          <span class="tab-count">{{file_count}}</span>
-        </ng-template>
-        <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
-      </mat-tab>
-      <mat-tab>
-        <ng-template mat-tab-label>
-          <span i18n="Playlists tab label">Playlists</span>
-          <span class="tab-count">{{playlistLibraryItems.length}}</span>
-        </ng-template>
-
-        <div class="container-fluid library-header" style="max-width: 1080px;">
-          <div class="row">
-            <div class="col-12 order-2 col-sm-3 order-sm-1 d-flex justify-content-center">
-              <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
-            </div>
-            <div class="col-12 order-1 col-sm-3 order-sm-2 d-flex justify-content-center">
-              <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
-            </div>
-            <div class="col-12 order-4 col-sm-4 order-sm-3 d-flex justify-content-center">
-              <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
-                <mat-label i18n="Search playlists">Search playlists</mat-label>
-                <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
-                <mat-icon matSuffix>search</mat-icon>
-              </mat-form-field>
-            </div>
-            <div class="col-12 order-3 col-sm-2 order-sm-4 d-flex justify-content-center justify-content-sm-end">
-              <button (click)="openCreatePlaylistDialog()" class="create-playlist-button" mat-stroked-button color="accent">
-                <mat-icon>playlist_add</mat-icon>
-                <span i18n="Create playlist button">New playlist</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="container" style="margin-bottom: 16px">
-          <div class="row justify-content-center">
-            @if (playlistLibraryReceived) {
-              @for (playlist of visiblePlaylists; track playlist.id; let i = $index) {
-                <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
-                  <app-unified-file-card [ngClass]="downloading_content[playlist.id] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToPlaylist($event)" [file_obj]="playlist" [is_playlist]="true" (editPlaylist)="editPlaylistDialog($event)" (deleteFile)="deletePlaylist($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''" [loading]="false"></app-unified-file-card>
-                  @if (downloading_content[playlist.id]) {
-                    <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
-                  }
-                </div>
-              }
-              @if (visiblePlaylists.length === 0) {
-                <div class="playlist-empty-state">
-                  <div i18n="No playlists found message">No playlists found.</div>
-                  <button (click)="openCreatePlaylistDialog()" mat-flat-button color="accent" i18n="Create first playlist button">
-                    Create playlist
-                  </button>
-                </div>
-              }
-            }
-
-            @if (!playlistLibraryReceived) {
-              @for (card of playlistLoadingCards; track $index; let i = $index) {
-                <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
-                  <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
-                </div>
-              }
-            }
-          </div>
-        </div>
-      </mat-tab>
-    </mat-tab-group>
+  @if (showLibraryTabs && activeLibraryTab === 1) {
+    <ng-container [ngTemplateOutlet]="playlistLibraryContent"></ng-container>
   } @else {
     <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
   }
 }
+
+<ng-template #librarySwitcher>
+  <div class="library-switcher" aria-label="Library sections">
+    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 0" (click)="libraryTabChanged(0)">
+      <span i18n="Videos tab label">Videos</span>
+      <span class="library-switch-count">{{file_count}}</span>
+    </button>
+    <span class="library-switch-divider" aria-hidden="true"></span>
+    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 1" (click)="libraryTabChanged(1)">
+      <span i18n="Playlists tab label">Playlists</span>
+      <span class="library-switch-count">{{playlistLibraryItems.length}}</span>
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #playlistLibraryContent>
+  <div class="container-fluid library-header" style="max-width: 1080px;">
+    <div class="row">
+      <div class="col-12 order-2 col-sm-3 order-sm-1 d-flex justify-content-center">
+        <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+      </div>
+      <div class="col-12 order-1 col-sm-3 order-sm-2 d-flex justify-content-center">
+        @if (showLibraryTabs) {
+          <div class="my-videos-title library-switcher-shell">
+            <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
+          </div>
+        } @else {
+          <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
+        }
+      </div>
+      <div class="col-12 order-4 col-sm-4 order-sm-3 d-flex justify-content-center">
+        <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
+          <mat-label i18n="Search playlists">Search playlists</mat-label>
+          <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+      </div>
+      <div class="col-12 order-3 col-sm-2 order-sm-4 d-flex justify-content-center justify-content-sm-end">
+        <button (click)="openCreatePlaylistDialog()" class="create-playlist-button" mat-stroked-button color="accent">
+          <mat-icon>playlist_add</mat-icon>
+          <span i18n="Create playlist button">New playlist</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" style="margin-bottom: 16px">
+    <div class="row justify-content-center">
+      @if (playlistLibraryReceived) {
+        @for (playlist of visiblePlaylists; track playlist.id; let i = $index) {
+          <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+            <app-unified-file-card [ngClass]="downloading_content[playlist.id] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToPlaylist($event)" [file_obj]="playlist" [is_playlist]="true" (editPlaylist)="editPlaylistDialog($event)" (deleteFile)="deletePlaylist($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''" [loading]="false"></app-unified-file-card>
+            @if (downloading_content[playlist.id]) {
+              <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
+            }
+          </div>
+        }
+        @if (visiblePlaylists.length === 0) {
+          <div class="playlist-empty-state">
+            <div i18n="No playlists found message">No playlists found.</div>
+            <button (click)="openCreatePlaylistDialog()" mat-flat-button color="accent" i18n="Create first playlist button">
+              Create playlist
+            </button>
+          </div>
+        }
+      }
+
+      @if (!playlistLibraryReceived) {
+        @for (card of playlistLoadingCards; track $index; let i = $index) {
+          <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+            <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</ng-template>
 
 <ng-template #videoLibraryContent>
   <div class="container-fluid library-header" style="max-width: 941px;">
@@ -83,7 +91,9 @@
       </div>
       <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
         @if (showLibraryTabs) {
-          <h4 class="my-videos-title" i18n="Videos library title">Videos</h4>
+          <div class="my-videos-title library-switcher-shell">
+            <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
+          </div>
         } @else if (!customHeader) {
           <h4 class="my-videos-title" i18n="My files title">My files</h4>
         } @else {
