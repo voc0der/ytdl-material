@@ -14,14 +14,18 @@ import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.com
 type PageSizeOption = number | 'auto';
 
 @Component({
-    selector: 'app-recent-videos',
-    templateUrl: './recent-videos.component.html',
-    styleUrls: ['./recent-videos.component.scss'],
+    selector: 'app-media-library',
+    templateUrl: './media-library.component.html',
+    styleUrls: ['./media-library.component.scss'],
     standalone: false
 })
-export class RecentVideosComponent implements OnInit, OnDestroy {
-  readonly pageSizeStorageKey = 'recent_videos_page_size';
-  readonly libraryTabStorageKey = 'recent_videos_library_tab';
+export class MediaLibraryComponent implements OnInit, OnDestroy {
+  readonly pageSizeStorageKey = 'media_library_page_size';
+  readonly legacyPageSizeStorageKey = 'recent_videos_page_size';
+  readonly libraryTabStorageKey = 'media_library_tab';
+  readonly legacyLibraryTabStorageKey = 'recent_videos_library_tab';
+  readonly sortOrderStorageKey = 'media_library_sort_order';
+  readonly legacySortOrderStorageKey = 'recent_videos_sort_order';
   readonly autoPageSizeOption: PageSizeOption = 'auto';
   readonly autoPageBufferRows = 1;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
@@ -108,7 +112,7 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
   }
 
   constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private ngZone: NgZone) {
-    const saved_page_size = localStorage.getItem(this.pageSizeStorageKey);
+    const saved_page_size = this.getStoredPreference(this.pageSizeStorageKey, this.legacyPageSizeStorageKey);
     if (saved_page_size === this.autoPageSizeOption) {
       this.autoPaginationEnabled = true;
     } else {
@@ -118,7 +122,7 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
       }
     }
 
-    const saved_library_tab = +localStorage.getItem(this.libraryTabStorageKey);
+    const saved_library_tab = Number(this.getStoredPreference(this.libraryTabStorageKey, this.legacyLibraryTabStorageKey));
     if ([0, 1].includes(saved_library_tab)) {
       this.activeLibraryTab = saved_library_tab;
     }
@@ -148,7 +152,7 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
       this.selectedFilters = [];
     }
 
-    const sort_order = localStorage.getItem('recent_videos_sort_order');
+    const sort_order = this.getStoredPreference(this.sortOrderStorageKey, this.legacySortOrderStorageKey);
 
     if (sort_order) {
       this.descendingMode = sort_order === 'descending';
@@ -217,6 +221,21 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.disconnectAutoLoadObserver();
+  }
+
+  private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
+    const current_value = localStorage.getItem(storage_key);
+    if (current_value !== null) {
+      return current_value;
+    }
+
+    const legacy_value = localStorage.getItem(legacy_storage_key);
+    if (legacy_value !== null) {
+      localStorage.setItem(storage_key, legacy_value);
+      return legacy_value;
+    }
+
+    return null;
   }
 
   @HostListener('window:resize')
@@ -313,7 +332,7 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
 
   sortOptionChanged(value: Sort): void {
     localStorage.setItem('sort_property', value['by']);
-    localStorage.setItem('recent_videos_sort_order', value['order'] === -1 ? 'descending' : 'ascending');
+    localStorage.setItem(this.sortOrderStorageKey, value['order'] === -1 ? 'descending' : 'ascending');
     this.descendingMode = value['order'] === -1;
     this.sortProperty = value['by'];
     

@@ -5,11 +5,11 @@ import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 
-import { RecentVideosComponent } from './recent-videos.component';
+import { MediaLibraryComponent } from './media-library.component';
 
-describe('RecentVideosComponent', () => {
-  let component: RecentVideosComponent;
-  let fixture: ComponentFixture<RecentVideosComponent>;
+describe('MediaLibraryComponent', () => {
+  let component: MediaLibraryComponent;
+  let fixture: ComponentFixture<MediaLibraryComponent>;
   let postsServiceStub: any;
 
   beforeEach(waitForAsync(() => {
@@ -43,7 +43,7 @@ describe('RecentVideosComponent', () => {
     };
 
     TestBed.configureTestingModule({
-      declarations: [ RecentVideosComponent ],
+      declarations: [ MediaLibraryComponent ],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: Router, useValue: {} },
@@ -55,12 +55,22 @@ describe('RecentVideosComponent', () => {
   }));
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(RecentVideosComponent);
+    fixture = TestBed.createComponent(MediaLibraryComponent);
     component = fixture.componentInstance;
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should migrate legacy stored page size preferences', () => {
+    localStorage.setItem(component.legacyPageSizeStorageKey, `${component.autoPageSizeOption}`);
+
+    fixture = TestBed.createComponent(MediaLibraryComponent);
+    component = fixture.componentInstance;
+
+    expect(component.autoPaginationEnabled).toBeTrue();
+    expect(localStorage.getItem(component.pageSizeStorageKey)).toBe(`${component.autoPageSizeOption}`);
   });
 
   it('should request the first auto-pagination batch from the server', () => {

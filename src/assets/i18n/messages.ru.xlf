@@ -2448,7 +2448,7 @@
         <source>No videos found.</source>
         <target>Видео не найдено.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">38</context>
         </context-group>
         <note priority="1" from="description">No videos found</note>
@@ -2457,7 +2457,7 @@
         <source>My videos</source>
         <target>Мои видео</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My videos title</note>
@@ -2777,7 +2777,7 @@
         <source>Both</source>
         <target>Обa</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">54</context>
         </context-group>
         <note priority="1" from="description">Both</note>
@@ -2786,7 +2786,7 @@
         <source>File type</source>
         <target>Тип файла</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">52</context>
         </context-group>
         <note priority="1" from="description">File type</note>
@@ -2795,7 +2795,7 @@
         <source>Video only</source>
         <target>Только видео</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">55</context>
         </context-group>
         <note priority="1" from="description">Video only</note>
@@ -2804,7 +2804,7 @@
         <source>Audio only</source>
         <target>Только аудио</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">56</context>
         </context-group>
         <note priority="1" from="description">Audio only</note>
@@ -3614,7 +3614,7 @@
         <source>No files found.</source>
         <target state="translated">Файлы не найдены.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">39</context>
         </context-group>
         <note priority="1" from="description">No files found</note>
@@ -3623,7 +3623,7 @@
         <source>Select files</source>
         <target state="translated">Выбрать файлы</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">72</context>
         </context-group>
         <note priority="1" from="description">Select files</note>
@@ -3632,7 +3632,7 @@
         <source>Delete success!</source>
         <target state="translated">Успешно удалено!</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">302</context>
         </context-group>
       </trans-unit>
@@ -3640,15 +3640,15 @@
         <source>OK.</source>
         <target state="translated">Успешно.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">302</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">305</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
@@ -3656,11 +3656,11 @@
         <source>Delete failed!</source>
         <target state="translated">Ошибка при удалении!</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">305</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">308</context>
         </context-group>
       </trans-unit>
@@ -3668,11 +3668,11 @@
         <source>Successfully deleted file:</source>
         <target state="translated">Успешно удалён файл:</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">322</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">329</context>
         </context-group>
       </trans-unit>
@@ -3932,7 +3932,7 @@
         <source>Video only</source>
         <target state="translated">Только видео</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">55</context>
         </context-group>
       </trans-unit>
@@ -3940,7 +3940,7 @@
         <source>Audio only</source>
         <target state="translated">Только музыка</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>
@@ -3948,7 +3948,7 @@
         <source>Favorited</source>
         <target state="translated">Понравившиеся</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
@@ -4250,7 +4250,7 @@
         <source>My files</source>
         <target state="translated">Мои файлы</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">9</context>
         </context-group>
         <note priority="1" from="description">My files title</note>
@@ -4935,7 +4935,7 @@
         <source>Order</source>
         <target state="translated">Сортировка</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">54</context>
         </context-group>
       </trans-unit>

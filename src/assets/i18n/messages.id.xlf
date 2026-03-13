@@ -947,7 +947,7 @@
         <source>My videos</source>
         <target>Video saya</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My videos title</note>
@@ -956,7 +956,7 @@
         <source>Search</source>
         <target>Cari</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">24</context>
         </context-group>
         <context-group purpose="location">
@@ -973,7 +973,7 @@
         <source>No videos found.</source>
         <target>Tidak ada video ditemukan.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">38</context>
         </context-group>
         <note priority="1" from="description">No videos found</note>
@@ -3063,7 +3063,7 @@
         <source>My files</source>
         <target state="translated">file saya</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My files title</note>
@@ -3072,7 +3072,7 @@
         <source>No files found.</source>
         <target state="translated">file tidak ditemukan.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">40</context>
         </context-group>
         <note priority="1" from="description">No files found</note>
@@ -3081,7 +3081,7 @@
         <source>Order</source>
         <target state="translated">Urutan</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">53</context>
         </context-group>
         <note priority="1" from="description">Order</note>
@@ -3090,7 +3090,7 @@
         <source>Select files</source>
         <target state="translated">pilih file</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">71</context>
         </context-group>
         <note priority="1" from="description">Select files</note>
@@ -3099,7 +3099,7 @@
         <source>Audio only</source>
         <target state="translated">hanya audio</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">105</context>
         </context-group>
         <note priority="1" from="description">Audio only</note>
@@ -3108,7 +3108,7 @@
         <source>Delete success!</source>
         <target state="translated">berhasil dihapus!</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">270</context>
         </context-group>
       </trans-unit>
@@ -3116,15 +3116,15 @@
         <source>OK.</source>
         <target state="translated">oke.</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">270</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">273</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">276</context>
         </context-group>
       </trans-unit>
@@ -3132,11 +3132,11 @@
         <source>Delete failed!</source>
         <target state="translated">gagal menghapus!</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">273</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">276</context>
         </context-group>
       </trans-unit>
@@ -3144,11 +3144,11 @@
         <source>Successfully deleted file:</source>
         <target state="translated">berhasil menghapus file:</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">291</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">299</context>
         </context-group>
       </trans-unit>
@@ -3793,7 +3793,7 @@
         <source>File type</source>
         <target state="translated">jenis file</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">101</context>
         </context-group>
         <note priority="1" from="description">File type</note>
@@ -3802,7 +3802,7 @@
         <source>Both</source>
         <target state="translated">keduanya</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">103</context>
         </context-group>
         <note priority="1" from="description">Both</note>
@@ -3811,7 +3811,7 @@
         <source>Video only</source>
         <target state="translated">hanya video</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">104</context>
         </context-group>
         <note priority="1" from="description">Video only</note>
@@ -4641,7 +4641,7 @@
         <source>Video only</source>
         <target state="translated">Hanya video</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">55</context>
         </context-group>
       </trans-unit>
@@ -4649,7 +4649,7 @@
         <source>Favorited</source>
         <target state="translated">Favorit</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
@@ -4675,7 +4675,7 @@
         <source>Audio only</source>
         <target state="translated">Hanya audio</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>

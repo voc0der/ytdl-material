@@ -9,7 +9,7 @@ import { YoutubeSearchService, Result } from '../youtube-search.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Platform } from '@angular/cdk/platform';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
-import { RecentVideosComponent } from 'app/components/recent-videos/recent-videos.component';
+import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
 import { debounceTime, filter, map, switchMap, take, tap } from 'rxjs/operators';
 
@@ -164,7 +164,7 @@ export class MainComponent implements OnInit {
   formats_loading = false;
 
   @ViewChild('urlinput', { read: ElementRef }) urlInput: ElementRef;
-  @ViewChild('recentVideos') recentVideos: RecentVideosComponent;
+  @ViewChild('mediaLibrary') mediaLibrary: MediaLibraryComponent;
   last_valid_url = '';
   last_url_check = 0;
 
@@ -179,11 +179,11 @@ export class MainComponent implements OnInit {
   }
 
   get showCreatePlaylistShortcut(): boolean {
-    return !!this.recentVideos && this.recentVideos.showLibraryTabs && this.recentVideos.activeLibraryTab === 1;
+    return !!this.mediaLibrary && this.mediaLibrary.showLibraryTabs && this.mediaLibrary.activeLibraryTab === 1;
   }
 
   openCreatePlaylistDialog(): void {
-    this.recentVideos?.openCreatePlaylistDialog();
+    this.mediaLibrary?.openCreatePlaylistDialog();
   }
 
   async configLoad(): Promise<void> {
@@ -315,7 +315,7 @@ export class MainComponent implements OnInit {
     this.downloadingfile = false;
     if (!this.autoplay && !this.downloadOnlyMode && !navigate_mode) {
       // do nothing
-      this.reloadRecentVideos(is_playlist);
+      this.reloadMediaLibrary(is_playlist);
     } else {
       // if download only mode, just download the file. no redirect
       if (force_view === false && this.downloadOnlyMode && !this.iOS) {
@@ -324,7 +324,7 @@ export class MainComponent implements OnInit {
         } else {
           this.downloadFileFromServer(container as DatabaseFile, type);
         }
-        this.reloadRecentVideos(is_playlist);
+        this.reloadMediaLibrary(is_playlist);
       } else {
         localStorage.setItem('player_navigator', this.router.url.split(';')[0]);
         if (is_playlist) {
@@ -943,7 +943,7 @@ export class MainComponent implements OnInit {
           if (container && type) {
             this.downloadHelper(container, type, is_playlist, false);
           } else if (!this.current_download) {
-            this.reloadRecentVideos(is_playlist);
+            this.reloadMediaLibrary(is_playlist);
           }
         } else if (this.current_download['finished'] && this.current_download['error']) {
           const failed_download_uid = this.current_download.uid;
@@ -976,7 +976,7 @@ export class MainComponent implements OnInit {
     }
   }
 
-  reloadRecentVideos(is_playlist = false): void {
+  reloadMediaLibrary(is_playlist = false): void {
     this.postsService.files_changed.next(true);
     if (is_playlist) this.postsService.playlists_changed.next(true);
   }

@@ -2224,7 +2224,7 @@
         <source>My videos</source>
         <target>我的视频</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My videos title</note>
@@ -2498,7 +2498,7 @@
         <source>No videos found.</source>
         <target state="translated">找不到视频。</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">38</context>
         </context-group>
         <note priority="1" from="description">No videos found</note>
@@ -3026,7 +3026,7 @@
         <source>File type</source>
         <target state="translated">文件类型</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">52</context>
         </context-group>
         <note priority="1" from="description">File type</note>
@@ -3035,7 +3035,7 @@
         <source>Video only</source>
         <target state="translated">仅视频</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">55</context>
         </context-group>
         <note priority="1" from="description">Video only</note>
@@ -3044,7 +3044,7 @@
         <source>Audio only</source>
         <target state="translated">仅音频</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">56</context>
         </context-group>
         <note priority="1" from="description">Audio only</note>
@@ -3398,7 +3398,7 @@
         <source>Both</source>
         <target state="translated">全部</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">54</context>
         </context-group>
         <note priority="1" from="description">Both</note>
@@ -3487,7 +3487,7 @@
         <source>Delete success!</source>
         <target state="translated">删除成功！</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">270</context>
         </context-group>
       </trans-unit>
@@ -3767,7 +3767,7 @@
         <source>Order</source>
         <target state="translated">顺序</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">53</context>
         </context-group>
         <note priority="1" from="description">Order</note>
@@ -3776,7 +3776,7 @@
         <source>Select files</source>
         <target state="translated">选择文件</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">71</context>
         </context-group>
         <note priority="1" from="description">Select files</note>
@@ -3785,7 +3785,7 @@
         <source>My files</source>
         <target state="translated">我的文件</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">20</context>
         </context-group>
         <note priority="1" from="description">My files title</note>
@@ -4030,7 +4030,7 @@
         <source>No files found.</source>
         <target state="translated">未找到文件。</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.html</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
           <context context-type="linenumber">40</context>
         </context-group>
         <note priority="1" from="description">No files found</note>
@@ -4063,15 +4063,15 @@
         <source>OK.</source>
         <target state="translated">确定</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">270</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">273</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">276</context>
         </context-group>
       </trans-unit>
@@ -4079,11 +4079,11 @@
         <source>Delete failed!</source>
         <target state="translated">删除失败！</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">273</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">276</context>
         </context-group>
       </trans-unit>
@@ -4099,11 +4099,11 @@
         <source>Successfully deleted file:</source>
         <target state="translated">已成功删除文件：</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">291</context>
         </context-group>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">299</context>
         </context-group>
       </trans-unit>
@@ -4430,7 +4430,7 @@
         <source>Video only</source>
         <target state="translated">仅视频</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">55</context>
         </context-group>
       </trans-unit>
@@ -4438,7 +4438,7 @@
         <source>Audio only</source>
         <target state="translated">仅音频</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">60</context>
         </context-group>
       </trans-unit>
@@ -4446,7 +4446,7 @@
         <source>Favorited</source>
         <target state="translated">收藏</target>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/recent-videos/recent-videos.component.ts</context>
+          <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
           <context context-type="linenumber">65</context>
         </context-group>
       </trans-unit>
