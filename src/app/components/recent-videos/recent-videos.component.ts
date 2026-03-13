@@ -369,10 +369,6 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
       this.file_count = res['file_count'];
       const files = this.normalizeFiles(res['files'] ?? []);
       this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
-      for (let i = 0; i < this.paged_data.length; i++) {
-        const file = this.paged_data[i];
-        file.duration = typeof file.duration !== 'string' ? file.duration : this.durationStringToNumber(file.duration);
-      }
 
       // set cached file count for future use, note that we convert the amount of files to a string
       localStorage.setItem('cached_file_count', '' + this.file_count);
@@ -640,7 +636,11 @@ export class RecentVideosComponent implements OnInit, OnDestroy {
   }
 
   formatPageSizeOption(page_size_option: PageSizeOption): string {
-    return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
+    return page_size_option === this.autoPageSizeOption ? $localize`100+ (Auto)` : `${page_size_option}`;
+  }
+
+  getPageSizeTriggerLabel(page_size_option: PageSizeOption): string {
+    return page_size_option === this.autoPageSizeOption ? '100+' : `${page_size_option}`;
   }
 
   getAutoRangeLabel(): string {

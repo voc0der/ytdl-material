@@ -156,21 +156,10 @@
         <mat-form-field appearance="outline" class="paginator-page-size-select">
           <mat-select [value]="pageSizeSelectorValue" (selectionChange)="pageSizeOptionChanged($event.value)">
             <mat-select-trigger>
-              <span [matTooltip]="pageSizeSelectorValue === autoPageSizeOption ? 'Auto' : null" i18n-matTooltip="Auto page size tooltip">
-                {{pageSizeSelectorValue === autoPageSizeOption ? '∞' : pageSizeSelectorValue}}
-              </span>
+              {{getPageSizeTriggerLabel(pageSizeSelectorValue)}}
             </mat-select-trigger>
             @for (pageSizeOption of pageSizeOptions; track pageSizeOption) {
-              <mat-option [value]="pageSizeOption">
-                @if (pageSizeOption === autoPageSizeOption) {
-                  <span class="page-size-option-auto">
-                    <span class="page-size-option-auto-symbol" aria-hidden="true">∞</span>
-                    <span>{{formatPageSizeOption(pageSizeOption)}}</span>
-                  </span>
-                } @else {
-                  {{formatPageSizeOption(pageSizeOption)}}
-                }
-              </mat-option>
+              <mat-option [value]="pageSizeOption">{{formatPageSizeOption(pageSizeOption)}}</mat-option>
             }
           </mat-select>
         </mat-form-field>
