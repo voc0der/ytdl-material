@@ -76,20 +76,28 @@
             </div>
           }
         </form>
-        <br/>
-        <mat-checkbox [disabled]="autoplay && !!current_download" (change)="videoModeChanged($event)" [(ngModel)]="audioOnly" style="float: left; margin-top: -12px; margin-left: 4px;">
-          <ng-container i18n="Only Audio checkbox">
-                        Only Audio
-                    </ng-container>
-        </mat-checkbox>
-        @if (!forceAutoplay) {
-          <mat-checkbox [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay" style="float: right; margin-top: -12px">
-            <ng-container i18n="Autoplay checkbox">
-                        Autoplay
-                    </ng-container>
+        <div class="main-pane-controls">
+          <mat-checkbox class="main-pane-audio-toggle" [disabled]="autoplay && !!current_download" (change)="videoModeChanged($event)" [(ngModel)]="audioOnly">
+            <ng-container i18n="Only Audio checkbox">
+                          Only Audio
+                      </ng-container>
           </mat-checkbox>
-        }
-
+          <div class="main-pane-secondary-actions">
+            @if (!forceAutoplay) {
+              <mat-checkbox class="main-pane-autoplay-toggle" [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
+                <ng-container i18n="Autoplay checkbox">
+                            Autoplay
+                        </ng-container>
+              </mat-checkbox>
+            }
+            @if (showCreatePlaylistShortcut) {
+              <button type="button" class="playlist-shortcut-button" mat-button color="accent" (click)="openCreatePlaylistDialog()">
+                <mat-icon>playlist_add</mat-icon>
+                <span i18n="Create playlist button">New playlist</span>
+              </button>
+            }
+          </div>
+        </div>
       </div>
     </mat-card-content>
     <mat-card-actions>

@@ -35,18 +35,12 @@
           <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
         }
       </div>
-      <div class="col-12 order-4 col-sm-4 order-sm-3 d-flex justify-content-center">
+      <div class="col-12 order-3 col-sm-6 order-sm-3 d-flex justify-content-center justify-content-sm-end">
         <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
           <mat-label i18n="Search playlists">Search playlists</mat-label>
           <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
           <mat-icon matSuffix>search</mat-icon>
         </mat-form-field>
-      </div>
-      <div class="col-12 order-3 col-sm-2 order-sm-4 d-flex justify-content-center justify-content-sm-end">
-        <button (click)="openCreatePlaylistDialog()" class="create-playlist-button" mat-stroked-button color="accent">
-          <mat-icon>playlist_add</mat-icon>
-          <span i18n="Create playlist button">New playlist</span>
-        </button>
       </div>
     </div>
   </div>

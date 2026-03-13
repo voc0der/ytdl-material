@@ -178,6 +178,14 @@ export class MainComponent implements OnInit {
     this.audioOnly = false;
   }
 
+  get showCreatePlaylistShortcut(): boolean {
+    return !!this.recentVideos && this.recentVideos.showLibraryTabs && this.recentVideos.activeLibraryTab === 1;
+  }
+
+  openCreatePlaylistDialog(): void {
+    this.recentVideos?.openCreatePlaylistDialog();
+  }
+
   async configLoad(): Promise<void> {
     await this.loadConfig();
     if (this.autoStartDownload) {

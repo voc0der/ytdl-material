@@ -128,12 +128,6 @@
     opacity: 0.16;
 }
 
-.create-playlist-button {
-    margin-top: 10px;
-    min-width: 148px;
-    border-radius: 999px;
-}
-
 .playlist-empty-state {
     width: min(100%, 420px);
     margin-top: 18px;
@@ -176,10 +170,6 @@
     .search-bar-unfocused,
     .search-bar-focused {
         width: min(100%, 280px);
-    }
-
-    .create-playlist-button {
-        margin-top: 0;
     }
 }
 

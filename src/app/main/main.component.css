@@ -106,6 +106,39 @@ mat-form-field.mat-mdc-form-field {
     padding-bottom: 5px;
 }
 
+.main-pane-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-top: 8px;
+    min-height: 52px;
+}
+
+.main-pane-audio-toggle {
+    margin-left: 4px;
+}
+
+.main-pane-secondary-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.playlist-shortcut-button.mat-mdc-button-base {
+    min-width: 0;
+    padding: 0 6px;
+    line-height: 32px;
+}
+
+.playlist-shortcut-button .mat-icon {
+    margin-right: 6px;
+    font-size: 19px;
+    width: 19px;
+    height: 19px;
+}
+
 .download-progress-bar {
     z-index: 999;
     position: absolute;
@@ -151,6 +184,20 @@ mat-form-field.mat-mdc-form-field {
 @media (max-width: 576px) {
     .download-progress-bar {
         width: 125px;
+    }
+
+    .main-pane-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .main-pane-secondary-actions {
+        align-items: flex-start;
+    }
+
+    .main-pane-audio-toggle {
+        margin-left: 0;
     }
 }
 
