@@ -21,12 +21,12 @@
 </ng-template>
 
 <ng-template #playlistLibraryContent>
-  <div class="container-fluid library-header" style="max-width: 1080px;">
+  <div class="container-fluid library-header" style="max-width: 941px;">
     <div class="row">
-      <div class="col-12 order-2 col-sm-3 order-sm-1 d-flex justify-content-center">
+      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center">
         <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
       </div>
-      <div class="col-12 order-1 col-sm-3 order-sm-2 d-flex justify-content-center">
+      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
         @if (showLibraryTabs) {
           <div class="my-videos-title library-switcher-shell">
             <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
@@ -35,7 +35,7 @@
           <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
         }
       </div>
-      <div class="col-12 order-3 col-sm-6 order-sm-3 d-flex justify-content-center justify-content-sm-end">
+      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center">
         <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
           <mat-label i18n="Search playlists">Search playlists</mat-label>
           <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>

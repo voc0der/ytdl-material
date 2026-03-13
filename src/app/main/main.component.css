@@ -106,30 +106,30 @@ mat-form-field.mat-mdc-form-field {
     padding-bottom: 5px;
 }
 
-.main-pane-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-top: 8px;
-    min-height: 52px;
-}
-
 .main-pane-audio-toggle {
+    float: left;
+    margin-top: -12px;
     margin-left: 4px;
 }
 
 .main-pane-secondary-actions {
-    display: flex;
+    float: right;
+    margin-top: -12px;
+    display: inline-flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 4px;
 }
 
+.main-pane-autoplay-toggle {
+    align-self: flex-end;
+}
+
 .playlist-shortcut-button.mat-mdc-button-base {
     min-width: 0;
-    padding: 0 6px;
-    line-height: 32px;
+    padding: 0 0 0 6px;
+    line-height: 28px;
+    align-self: flex-end;
 }
 
 .playlist-shortcut-button .mat-icon {
@@ -186,18 +186,12 @@ mat-form-field.mat-mdc-form-field {
         width: 125px;
     }
 
-    .main-pane-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-
     .main-pane-secondary-actions {
-        align-items: flex-start;
+        margin-top: 4px;
     }
 
     .main-pane-audio-toggle {
-        margin-left: 0;
+        margin-left: 4px;
     }
 }
 
