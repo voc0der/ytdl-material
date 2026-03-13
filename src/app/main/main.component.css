@@ -113,8 +113,9 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .main-pane-secondary-actions {
-    float: right;
-    margin-top: -12px;
+    position: absolute;
+    top: -12px;
+    right: 0;
     display: inline-flex;
     flex-direction: column;
     align-items: flex-end;
@@ -127,16 +128,30 @@ mat-form-field.mat-mdc-form-field {
 
 .playlist-shortcut-button.mat-mdc-button-base {
     min-width: 0;
-    padding: 0 0 0 6px;
-    line-height: 28px;
+    padding: 0 0 0 4px;
+    line-height: 24px;
     align-self: flex-end;
+    color: inherit !important;
+    opacity: 0.68;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    transition: opacity 160ms ease;
+}
+
+.playlist-shortcut-button.mat-mdc-button-base:hover {
+    opacity: 0.92;
+}
+
+.playlist-shortcut-button.mat-mdc-button-base:focus-visible {
+    opacity: 0.92;
 }
 
 .playlist-shortcut-button .mat-icon {
     margin-right: 6px;
-    font-size: 19px;
-    width: 19px;
-    height: 19px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    opacity: 0.84;
 }
 
 .download-progress-bar {
@@ -187,7 +202,7 @@ mat-form-field.mat-mdc-form-field {
     }
 
     .main-pane-secondary-actions {
-        margin-top: 4px;
+        top: -12px;
     }
 
     .main-pane-audio-toggle {
