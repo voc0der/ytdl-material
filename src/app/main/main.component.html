@@ -91,10 +91,12 @@
             </mat-checkbox>
           }
           @if (showCreatePlaylistShortcut) {
-            <button type="button" class="playlist-shortcut-button" mat-button (click)="openCreatePlaylistDialog()">
-              <mat-icon>playlist_add</mat-icon>
-              <span i18n="Create playlist button">New playlist</span>
-            </button>
+            <div class="playlist-shortcut-slot">
+              <button type="button" class="playlist-shortcut-button" mat-button (click)="openCreatePlaylistDialog()">
+                <mat-icon>playlist_add</mat-icon>
+                <span i18n="Create playlist button">New playlist</span>
+              </button>
+            </div>
           }
         </div>
       </div>

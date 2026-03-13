@@ -113,17 +113,23 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .main-pane-secondary-actions {
-    position: absolute;
-    top: -12px;
-    right: 0;
+    float: right;
+    margin-top: -12px;
     display: inline-flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
 }
 
 .main-pane-autoplay-toggle {
     align-self: flex-end;
+}
+
+.playlist-shortcut-slot {
+    height: 0;
+    overflow: visible;
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
 }
 
 .playlist-shortcut-button.mat-mdc-button-base {
@@ -131,6 +137,7 @@ mat-form-field.mat-mdc-form-field {
     padding: 0 0 0 4px;
     line-height: 24px;
     align-self: flex-end;
+    transform: translateY(4px);
     color: inherit !important;
     opacity: 0.68;
     letter-spacing: 0.02em;
@@ -202,7 +209,7 @@ mat-form-field.mat-mdc-form-field {
     }
 
     .main-pane-secondary-actions {
-        top: -12px;
+        margin-top: -12px;
     }
 
     .main-pane-audio-toggle {
