@@ -112,32 +112,18 @@ mat-form-field.mat-mdc-form-field {
     margin-left: 4px;
 }
 
-.main-pane-secondary-actions {
+.main-pane-autoplay-toggle {
     float: right;
     margin-top: -12px;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-end;
 }
 
-.main-pane-autoplay-toggle {
-    align-self: flex-end;
-}
-
-.playlist-shortcut-slot {
-    height: 0;
-    overflow: visible;
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-}
-
-.playlist-shortcut-button.mat-mdc-button-base {
+.playlist-shortcut-action.mat-mdc-button-base {
+    float: right;
     min-width: 0;
-    padding: 0 0 0 4px;
-    line-height: 24px;
-    align-self: flex-end;
-    transform: translateY(4px);
+    padding: 0 2px 0 4px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    line-height: 28px;
     color: inherit !important;
     opacity: 0.68;
     letter-spacing: 0.02em;
@@ -145,15 +131,15 @@ mat-form-field.mat-mdc-form-field {
     transition: opacity 160ms ease;
 }
 
-.playlist-shortcut-button.mat-mdc-button-base:hover {
+.playlist-shortcut-action.mat-mdc-button-base:hover {
     opacity: 0.92;
 }
 
-.playlist-shortcut-button.mat-mdc-button-base:focus-visible {
+.playlist-shortcut-action.mat-mdc-button-base:focus-visible {
     opacity: 0.92;
 }
 
-.playlist-shortcut-button .mat-icon {
+.playlist-shortcut-action .mat-icon {
     margin-right: 6px;
     font-size: 18px;
     width: 18px;
@@ -206,10 +192,6 @@ mat-form-field.mat-mdc-form-field {
 @media (max-width: 576px) {
     .download-progress-bar {
         width: 125px;
-    }
-
-    .main-pane-secondary-actions {
-        margin-top: -12px;
     }
 
     .main-pane-audio-toggle {
