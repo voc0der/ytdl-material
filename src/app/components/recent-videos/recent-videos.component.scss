@@ -51,9 +51,63 @@
     top: 12px;
 }
 
+.library-header {
+    padding-top: 8px;
+}
+
+.library-tab-group {
+    margin: 0 auto;
+}
+
+.tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    margin-left: 8px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.create-playlist-button {
+    margin-top: 10px;
+    min-width: 148px;
+    border-radius: 999px;
+}
+
+.playlist-empty-state {
+    width: min(100%, 420px);
+    margin-top: 18px;
+    padding: 28px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
 @media (max-width: 576px) {
     .my-videos-title {
         top: 0px;
+    }
+
+    .search-bar {
+        float: none;
+    }
+
+    .search-bar-unfocused,
+    .search-bar-focused {
+        width: min(100%, 280px);
+    }
+
+    .create-playlist-button {
+        margin-top: 0;
     }
 }
 
@@ -126,4 +180,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
+}
+
+:host ::ng-deep .library-tab-group .mat-mdc-tab-header {
+    margin-bottom: 12px;
 }

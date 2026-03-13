@@ -1,133 +1,139 @@
-<div class="container-fluid" style="max-width: 941px;">
-  <div class="row">
-    <!-- Sorting -->
-    <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center">
-      <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
-    </div>
-    <!-- Files title -->
-    <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
-      @if (!customHeader) {
-        <h4 class="my-videos-title" i18n="My files title">My files</h4>
-      }
-      @if (customHeader) {
-        <h4 class="my-videos-title">{{customHeader}}</h4>
-      }
-    </div>
-    <!-- Search -->
-    <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center">
-      <mat-form-field appearance="outline" [ngClass]="searchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
-        <mat-label i18n="Search">Search</mat-label>
-        <input (focus)="searchIsFocused = true" (blur)="searchIsFocused = false" class="search-input" type="text" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" matInput>
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
-    </div>
-  </div>
-  <!-- Filters -->
-  <div class="row justify-content-center">
-    <mat-chip-listbox class="filter-list" [value]="selectedFilters" [multiple]="true" (change)="selectedFiltersChanged($event)">
-      @for (filter of fileFilters | keyvalue: originalOrder; track filter.key) {
-        <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.value.label}}</mat-chip-option>
-      }
-    </mat-chip-listbox>
-  </div>
-</div>
-<div>
-  <!-- Files -->
-  @if (!selectMode) {
-    <div class="container" style="margin-bottom: 16px">
-      <div class="row justify-content-center">
-        <!-- Real cards -->
-        @if (normal_files_received && paged_data) {
-          @for (file of paged_data; track file.uid; let i = $index) {
-            <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
-              <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''"></app-unified-file-card>
-              @if (downloading_content[file.uid]) {
-                <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
+@if (!selectMode) {
+  @if (showLibraryTabs) {
+    <mat-tab-group class="library-tab-group" [selectedIndex]="activeLibraryTab" (selectedIndexChange)="libraryTabChanged($event)">
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <span i18n="Videos tab label">Videos</span>
+          <span class="tab-count">{{file_count}}</span>
+        </ng-template>
+        <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
+      </mat-tab>
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <span i18n="Playlists tab label">Playlists</span>
+          <span class="tab-count">{{playlistLibraryItems.length}}</span>
+        </ng-template>
+
+        <div class="container-fluid library-header" style="max-width: 1080px;">
+          <div class="row">
+            <div class="col-12 order-2 col-sm-3 order-sm-1 d-flex justify-content-center">
+              <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+            </div>
+            <div class="col-12 order-1 col-sm-3 order-sm-2 d-flex justify-content-center">
+              <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
+            </div>
+            <div class="col-12 order-4 col-sm-4 order-sm-3 d-flex justify-content-center">
+              <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
+                <mat-label i18n="Search playlists">Search playlists</mat-label>
+                <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
+            </div>
+            <div class="col-12 order-3 col-sm-2 order-sm-4 d-flex justify-content-center justify-content-sm-end">
+              <button (click)="openCreatePlaylistDialog()" class="create-playlist-button" mat-stroked-button color="accent">
+                <mat-icon>playlist_add</mat-icon>
+                <span i18n="Create playlist button">New playlist</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="container" style="margin-bottom: 16px">
+          <div class="row justify-content-center">
+            @if (playlistLibraryReceived) {
+              @for (playlist of visiblePlaylists; track playlist.id; let i = $index) {
+                <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+                  <app-unified-file-card [ngClass]="downloading_content[playlist.id] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToPlaylist($event)" [file_obj]="playlist" [is_playlist]="true" (editPlaylist)="editPlaylistDialog($event)" (deleteFile)="deletePlaylist($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''" [loading]="false"></app-unified-file-card>
+                  @if (downloading_content[playlist.id]) {
+                    <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
+                  }
+                </div>
               }
-            </div>
-          }
-          @if (paged_data.length === 0) {
-            <div>
-              <ng-container i18n="No files found">No files found.</ng-container>
-            </div>
-          }
+              @if (visiblePlaylists.length === 0) {
+                <div class="playlist-empty-state">
+                  <div i18n="No playlists found message">No playlists found.</div>
+                  <button (click)="openCreatePlaylistDialog()" mat-flat-button color="accent" i18n="Create first playlist button">
+                    Create playlist
+                  </button>
+                </div>
+              }
+            }
+
+            @if (!playlistLibraryReceived) {
+              @for (card of playlistLoadingCards; track $index; let i = $index) {
+                <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+                  <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
+                </div>
+              }
+            }
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  } @else {
+    <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
+  }
+}
+
+<ng-template #videoLibraryContent>
+  <div class="container-fluid library-header" style="max-width: 941px;">
+    <div class="row">
+      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center">
+        <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+      </div>
+      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
+        @if (showLibraryTabs) {
+          <h4 class="my-videos-title" i18n="Videos library title">Videos</h4>
+        } @else if (!customHeader) {
+          <h4 class="my-videos-title" i18n="My files title">My files</h4>
+        } @else {
+          <h4 class="my-videos-title">{{customHeader}}</h4>
         }
-        <!-- Fake cards -->
-        <ng-container>
-          @for (file of loading_files; track $index; let i = $index) {
-            <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[normal_files_received ? 'hide' : '', postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
-              <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
-            </div>
-          }
-        </ng-container>
+      </div>
+      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center">
+        <mat-form-field appearance="outline" [ngClass]="searchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
+          <mat-label i18n="Search">Search</mat-label>
+          <input (focus)="searchIsFocused = true" (blur)="searchIsFocused = false" class="search-input" type="text" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" matInput>
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
       </div>
     </div>
-  }
-
-  @if (selectMode) {
-    <div>
-      <!-- If selected files e.g. for creating a playlist -->
-      <mat-tab-group [(selectedIndex)]="selectedIndex">
-        <mat-tab label="Order" i18n-label="Order">
-          @if (selected_data.length) {
-            <div>
-              @if (reverse_order === false) {
-                <span i18n="Normal order">Normal order&nbsp;</span>
-              }
-              @if (reverse_order === true) {
-                <span i18n="Reverse order">Reverse order&nbsp;</span>
-              }
-              <button (click)="toggleSelectionOrder()" mat-icon-button><mat-icon>{{!reverse_order ? 'arrow_downward' : 'arrow_upward'}}</mat-icon></button>
-            </div>
-          }
-          <!-- Selection order -->
-          @if (selected_data.length) {
-            <mat-button-toggle-group class="media-list" cdkDropList (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical #group="matButtonToggleGroup">
-              <!-- The following for loop can be optimized but it requires a pipe https://stackoverflow.com/a/35703364/8088021 -->
-              @for (file of (reverse_order ? selected_data_objs.slice().reverse() : selected_data_objs); track file.uid; let i = $index) {
-                <mat-button-toggle class="media-box" cdkDrag [checked]="false"><div><div class="playlist-item-text">{{file.title}}</div> <button (click)="removeSelectedFile(i)" class="remove-item-button" mat-icon-button><mat-icon>cancel</mat-icon></button></div></mat-button-toggle>
-              }
-            </mat-button-toggle-group>
-          }
-          @if (!selected_data.length) {
-            <div style="margin-top: 20px;">
-              <h4 style="text-align: center;">No files selected!</h4>
-            </div>
-          }
-        </mat-tab>
-        <mat-tab label="Select files" i18n-label="Select files">
-          @if (normal_files_received) {
-            <mat-selection-list (selectionChange)="fileSelectionChanged($event)">
-              @for (file of paged_data; track file.uid) {
-                <mat-list-option [selected]="selected_data.includes(file.uid)" [value]="file">
-                  <div class="container">
-                    <div class="row justify-content-center">
-                      <div class="col-10 select-file-title">
-                        <mat-icon class="audio-video-icon">{{file.isAudio ? 'audiotrack' : 'movie'}}</mat-icon>
-                        {{file.title}}
-                      </div>
-                      <div class="col-2">{{file.registered | date:'shortDate'}}</div>
-                    </div>
-                  </div>
-                </mat-list-option>
-              }
-            </mat-selection-list>
-          }
-          @if (!normal_files_received && loading_files && loading_files.length > 0) {
-            @if (!normal_files_received) {
-              <mat-selection-list>
-                @for (file of paged_data; track $index) {
-                  <mat-list-option>
-                    <content-loader class="list-ghosts" [backgroundColor]="postsService.theme.ghost_primary" [foregroundColor]="postsService.theme.ghost_secondary" viewBox="0 0 250 8"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="8" /></content-loader>
-                  </mat-list-option>
-                }
-              </mat-selection-list>
-            }
-          }
-        </mat-tab>
-      </mat-tab-group>
+    <div class="row justify-content-center">
+      <mat-chip-listbox class="filter-list" [value]="selectedFilters" [multiple]="true" (change)="selectedFiltersChanged($event)">
+        @for (filter of fileFilters | keyvalue: originalOrder; track filter.key) {
+          <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.value.label}}</mat-chip-option>
+        }
+      </mat-chip-listbox>
     </div>
-  }
+  </div>
+
+  <div class="container" style="margin-bottom: 16px">
+    <div class="row justify-content-center">
+      @if (normal_files_received && paged_data) {
+        @for (file of paged_data; track file.uid; let i = $index) {
+          <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+            <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''"></app-unified-file-card>
+            @if (downloading_content[file.uid]) {
+              <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
+            }
+          </div>
+        }
+        @if (paged_data.length === 0) {
+          <div>
+            <ng-container i18n="No files found">No files found.</ng-container>
+          </div>
+        }
+      }
+
+      <ng-container>
+        @for (file of loading_files; track $index; let i = $index) {
+          <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[normal_files_received ? 'hide' : '', postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+            <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
+          </div>
+        }
+      </ng-container>
+    </div>
+  </div>
 
   @if (usePaginator && selectedIndex > 0) {
     <div style="position: relative;">
@@ -137,4 +143,66 @@
       </mat-paginator>
     </div>
   }
-</div>
+</ng-template>
+
+@if (selectMode) {
+  <div>
+    <mat-tab-group [(selectedIndex)]="selectedIndex">
+      <mat-tab label="Order" i18n-label="Order">
+        @if (selected_data.length) {
+          <div>
+            @if (reverse_order === false) {
+              <span i18n="Normal order">Normal order&nbsp;</span>
+            }
+            @if (reverse_order === true) {
+              <span i18n="Reverse order">Reverse order&nbsp;</span>
+            }
+            <button (click)="toggleSelectionOrder()" mat-icon-button><mat-icon>{{!reverse_order ? 'arrow_downward' : 'arrow_upward'}}</mat-icon></button>
+          </div>
+        }
+        @if (selected_data.length) {
+          <mat-button-toggle-group class="media-list" cdkDropList (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical #group="matButtonToggleGroup">
+            @for (file of (reverse_order ? selected_data_objs.slice().reverse() : selected_data_objs); track file.uid; let i = $index) {
+              <mat-button-toggle class="media-box" cdkDrag [checked]="false"><div><div class="playlist-item-text">{{file.title}}</div> <button (click)="removeSelectedFile(i)" class="remove-item-button" mat-icon-button><mat-icon>cancel</mat-icon></button></div></mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+        }
+        @if (!selected_data.length) {
+          <div style="margin-top: 20px;">
+            <h4 style="text-align: center;">No files selected!</h4>
+          </div>
+        }
+      </mat-tab>
+      <mat-tab label="Select files" i18n-label="Select files">
+        @if (normal_files_received) {
+          <mat-selection-list (selectionChange)="fileSelectionChanged($event)">
+            @for (file of paged_data; track file.uid) {
+              <mat-list-option [selected]="selected_data.includes(file.uid)" [value]="file">
+                <div class="container">
+                  <div class="row justify-content-center">
+                    <div class="col-10 select-file-title">
+                      <mat-icon class="audio-video-icon">{{file.isAudio ? 'audiotrack' : 'movie'}}</mat-icon>
+                      {{file.title}}
+                    </div>
+                    <div class="col-2">{{file.registered | date:'shortDate'}}</div>
+                  </div>
+                </div>
+              </mat-list-option>
+            }
+          </mat-selection-list>
+        }
+        @if (!normal_files_received && loading_files && loading_files.length > 0) {
+          @if (!normal_files_received) {
+            <mat-selection-list>
+              @for (file of paged_data; track $index) {
+                <mat-list-option>
+                  <content-loader class="list-ghosts" [backgroundColor]="postsService.theme.ghost_primary" [foregroundColor]="postsService.theme.ghost_secondary" viewBox="0 0 250 8"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="8" /></content-loader>
+                </mat-list-option>
+              }
+            </mat-selection-list>
+          }
+        }
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+}
