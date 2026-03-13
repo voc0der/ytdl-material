@@ -45,6 +45,72 @@
     margin-top: 5px;
 }
 
+.paginator-shell {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 56px;
+    padding: 0 8px;
+    background-color: var(--mat-paginator-container-background-color, var(--mat-sys-surface));
+    color: var(--mat-paginator-container-text-color, var(--mat-sys-on-surface));
+}
+
+.paginator-page-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.paginator-page-size-label {
+    opacity: 0.78;
+    white-space: nowrap;
+}
+
+.paginator-page-size-select {
+    width: 92px;
+}
+
+.paginator-page-size-select ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+}
+
+.paginator-page-size-select ::ng-deep .mat-mdc-text-field-wrapper {
+    height: 40px;
+}
+
+.paginator-manual {
+    margin-top: 0;
+    background: transparent;
+}
+
+.auto-pagination-status {
+    min-height: 56px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.auto-load-anchor {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px 0 4px;
+}
+
+.auto-load-spinner {
+    opacity: 0.84;
+}
+
+.auto-load-anchor-line {
+    width: min(100%, 168px);
+    height: 1px;
+    background: currentColor;
+    opacity: 0.12;
+}
+
 .my-videos-title {
     text-align: center;
     position: relative;
@@ -170,6 +236,16 @@
     .search-bar-unfocused,
     .search-bar-focused {
         width: min(100%, 280px);
+    }
+
+    .paginator-shell {
+        justify-content: center;
+        gap: 10px;
+        padding: 8px;
+    }
+
+    .auto-pagination-status {
+        min-height: auto;
     }
 }
 

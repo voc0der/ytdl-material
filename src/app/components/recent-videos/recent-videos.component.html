@@ -139,12 +139,40 @@
     </div>
   </div>
 
-  @if (usePaginator && selectedIndex > 0) {
-    <div style="position: relative;">
-      <mat-paginator class="paginator" #paginator (page)="pageChangeEvent($event)" [length]="file_count"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[5, 10, 25, 100, this.paged_data && this.paged_data.length > 100 ? this.paged_data.length : 250]">
-      </mat-paginator>
+  @if (showAutoLoadAnchor) {
+    <div #autoLoadAnchor class="auto-load-anchor">
+      @if (autoPageLoadInProgress) {
+        <mat-spinner class="auto-load-spinner" [diameter]="28"></mat-spinner>
+      } @else {
+        <div class="auto-load-anchor-line" aria-hidden="true"></div>
+      }
+    </div>
+  }
+
+  @if (showPaginationControls) {
+    <div class="paginator-shell">
+      <div class="paginator-page-size">
+        <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
+        <mat-form-field appearance="outline" class="paginator-page-size-select">
+          <mat-select [value]="pageSizeSelectorValue" (selectionChange)="pageSizeOptionChanged($event.value)">
+            @for (pageSizeOption of pageSizeOptions; track pageSizeOption) {
+              <mat-option [value]="pageSizeOption">{{formatPageSizeOption(pageSizeOption)}}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      @if (!autoPaginationEnabled) {
+        <mat-paginator class="paginator paginator-manual" (page)="pageChangeEvent($event)" [length]="file_count"
+          [pageIndex]="manualPageIndex"
+          [pageSize]="pageSize"
+          [hidePageSize]="true">
+        </mat-paginator>
+      } @else {
+        <div class="auto-pagination-status">
+          {{getAutoRangeLabel()}}
+        </div>
+      }
     </div>
   }
 </ng-template>
