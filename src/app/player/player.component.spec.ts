@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { VgApiService } from '@videogular/ngx-videogular/core';
+import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IChapter, IMedia, PlayerComponent } from './player.component';
 
@@ -90,6 +91,32 @@ describe('PlayerComponent', () => {
     component.updateCurrentItem(media, 0);
 
     expect(postsServiceStub.setPageTitle).toHaveBeenCalledWith(media.title);
+  });
+
+  it('should sync current file metadata from the selected playlist item', () => {
+    const playlistFile = {
+      uid: 'uid-playlist',
+      title: 'Playlist item',
+      description: 'Playlist description',
+      isAudio: false,
+      url: 'https://example.com/video'
+    } as DatabaseFile & { description: string };
+    const media: IMedia = {
+      title: 'Playlist item',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Playlist item',
+      url: 'https://example.com/video',
+      uid: 'uid-playlist'
+    };
+
+    component.playlist_id = 'playlist-1';
+    component.file_objs = [playlistFile];
+
+    component.updateCurrentItem(media, 0);
+
+    expect(component.currentFile).toBe(playlistFile);
+    expect(component.currentFile['description']).toBe('Playlist description');
   });
 
   it('should reset page title on destroy', () => {

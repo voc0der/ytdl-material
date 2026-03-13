@@ -16,10 +16,10 @@
             <div class="container-fluid player-toolbar-container">
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
-                  @if (db_file) {
-                    <span class="view-count" [matTooltip]="(db_file['local_view_count'] ? db_file['local_view_count']+1 : 1) + ' views'" i18n-matTooltip="View count tooltip">
+                  @if (currentFile) {
+                    <span class="view-count" [matTooltip]="(currentFile['local_view_count'] ? currentFile['local_view_count']+1 : 1) + ' views'" i18n-matTooltip="View count tooltip">
                       <mat-icon class="view-icon">visibility</mat-icon>
-                      {{db_file['local_view_count'] ? db_file['local_view_count']+1 : 1}}
+                      {{currentFile['local_view_count'] ? currentFile['local_view_count']+1 : 1}}
                     </span>
                   }
                 </div>
@@ -44,12 +44,12 @@
                   </div>
                 }
                 <div style="white-space: pre-line;" class="col media-description-column">
-                  @if (db_file && db_file['description']) {
+                  @if (currentFile && currentFile['description']) {
                     <p class="media-description">
-                      <app-see-more [text]="db_file['description']" [line_limit]="1"></app-see-more>
+                      <app-see-more [text]="currentFile['description']" [line_limit]="1"></app-see-more>
                     </p>
                   }
-                  @if (!db_file || !db_file['description']) {
+                  @if (!currentFile || !currentFile['description']) {
                     <p class="media-description no-description" i18n="No description">
                                             No description available.
                                         </p>

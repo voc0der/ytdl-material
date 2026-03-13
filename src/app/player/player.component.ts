@@ -70,6 +70,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   db_playlist: Playlist = null;
   db_file: DatabaseFile = null;
+  currentFile: DatabaseFile = null;
 
   baseStreamPath = null;
   audioFolderPath = null;
@@ -313,6 +314,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.syncCurrentSingleFileMetadata();
+    this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
     this.updatePageTitleForCurrentItem();
   }
@@ -455,6 +457,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.db_file) {
         this.patchAutoplayQueueFile(dialogRef.componentInstance.file);
       }
+      this.syncCurrentFileMetadata();
     });
   }
 
@@ -625,6 +628,31 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  syncCurrentFileMetadata(): void {
+    const current_uid = this.currentItem?.uid;
+    if (!current_uid) {
+      this.currentFile = null;
+      return;
+    }
+
+    if (this.playlist_id) {
+      this.currentFile = this.file_objs.find(file_obj => file_obj.uid === current_uid) ?? null;
+      return;
+    }
+
+    if (this.sub_id) {
+      this.currentFile = this.subscription?.videos?.find(file_obj => file_obj.uid === current_uid) ?? null;
+      return;
+    }
+
+    if (this.db_file?.uid === current_uid) {
+      this.currentFile = this.db_file;
+      return;
+    }
+
+    this.currentFile = this.autoplay_queue_file_objs.find(file_obj => file_obj.uid === current_uid) ?? null;
+  }
+
   syncCurrentChapters(): void {
     const current_uid = this.currentItem?.uid;
     if (Array.isArray(this.currentItem?.chapters)) {
@@ -763,6 +791,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.db_file?.uid === uid) {
       this.db_file.chapters = chapters;
+    }
+
+    if (this.currentFile?.uid === uid) {
+      this.currentFile.chapters = chapters;
     }
 
     if (this.currentItem?.uid === uid) {
