@@ -42,7 +42,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   allowThemeChange = null;
   allowSubscriptions = false;
   enableDownloadsManager = false;
-  warnOnDuplicate = false;
+  canViewDuplicates = false;
   hasDuplicateGroups = false;
 
   @ViewChild('sidenav') sidenav: MatSidenav;
@@ -161,8 +161,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.allowThemeChange = themingExists ? this.postsService.config['Themes']['allow_theme_change'] : true;
     this.allowSubscriptions = this.postsService.config['Subscriptions']['allow_subscriptions'];
     this.enableDownloadsManager = this.postsService.config['Extra']['enable_downloads_manager'];
-    this.warnOnDuplicate = !!this.postsService.config['Extra']['warn_on_duplicate']
-      && !!this.postsService.config['Extra']['file_manager_enabled']
+    this.canViewDuplicates = !!this.postsService.config['Extra']['file_manager_enabled']
       && this.postsService.hasPermission('filemanager');
     this.refreshDuplicateSummary();
 
@@ -488,7 +487,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private refreshDuplicateSummary(): void {
-    if (!this.warnOnDuplicate) {
+    if (!this.canViewDuplicates) {
       this.hasDuplicateGroups = false;
       return;
     }

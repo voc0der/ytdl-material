@@ -302,6 +302,32 @@ describe('Downloader', function() {
         }
     });
 
+    it('Collect info allows duplicate single downloads when duplicate warnings are disabled', async function() {
+        const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', false);
+            files_api.findExistingDuplicateByInfo = async () => {
+                throw new Error('duplicate lookup should not run when warnings are disabled');
+            };
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(updated_download.finished, false);
+            assert.strictEqual(updated_download.duplicate_skip_only, false);
+            assert.strictEqual(updated_download.duplicate_skip_count, 0);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert.strictEqual(updated_download.files_to_check_for_progress[0], utils.removeFileExtension(fixture_single[0]._filename));
+        } finally {
+            files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+        }
+    });
+
     it('Collect info filters duplicate playlist items down to remaining playlist indices', async function() {
         const original_get_video_info = downloader_api.getVideoInfoByURL;
         const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;

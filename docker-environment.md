@@ -14,7 +14,7 @@ Common Docker environment variables used by the provided `docker-compose.yml`:
 * `ytdl_multi_user_mode`: set to `'true'` to enable user-scoped media; required when OIDC is enabled
 * `ytdl_enable_documentation_api`: set to `'true'` to expose local API docs at `/docs` (requires `ytdl_use_api_key` and restart)
 * `ytdl_playlist_chunk_size`: playlist batch size for automatic playlist chunking (default `20`, min `1`)
-* `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads, expose the Duplicates page, and reuse existing files in playlists (default `'true'`)
+* `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads and reuse existing files in playlists instead of downloading them again (default `'false'`)
 
 ## OIDC required variables
 
@@ -52,7 +52,7 @@ environment:
   # ytdl_reverse_proxy_whitelist: 172.28.0.100/32
   # ytdl_multi_user_mode: 'true'
   # ytdl_playlist_chunk_size: '20'
-  # ytdl_warn_on_duplicate: 'true'
+  # ytdl_warn_on_duplicate: 'false'
   # ytdl_oidc_enabled: 'true'
   # ytdl_oidc_issuer_url: 'https://idp.example.com/realms/ytdl'
   # ytdl_oidc_client_id: 'ytdl-material'

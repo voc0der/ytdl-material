@@ -236,7 +236,7 @@ const DEFAULT_CONFIG = {
         "title_top": "ytdl-material",
         "file_manager_enabled": true,
         "allow_quality_select": true,
-        "warn_on_duplicate": true,
+        "warn_on_duplicate": false,
         "download_only_mode": false,
         "force_autoplay": false,
         "enable_downloads_manager": true,
