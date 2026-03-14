@@ -3,20 +3,11 @@
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
-[![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/master/LICENSE.md)
+[![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/main/LICENSE.md)
 
 ytdl-material is a Material Design frontend for [youtube-dl](https://rg3.github.io/youtube-dl/) / yt-dlp workflows. It's coded using [Angular 21](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend.
 
 <hr>
-
-## Getting Started
-
-Choose one path:
-
-* [Docker setup](#docker) (no local Node.js/Python dependencies required)
-* [Local install/build guide](./install-and-build.md) (includes prerequisites)
-
-Here's an image of what it'll look like once you're done:
 
 <img src="./docs/images/readme-home.png" width="1000" alt="ytdl-material interface">
 
@@ -37,13 +28,10 @@ docker compose pull   # if needed
 docker compose up -d
 ```
 
-Docker environment variables: [docker-environment.md](./docker-environment.md).
+Docker environment variables: [docker-environment.md](./docker-environment.md). See [Wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for host-specific instructions.
 
-### Host-specific instructions
-
-If you're on a Synology NAS, unRAID, Raspberry Pi 4 or any other possible special case you can check if there's known issues or instructions both in the issue tracker and in the [Wiki!](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp)
-
-Note: official ARMv7 Docker image builds have been retired. Use `amd64` / `arm64` images or build locally for unsupported architectures.
+#### Build manually
+See the [install and build guide](./install-and-build.md).
 
 ## MongoDB
 
