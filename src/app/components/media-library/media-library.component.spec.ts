@@ -147,14 +147,13 @@ describe('MediaLibraryComponent', () => {
 
   it('should calculate an auto batch size that fills full rows', () => {
     postsServiceStub.card_size = 'medium';
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
     (component as any).videoGridContainerElement = {
-      getBoundingClientRect: () => ({ top: 240 })
+      getBoundingClientRect: () => ({ top: 240, width: 941 })
     };
 
-    expect(component.getAutoPageColumns()).toBe(3);
-    expect(component.getAutoPageBatchSize()).toBe(15);
+    expect(component.getAutoPageColumns()).toBe(4);
+    expect(component.getAutoPageBatchSize()).toBe(20);
   });
 
   it('should window auto-loaded video rows instead of rendering every loaded row', () => {

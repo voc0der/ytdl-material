@@ -109,11 +109,13 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private latestFileRequestId = 0;
   private virtualRowUpdateFrameId: number = null;
   private autoLoadQueued = false;
-  private readonly windowScrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
+  private scrollListenerTarget: HTMLElement | Window | null = null;
+  private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
   @ViewChild('videoGridContainer')
   set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
     this.videoGridContainerElement = container?.nativeElement ?? null;
+    this.refreshScrollListener();
     this.scheduleVirtualVideoWindowUpdate(true);
   }
 
@@ -166,7 +168,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.bindWindowScrollListener();
+    this.refreshScrollListener();
 
     if (this.sub_id) {
       // subscriptions can't download both audio and video (for now), so don't let users filter for these
@@ -228,7 +230,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.unbindWindowScrollListener();
+    this.unbindScrollListener();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -693,14 +695,27 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getViewportWidth(): number {
+    const grid_width = this.videoGridContainerElement?.getBoundingClientRect?.().width;
+    if (typeof grid_width === 'number' && grid_width > 0) {
+      return grid_width;
+    }
+
     return typeof window !== 'undefined' ? window.innerWidth : 1280;
   }
 
   getViewportHeight(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.clientHeight || this.getAutoCardRowHeight() * 4;
+    }
+
     return typeof window !== 'undefined' ? window.innerHeight : this.getAutoCardRowHeight() * 4;
   }
 
   getViewportScrollTop(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.scrollTop;
+    }
+
     return typeof window !== 'undefined' ? window.scrollY : 0;
   }
 
@@ -709,12 +724,31 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getVideoGridDocumentTop(): number {
-    const container_top = this.videoGridContainerElement?.getBoundingClientRect()?.top;
+    const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
+    const container_top = container_rect?.top;
     if (typeof container_top !== 'number') {
       return this.getViewportScrollTop();
     }
 
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      const scroll_container_top = this.scrollListenerTarget.getBoundingClientRect().top;
+      return (container_top - scroll_container_top) + this.scrollListenerTarget.scrollTop;
+    }
+
     return container_top + this.getViewportScrollTop();
+  }
+
+  getVisibleGridTopOffset(): number {
+    const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
+    if (!container_rect) {
+      return this.getViewportHeight() * 0.3;
+    }
+
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return container_rect.top - this.scrollListenerTarget.getBoundingClientRect().top;
+    }
+
+    return container_rect.top;
   }
 
   getVirtualizedRowTemplateColumns(row: MediaLibraryRow<DatabaseFile>): string {
@@ -824,20 +858,59 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     });
   }
 
-  private bindWindowScrollListener(): void {
-    if (typeof window === 'undefined') {
+  getAutoCardWidth(): number {
+    switch (this.postsService.card_size) {
+      case 'small':
+        return 150;
+      case 'large':
+        return 300;
+      case 'medium':
+      default:
+        return 200;
+    }
+  }
+
+  getAutoCardColumnGap(): number {
+    return 16;
+  }
+
+  private resolveScrollListenerTarget(): HTMLElement | Window | null {
+    if (typeof window === 'undefined' || !this.videoGridContainerElement) {
+      return typeof window !== 'undefined' ? window : null;
+    }
+
+    let parent_element = this.videoGridContainerElement.parentElement;
+    while (parent_element) {
+      const { overflowY } = window.getComputedStyle(parent_element);
+      if (/(auto|scroll)/.test(overflowY)) {
+        return parent_element;
+      }
+      parent_element = parent_element.parentElement;
+    }
+
+    return window;
+  }
+
+  private refreshScrollListener(): void {
+    const next_target = this.resolveScrollListenerTarget();
+    if (next_target === this.scrollListenerTarget) {
       return;
     }
 
+    this.unbindScrollListener();
+    if (!next_target) {
+      return;
+    }
+
+    this.scrollListenerTarget = next_target;
     this.ngZone.runOutsideAngular(() => {
-      window.addEventListener('scroll', this.windowScrollHandler, { passive: true });
+      this.scrollListenerTarget.addEventListener('scroll', this.scrollHandler, { passive: true });
     });
   }
 
-  private unbindWindowScrollListener(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('scroll', this.windowScrollHandler);
-    }
+  private unbindScrollListener(): void {
+    this.scrollListenerTarget?.removeEventListener?.('scroll', this.scrollHandler);
+    this.scrollListenerTarget = null;
 
     if (typeof window !== 'undefined' && this.virtualRowUpdateFrameId !== null) {
       window.cancelAnimationFrame(this.virtualRowUpdateFrameId);
@@ -848,16 +921,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getAutoPageColumns(): number {
-    if (this.postsService.card_size === 'large') {
-      return 1;
-    }
-
     const viewport_width = this.getViewportWidth();
-    if (this.postsService.card_size === 'small') {
-      return viewport_width < 768 ? 4 : 6;
-    }
-
-    return viewport_width >= 992 ? 3 : 2;
+    const card_width = this.getAutoCardWidth();
+    const column_gap = this.getAutoCardColumnGap();
+    return Math.max(1, Math.floor((viewport_width + column_gap) / (card_width + column_gap)));
   }
 
   getAutoCardRowHeight(): number {
@@ -876,7 +943,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const columns = this.getAutoPageColumns();
     const row_height = this.getAutoCardRowHeight();
     const viewport_height = this.getViewportHeight();
-    const grid_top = this.videoGridContainerElement?.getBoundingClientRect()?.top;
+    const grid_top = this.getVisibleGridTopOffset();
     const estimated_grid_top = typeof grid_top === 'number' ? grid_top : viewport_height * 0.3;
     const available_height = Math.max(row_height, viewport_height - estimated_grid_top);
     const visible_rows = Math.max(1, Math.ceil(available_height / row_height));
