@@ -1,5 +1,5 @@
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
@@ -147,13 +147,54 @@ describe('MediaLibraryComponent', () => {
 
   it('should calculate an auto batch size that fills full rows', () => {
     postsServiceStub.card_size = 'medium';
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
     (component as any).videoGridContainerElement = {
-      getBoundingClientRect: () => ({ top: 240 })
+      getBoundingClientRect: () => ({ top: 240, width: 941 })
     };
 
-    expect(component.getAutoPageColumns()).toBe(3);
-    expect(component.getAutoPageBatchSize()).toBe(15);
+    expect(component.getAutoPageColumns()).toBe(4);
+    expect(component.getAutoPageBatchSize()).toBe(20);
   });
+
+  it('should window auto-loaded video rows instead of rendering every loaded row', () => {
+    component.autoPaginationEnabled = true;
+    component.normal_files_received = true;
+    component.paged_data = Array.from({length: 12}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
+    spyOn(component, 'getAutoCardRowHeight').and.returnValue(200);
+    spyOn(component, 'getViewportHeight').and.returnValue(400);
+    spyOn(component, 'getViewportScrollTop').and.returnValue(0);
+    spyOn(component, 'getVideoGridDocumentTop').and.returnValue(0);
+
+    component.rebuildVideoRows();
+
+    expect(component.videoRows.length).toBe(6);
+    expect(component.renderedVideoRows.length).toBe(4);
+    expect(component.virtualizedTopSpacerHeight).toBe(0);
+    expect(component.virtualizedBottomSpacerHeight).toBe(400);
+  });
+
+  it('should prefetch another auto batch when the visible window reaches the loaded tail', fakeAsync(() => {
+    component.autoPaginationEnabled = true;
+    component.normal_files_received = true;
+    component.file_count = 20;
+    component.paged_data = Array.from({length: 6}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
+    spyOn(component, 'getAutoCardRowHeight').and.returnValue(200);
+    spyOn(component, 'getViewportHeight').and.returnValue(800);
+    spyOn(component, 'getViewportScrollTop').and.returnValue(0);
+    spyOn(component, 'getVideoGridDocumentTop').and.returnValue(0);
+    const load_more_spy = spyOn(component, 'loadMoreAutoFiles');
+
+    component.rebuildVideoRows();
+    flushMicrotasks();
+
+    expect(load_more_spy).toHaveBeenCalled();
+  }));
 });

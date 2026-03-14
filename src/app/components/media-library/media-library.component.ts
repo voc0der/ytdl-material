@@ -12,6 +12,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 
 type PageSizeOption = number | 'auto';
+interface MediaLibraryRow<T> {
+  startIndex: number;
+  items: T[];
+}
 
 @Component({
     selector: 'app-media-library',
@@ -28,6 +32,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly legacySortOrderStorageKey = 'recent_videos_sort_order';
   readonly autoPageSizeOption: PageSizeOption = 'auto';
   readonly autoPageBufferRows = 1;
+  readonly virtualRowOverscan = 2;
+  readonly autoLoadBufferRows = 2;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
 
   @Input() usePaginator = true;
@@ -94,21 +100,23 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   playlistLibraryItems: Playlist[] = [];
   playlistLibraryReceived = false;
   playlistLoadingCards = Array(6).fill(0);
+  videoRows: MediaLibraryRow<DatabaseFile>[] = [];
+  renderedVideoRows: MediaLibraryRow<DatabaseFile>[] = [];
+  visibleVideoRowStart = 0;
+  visibleVideoRowEnd = 0;
 
-  private autoLoadObserver: IntersectionObserver = null;
-  private autoLoadAnchorElement: HTMLElement = null;
   private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
-
-  @ViewChild('autoLoadAnchor')
-  set autoLoadAnchor(anchor: ElementRef<HTMLElement> | undefined) {
-    this.autoLoadAnchorElement = anchor?.nativeElement ?? null;
-    this.syncAutoLoadObserver();
-  }
+  private virtualRowUpdateFrameId: number = null;
+  private autoLoadQueued = false;
+  private scrollListenerTarget: HTMLElement | Window | null = null;
+  private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
   @ViewChild('videoGridContainer')
   set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
     this.videoGridContainerElement = container?.nativeElement ?? null;
+    this.refreshScrollListener();
+    this.scheduleVirtualVideoWindowUpdate(true);
   }
 
   constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private ngZone: NgZone) {
@@ -160,6 +168,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.refreshScrollListener();
+
     if (this.sub_id) {
       // subscriptions can't download both audio and video (for now), so don't let users filter for these
       delete this.fileFilters['audio_only'];
@@ -220,7 +230,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.disconnectAutoLoadObserver();
+    this.unbindScrollListener();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -245,7 +255,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
-    this.syncAutoLoadObserver();
+    this.rebuildVideoRows();
+    this.scheduleVirtualVideoWindowUpdate(true);
   }
 
   get showLibraryTabs(): boolean {
@@ -258,6 +269,13 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   get pageSizeSelectorValue(): PageSizeOption {
     return this.autoPaginationEnabled ? this.autoPageSizeOption : this.pageSize;
+  }
+
+  get useVirtualizedVideoRows(): boolean {
+    return this.autoPaginationEnabled
+      && this.isVideoLibraryActive()
+      && this.normal_files_received
+      && (this.paged_data?.length ?? 0) > 0;
   }
 
   get showAutoLoadAnchor(): boolean {
@@ -318,7 +336,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   libraryTabChanged(index: number): void {
     this.activeLibraryTab = index;
     localStorage.setItem(this.libraryTabStorageKey, `${index}`);
-    this.syncAutoLoadObserver();
+    this.scheduleVirtualVideoWindowUpdate(true);
 
     if (index === 0) {
       this.getAllFiles();
@@ -401,16 +419,22 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const previous_loaded_count = this.paged_data?.length ?? 0;
       this.file_count = res['file_count'];
       const files = this.normalizeFiles(res['files'] ?? []);
       this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
+      if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
+        // Stop auto-prefetch if the backend response did not advance the loaded range.
+        this.file_count = this.paged_data?.length ?? this.file_count;
+      }
+      this.rebuildVideoRows();
 
       // set cached file count for future use, note that we convert the amount of files to a string
       localStorage.setItem('cached_file_count', '' + this.file_count);
 
       this.normal_files_received = true;
       this.autoPageLoadInProgress = false;
-      this.syncAutoLoadObserver();
+      this.scheduleVirtualVideoWindowUpdate(true);
     }, err => {
       if (request_id !== this.latestFileRequestId) {
         return;
@@ -662,17 +686,245 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return !this.showLibraryTabs || this.activeLibraryTab === 0;
   }
 
+  get virtualizedTopSpacerHeight(): number {
+    return this.visibleVideoRowStart * this.getAutoCardRowHeight();
+  }
+
+  get virtualizedBottomSpacerHeight(): number {
+    return Math.max(0, (this.videoRows.length - this.visibleVideoRowEnd) * this.getAutoCardRowHeight());
+  }
+
+  getViewportWidth(): number {
+    const grid_width = this.videoGridContainerElement?.getBoundingClientRect?.().width;
+    if (typeof grid_width === 'number' && grid_width > 0) {
+      return grid_width;
+    }
+
+    return typeof window !== 'undefined' ? window.innerWidth : 1280;
+  }
+
+  getViewportHeight(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.clientHeight || this.getAutoCardRowHeight() * 4;
+    }
+
+    return typeof window !== 'undefined' ? window.innerHeight : this.getAutoCardRowHeight() * 4;
+  }
+
+  getViewportScrollTop(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.scrollTop;
+    }
+
+    return typeof window !== 'undefined' ? window.scrollY : 0;
+  }
+
+  getVisibleViewportRowCount(): number {
+    return Math.max(1, Math.ceil(this.getViewportHeight() / this.getAutoCardRowHeight()));
+  }
+
+  getVideoGridDocumentTop(): number {
+    const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
+    const container_top = container_rect?.top;
+    if (typeof container_top !== 'number') {
+      return this.getViewportScrollTop();
+    }
+
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      const scroll_container_top = this.scrollListenerTarget.getBoundingClientRect().top;
+      return (container_top - scroll_container_top) + this.scrollListenerTarget.scrollTop;
+    }
+
+    return container_top + this.getViewportScrollTop();
+  }
+
+  getVisibleGridTopOffset(): number {
+    const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
+    if (!container_rect) {
+      return this.getViewportHeight() * 0.3;
+    }
+
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return container_rect.top - this.scrollListenerTarget.getBoundingClientRect().top;
+    }
+
+    return container_rect.top;
+  }
+
+  getVirtualizedRowTemplateColumns(row: MediaLibraryRow<DatabaseFile>): string {
+    return `repeat(${Math.max(1, row.items.length)}, max-content)`;
+  }
+
+  buildMediaRows<T>(items: T[], columns: number): MediaLibraryRow<T>[] {
+    if (!Array.isArray(items) || items.length === 0) {
+      return [];
+    }
+
+    const safe_column_count = Math.max(1, columns);
+    const rows: MediaLibraryRow<T>[] = [];
+    for (let start_index = 0; start_index < items.length; start_index += safe_column_count) {
+      rows.push({
+        startIndex: start_index,
+        items: items.slice(start_index, start_index + safe_column_count)
+      });
+    }
+    return rows;
+  }
+
+  rebuildVideoRows(): void {
+    this.videoRows = this.buildMediaRows(this.paged_data ?? [], this.getAutoPageColumns());
+    this.updateRenderedVideoRows();
+  }
+
+  updateRenderedVideoRows(): void {
+    if (!this.useVirtualizedVideoRows) {
+      this.visibleVideoRowStart = 0;
+      this.visibleVideoRowEnd = this.videoRows.length;
+      this.renderedVideoRows = this.videoRows.slice();
+      return;
+    }
+
+    const total_rows = this.videoRows.length;
+    if (total_rows === 0) {
+      this.visibleVideoRowStart = 0;
+      this.visibleVideoRowEnd = 0;
+      this.renderedVideoRows = [];
+      return;
+    }
+
+    const row_height = this.getAutoCardRowHeight();
+    const viewport_rows = this.getVisibleViewportRowCount();
+    const viewport_top = this.getViewportScrollTop();
+    const viewport_bottom = viewport_top + this.getViewportHeight();
+    const container_top = this.getVideoGridDocumentTop();
+
+    let start_row = Math.floor((viewport_top - container_top) / row_height) - this.virtualRowOverscan;
+    let end_row = Math.ceil((viewport_bottom - container_top) / row_height) + this.virtualRowOverscan;
+
+    if (end_row <= 0) {
+      start_row = 0;
+      end_row = viewport_rows + (this.virtualRowOverscan * 2);
+    } else if (start_row >= total_rows) {
+      end_row = total_rows;
+      start_row = total_rows - (viewport_rows + (this.virtualRowOverscan * 2));
+    }
+
+    start_row = Math.max(0, start_row);
+    end_row = Math.min(total_rows, Math.max(end_row, start_row + 1));
+
+    this.visibleVideoRowStart = start_row;
+    this.visibleVideoRowEnd = end_row;
+    this.renderedVideoRows = this.videoRows.slice(start_row, end_row);
+    this.maybeLoadMoreAutoFiles();
+  }
+
+  scheduleVirtualVideoWindowUpdate(force = false): void {
+    if (typeof window === 'undefined' || force || !this.useVirtualizedVideoRows) {
+      this.updateRenderedVideoRows();
+      return;
+    }
+
+    if (this.virtualRowUpdateFrameId !== null) {
+      return;
+    }
+
+    this.virtualRowUpdateFrameId = window.requestAnimationFrame(() => {
+      this.virtualRowUpdateFrameId = null;
+      this.ngZone.run(() => this.updateRenderedVideoRows());
+    });
+  }
+
+  maybeLoadMoreAutoFiles(): void {
+    if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.autoLoadQueued || (this.paged_data?.length ?? 0) >= this.file_count) {
+      return;
+    }
+
+    const remaining_rows = this.videoRows.length - this.visibleVideoRowEnd;
+    if (remaining_rows > this.autoLoadBufferRows) {
+      return;
+    }
+
+    this.autoLoadQueued = true;
+    queueMicrotask(() => {
+      this.autoLoadQueued = false;
+      if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
+        return;
+      }
+
+      const queued_remaining_rows = this.videoRows.length - this.visibleVideoRowEnd;
+      if (queued_remaining_rows <= this.autoLoadBufferRows) {
+        this.loadMoreAutoFiles();
+      }
+    });
+  }
+
+  getAutoCardWidth(): number {
+    switch (this.postsService.card_size) {
+      case 'small':
+        return 150;
+      case 'large':
+        return 300;
+      case 'medium':
+      default:
+        return 200;
+    }
+  }
+
+  getAutoCardColumnGap(): number {
+    return 16;
+  }
+
+  private resolveScrollListenerTarget(): HTMLElement | Window | null {
+    if (typeof window === 'undefined' || !this.videoGridContainerElement) {
+      return typeof window !== 'undefined' ? window : null;
+    }
+
+    let parent_element = this.videoGridContainerElement.parentElement;
+    while (parent_element) {
+      const { overflowY } = window.getComputedStyle(parent_element);
+      if (/(auto|scroll)/.test(overflowY)) {
+        return parent_element;
+      }
+      parent_element = parent_element.parentElement;
+    }
+
+    return window;
+  }
+
+  private refreshScrollListener(): void {
+    const next_target = this.resolveScrollListenerTarget();
+    if (next_target === this.scrollListenerTarget) {
+      return;
+    }
+
+    this.unbindScrollListener();
+    if (!next_target) {
+      return;
+    }
+
+    this.scrollListenerTarget = next_target;
+    this.ngZone.runOutsideAngular(() => {
+      this.scrollListenerTarget.addEventListener('scroll', this.scrollHandler, { passive: true });
+    });
+  }
+
+  private unbindScrollListener(): void {
+    this.scrollListenerTarget?.removeEventListener?.('scroll', this.scrollHandler);
+    this.scrollListenerTarget = null;
+
+    if (typeof window !== 'undefined' && this.virtualRowUpdateFrameId !== null) {
+      window.cancelAnimationFrame(this.virtualRowUpdateFrameId);
+      this.virtualRowUpdateFrameId = null;
+    }
+
+    this.autoLoadQueued = false;
+  }
+
   getAutoPageColumns(): number {
-    if (this.postsService.card_size === 'large') {
-      return 1;
-    }
-
-    const viewport_width = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    if (this.postsService.card_size === 'small') {
-      return viewport_width < 768 ? 4 : 6;
-    }
-
-    return viewport_width >= 992 ? 3 : 2;
+    const viewport_width = this.getViewportWidth();
+    const card_width = this.getAutoCardWidth();
+    const column_gap = this.getAutoCardColumnGap();
+    return Math.max(1, Math.floor((viewport_width + column_gap) / (card_width + column_gap)));
   }
 
   getAutoCardRowHeight(): number {
@@ -690,8 +942,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   getAutoPageBatchSize(): number {
     const columns = this.getAutoPageColumns();
     const row_height = this.getAutoCardRowHeight();
-    const viewport_height = typeof window !== 'undefined' ? window.innerHeight : row_height * 4;
-    const grid_top = this.videoGridContainerElement?.getBoundingClientRect()?.top;
+    const viewport_height = this.getViewportHeight();
+    const grid_top = this.getVisibleGridTopOffset();
     const estimated_grid_top = typeof grid_top === 'number' ? grid_top : viewport_height * 0.3;
     const available_height = Math.max(row_height, viewport_height - estimated_grid_top);
     const visible_rows = Math.max(1, Math.ceil(available_height / row_height));
@@ -738,33 +990,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   loadMoreAutoFiles(): void {
     this.getAllFiles(false, true);
-  }
-
-  syncAutoLoadObserver(): void {
-    this.disconnectAutoLoadObserver();
-
-    if (!this.showAutoLoadAnchor || !this.autoLoadAnchorElement || typeof IntersectionObserver === 'undefined') {
-      return;
-    }
-
-    this.ngZone.runOutsideAngular(() => {
-      this.autoLoadObserver = new IntersectionObserver(entries => {
-        if (!entries.some(entry => entry.isIntersecting)) {
-          return;
-        }
-
-        this.ngZone.run(() => this.loadMoreAutoFiles());
-      }, {
-        rootMargin: '600px 0px'
-      });
-
-      this.autoLoadObserver.observe(this.autoLoadAnchorElement);
-    });
-  }
-
-  disconnectAutoLoadObserver(): void {
-    this.autoLoadObserver?.disconnect();
-    this.autoLoadObserver = null;
   }
 
   pageChangeEvent(event) {

@@ -121,6 +121,40 @@
     white-space: nowrap;
 }
 
+.virtual-video-stack {
+    width: 100%;
+}
+
+.virtual-video-spacer {
+    width: 100%;
+}
+
+.virtual-video-row-shell {
+    box-sizing: border-box;
+    padding: 8px 0;
+}
+
+.virtual-video-row {
+    height: 100%;
+    display: grid;
+    justify-content: center;
+    align-items: center;
+    column-gap: 16px;
+}
+
+.virtual-video-card-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-library-empty-state {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 18px;
+}
+
 .auto-load-anchor {
     min-height: 44px;
     display: flex;
