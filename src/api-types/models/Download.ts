@@ -28,4 +28,9 @@ export type Download = {
     sub_id?: string;
     sub_name?: string;
     prefetched_info?: any;
+    playlist_item_progress?: Array<any> | null;
+    file_uids?: Array<string>;
+    container?: any;
+    duplicate_skip_only?: boolean;
+    duplicate_skip_count?: number;
 };

@@ -42,6 +42,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   allowThemeChange = null;
   allowSubscriptions = false;
   enableDownloadsManager = false;
+  warnOnDuplicate = false;
+  hasDuplicateGroups = false;
 
   @ViewChild('sidenav') sidenav: MatSidenav;
   @ViewChild('notifications') notifications: NotificationsComponent;
@@ -93,6 +95,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.postsService.config_reloaded.subscribe(changed => {
       if (changed) {
         this.loadConfig();
+      }
+    });
+
+    this.postsService.files_changed.subscribe(changed => {
+      if (changed) {
+        this.refreshDuplicateSummary();
       }
     });
 
@@ -153,6 +161,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.allowThemeChange = themingExists ? this.postsService.config['Themes']['allow_theme_change'] : true;
     this.allowSubscriptions = this.postsService.config['Subscriptions']['allow_subscriptions'];
     this.enableDownloadsManager = this.postsService.config['Extra']['enable_downloads_manager'];
+    this.warnOnDuplicate = !!this.postsService.config['Extra']['warn_on_duplicate']
+      && !!this.postsService.config['Extra']['file_manager_enabled']
+      && this.postsService.hasPermission('filemanager');
+    this.refreshDuplicateSummary();
 
     // sets theme to config default if it doesn't exist
     const storedTheme = this.getStoredTheme();
@@ -460,6 +472,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.active_download_count === 0 && previous_count > 0 && successful_completion_detected) {
       this.showCompletionBadgeTemporarily();
+      this.refreshDuplicateSummary();
     }
 
     if (active_download_count_increased || has_new_active_download) {
@@ -472,6 +485,25 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private isActiveDownload(download: Download): boolean {
     if (!download) return false;
     return !download.finished && !download.paused && !download.error && !download.cancelled;
+  }
+
+  private refreshDuplicateSummary(): void {
+    if (!this.warnOnDuplicate) {
+      this.hasDuplicateGroups = false;
+      return;
+    }
+
+    const multi_user_mode_enabled = !!this.postsService.config?.Advanced?.multi_user_mode;
+    if (multi_user_mode_enabled && !this.postsService.isLoggedIn) {
+      this.hasDuplicateGroups = false;
+      return;
+    }
+
+    this.postsService.getDuplicateSummary().subscribe(res => {
+      this.hasDuplicateGroups = !!(res && res.has_duplicates);
+    }, () => {
+      this.hasDuplicateGroups = false;
+    });
   }
 
   private showActiveDownloadsMenuTemporarily(): void {

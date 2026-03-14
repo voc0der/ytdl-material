@@ -88,6 +88,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_allow_quality_select',
         'path': 'YtdlMaterial.Extra.allow_quality_select'
     },
+    'ytdl_warn_on_duplicate': {
+        'key': 'ytdl_warn_on_duplicate',
+        'path': 'YtdlMaterial.Extra.warn_on_duplicate'
+    },
     'ytdl_download_only_mode': {
         'key': 'ytdl_download_only_mode',
         'path': 'YtdlMaterial.Extra.download_only_mode'

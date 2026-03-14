@@ -67,6 +67,7 @@ import { UpdateProgressDialogComponent } from './dialogs/update-progress-dialog/
 import { ShareMediaDialogComponent } from './dialogs/share-media-dialog/share-media-dialog.component';
 import { LoginComponent } from './components/login/login.component';
 import { DownloadsComponent } from './components/downloads/downloads.component';
+import { DuplicatesComponent } from './components/duplicates/duplicates.component';
 import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-profile-dialog.component';
 import { SetDefaultAdminDialogComponent } from './dialogs/set-default-admin-dialog/set-default-admin-dialog.component';
 import { ModifyUsersComponent } from './components/modify-users/modify-users.component';
@@ -123,6 +124,7 @@ registerLocaleData(es, 'es');
         ShareMediaDialogComponent,
         LoginComponent,
         DownloadsComponent,
+        DuplicatesComponent,
         UserProfileDialogComponent,
         SetDefaultAdminDialogComponent,
         ModifyUsersComponent,

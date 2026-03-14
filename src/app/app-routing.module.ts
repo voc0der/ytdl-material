@@ -7,6 +7,7 @@ import { SubscriptionComponent } from './subscription/subscription/subscription.
 import { PostsService } from './posts.services';
 import { LoginComponent } from './components/login/login.component';
 import { DownloadsComponent } from './components/downloads/downloads.component';
+import { DuplicatesComponent } from './components/duplicates/duplicates.component';
 import { SettingsComponent } from './settings/settings.component';
 import { TasksComponent } from './components/tasks/tasks.component';
 
@@ -18,6 +19,7 @@ const routes: Routes = [
   { path: 'settings', component: SettingsComponent, canActivate: [PostsService] },
   { path: 'login', component: LoginComponent },
   { path: 'downloads', component: DownloadsComponent, canActivate: [PostsService] },
+  { path: 'duplicates', component: DuplicatesComponent, canActivate: [PostsService] },
   { path: 'tasks', component: TasksComponent, canActivate: [PostsService] },
   { path: '', redirectTo: '/home', pathMatch: 'full' }
 ];

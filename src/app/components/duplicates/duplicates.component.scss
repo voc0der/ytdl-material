@@ -1,0 +1,30 @@
+mat-header-cell, mat-cell {
+    justify-content: center;
+}
+
+.one-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.group-title-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.group-title-meta {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.icon-button-spinner {
+    position: absolute;
+    top: -13px;
+    left: 10px;
+}
+
+.button-span {
+    position: relative;
+}

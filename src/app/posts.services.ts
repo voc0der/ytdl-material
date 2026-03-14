@@ -13,6 +13,7 @@ import {
     CreatePlaylistRequest,
     CreatePlaylistResponse,
     CropFileSettings,
+    DatabaseFile,
     DeleteMp3Mp4Request,
     DeletePlaylistRequest,
     DeleteSubscriptionFileRequest,
@@ -118,6 +119,32 @@ import { isoLangs } from './dialogs/user-profile-dialog/locales_list';
 import { Title } from '@angular/platform-browser';
 import { MatDrawerMode } from '@angular/material/sidenav';
 import { environment } from '../environments/environment';
+
+export interface DuplicateSummaryResponse {
+    has_duplicates: boolean;
+    duplicate_group_count: number;
+}
+
+export interface DuplicateGroup {
+    duplicate_key: string;
+    source_id?: string | null;
+    source_extractor?: string | null;
+    isAudio: boolean;
+    duplicate_count: number;
+    total_count: number;
+    kept_file: DatabaseFile;
+    duplicate_files: DatabaseFile[];
+    newest_registered?: number | null;
+}
+
+export interface GetDuplicatesResponse {
+    duplicates: DuplicateGroup[];
+}
+
+export interface RemoveNewestDuplicatesResponse {
+    success: boolean;
+    removed_uids: string[];
+}
 
 @Injectable()
 export class PostsService {
@@ -260,7 +287,8 @@ export class PostsService {
             settings: 'settings',
             subscriptions: 'subscriptions',
             downloads: 'downloads_manager',
-            tasks: 'tasks_manager'
+            tasks: 'tasks_manager',
+            duplicates: 'filemanager'
         }
         const required_perm = PATH_TO_REQUIRED_PERM[route.routeConfig.path];
         return Promise.resolve(required_perm ? this.hasPermission(required_perm) : true);
@@ -412,6 +440,18 @@ export class PostsService {
     getAllFiles(sort: Sort = null, range: number[] = null, text_search: string = null, file_type_filter: FileTypeFilter = FileTypeFilter.BOTH, favorite_filter = false, sub_id: string = null, include_chapters = false) {
         const body: GetAllFilesRequest = {sort: sort, range: range, text_search: text_search, file_type_filter: file_type_filter, favorite_filter: favorite_filter, sub_id: sub_id, include_chapters: include_chapters};
         return this.http.post<GetAllFilesResponse>(this.path + 'getAllFiles', body, this.httpOptions);
+    }
+
+    getDuplicateSummary() {
+        return this.http.post<DuplicateSummaryResponse>(this.path + 'getDuplicateSummary', {}, this.httpOptions);
+    }
+
+    getDuplicates() {
+        return this.http.post<GetDuplicatesResponse>(this.path + 'getDuplicates', {}, this.httpOptions);
+    }
+
+    removeNewestDuplicates(duplicate_key: string) {
+        return this.http.post<RemoveNewestDuplicatesResponse>(this.path + 'removeNewestDuplicates', {duplicate_key: duplicate_key}, this.httpOptions);
     }
 
     updateFile(uid: string, change_obj: object) {

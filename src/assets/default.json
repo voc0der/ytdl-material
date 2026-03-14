@@ -24,6 +24,7 @@
       "title_top": "ytdl-material",
       "file_manager_enabled": true,
       "allow_quality_select": true,
+      "warn_on_duplicate": true,
       "download_only_mode": false,
       "allow_multi_download_mode": true,
       "settings_pin_required": false,

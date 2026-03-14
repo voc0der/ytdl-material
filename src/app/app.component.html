@@ -132,6 +132,9 @@
           @if (postsService.config && enableDownloadsManager && postsService.hasPermission('downloads_manager')) {
             <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/downloads'><ng-container i18n="Navigation menu Downloads Page title">Downloads</ng-container></a>
           }
+          @if (postsService.config && warnOnDuplicate && hasDuplicateGroups && postsService.hasPermission('filemanager')) {
+            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/duplicates'><ng-container i18n="Navigation menu Duplicates Page title">Duplicates</ng-container></a>
+          }
           @if (postsService.config && postsService.hasPermission('tasks_manager')) {
             <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/tasks'><ng-container i18n="Navigation menu Tasks Page title">Tasks</ng-container></a>
           }

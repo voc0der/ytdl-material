@@ -52,6 +52,8 @@ export class PlaylistDownloadProgressDialogComponent implements OnInit {
     switch (status) {
       case 'complete':
         return $localize`Complete`;
+      case 'duplicate':
+        return $localize`Duplicate`;
       case 'downloading':
         return $localize`Downloading`;
       case 'failed':

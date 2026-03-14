@@ -41,6 +41,9 @@ export type DatabaseFile = {
      * In Kbps
      */
     abr?: number;
+    source_id?: string | null;
+    source_extractor?: string | null;
+    duplicate_key?: string | null;
     /**
      * Chapter metadata from the sidecar .info.json file, when available
      */

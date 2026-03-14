@@ -9,6 +9,7 @@ import { YoutubeSearchService, Result } from '../youtube-search.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Platform } from '@angular/cdk/platform';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
+import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
 import { debounceTime, filter, map, switchMap, take, tap } from 'rxjs/operators';
@@ -934,11 +935,16 @@ export class MainComponent implements OnInit {
           const is_playlist = file_uids.length > 1;
           const type = completed_download['type'];
           const completed_uid = completed_download.uid;
-          this.current_download = null;
-          this.downloadingfile = false;
-          this.downloads = this.downloads.filter(download => download && download.uid !== completed_uid);
-          this.download_uids = this.download_uids.filter(uid => uid !== completed_uid);
-          this.setNextCurrentDownload();
+          const duplicate_skip_only = !!completed_download['duplicate_skip_only'];
+          this.finishTrackedDownload(completed_uid);
+
+          if (duplicate_skip_only) {
+            this.reloadMediaLibrary(is_playlist);
+            if (!is_playlist) {
+              this.openDuplicateSkippedDialog(completed_download);
+              return;
+            }
+          }
 
           if (container && type) {
             this.downloadHelper(container, type, is_playlist, false);
@@ -947,15 +953,31 @@ export class MainComponent implements OnInit {
           }
         } else if (this.current_download['finished'] && this.current_download['error']) {
           const failed_download_uid = this.current_download.uid;
-          this.downloadingfile = false;
-          this.current_download = null;
-          this.downloads = this.downloads.filter(download => download && download.uid !== failed_download_uid);
-          this.download_uids = this.download_uids.filter(uid => uid !== failed_download_uid);
-          this.setNextCurrentDownload();
+          this.finishTrackedDownload(failed_download_uid);
           this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
         }
       } else {
         // console.log('failed to get new download');
+      }
+    });
+  }
+
+  private finishTrackedDownload(download_uid: string): void {
+    this.downloadingfile = false;
+    this.current_download = null;
+    this.downloads = this.downloads.filter(download => download && download.uid !== download_uid);
+    this.download_uids = this.download_uids.filter(uid => uid !== download_uid);
+    this.setNextCurrentDownload();
+  }
+
+  private openDuplicateSkippedDialog(download: Download): void {
+    const duplicate_title = download && download['title'] ? download['title'] : (download && download.url ? download.url : $localize`This video`);
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        dialogTitle: $localize`Duplicate skipped`,
+        dialogText: $localize`${duplicate_title}:download title: was already downloaded, so the duplicate was skipped.`,
+        submitText: $localize`OK`,
+        cancelText: $localize`Close`
       }
     });
   }
