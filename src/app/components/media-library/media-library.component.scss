@@ -105,6 +105,10 @@
     bottom: 20%;
 }
 
+.paginator-page-size-select ::ng-deep .mat-mdc-select-arrow {
+    bottom: 20%;
+}
+
 ::ng-deep .media-library-page-size-panel {
     min-width: 110px !important;
 }
