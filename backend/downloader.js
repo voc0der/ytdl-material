@@ -491,6 +491,51 @@ function stripPlaylistSelectionArgs(args = []) {
     return stripped_args;
 }
 
+function appendSuffixToOutputTemplate(output_template = '', suffix = '') {
+    if (typeof output_template !== 'string' || output_template === '' || !suffix) return output_template;
+
+    const parsed_output_template = path.parse(output_template);
+    return path.join(parsed_output_template.dir, `${parsed_output_template.name}${suffix}${parsed_output_template.ext}`);
+}
+
+function applyOutputSuffixToArgs(args = [], suffix = '') {
+    if (!Array.isArray(args) || args.length === 0 || !suffix) return Array.isArray(args) ? [...args] : [];
+
+    const updated_args = [...args];
+    for (let i = 0; i < updated_args.length; i++) {
+        const arg = updated_args[i];
+        if ((arg === '-o' || arg === '--output') && typeof updated_args[i + 1] === 'string') {
+            updated_args[i + 1] = appendSuffixToOutputTemplate(updated_args[i + 1], suffix);
+            break;
+        }
+    }
+    return updated_args;
+}
+exports.applyOutputSuffixToArgs = applyOutputSuffixToArgs;
+
+function applyOutputSuffixToInfo(info = [], suffix = '') {
+    if (!Array.isArray(info) || info.length === 0 || !suffix) return Array.isArray(info) ? info : [];
+
+    return info.map(info_obj => {
+        if (!info_obj || typeof info_obj !== 'object' || typeof info_obj['_filename'] !== 'string') {
+            return info_obj;
+        }
+
+        return {
+            ...info_obj,
+            _filename: appendSuffixToOutputTemplate(info_obj['_filename'], suffix)
+        };
+    });
+}
+
+function getExistingOutputCollisionPaths(info = []) {
+    if (!Array.isArray(info) || info.length === 0) return [];
+
+    return info
+        .map(info_obj => info_obj && info_obj['_filename'])
+        .filter(filename => typeof filename === 'string' && filename !== '' && fs.existsSync(filename));
+}
+
 function compressPlaylistIndices(indices = []) {
     const normalized_indices = [...new Set((Array.isArray(indices) ? indices : [])
         .map(index => asFiniteNumber(index, 0))
@@ -1280,9 +1325,15 @@ exports.collectInfo = async (download_uid) => {
         info = await exports.getVideoInfoByURL(url, args, download_uid);
     }
 
-    const stripped_category = category ? {name: category['name'], uid: category['uid']} : null;
-
     const warn_on_duplicate = !!config_api.getConfigItem('ytdl_warn_on_duplicate');
+    const output_collision_paths = !warn_on_duplicate ? getExistingOutputCollisionPaths(info) : [];
+    if (output_collision_paths.length > 0) {
+        const duplicate_output_suffix = ` [duplicate-${String(download_uid || '').slice(0, 8)}]`;
+        args = applyOutputSuffixToArgs(args, duplicate_output_suffix);
+        info = applyOutputSuffixToInfo(info, duplicate_output_suffix);
+    }
+
+    const stripped_category = category ? {name: category['name'], uid: category['uid']} : null;
     const duplicate_matches = warn_on_duplicate
         ? await findDuplicateMatchesForInfo(info, type, download['user_uid'])
         : [];

@@ -321,9 +321,34 @@ describe('Downloader', function() {
             assert.strictEqual(updated_download.duplicate_skip_count, 0);
             assert(Array.isArray(updated_download.files_to_check_for_progress));
             assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
-            assert.strictEqual(updated_download.files_to_check_for_progress[0], utils.removeFileExtension(fixture_single[0]._filename));
+            assert(updated_download.files_to_check_for_progress[0].startsWith(utils.removeFileExtension(fixture_single[0]._filename)));
         } finally {
             files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+        }
+    });
+
+    it('Collect info changes the output path when duplicate warnings are disabled and the target file already exists', async function() {
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+        const original_exists_sync = fs.existsSync;
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', false);
+            fs.existsSync = (target_path) => target_path === fixture_single[0]._filename || original_exists_sync(target_path);
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            const duplicate_suffix = ` [duplicate-${returned_download['uid'].slice(0, 8)}]`;
+
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert(updated_download.files_to_check_for_progress[0].includes(duplicate_suffix));
+            assert(Array.isArray(updated_download.args));
+            assert(updated_download.args.includes('-o'));
+            assert(updated_download.args[updated_download.args.indexOf('-o') + 1].includes(duplicate_suffix));
+        } finally {
+            fs.existsSync = original_exists_sync;
             config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
         }
     });
