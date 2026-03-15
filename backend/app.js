@@ -1246,6 +1246,27 @@ app.post('/api/getAllFiles', optionalJwt, async function (req, res) {
     });
 });
 
+app.post('/api/getDuplicateSummary', optionalJwt, async function (req, res) {
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const summary = await files_api.getDuplicateSummary(user_uid);
+    res.send(summary);
+});
+
+app.post('/api/getDuplicates', optionalJwt, async function (req, res) {
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const duplicates = await files_api.getDuplicateGroups(user_uid);
+    res.send({
+        duplicates: duplicates
+    });
+});
+
+app.post('/api/removeNewestDuplicates', optionalJwt, async function (req, res) {
+    const duplicate_key = req.body.duplicate_key;
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const result = await files_api.removeNewestDuplicates(duplicate_key, user_uid);
+    res.send(result);
+});
+
 app.post('/api/updateFile', optionalJwt, async function (req, res) {
     const uid = req.body.uid;
     const change_obj = req.body.change_obj;

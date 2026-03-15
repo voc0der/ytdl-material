@@ -30,6 +30,8 @@ const tables = {
             { keys: { user_uid: 1, registered: -1 } },
             { keys: { sub_id: 1, registered: -1 } },
             { keys: { isAudio: 1, registered: -1 } },
+            { keys: { duplicate_key: 1, registered: 1 } },
+            { keys: { user_uid: 1, duplicate_key: 1, registered: 1 } },
             { keys: { favorite: 1, registered: -1 } },
             { keys: { url: 1, sub_id: 1 } },
             { keys: { path: 1, sub_id: 1 } },
@@ -468,6 +470,20 @@ exports.getRecords = async (table, filter_obj = null, return_count = false, sort
     }
 
     return await cursor.toArray();
+}
+
+exports.aggregateRecords = async (table, pipeline = []) => {
+    if (!tables[table]) {
+        logger.error(`Refusing to aggregate unknown table '${table}'.`);
+        return [];
+    }
+
+    if (using_local_db) {
+        logger.warn(`Aggregation is not supported for local DB table '${table}'. Falling back to caller-managed logic.`);
+        return [];
+    }
+
+    return await database.collection(table).aggregate(Array.isArray(pipeline) ? pipeline : []).toArray();
 }
 
 // Update

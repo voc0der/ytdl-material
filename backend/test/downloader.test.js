@@ -34,11 +34,15 @@ describe('Downloader', function() {
     // Offline fixtures (used when RUN_INTEGRATION is not enabled)
     const fixture_single = [fs.readJSONSync('./test/sample_mp4.info.json')];
     const fixture_playlist = [
-        fixture_single[0],
+        {
+            ...fixture_single[0],
+            playlist_index: 1
+        },
         {
             ...fixture_single[0],
             id: `${fixture_single[0].id}_2`,
-            _filename: fixture_single[0]._filename.replace(/\.mp4$/i, '_2.mp4')
+            _filename: fixture_single[0]._filename.replace(/\.mp4$/i, '_2.mp4'),
+            playlist_index: 2
         }
     ];
 
@@ -263,6 +267,136 @@ describe('Downloader', function() {
             assert.strictEqual(updated_download.expected_file_size, ((1000 + 128) * 1000 / 8) * 10);
         } finally {
             downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
+    it('Collect info skips duplicate single downloads without starting yt-dlp', async function() {
+        const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+        const existing_file_uid = uuid();
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', true);
+            await db_api.insertRecordIntoTable('files', {
+                uid: existing_file_uid,
+                id: fixture_single[0].id,
+                title: fixture_single[0].title,
+                isAudio: false,
+                url: fixture_single[0].webpage_url,
+                path: fixture_single[0]._filename,
+                registered: Date.now()
+            });
+            files_api.findExistingDuplicateByInfo = async () => ({uid: existing_file_uid});
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(updated_download.finished, true);
+            assert.strictEqual(updated_download.duplicate_skip_only, true);
+            assert.deepStrictEqual(updated_download.file_uids, [existing_file_uid]);
+            assert.strictEqual(updated_download.step_index, 3);
+        } finally {
+            files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+        }
+    });
+
+    it('Collect info allows duplicate single downloads when duplicate warnings are disabled', async function() {
+        const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', false);
+            files_api.findExistingDuplicateByInfo = async () => {
+                throw new Error('duplicate lookup should not run when warnings are disabled');
+            };
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(updated_download.finished, false);
+            assert.strictEqual(updated_download.duplicate_skip_only, false);
+            assert.strictEqual(updated_download.duplicate_skip_count, 0);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert(updated_download.files_to_check_for_progress[0].startsWith(utils.removeFileExtension(fixture_single[0]._filename)));
+        } finally {
+            files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+        }
+    });
+
+    it('Collect info changes the output path when duplicate warnings are disabled and the target file already exists', async function() {
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+        const original_exists_sync = fs.existsSync;
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', false);
+            fs.existsSync = (target_path) => target_path === fixture_single[0]._filename || original_exists_sync(target_path);
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            const duplicate_suffix = ` [duplicate-${returned_download['uid'].slice(0, 8)}]`;
+
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert(updated_download.files_to_check_for_progress[0].includes(duplicate_suffix));
+            assert(Array.isArray(updated_download.args));
+            assert(updated_download.args.includes('-o'));
+            assert(updated_download.args[updated_download.args.indexOf('-o') + 1].includes(duplicate_suffix));
+        } finally {
+            fs.existsSync = original_exists_sync;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+        }
+    });
+
+    it('Collect info filters duplicate playlist items down to remaining playlist indices', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
+        const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+        const fixture_playlist_with_indices = [
+            {
+                ...fixture_single[0],
+                id: 'playlist-item-1',
+                playlist_index: 1
+            },
+            {
+                ...fixture_single[0],
+                id: 'playlist-item-2',
+                _filename: fixture_single[0]._filename.replace(/\.mp4$/i, '_playlist_2.mp4'),
+                playlist_index: 2
+            }
+        ];
+
+        try {
+            config_api.setConfigItem('ytdl_warn_on_duplicate', true);
+            downloader_api.getVideoInfoByURL = async () => fixture_playlist_with_indices;
+            files_api.findExistingDuplicateByInfo = async (info_obj) => {
+                return info_obj && info_obj.id === 'playlist-item-1' ? {uid: 'existing-playlist-item'} : null;
+            };
+
+            const returned_download = await downloader_api.createDownload(playlist_url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(updated_download.finished, false);
+            assert.strictEqual(updated_download.duplicate_skip_only, false);
+            assert.strictEqual(updated_download.duplicate_skip_count, 1);
+            assert(Array.isArray(updated_download.playlist_item_progress));
+            assert.strictEqual(updated_download.playlist_item_progress[0].status, 'duplicate');
+            assert.strictEqual(updated_download.playlist_item_progress[0].existing_file_uid, 'existing-playlist-item');
+            assert.strictEqual(updated_download.playlist_item_progress[1].progress_path_index, 0);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+            assert(updated_download.args.includes('--playlist-items'));
+            assert.strictEqual(updated_download.args[updated_download.args.indexOf('--playlist-items') + 1], '2');
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+            files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+            config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
         }
     });
 

@@ -722,7 +722,7 @@ exports.parseOutputJSON = (output, err) => {
 
 // objects
 
-function File(id, title, thumbnailURL, isAudio, duration, url, uploader, size, path, upload_date, description, view_count, height, abr) {
+function File(id, title, thumbnailURL, isAudio, duration, url, uploader, size, path, upload_date, description, view_count, height, abr, source_id = null, source_extractor = null, duplicate_key = null) {
     this.id = id;
     this.title = title;
     this.thumbnailURL = thumbnailURL;
@@ -737,6 +737,9 @@ function File(id, title, thumbnailURL, isAudio, duration, url, uploader, size, p
     this.view_count = view_count;
     this.height = height;
     this.abr = abr;
+    this.source_id = source_id;
+    this.source_extractor = source_extractor;
+    this.duplicate_key = duplicate_key;
     this.favorite = false;
 }   
 exports.File = File;

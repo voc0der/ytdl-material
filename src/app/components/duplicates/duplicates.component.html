@@ -1,0 +1,66 @@
+<div>
+  <div [hidden]="!(duplicate_groups && duplicate_groups.length > 0)">
+    <div class="mat-elevation-z8">
+      <mat-table matSort [dataSource]="dataSource">
+        <ng-container matColumnDef="newest_registered">
+          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Date">Date</ng-container> </mat-header-cell>
+          <mat-cell *matCellDef="let element"> {{element.newest_registered | date: 'short'}} </mat-cell>
+        </ng-container>
+
+        <ng-container matColumnDef="title">
+          <mat-header-cell *matHeaderCellDef mat-sort-header style="flex: 2"> <ng-container i18n="Title">Title</ng-container> </mat-header-cell>
+          <mat-cell *matCellDef="let element" style="flex: 2">
+            <div class="group-title-cell">
+              <span class="one-line" [matTooltip]="getGroupTitle(element)">
+                {{getGroupTitle(element)}}
+              </span>
+              <span class="group-title-meta">
+                {{getGroupSourceID(element)}}
+              </span>
+            </div>
+          </mat-cell>
+        </ng-container>
+
+        <ng-container matColumnDef="type">
+          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Type">Type</ng-container> </mat-header-cell>
+          <mat-cell *matCellDef="let element"> {{getGroupTypeLabel(element)}} </mat-cell>
+        </ng-container>
+
+        <ng-container matColumnDef="duplicate_count">
+          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Duplicates">Duplicates</ng-container> </mat-header-cell>
+          <mat-cell *matCellDef="let element"> {{element.duplicate_count}} </mat-cell>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <mat-header-cell *matHeaderCellDef> <ng-container i18n="Actions">Actions</ng-container> </mat-header-cell>
+          <mat-cell *matCellDef="let element">
+            <span class="button-span">
+              @if (removing_duplicate_key === element.duplicate_key) {
+                <mat-spinner [diameter]="28" class="icon-button-spinner"></mat-spinner>
+              }
+              <button
+                mat-icon-button
+                [disabled]="removing_duplicate_key === element.duplicate_key"
+                matTooltip="Remove newest duplicates"
+                i18n-matTooltip="Remove newest duplicates tooltip"
+                (click)="removeNewestDuplicates(element)">
+                <mat-icon>cleaning_services</mat-icon>
+              </button>
+            </span>
+          </mat-cell>
+        </ng-container>
+
+        <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+        <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
+      </mat-table>
+
+      <mat-paginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons aria-label="Select page of duplicates"></mat-paginator>
+    </div>
+  </div>
+
+  @if ((!duplicate_groups || duplicate_groups.length === 0) && duplicates_retrieved) {
+    <div>
+      <h4 style="text-align: center; margin-top: 10px;" i18n="No duplicates label">No duplicates found!</h4>
+    </div>
+  }
+</div>

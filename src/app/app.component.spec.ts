@@ -26,6 +26,7 @@ describe('AppComponent', () => {
   beforeEach(() => {
     posts_service_mock = {
       config_reloaded: of(false),
+      files_changed: of(false),
       open_create_default_admin_dialog: of(false),
       service_initialized: of(true),
       initialized: true,

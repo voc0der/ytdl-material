@@ -113,6 +113,32 @@ describe('MainComponent', () => {
     expect(component.current_download).toBeNull();
   });
 
+  it('shows a dialog instead of reopening a skipped duplicate single download', () => {
+    const api_download = {
+      uid: 'download-3b',
+      percent_complete: 100,
+      finished: true,
+      error: null,
+      duplicate_skip_only: true,
+      file_uids: ['file-1'],
+      type: 'video',
+      title: 'Existing video',
+      container: {uid: 'file-1'}
+    };
+    const helper_spy = spyOn(component, 'downloadHelper');
+    const reload_spy = spyOn(component, 'reloadMediaLibrary');
+    const dialog_spy = spyOn((component as any).dialog, 'open').and.returnValue({afterClosed: () => of(null)} as any);
+    (component as any).postsService.getCurrentDownload = () => of({download: api_download});
+    component.current_download = {uid: 'download-3b'} as any;
+
+    component.getCurrentDownload();
+
+    expect(helper_spy).not.toHaveBeenCalled();
+    expect(reload_spy).toHaveBeenCalledWith(false);
+    expect(dialog_spy).toHaveBeenCalled();
+    expect(component.current_download).toBeNull();
+  });
+
   it('advances to the next queued download after a finished item without container metadata', () => {
     const api_download = {
       uid: 'download-4',
