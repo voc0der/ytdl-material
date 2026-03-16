@@ -16,6 +16,7 @@ import {
     DatabaseFile,
     DeleteMp3Mp4Request,
     DeletePlaylistRequest,
+    DeletePlaylistResponse,
     DeleteSubscriptionFileRequest,
     DeleteUserRequest,
     DownloadArchiveRequest,
@@ -588,9 +589,9 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'updatePlaylist', body, this.httpOptions);
     }
 
-    removePlaylist(playlist_id: string) {
-        const body: DeletePlaylistRequest = {playlist_id: playlist_id};
-        return this.http.post<SuccessObject>(this.path + 'deletePlaylist', body, this.httpOptions);
+    removePlaylist(playlist_id: string, delete_files = false) {
+        const body: DeletePlaylistRequest = {playlist_id: playlist_id, delete_files: delete_files};
+        return this.http.post<DeletePlaylistResponse>(this.path + 'deletePlaylist', body, this.httpOptions);
     }
 
     createSubscription(url, name, timerange = null, maxQuality = 'best', audioOnly = false, customArgs: string = null, customFileOutput: string = null) {

@@ -1791,21 +1791,45 @@ app.post('/api/updatePlaylist', optionalJwt, async (req, res) => {
 
 app.post('/api/deletePlaylist', optionalJwt, async (req, res) => {
     let playlistID = req.body.playlist_id;
+    const delete_files = req.body.delete_files === true;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const playlist_filter = {id: playlistID, ...getScopedFilterByUser(user_uid)};
 
-    let success = null;
+    const playlist = await db_api.getRecord('playlists', playlist_filter);
+    if (!playlist) {
+        res.send({
+            success: false,
+            playlist_removed: false,
+            deleted_file_count: 0,
+            failed_file_count: 0
+        });
+        return;
+    }
+
+    let success = false;
+    let playlist_removed = false;
+    let deleted_file_count = 0;
+    let failed_file_count = 0;
     try {
         // removes playlist from playlists
-        const filter_obj = {id: playlistID, ...getScopedFilterByUser(user_uid)};
-        await db_api.removeRecord('playlists', filter_obj)
+        playlist_removed = await db_api.removeRecord('playlists', playlist_filter);
 
-        success = true;
+        if (playlist_removed && delete_files) {
+            const delete_results = await files_api.deleteFilesInBatches(playlist.uids || [], false, user_uid);
+            deleted_file_count = delete_results.deleted_count;
+            failed_file_count = delete_results.failed_count;
+        }
+
+        success = playlist_removed && failed_file_count === 0;
     } catch(e) {
         success = false;
     }
 
     res.send({
-        success: success
+        success: success,
+        playlist_removed: playlist_removed,
+        deleted_file_count: deleted_file_count,
+        failed_file_count: failed_file_count
     })
 });
 

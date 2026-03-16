@@ -7,6 +7,7 @@ const db_api = require('./db');
 const archive_api = require('./archive');
 const utils = require('./utils')
 const logger = require('./logger');
+const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -632,8 +633,7 @@ exports.calculatePlaylistDuration = async (playlist, playlist_file_objs = null) 
     return playlist_file_objs.reduce((a, b) => a + utils.durationStringToNumber(b.duration), 0);
 }
 
-exports.deleteFile = async (uid, blacklistMode = false, user_uid = null) => {
-    const file_obj = await exports.getVideo(uid, user_uid);
+exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     if (!file_obj) return false;
     const type = file_obj.isAudio ? 'audio' : 'video';
     const folderPath = path.dirname(file_obj.path);
@@ -705,7 +705,7 @@ exports.deleteFile = async (uid, blacklistMode = false, user_uid = null) => {
     if (jsonExists) await fs.unlink(jsonPath);
     if (thumbnailExists) await fs.unlink(thumbnailPath);
 
-    await db_api.removeRecord('files', {uid: uid});
+    await db_api.removeRecord('files', {uid: file_obj.uid});
 
     if (fileExists) {
         await fs.unlink(file_obj.path);
@@ -718,6 +718,50 @@ exports.deleteFile = async (uid, blacklistMode = false, user_uid = null) => {
         // TODO: tell user that the file didn't exist
         return true;
     }
+}
+
+exports.deleteFile = async (uid, blacklistMode = false, user_uid = null) => {
+    const file_obj = await exports.getVideo(uid, user_uid);
+    if (!file_obj) return false;
+
+    return await exports.deleteFileObject(file_obj, blacklistMode);
+}
+
+exports.deleteFilesInBatches = async (uids = [], blacklistMode = false, user_uid = null, batch_size = PLAYLIST_FILE_DELETE_BATCH_SIZE) => {
+    if (!Array.isArray(uids) || uids.length === 0) {
+        return {deleted_count: 0, failed_count: 0};
+    }
+
+    const unique_uids = [...new Set(uids.filter(uid => uid !== undefined && uid !== null))];
+    if (unique_uids.length === 0) {
+        return {deleted_count: 0, failed_count: 0};
+    }
+
+    const file_objs = await exports.getVideosByUIDs(unique_uids, user_uid);
+    if (file_objs.length === 0) {
+        return {deleted_count: 0, failed_count: 0};
+    }
+
+    const bounded_batch_size = Math.max(1, Number(batch_size) || PLAYLIST_FILE_DELETE_BATCH_SIZE);
+    let deleted_count = 0;
+    let failed_count = 0;
+
+    for (let i = 0; i < file_objs.length; i += bounded_batch_size) {
+        const batch_file_objs = file_objs.slice(i, i + bounded_batch_size);
+        const batch_results = await Promise.allSettled(
+            batch_file_objs.map(file_obj => exports.deleteFileObject(file_obj, blacklistMode))
+        );
+
+        for (const result of batch_results) {
+            if (result.status === 'fulfilled' && result.value) {
+                deleted_count += 1;
+            } else {
+                failed_count += 1;
+            }
+        }
+    }
+
+    return {deleted_count, failed_count};
 }
 
 // Video ID is basically just the file name without the base path and file extension - this method helps us get away from that

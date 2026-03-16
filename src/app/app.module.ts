@@ -77,6 +77,7 @@ import { ManageRoleComponent } from './components/manage-role/manage-role.compon
 import { CookiesUploaderDialogComponent } from './dialogs/cookies-uploader-dialog/cookies-uploader-dialog.component';
 import { LogsViewerComponent } from './components/logs-viewer/logs-viewer.component';
 import { ConfirmDialogComponent } from './dialogs/confirm-dialog/confirm-dialog.component';
+import { DeletePlaylistDialogComponent } from './dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 import { UnifiedFileCardComponent } from './components/unified-file-card/unified-file-card.component';
 import { MediaLibraryComponent } from './components/media-library/media-library.component';
 import { EditSubscriptionDialogComponent } from './dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
@@ -134,6 +135,7 @@ registerLocaleData(es, 'es');
         CookiesUploaderDialogComponent,
         LogsViewerComponent,
         ConfirmDialogComponent,
+        DeletePlaylistDialogComponent,
         UnifiedFileCardComponent,
         MediaLibraryComponent,
         EditSubscriptionDialogComponent,
