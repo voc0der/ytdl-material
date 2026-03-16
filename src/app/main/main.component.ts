@@ -339,11 +339,15 @@ export class MainComponent implements OnInit {
 
   // download click handler
   shouldShowDownloadMenu(): boolean {
-    return this.sponsorBlockApiEnabled || this.hasPlaylistUrlInInput();
+    return this.sponsorBlockApiEnabled || this.hasPlaylistUrlInInput() || this.hasChannelSearchPlaylistUrlInInput();
   }
 
   hasPlaylistUrlInInput(): boolean {
     return this.getPlaylistDownloadUrl(this.url || '') !== null;
+  }
+
+  hasChannelSearchPlaylistUrlInInput(): boolean {
+    return this.getYouTubeChannelSearchPlaylistRequest(this.url || '') !== null;
   }
 
   downloadPlaylistClicked(): void {
@@ -355,7 +359,16 @@ export class MainComponent implements OnInit {
     this.downloadClicked(false, playlist_url, false);
   }
 
-  downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true): void {
+  downloadChannelSearchPlaylistClicked(): void {
+    const channel_search_request = this.getYouTubeChannelSearchPlaylistRequest(this.url || '');
+    if (!channel_search_request) {
+      this.downloadClicked();
+      return;
+    }
+    this.downloadClicked(false, channel_search_request.url, false, true);
+  }
+
+  downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true, channelSearchPlaylist = false): void {
     let effective_url = typeof urlOverride === 'string' ? urlOverride : (this.url || '');
 
     // Sanitize single YouTube watch URLs (keep only v=...)
@@ -418,7 +431,7 @@ export class MainComponent implements OnInit {
     for (let i = 0; i < urls.length; i++) {
       const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock).subscribe(res => {
+        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist).subscribe(res => {
           const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
             ? res['downloads']
             : (res['download'] ? [res['download']] : []);
@@ -604,8 +617,8 @@ export class MainComponent implements OnInit {
     if (!this.cachedAvailableFormats[url]) {
       this.cachedAvailableFormats[url] = Object.create(null);
     }
-    // If URL is a YouTube playlist page (not a single watch?v=...), skip format probing
-    if (this.isYouTubePlaylistUrl(url)) {
+    // If URL resolves to a playlist-like feed, skip per-file format probing.
+    if (this.isYouTubePlaylistUrl(url) || this.isYouTubeChannelSearchPlaylistUrl(url)) {
       // make it think that formats errored so that users have options
       this.cachedAvailableFormats[url]['formats_loading'] = false;
       this.cachedAvailableFormats[url]['formats_failed'] = true;
@@ -642,6 +655,31 @@ export class MainComponent implements OnInit {
     const playlist_id = this.getYouTubePlaylistId(urls[0]);
     if (!playlist_id) return null;
     return `https://www.youtube.com/playlist?list=${encodeURIComponent(playlist_id)}`;
+  }
+
+  private getYouTubeChannelSearchPlaylistRequest(raw: string): { url: string } | null {
+    const urls = this.getURLArray(raw || '');
+    if (urls.length !== 1) return null;
+
+    const parsed_url = this.safeParseURL(urls[0]);
+    if (!parsed_url) return null;
+
+    const host = parsed_url.hostname.replace(/^www\./, '').toLowerCase();
+    const is_youtube_host = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com';
+    if (!is_youtube_host) return null;
+
+    const query = parsed_url.searchParams.get('query')?.trim();
+    if (!query) return null;
+
+    const path_segments = parsed_url.pathname.split('/').filter(Boolean);
+    if (path_segments.length < 2 || path_segments[path_segments.length - 1] !== 'search') return null;
+
+    const channel_segment = path_segments[path_segments.length - 2];
+    const parent_segment = path_segments.length > 2 ? path_segments[path_segments.length - 3] : '';
+    const is_channel_search_path = channel_segment.startsWith('@') || ['channel', 'c', 'user'].includes(parent_segment);
+    if (!is_channel_search_path) return null;
+
+    return { url: parsed_url.toString() };
   }
 
   private getYouTubePlaylistId(raw: string): string | null {
@@ -709,6 +747,10 @@ export class MainComponent implements OnInit {
     if (sp.has('list') && !sp.has('v')) return true;
 
     return false;
+  }
+
+  private isYouTubeChannelSearchPlaylistUrl(raw: string): boolean {
+    return this.getYouTubeChannelSearchPlaylistRequest(raw) !== null;
   }
 
 

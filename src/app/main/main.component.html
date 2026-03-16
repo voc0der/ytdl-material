@@ -115,6 +115,11 @@
               <span i18n="Main download button option for playlist">Download Playlist</span>
             </button>
           }
+          @if (hasChannelSearchPlaylistUrlInInput()) {
+            <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+              <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
+            </button>
+          }
           @if (sponsorBlockApiEnabled) {
             <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
               <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>

@@ -53,4 +53,8 @@ export type DownloadRequest = {
      * Ignore SponsorBlock removal for this download, even when the setting is enabled.
      */
     disableSponsorBlock?: boolean;
+    /**
+     * Treat a YouTube channel search URL as a playlist-style download.
+     */
+    channelSearchPlaylist?: boolean;
 };

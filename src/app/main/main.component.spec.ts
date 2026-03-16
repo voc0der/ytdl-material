@@ -202,6 +202,13 @@ describe('MainComponent', () => {
     expect(component.shouldShowDownloadMenu()).toBeTrue();
   });
 
+  it('shows channel search playlist option for YouTube channel search URLs', () => {
+    component.url = 'https://www.youtube.com/@SimonizeShow/search?query=TBC';
+
+    expect(component.hasChannelSearchPlaylistUrlInInput()).toBeTrue();
+    expect(component.shouldShowDownloadMenu()).toBeTrue();
+  });
+
   it('does not show playlist download option for non-playlist URL', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
 
@@ -237,6 +244,20 @@ describe('MainComponent', () => {
     expect(download_spy).toHaveBeenCalledWith();
   });
 
+  it('maps channel search menu action to the playlist-style path', () => {
+    component.url = 'https://www.youtube.com/@SimonizeShow/search?query=TBC';
+    const download_spy = spyOn(component, 'downloadClicked');
+
+    component.downloadChannelSearchPlaylistClicked();
+
+    expect(download_spy).toHaveBeenCalledWith(
+      false,
+      'https://www.youtube.com/@SimonizeShow/search?query=TBC',
+      false,
+      true
+    );
+  });
+
   it('keeps main download as single-video for watch URLs that include list param', () => {
     const download_file_spy = jasmine.createSpy('downloadFile').and.returnValue(of({download: {uid: 'queued-1'}}));
     (component as any).postsService.downloadFile = download_file_spy;
@@ -247,6 +268,17 @@ describe('MainComponent', () => {
 
     const called_url = download_file_spy.calls.argsFor(0)[0];
     expect(called_url).toBe('https://www.youtube.com/watch?v=wOWhfNB_r-0');
+  });
+
+  it('skips format probing for channel search playlist URLs', () => {
+    const channel_search_url = 'https://www.youtube.com/@SimonizeShow/search?query=TBC';
+    const get_file_formats_spy = jasmine.createSpy('getFileFormats').and.returnValue(of({result: null}));
+    (component as any).postsService.getFileFormats = get_file_formats_spy;
+
+    component.getURLInfo(channel_search_url);
+
+    expect(get_file_formats_spy).not.toHaveBeenCalled();
+    expect(component.cachedAvailableFormats[channel_search_url]['formats_failed']).toBeTrue();
   });
 
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {
