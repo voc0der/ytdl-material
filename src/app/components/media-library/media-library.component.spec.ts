@@ -10,6 +10,7 @@ import { MediaLibraryComponent } from './media-library.component';
 describe('MediaLibraryComponent', () => {
   let component: MediaLibraryComponent;
   let fixture: ComponentFixture<MediaLibraryComponent>;
+  let dialogStub: any;
   let postsServiceStub: any;
 
   beforeEach(waitForAsync(() => {
@@ -36,10 +37,19 @@ describe('MediaLibraryComponent', () => {
       isLoggedIn: false,
       token: '',
       auth_token: '',
+      removePlaylist: jasmine.createSpy('removePlaylist').and.returnValue(of({
+        success: true,
+        playlist_removed: true,
+        failed_file_count: 0
+      })),
+      openSnackBar: jasmine.createSpy('openSnackBar'),
       getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue(of({files: [], file_count: 0})),
       getPlaylists: jasmine.createSpy('getPlaylists').and.returnValue(of({playlists: []})),
       files_changed: { subscribe: () => ({ unsubscribe() {} }) },
       playlists_changed: { subscribe: () => ({ unsubscribe() {} }) }
+    };
+    dialogStub = {
+      open: jasmine.createSpy('open')
     };
 
     TestBed.configureTestingModule({
@@ -47,7 +57,7 @@ describe('MediaLibraryComponent', () => {
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: Router, useValue: {} },
-        { provide: MatDialog, useValue: {} }
+        { provide: MatDialog, useValue: dialogStub }
       ],
       schemas: [NO_ERRORS_SCHEMA]
     })
@@ -197,4 +207,50 @@ describe('MediaLibraryComponent', () => {
 
     expect(load_more_spy).toHaveBeenCalled();
   }));
+
+  it('removes only the playlist when the default delete action is chosen', () => {
+    const playlist = {
+      id: 'playlist-1',
+      name: 'Playlist 1',
+      uids: ['file-1', 'file-2']
+    } as any;
+    component.playlists = [playlist];
+    component.playlistLibraryItems = [playlist];
+    dialogStub.open.and.returnValue({ afterClosed: () => of('playlist_only') });
+    const get_all_files_spy = spyOn(component, 'getAllFiles');
+    const get_all_playlists_spy = spyOn(component, 'getAllPlaylists');
+
+    component.deletePlaylist({ file: playlist, index: 0 });
+
+    expect(postsServiceStub.removePlaylist).toHaveBeenCalledWith('playlist-1', false);
+    expect(get_all_files_spy).not.toHaveBeenCalled();
+    expect(component.playlists).toEqual([]);
+    expect(component.playlistLibraryItems).toEqual([]);
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist successfully removed.');
+    expect(get_all_playlists_spy).toHaveBeenCalled();
+  });
+
+  it('refreshes files and reports partial failures when deleting playlist files too', () => {
+    const playlist = {
+      id: 'playlist-1',
+      name: 'Playlist 1',
+      uids: ['file-1', 'file-2']
+    } as any;
+    component.playlists = [playlist];
+    component.playlistLibraryItems = [playlist];
+    postsServiceStub.removePlaylist.and.returnValue(of({
+      success: false,
+      playlist_removed: true,
+      failed_file_count: 2
+    }));
+    dialogStub.open.and.returnValue({ afterClosed: () => of('playlist_and_files') });
+    const get_all_files_spy = spyOn(component, 'getAllFiles');
+    spyOn(component, 'getAllPlaylists');
+
+    component.deletePlaylist({ file: playlist, index: 0 });
+
+    expect(postsServiceStub.removePlaylist).toHaveBeenCalledWith('playlist-1', true);
+    expect(get_all_files_spy).toHaveBeenCalled();
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist removed, but 2 file(s) could not be deleted.');
+  });
 });

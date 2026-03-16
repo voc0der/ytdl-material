@@ -1,0 +1,28 @@
+<h4 mat-dialog-title><ng-container i18n="Delete playlist dialog title">Delete playlist</ng-container></h4>
+
+<mat-dialog-content>
+  <div class="dialog-copy">
+    <p>
+      <ng-container i18n="Delete playlist dialog prompt prefix">Choose what to remove for</ng-container>
+      &nbsp;<strong>{{playlistName}}</strong>.
+    </p>
+    <p class="dialog-subtext">
+      <ng-container i18n="Delete playlist dialog explanation">
+        Deleting the playlist keeps your files. Deleting files too will permanently remove {{fileCount}} file(s) from your library.
+      </ng-container>
+    </p>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  <button mat-flat-button color="primary" type="button" (click)="deletePlaylistOnly()">
+    <ng-container i18n="Delete playlist only button">Delete playlist</ng-container>
+  </button>
+  <button mat-stroked-button color="warn" type="button" (click)="confirmDeletePlaylistAndFiles()">
+    <ng-container i18n="Delete playlist and files button">Delete playlist and files</ng-container>
+  </button>
+  <span class="spacer"></span>
+  <button mat-stroked-button mat-dialog-close type="button">
+    <ng-container i18n="Cancel delete playlist dialog button">Cancel</ng-container>
+  </button>
+</mat-dialog-actions>

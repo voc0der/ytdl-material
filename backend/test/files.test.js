@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, fs, path, files_api } = require('./test-shared');
+const { assert, fs, path, files_api, config_api, db_api } = require('./test-shared');
 
 describe('Files', function() {
     const fixture_dir = path.join(__dirname, 'tmp-files-test');
@@ -42,5 +42,101 @@ describe('Files', function() {
         }]);
 
         assert.deepStrictEqual(output[0].chapters, []);
+    });
+
+    it('deleteFileObject destroys active descriptors using the file uid key', async function() {
+        const original_remove_record = db_api.removeRecord;
+        const descriptor_uid = 'descriptor-file';
+        let destroyed_count = 0;
+
+        try {
+            await fs.writeFile(fixture_file_path, 'fixture');
+            db_api.removeRecord = async () => true;
+            config_api.descriptors[descriptor_uid] = [
+                {destroy: () => { destroyed_count += 1; }},
+                {destroy: () => { destroyed_count += 1; }}
+            ];
+
+            const output = await files_api.deleteFileObject({
+                uid: descriptor_uid,
+                id: 'chapter-video',
+                path: fixture_file_path,
+                isAudio: false,
+                title: 'Fixture video'
+            });
+
+            assert.strictEqual(output, true);
+            assert.strictEqual(destroyed_count, 2);
+            assert.strictEqual(await fs.pathExists(fixture_file_path), false);
+        } finally {
+            delete config_api.descriptors[descriptor_uid];
+            db_api.removeRecord = original_remove_record;
+        }
+    });
+
+    it('deleteFilesInBatches deduplicates playlist files and caps batch concurrency', async function() {
+        const original_get_videos_by_uids = files_api.getVideosByUIDs;
+        const original_delete_file_object = files_api.deleteFileObject;
+        const deleted_uids = [];
+        let active_deletes = 0;
+        let max_active_deletes = 0;
+
+        try {
+            files_api.getVideosByUIDs = async (uids, user_uid) => {
+                assert.deepStrictEqual(uids, ['file-1', 'file-2', 'missing', 'file-3']);
+                assert.strictEqual(user_uid, 'user-1');
+                return uids
+                    .filter(uid => uid !== 'missing')
+                    .map(uid => ({uid: uid}));
+            };
+
+            files_api.deleteFileObject = async (file_obj) => {
+                active_deletes += 1;
+                max_active_deletes = Math.max(max_active_deletes, active_deletes);
+                await new Promise(resolve => setTimeout(resolve, 5));
+                active_deletes -= 1;
+                deleted_uids.push(file_obj.uid);
+                return file_obj.uid !== 'file-2';
+            };
+
+            const output = await files_api.deleteFilesInBatches(
+                ['file-1', 'file-2', 'file-1', 'missing', 'file-3'],
+                false,
+                'user-1',
+                2
+            );
+
+            assert.deepStrictEqual(deleted_uids.sort(), ['file-1', 'file-2', 'file-3']);
+            assert.strictEqual(max_active_deletes, 2);
+            assert.deepStrictEqual(output, {deleted_count: 2, failed_count: 1});
+        } finally {
+            files_api.getVideosByUIDs = original_get_videos_by_uids;
+            files_api.deleteFileObject = original_delete_file_object;
+        }
+    });
+
+    it('deleteFilesInBatches counts thrown delete failures and continues later batches', async function() {
+        const original_get_videos_by_uids = files_api.getVideosByUIDs;
+        const original_delete_file_object = files_api.deleteFileObject;
+        const attempted_uids = [];
+
+        try {
+            files_api.getVideosByUIDs = async () => [{uid: 'file-1'}, {uid: 'file-2'}, {uid: 'file-3'}];
+            files_api.deleteFileObject = async (file_obj) => {
+                attempted_uids.push(file_obj.uid);
+                if (file_obj.uid === 'file-2') {
+                    throw new Error('disk error');
+                }
+                return true;
+            };
+
+            const output = await files_api.deleteFilesInBatches(['file-1', 'file-2', 'file-3'], false, null, 2);
+
+            assert.deepStrictEqual(attempted_uids, ['file-1', 'file-2', 'file-3']);
+            assert.deepStrictEqual(output, {deleted_count: 2, failed_count: 1});
+        } finally {
+            files_api.getVideosByUIDs = original_get_videos_by_uids;
+            files_api.deleteFileObject = original_delete_file_object;
+        }
     });
 });

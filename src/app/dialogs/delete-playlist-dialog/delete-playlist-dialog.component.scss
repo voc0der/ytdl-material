@@ -1,0 +1,19 @@
+.dialog-copy {
+    margin-bottom: 8px;
+}
+
+.dialog-subtext {
+    margin-bottom: 0;
+    opacity: 0.82;
+}
+
+.dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.spacer {
+    flex: 1 1 auto;
+}

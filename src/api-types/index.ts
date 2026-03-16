@@ -33,6 +33,7 @@ export type { DeleteCategoryRequest } from './models/DeleteCategoryRequest';
 export type { DeleteMp3Mp4Request } from './models/DeleteMp3Mp4Request';
 export type { DeleteNotificationRequest } from './models/DeleteNotificationRequest';
 export type { DeletePlaylistRequest } from './models/DeletePlaylistRequest';
+export type { DeletePlaylistResponse } from './models/DeletePlaylistResponse';
 export type { DeleteSubscriptionFileRequest } from './models/DeleteSubscriptionFileRequest';
 export type { DeleteUserRequest } from './models/DeleteUserRequest';
 export type { Download } from './models/Download';

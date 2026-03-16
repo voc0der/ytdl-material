@@ -1,7 +1,7 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
-import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../../api-types';
+import { DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take } from 'rxjs/operators';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -10,6 +10,7 @@ import { MatSelectionListChange } from '@angular/material/list';
 import { saveAs } from 'file-saver';
 import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
+import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 
 type PageSizeOption = number | 'auto';
 interface MediaLibraryRow<T> {
@@ -1119,13 +1120,47 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   deletePlaylist(args: { file: Playlist; index: number; }): void {
     const playlist = args.file;
+    const dialogRef = this.dialog.open(DeletePlaylistDialogComponent, {
+      data: {
+        playlistName: playlist.name,
+        fileCount: Array.isArray(playlist.uids) ? playlist.uids.length : 0
+      }
+    });
+
+    dialogRef.afterClosed().pipe(take(1)).subscribe((action: DeletePlaylistDialogAction | undefined) => {
+      if (!action) return;
+      this.removePlaylist(playlist, action === 'playlist_and_files');
+    });
+  }
+
+  private removePlaylist(playlist: Playlist, delete_files: boolean): void {
     const playlist_id = playlist.id;
-    this.postsService.removePlaylist(playlist_id).subscribe(res => {
-      if (res['success']) {
+    this.postsService.removePlaylist(playlist_id, delete_files).subscribe((res: DeletePlaylistResponse) => {
+      const playlist_removed = !!res?.playlist_removed || !!res?.success;
+      if (playlist_removed) {
         this.playlistLibraryItems = this.playlistLibraryItems.filter(existing_playlist => existing_playlist.id !== playlist_id);
         this.playlists = this.playlists.filter(existing_playlist => existing_playlist.id !== playlist_id);
-        this.postsService.openSnackBar($localize`Playlist successfully removed.`);
+        const failed_file_count = Number(res?.failed_file_count) || 0;
+        if (delete_files) {
+          this.getAllFiles();
+        }
+        if (delete_files && failed_file_count > 0) {
+          this.postsService.openSnackBar($localize`Playlist removed, but ${failed_file_count}:failed file count: file(s) could not be deleted.`);
+        } else {
+          this.postsService.openSnackBar(delete_files
+            ? $localize`Playlist and files successfully removed.`
+            : $localize`Playlist successfully removed.`);
+        }
+      } else {
+        this.postsService.openSnackBar(delete_files
+          ? $localize`Failed to remove playlist and files.`
+          : $localize`Failed to remove playlist.`);
       }
+      this.getAllPlaylists();
+    }, () => {
+      this.postsService.openSnackBar(delete_files
+        ? $localize`Failed to remove playlist and files.`
+        : $localize`Failed to remove playlist.`);
       this.getAllPlaylists();
     });
   }
