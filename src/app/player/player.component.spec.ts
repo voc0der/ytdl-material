@@ -26,6 +26,7 @@ describe('PlayerComponent', () => {
         }
       },
       setPageTitle: jasmine.createSpy('setPageTitle'),
+      openSnackBar: jasmine.createSpy('openSnackBar'),
       getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue({
         subscribe: () => ({ unsubscribe() {} })
       }),
@@ -117,6 +118,38 @@ describe('PlayerComponent', () => {
 
     expect(component.currentFile).toBe(playlistFile);
     expect(component.currentFile['description']).toBe('Playlist description');
+  });
+
+  it('should clamp a stale playlist index to the first playable item', () => {
+    const playlistFile = {
+      uid: 'uid-playlist',
+      title: 'Playlist item',
+      isAudio: false,
+      url: 'https://example.com/video'
+    } as DatabaseFile;
+
+    component.playlist_id = 'playlist-1';
+    component.file_objs = [playlistFile];
+    component.uids = ['uid-playlist'];
+    component.currentIndex = 7;
+
+    component.parseFileNames();
+
+    expect(component.currentIndex).toBe(0);
+    expect(component.currentItem?.uid).toBe('uid-playlist');
+    expect(component.show_player).toBeTrue();
+  });
+
+  it('should hide the player when a playlist has no playable items', () => {
+    component.playlist_id = 'playlist-1';
+    component.file_objs = [];
+    component.uids = ['missing-file'];
+
+    component.parseFileNames();
+
+    expect(component.currentItem).toBeNull();
+    expect(component.show_player).toBeFalse();
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
   });
 
   it('should reset page title on destroy', () => {

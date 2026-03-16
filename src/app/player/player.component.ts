@@ -223,7 +223,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.file_objs = res['file_objs'];
         this.uids = this.db_playlist.uids;
         this.type = res['type'];
-        this.show_player = true;
         this.parseFileNames();
       } else {
         this.postsService.openSnackBar($localize`Failed to load playlist!`);
@@ -243,16 +242,26 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       const file_obj = this.playlist_id ? this.file_objs[i]
                      : this.sub_id ? this.subscription['videos'][i]
                      : this.db_file;
+      if (!file_obj) {
+        continue;
+      }
 
       const mediaObject: IMedia = this.createMediaObject(file_obj);
       this.playlist.push(mediaObject);
+    }
+    if (this.playlist.length === 0) {
+      this.currentItem = null;
+      this.currentFile = null;
+      this.show_player = false;
+      this.postsService.openSnackBar($localize`Failed to load playable items for this playlist.`);
+      return;
     }
     if (this.db_playlist && this.db_playlist['randomize_order']) {
       this.shuffleArray(this.playlist);
     }
     const currentUID = this.currentItem?.uid;
     const currentIndex = currentUID ? this.playlist.findIndex(file_obj => file_obj.uid === currentUID) : this.currentIndex;
-    this.currentIndex = currentIndex >= 0 ? currentIndex : 0;
+    this.currentIndex = currentIndex >= 0 && currentIndex < this.playlist.length ? currentIndex : 0;
     this.updateCurrentItem(this.playlist[this.currentIndex], this.currentIndex);
     this.original_playlist = JSON.stringify(this.playlist);
     this.show_player = true;
