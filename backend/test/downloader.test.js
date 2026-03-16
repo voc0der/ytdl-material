@@ -30,6 +30,7 @@ describe('Downloader', function() {
     // A stable public video (used only when RUN_INTEGRATION=1)
     const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
     const playlist_url = 'https://www.youtube.com/playlist?list=PLbZT16X07RLhqK-ZgSkRuUyiz9B_WLdNK';
+    const channel_search_url = 'https://www.youtube.com/@SimonizeShow/search?query=TBC';
 
     // Offline fixtures (used when RUN_INTEGRATION is not enabled)
     const fixture_single = [fs.readJSONSync('./test/sample_mp4.info.json')];
@@ -469,6 +470,72 @@ describe('Downloader', function() {
         }
     });
 
+    it('Does not auto-chunk channel search requests without the dedicated playlist flag', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        let runYoutubeDL_called = false;
+        youtubedl_api.runYoutubeDL = async () => {
+            runYoutubeDL_called = true;
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'SimonizeShow - Search - TBC',
+                        entries: Array.from({length: 205}, (_, i) => ({id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            const created_downloads = await downloader_api.createDownloads(channel_search_url, 'video', {...options, ui_uid: uuid()});
+            assert.strictEqual(created_downloads.length, 1);
+            assert.strictEqual(runYoutubeDL_called, false);
+            assert.strictEqual(created_downloads[0].options.playlistExclusive, undefined);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
+    it('Auto-chunks channel search playlist requests when explicitly enabled', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        let runYoutubeDL_calls = 0;
+        youtubedl_api.runYoutubeDL = async () => {
+            runYoutubeDL_calls += 1;
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        title: 'SimonizeShow - Search - TBC',
+                        entries: Array.from({length: 205}, (_, i) => ({id: `id-${i}`}))
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            const created_downloads = await downloader_api.createDownloads(channel_search_url, 'video', {
+                ...options,
+                ui_uid: uuid(),
+                channelSearchPlaylist: true
+            });
+            assert.strictEqual(runYoutubeDL_calls, 1);
+            assert.strictEqual(created_downloads.length, 3);
+
+            const queue_downloads = await db_api.getRecords('download_queue');
+            queue_downloads.sort((a, b) => a.timestamp_start - b.timestamp_start);
+
+            assert.strictEqual(queue_downloads[0].options.channelSearchPlaylist, true);
+            assert.strictEqual(queue_downloads[0].options.playlistExclusive, true);
+            assert.strictEqual(queue_downloads[0].options.playlistChunkTitle, 'SimonizeShow: TBC');
+            assert(queue_downloads[0].title.includes('SimonizeShow: TBC'));
+            assert(queue_downloads[0].title.includes('Chunk 1/3'));
+            assert(queue_downloads[1].title.includes('Chunk 2/3'));
+            assert(queue_downloads[2].title.includes('Chunk 3/3'));
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
     it('Skips auto-chunking when playlist range args are already provided', async function() {
         const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
         let runYoutubeDL_called = false;
@@ -495,6 +562,31 @@ describe('Downloader', function() {
             assert.strictEqual(runYoutubeDL_called, false);
         } finally {
             youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
+    it('Collect info renames channel search playlist titles when the dedicated mode is enabled', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        downloader_api.getVideoInfoByURL = async () => {
+            return fixture_playlist.map(info_obj => ({
+                ...info_obj,
+                playlist: 'SimonizeShow - Search - TBC',
+                playlist_title: 'SimonizeShow - Search - TBC',
+                playlist_channel: 'SimonizeShow',
+                playlist_uploader: 'SimonizeShow'
+            }));
+        };
+
+        try {
+            const returned_download = await downloader_api.createDownload(channel_search_url, 'video', {
+                ...options,
+                channelSearchPlaylist: true
+            });
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            assert.strictEqual(updated_download.title, 'SimonizeShow: TBC');
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
         }
     });
 

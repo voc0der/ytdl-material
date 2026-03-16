@@ -1743,6 +1743,9 @@ components:
         disableSponsorBlock:
           type: boolean
           description: Ignore SponsorBlock removal for this download, even when enabled globally.
+        channelSearchPlaylist:
+          type: boolean
+          description: Treat a YouTube channel search URL as a playlist-style download.
     DownloadResponse:
       type: object
       properties:

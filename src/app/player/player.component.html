@@ -1,4 +1,4 @@
-@if (playlist.length > 0 && show_player) {
+@if (playlist.length > 0 && show_player && currentItem) {
   <div style="height: 100%">
     <div style="height: 100%" [ngClass]="(currentItem.type === 'audio/mp3') ? null : 'container-video'">
       <div style="max-width: 100%; margin-left: 0px; height: 100%">

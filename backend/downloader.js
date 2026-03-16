@@ -355,6 +355,88 @@ function isLikelyPlaylistURL(url = '') {
     }
 }
 
+function getYouTubeChannelSearchDetails(url = '') {
+    if (typeof url !== 'string' || url.trim() === '') return null;
+
+    let parsed_url = null;
+    try {
+        parsed_url = new URL(url);
+    } catch (e) {
+        try {
+            parsed_url = new URL(`https://${url}`);
+        } catch (secondary_error) {
+            return null;
+        }
+    }
+
+    const host = parsed_url.hostname.replace(/^www\./, '').toLowerCase();
+    const is_youtube_host = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com';
+    if (!is_youtube_host) return null;
+
+    const query = typeof parsed_url.searchParams.get('query') === 'string'
+        ? parsed_url.searchParams.get('query').trim()
+        : '';
+    if (!query) return null;
+
+    const path_segments = parsed_url.pathname.split('/').filter(Boolean);
+    if (path_segments.length < 2 || path_segments[path_segments.length - 1] !== 'search') return null;
+
+    const channel_segment = path_segments[path_segments.length - 2];
+    const parent_segment = path_segments.length > 2 ? path_segments[path_segments.length - 3] : null;
+    const is_channel_search_path = channel_segment.startsWith('@') || ['channel', 'c', 'user'].includes(parent_segment);
+    if (!is_channel_search_path) return null;
+
+    const channel_name = decodeURIComponent(channel_segment).replace(/^@/, '').trim();
+    return {
+        channel_name: channel_name || null,
+        query: query
+    };
+}
+
+function isChannelSearchPlaylistDownload(url = '', options = {}) {
+    if (!(options && options.channelSearchPlaylist === true)) return false;
+    return !!getYouTubeChannelSearchDetails(url);
+}
+
+function isPlaylistLikeDownload(url = '', options = {}) {
+    return isLikelyPlaylistURL(url) || isChannelSearchPlaylistDownload(url, options);
+}
+
+function getChannelSearchPlaylistTitle(url = '', raw_title = 'Playlist', info_obj = null) {
+    const channel_search_details = getYouTubeChannelSearchDetails(url);
+    if (!channel_search_details) return null;
+
+    const info_candidates = info_obj && typeof info_obj === 'object'
+        ? [
+            info_obj['playlist_channel'],
+            info_obj['playlist_uploader'],
+            info_obj['channel'],
+            info_obj['uploader']
+        ]
+        : [];
+    const normalized_info_candidate = info_candidates.find(candidate => typeof candidate === 'string' && candidate.trim() !== '');
+
+    let channel_label = normalized_info_candidate ? normalized_info_candidate.trim() : '';
+    if (!channel_label && typeof raw_title === 'string') {
+        const title_match = raw_title.trim().match(/^(.*?)\s+-\s+Search\s+-\s+(.*)$/i);
+        if (title_match) channel_label = title_match[1].trim();
+    }
+    if (!channel_label && channel_search_details.channel_name) {
+        channel_label = channel_search_details.channel_name;
+    }
+
+    if (!channel_label || !channel_search_details.query) return null;
+    return `${channel_label}: ${channel_search_details.query}`;
+}
+
+function getPlaylistBaseTitle(url = '', raw_title = 'Playlist', options = {}, info_obj = null) {
+    const normalized_title = typeof raw_title === 'string' && raw_title.trim() !== '' ? raw_title.trim() : 'Playlist';
+    if (options && options.channelSearchPlaylist === true) {
+        return getChannelSearchPlaylistTitle(url, normalized_title, info_obj) || normalized_title;
+    }
+    return normalized_title;
+}
+
 function buildPlaylistChunkRanges(total_items, chunk_size = DEFAULT_PLAYLIST_CHUNK_SIZE, max_chunks = MAX_AUTOMATIC_PLAYLIST_CHUNKS) {
     const normalized_total_items = Math.max(0, asFiniteNumber(total_items, 0));
     if (!normalized_total_items) return [];
@@ -400,7 +482,7 @@ function appendAdditionalArgs(existing_args_string = '', args_to_append = []) {
 }
 
 function shouldAutoChunkPlaylist(url, options = {}) {
-    if (!isLikelyPlaylistURL(url)) return false;
+    if (!isPlaylistLikeDownload(url, options)) return false;
     if (!options || typeof options !== 'object') return true;
     if (typeof options.customArgs === 'string' && options.customArgs.trim() !== '') return false;
 
@@ -414,7 +496,7 @@ function shouldAutoChunkPlaylist(url, options = {}) {
 }
 
 function shouldMarkPlaylistAsExclusive(url, options = {}) {
-    if (!isLikelyPlaylistURL(url)) return false;
+    if (!isPlaylistLikeDownload(url, options)) return false;
     if (!options || typeof options !== 'object') return true;
 
     const additional_args = parseDelimitedArgs(options.additionalArgs);
@@ -433,7 +515,7 @@ function isExclusivePlaylistDownload(download = null) {
     if (options.playlistExclusive === true) return true;
     if (options.playlistChunkRange) return true;
 
-    if (!isLikelyPlaylistURL(download.url || '')) return false;
+    if (!isPlaylistLikeDownload(download.url || '', options)) return false;
 
     const additional_args = parseDelimitedArgs(options.additionalArgs);
     const custom_args = parseDelimitedArgs(options.customArgs);
@@ -1036,11 +1118,14 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
     }
 
     const playlist_metadata = await getPlaylistChunkingMetadata(url, normalized_options);
+    const playlist_base_title = playlist_metadata
+        ? getPlaylistBaseTitle(url, playlist_metadata.title || 'Playlist', normalized_options_with_playlist_policy)
+        : null;
     const effective_playlist_chunk_size = playlist_metadata
         ? getEffectivePlaylistChunkSize(playlist_metadata.entry_count, configured_playlist_chunk_size, should_mark_playlist_exclusive)
         : configured_playlist_chunk_size;
     if (!playlist_metadata || playlist_metadata.entry_count <= effective_playlist_chunk_size) {
-        const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist') : null;
+        const prefilled_title = playlist_metadata ? formatChunkedPlaylistTitle(playlist_base_title || 'Playlist') : null;
         const download = await exports.createDownload(url, type, normalized_options_with_playlist_policy, user_uid, sub_id, sub_name, prefetched_info, paused, prefilled_title);
         return download ? [download] : [];
     }
@@ -1056,14 +1141,14 @@ exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_i
     const created_downloads = [];
     for (let i = 0; i < chunk_ranges.length; i++) {
         const chunk_range = chunk_ranges[i];
-        const chunk_title = formatChunkedPlaylistTitle(playlist_metadata.title || 'Playlist', chunk_range.label, i + 1, chunk_ranges.length);
+        const chunk_title = formatChunkedPlaylistTitle(playlist_base_title || 'Playlist', chunk_range.label, i + 1, chunk_ranges.length);
         const chunk_options = {
             ...normalized_options_with_playlist_policy,
             additionalArgs: appendAdditionalArgs(normalized_options_with_playlist_policy.additionalArgs, ['--playlist-items', chunk_range.label]),
             playlistChunkRange: chunk_range.label,
             playlistChunkIndex: i + 1,
             playlistChunkCount: chunk_ranges.length,
-            playlistChunkTitle: playlist_metadata.title || null
+            playlistChunkTitle: playlist_base_title || null
         };
         const chunk_download = await exports.createDownload(url, type, chunk_options, user_uid, sub_id, sub_name, prefetched_info, paused, chunk_title);
         if (chunk_download) created_downloads.push(chunk_download);
@@ -1348,7 +1433,8 @@ exports.collectInfo = async (download_uid) => {
         ? [duplicate_matches[0].uid]
         : duplicate_file_uids;
 
-    const base_title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const raw_title = info.length > 1 ? info[0]['playlist_title'] || info[0]['playlist'] : info[0]['title'];
+    const base_title = getPlaylistBaseTitle(url, raw_title, options, info[0]);
     const chunk_range_label = options && options.playlistChunkRange ? options.playlistChunkRange : null;
     const chunk_index = options && options.playlistChunkIndex ? options.playlistChunkIndex : null;
     const chunk_count = options && options.playlistChunkCount ? options.playlistChunkCount : null;

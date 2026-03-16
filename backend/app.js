@@ -1117,7 +1117,8 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
         ui_uid: req.body.ui_uid,
         cropFileSettings: req.body.cropFileSettings,
         ignoreArchive: req.body.ignoreArchive,
-        disableSponsorBlock: req.body.disableSponsorBlock
+        disableSponsorBlock: req.body.disableSponsorBlock,
+        channelSearchPlaylist: !!req.body.channelSearchPlaylist
     };
 
     const downloads = await downloader_api.createDownloads(url, type, options, user_uid);
