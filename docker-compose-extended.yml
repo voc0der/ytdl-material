@@ -1,0 +1,95 @@
+services:
+  ytdl-material:
+    image: voc0der/ytdl-material:nightly
+    container_name: ytdl-material
+    environment:
+      ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
+      ytdl_use_local_db: 'false'
+      write_ytdl_config: 'true'
+
+      # Option 1: Let the container start as root, fix permissions, then drop privileges.
+      # Default user/group IDs are 1000:1000.
+      # uid: 1000
+      # gid: 1000
+
+      # Backend log level (optional): error, warn, info, verbose, debug
+      # ytdl_log_level: 'info'
+
+      # Public API docs (optional, requires restart)
+      # ytdl_use_api_key: 'true'
+      # ytdl_api_key: 'replace-with-api-key'
+      # ytdl_enable_documentation_api: 'true'
+
+      # SSL/HTTPS configuration (optional)
+      # ytdl_ssl_cert_path: /mnt/keys/fullchain.pem
+      # ytdl_ssl_key_path: /mnt/keys/privkey.pem
+
+      # Reverse proxy settings (optional)
+      # Restricts which proxy IPs are allowed to connect directly.
+      # ytdl_reverse_proxy_whitelist: '172.28.0.100/32'
+      # Advanced Express trust proxy override.
+      # ytdl_trust_proxy: '1'
+
+      # Download and playlist behavior (optional)
+      # ytdl_playlist_chunk_size: '20'
+      # ytdl_warn_on_duplicate: 'false'
+      # Caps the number of automatic playlist chunks that may be created.
+      # ytdl_max_playlist_chunks: '20'
+
+      # File creation mask before startup.
+      # Common values: 022 for standard shared-read permissions, 002 for group-writable.
+      # ytdl_umask: '022'
+
+      # Multi-user mode (required for OIDC)
+      # ytdl_multi_user_mode: 'true'
+
+      # OIDC / OpenID Connect (optional)
+      # If enabled, ytdl_multi_user_mode must also be true.
+      # ytdl_oidc_enabled: 'true'
+      # ytdl_oidc_issuer_url: 'https://idp.example.com/realms/ytdl'
+      # ytdl_oidc_client_id: 'ytdl-material'
+      # ytdl_oidc_client_secret: 'replace-with-secret'
+      # ytdl_oidc_redirect_uri: 'https://ytdl.example.com/api/auth/oidc/callback'
+      # ytdl_oidc_scope: 'openid profile email'
+      # ytdl_oidc_allowed_groups: 'media,admins'
+      # ytdl_oidc_group_claim: 'groups'
+      # ytdl_oidc_admin_claim: 'groups'
+      # ytdl_oidc_admin_value: 'admin'
+      # ytdl_oidc_auto_register: 'true'
+      # ytdl_oidc_username_claim: 'preferred_username'
+      # ytdl_oidc_display_name_claim: 'name'
+      # Optional one-time ownership migration for unassigned media.
+      # ytdl_oidc_migrate_videos: 'admin'
+
+    # Option 2: Start the container directly as a non-root user.
+    # Requires the bind-mounted paths to already have compatible ownership.
+    # user: "1000:1000"
+    restart: always
+    depends_on:
+      ytdl-mongo-db:
+        condition: service_healthy
+    volumes:
+      - ./appdata:/app/appdata
+      - ./audio:/app/audio
+      - ./video:/app/video
+      - ./subscriptions:/app/subscriptions
+      - ./users:/app/users
+    ports:
+      - "17442:17442"
+
+  ytdl-mongo-db:
+    # If you are on an older setup or unsupported CPU, use mongo:4.4.18 instead.
+    image: mongo:8
+    container_name: ytdl-mongo-db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand({ping:1}).ok' --quiet"]
+      interval: 15s
+      timeout: 30s
+      retries: 5
+      start_period: 35s
+      start_interval: 1s
+    logging:
+      driver: "none"
+    restart: always
+    volumes:
+      - ./db:/data/db
