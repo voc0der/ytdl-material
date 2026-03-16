@@ -667,10 +667,10 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
 
     let fileExists = await fs.pathExists(file_obj.path);
 
-    if (config_api.descriptors[uid]) {
+    if (config_api.descriptors[file_obj.uid]) {
         try {
-            for (let i = 0; i < config_api.descriptors[uid].length; i++) {
-                config_api.descriptors[uid][i].destroy();
+            for (let i = 0; i < config_api.descriptors[file_obj.uid].length; i++) {
+                config_api.descriptors[file_obj.uid][i].destroy();
             }
         } catch(e) {
 

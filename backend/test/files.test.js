@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, fs, path, files_api } = require('./test-shared');
+const { assert, fs, path, files_api, config_api, db_api } = require('./test-shared');
 
 describe('Files', function() {
     const fixture_dir = path.join(__dirname, 'tmp-files-test');
@@ -42,6 +42,36 @@ describe('Files', function() {
         }]);
 
         assert.deepStrictEqual(output[0].chapters, []);
+    });
+
+    it('deleteFileObject destroys active descriptors using the file uid key', async function() {
+        const original_remove_record = db_api.removeRecord;
+        const descriptor_uid = 'descriptor-file';
+        let destroyed_count = 0;
+
+        try {
+            await fs.writeFile(fixture_file_path, 'fixture');
+            db_api.removeRecord = async () => true;
+            config_api.descriptors[descriptor_uid] = [
+                {destroy: () => { destroyed_count += 1; }},
+                {destroy: () => { destroyed_count += 1; }}
+            ];
+
+            const output = await files_api.deleteFileObject({
+                uid: descriptor_uid,
+                id: 'chapter-video',
+                path: fixture_file_path,
+                isAudio: false,
+                title: 'Fixture video'
+            });
+
+            assert.strictEqual(output, true);
+            assert.strictEqual(destroyed_count, 2);
+            assert.strictEqual(await fs.pathExists(fixture_file_path), false);
+        } finally {
+            delete config_api.descriptors[descriptor_uid];
+            db_api.removeRecord = original_remove_record;
+        }
     });
 
     it('deleteFilesInBatches deduplicates playlist files and caps batch concurrency', async function() {
