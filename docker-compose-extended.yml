@@ -9,8 +9,8 @@ services:
 
       # Option 1: Let the container start as root, fix permissions, then drop privileges.
       # Default user/group IDs are 1000:1000.
-      # uid: 1000
-      # gid: 1000
+      # ytdl_uid: 1000
+      # ytdl_gid: 1000
 
       # Backend log level (optional): error, warn, info, verbose, debug
       # ytdl_log_level: 'info'

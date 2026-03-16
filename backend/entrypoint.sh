@@ -2,18 +2,25 @@
 set -eu
 
 resolve_runtime_env() {
-    local lowercase_name="$1"
-    local uppercase_name="$2"
-    local default_value="$3"
+    local preferred_name="$1"
+    local lowercase_legacy_name="$2"
+    local uppercase_legacy_name="$3"
+    local default_value="$4"
     local resolved_value=""
 
-    resolved_value="$(printenv "$lowercase_name" 2>/dev/null || true)"
+    resolved_value="$(printenv "$preferred_name" 2>/dev/null || true)"
     if [ -n "$resolved_value" ]; then
         printf '%s' "$resolved_value"
         return
     fi
 
-    resolved_value="$(printenv "$uppercase_name" 2>/dev/null || true)"
+    resolved_value="$(printenv "$lowercase_legacy_name" 2>/dev/null || true)"
+    if [ -n "$resolved_value" ]; then
+        printf '%s' "$resolved_value"
+        return
+    fi
+
+    resolved_value="$(printenv "$uppercase_legacy_name" 2>/dev/null || true)"
     if [ -n "$resolved_value" ]; then
         printf '%s' "$resolved_value"
         return
@@ -22,8 +29,8 @@ resolve_runtime_env() {
     printf '%s' "$default_value"
 }
 
-runtime_uid="$(resolve_runtime_env uid UID 1000)"
-runtime_gid="$(resolve_runtime_env gid GID 1000)"
+runtime_uid="$(resolve_runtime_env ytdl_uid uid UID 1000)"
+runtime_gid="$(resolve_runtime_env ytdl_gid gid GID 1000)"
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then

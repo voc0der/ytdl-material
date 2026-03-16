@@ -4,14 +4,14 @@ The default [docker-compose.yml](./docker-compose.yml) is intentionally minimal 
 
 For a fully commented example with MongoDB, OIDC, reverse proxy, and other advanced options, see [docker-compose-extended.yml](./docker-compose-extended.yml).
 
-Docker examples here use lowercase environment variable names consistently. Uppercase aliases are still accepted for compatibility where supported.
+Docker examples here use lowercase environment variable names consistently. For user and group IDs, prefer `ytdl_uid` and `ytdl_gid`; legacy `uid`/`gid` and `UID`/`GID` aliases remain supported.
 
 Common Docker environment variables you can use with the provided compose files:
 
 * `ytdl_mongodb_connection_string`: MongoDB connection string (default compose file points to `mongodb://ytdl-mongo-db:27017`)
 * `ytdl_use_local_db`: set to `'false'` to use MongoDB instead of the local JSON DB
 * `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
-* `uid` / `gid`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
+* `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_use_api_key`: set to `'true'` to require `apiKey` for public API endpoints
 * `ytdl_api_key`: public API key value used when `ytdl_use_api_key` is enabled
@@ -50,8 +50,8 @@ environment:
   ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
   ytdl_use_local_db: 'false'
   write_ytdl_config: 'true'
-  # uid: 1000
-  # gid: 1000
+  # ytdl_uid: 1000
+  # ytdl_gid: 1000
   # ytdl_log_level: debug
   # ytdl_use_api_key: 'true'
   # ytdl_api_key: 'replace-with-api-key'
@@ -81,6 +81,6 @@ environment:
   # ytdl_oidc_migrate_videos: 'admin'
 ```
 
-Prefer using Docker's `user: "<uid>:<gid>"` together with `uid`/`gid`.
+Prefer using Docker's `user: "<uid>:<gid>"` together with `ytdl_uid`/`ytdl_gid`.
 
 When `ytdl_oidc_enabled` is `'true'`, `ytdl_multi_user_mode` must also be `'true'` or backend startup will fail.
