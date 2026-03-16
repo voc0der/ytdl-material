@@ -64,11 +64,33 @@ function parseTrustProxySetting(value) {
     return trimmed;
 }
 
+function getFirstDefinedEnvValue(envKeys = []) {
+    for (const envKey of envKeys) {
+        if (process.env[envKey] !== undefined) return {envKey, value: process.env[envKey]};
+    }
+    return {envKey: null, value: undefined};
+}
+
+function parseUmaskSetting(value) {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'number' && Number.isInteger(value)) return value;
+    if (typeof value !== 'string') return undefined;
+
+    const trimmed = value.trim();
+    if (trimmed === '') return undefined;
+    if (/^0o[0-7]+$/i.test(trimmed)) return parseInt(trimmed.slice(2), 8);
+    if (/^[0-7]+$/.test(trimmed)) return parseInt(trimmed, 8);
+
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+}
+
 function configureExpressTrustProxy() {
-    const trustProxyFromEnv = parseTrustProxySetting(process.env.YTDL_TRUST_PROXY);
+    const {envKey: trustProxyEnvKey, value: rawTrustProxyValue} = getFirstDefinedEnvValue(['ytdl_trust_proxy', 'YTDL_TRUST_PROXY']);
+    const trustProxyFromEnv = parseTrustProxySetting(rawTrustProxyValue);
     if (trustProxyFromEnv !== undefined) {
         app.set('trust proxy', trustProxyFromEnv);
-        logger.info(`Express trust proxy configured from YTDL_TRUST_PROXY: ${JSON.stringify(trustProxyFromEnv)}`);
+        logger.info(`Express trust proxy configured from ${trustProxyEnvKey}: ${JSON.stringify(trustProxyFromEnv)}`);
         return;
     }
 
@@ -97,8 +119,9 @@ const users_db = low(users_adapter);
 
 // env var setup
 
-const umask = process.env.YTDL_UMASK;
-if (umask) process.umask(parseInt(umask));
+const {value: rawUmaskValue} = getFirstDefinedEnvValue(['ytdl_umask', 'YTDL_UMASK']);
+const umask = parseUmaskSetting(rawUmaskValue);
+if (umask !== undefined) process.umask(umask);
 
 // check if debug mode
 let debugMode = process.env.YTDL_MODE === 'debug';
