@@ -323,9 +323,21 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_use_local_db',
         'path': 'YtdlMaterial.Database.use_local_db'
     },
+    'ytdl_remote_db_type': {
+        'key': 'ytdl_remote_db_type',
+        'path': 'YtdlMaterial.Database.remote_db_type'
+    },
     'ytdl_mongodb_connection_string': {
         'key': 'ytdl_mongodb_connection_string',
         'path': 'YtdlMaterial.Database.mongodb_connection_string'
+    },
+    'ytdl_postgresdb_connection_string': {
+        'key': 'ytdl_postgresdb_connection_string',
+        'path': 'YtdlMaterial.Database.postgresdb_connection_string'
+    },
+    'ytdl_db_migrate': {
+        'key': 'ytdl_db_migrate',
+        'path': 'YtdlMaterial.Database.db_migrate'
     },
 
     // Advanced

@@ -83,7 +83,10 @@
       }
     },
     "Database": {
+      "remote_db_type": "postgres",
       "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib",
+      "postgresdb_connection_string": "postgresql://ytdl-material:ytdl-material@127.0.0.1:5432/ytdl-material",
+      "db_migrate": "",
       "use_local_db": false
     },
     "Advanced": {

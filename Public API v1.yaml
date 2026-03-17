@@ -2309,6 +2309,14 @@ components:
       properties:
         using_local_db:
           type: boolean
+        current_db_type:
+          type: string
+        current_db_label:
+          type: string
+        configured_remote_db_type:
+          type: string
+        configured_remote_db_label:
+          type: string
         stats_by_table:
           type: object
           properties:
@@ -2343,7 +2351,7 @@ components:
       type: object
       properties:
         local_to_remote:
-          description: True if transfering DB from Local to MongoDB, false if transferring DB from MongoDB to Local
+          description: True if transferring DB from Local to the configured remote DB, false if transferring the configured remote DB to Local
           type: boolean
     TestConnectionStringResponse:
       required:
@@ -2360,7 +2368,7 @@ components:
       type: object
       properties:
         connection_string:
-          description: MongoDB connection string
+          description: MongoDB or PostgreSQL connection string
           type: string
     GetFullTwitchChatResponse:
       required:

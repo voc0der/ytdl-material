@@ -777,8 +777,10 @@ async function loadConfig() {
     }
 
     // connect to DB
-    if (!config_api.getConfigItem('ytdl_use_local_db'))
+    if (!config_api.getConfigItem('ytdl_use_local_db')) {
+        await db_api.runConfiguredDBMigration();
         await db_api.connectToDB();
+    }
     db_api.database_initialized = true;
     db_api.database_initialized_bs.next(true);
 
@@ -1100,13 +1102,15 @@ app.post('/api/transferDB', optionalJwt, async (req, res) => {
     const local_to_remote = req.body.local_to_remote;
     let success = null;
     let error = '';
+    const configured_remote_db_type = db_api.getConfiguredRemoteDBType({ preferMigrationTarget: true });
+    const configured_remote_db_label = db_api.getDBLabel(configured_remote_db_type);
     if (local_to_remote === config_api.getConfigItem('ytdl_use_local_db')) {
         success = await db_api.transferDB(local_to_remote);
         if (!success) error = 'Unknown error';
         else config_api.setConfigItem('ytdl_use_local_db', !local_to_remote);
     } else {
         success = false;
-        error = `Failed to transfer DB as it cannot transition into its current status: ${local_to_remote ? 'MongoDB' : 'Local DB'}`;
+        error = `Failed to transfer DB as it cannot transition into its current status: ${local_to_remote ? configured_remote_db_label : 'Local DB'}`;
         logger.error(error);
     }
 

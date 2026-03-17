@@ -29,14 +29,16 @@ docker compose pull   # if needed
 docker compose up -d
 ```
 
+The default compose file uses PostgreSQL as the remote database backend.
+
 Docker environment variables: [docker-environment.md](./docker-environment.md). See [Wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for host-specific instructions.
 
 #### Build manually
 See the [install and build guide](./install-and-build.md).
 
-## MongoDB
+## Remote Databases
 
-For much better scaling with large datasets, run your ytdl-material instance with the MongoDB backend rather than the JSON file-based default; for setup and upgrades, see the [MongoDB tutorial](https://github.com/voc0der/ytdl-material/wiki/Setting-a-MongoDB-backend-to-use-as-database-provider-for-YTDL-M) and [Upgrading MongoDB to 8.x](https://github.com/voc0der/ytdl-material/wiki/Update-MongoDB-to-8.x).
+The project now supports PostgreSQL and MongoDB as remote database backends. The shipped Docker examples default to PostgreSQL, while MongoDB remains available through the database settings and Docker environment variables. For MongoDB-specific setup and upgrades, see the [MongoDB tutorial](https://github.com/voc0der/ytdl-material/wiki/Setting-a-MongoDB-backend-to-use-as-database-provider-for-YTDL-M) and [Upgrading MongoDB to 8.x](https://github.com/voc0der/ytdl-material/wiki/Update-MongoDB-to-8.x).
 
 ## API
 
