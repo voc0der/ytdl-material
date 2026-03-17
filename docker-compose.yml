@@ -1,7 +1,16 @@
 services:
   ytdl-material:
     image: voc0der/ytdl-material:nightly
+    container_name: ytdl-material
     restart: always
+    environment:
+      ytdl_use_local_db: 'false'
+      ytdl_remote_db_type: 'postgres'
+      ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+      write_ytdl_config: 'true'
+    depends_on:
+      ytdl-postgres-db:
+        condition: service_healthy
     ports:
       - "17442:17442"
     volumes:
@@ -10,3 +19,23 @@ services:
       - ./video:/app/video
       - ./subscriptions:/app/subscriptions
       - ./users:/app/users
+
+  ytdl-postgres-db:
+    image: postgres:alpine
+    container_name: ytdl-postgres-db
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ytdl-material
+      POSTGRES_DB: ytdl-material
+      POSTGRES_USER: ytdl-material
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ytdl-material -d ytdl-material"]
+      interval: 15s
+      timeout: 30s
+      retries: 5
+      start_period: 35s
+      start_interval: 1s
+    logging:
+      driver: "none"
+    volumes:
+      - ./db:/var/lib/postgresql/data

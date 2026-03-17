@@ -4,7 +4,7 @@
 
 export type TransferDBRequest = {
     /**
-     * True if transfering DB from Local to MongoDB, false if transferring DB from MongoDB to Local
+     * True if transferring DB from Local to the configured remote DB, false if transferring the configured remote DB to Local
      */
     local_to_remote: boolean;
 };

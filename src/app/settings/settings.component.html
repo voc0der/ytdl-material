@@ -377,7 +377,7 @@
             <div class="col-12 mt-3">
               @if (db_info) {
                 <div>
-                  <p><ng-container i18n="Database location label">Database location:</ng-container>&nbsp;<strong>{{db_info['using_local_db'] ? 'Local' : 'MongoDB'}}</strong></p>
+                  <p><ng-container i18n="Database location label">Database location:</ng-container>&nbsp;<strong>{{db_info['current_db_label'] || (db_info['using_local_db'] ? 'Local' : 'MongoDB')}}</strong></p>
                   <h6 i18n="Records per table label">Records per table</h6>
                   <mat-list style="padding-top: 0px">
                     @for (table_stats of db_info['stats_by_table'] | keyvalue; track table_stats) {
@@ -387,18 +387,47 @@
                     }
                   </mat-list>
                   <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="MongoDB Connection String">MongoDB Connection String</mat-label>
-                    <input [(ngModel)]="new_config['Database']['mongodb_connection_string']" matInput required>
-                    <mat-hint><ng-container i18n="MongoDB Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;mongodb://127.0.0.1:27017/?compressors=zlib<br>Docker: mongodb://&lt;container name&gt;:27017/?compressors=zlib</mat-hint>
+                    <mat-label i18n="Remote Database Type">Remote Database Type</mat-label>
+                    <mat-select [(ngModel)]="new_config['Database']['remote_db_type']">
+                      <mat-option value="" i18n="Automatic remote database type option">Automatic</mat-option>
+                      <mat-option value="postgres">PostgreSQL</mat-option>
+                      <mat-option value="mongo">MongoDB</mat-option>
+                    </mat-select>
+                    <mat-hint i18n="Remote DB type hint">Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
+                    <mat-label i18n="PostgreSQL Connection String">PostgreSQL Connection String</mat-label>
+                    <input [(ngModel)]="new_config['Database']['postgresdb_connection_string']" matInput>
+                    <mat-hint><ng-container i18n="PostgreSQL Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;postgresql://ytdl-material:ytdl-material@127.0.0.1:5432/ytdl-material<br>Docker: postgresql://&lt;container name&gt;:5432/ytdl-material</mat-hint>
                   </mat-form-field>
                   <div class="test-connection-div">
-                    <button (click)="testConnectionString(new_config['Database']['mongodb_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test connection string button">Test connection string</ng-container></button>
+                    <button (click)="testConnectionString(new_config['Database']['postgresdb_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test PostgreSQL connection string button">Test PostgreSQL connection string</ng-container></button>
                     @if (testing_connection_string) {
                       <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
                     }
                   </div>
+                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
+                    <mat-label i18n="MongoDB Connection String">MongoDB Connection String</mat-label>
+                    <input [(ngModel)]="new_config['Database']['mongodb_connection_string']" matInput>
+                    <mat-hint><ng-container i18n="MongoDB Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;mongodb://127.0.0.1:27017/?compressors=zlib<br>Docker: mongodb://&lt;container name&gt;:27017/?compressors=zlib</mat-hint>
+                  </mat-form-field>
+                  <div class="test-connection-div">
+                    <button (click)="testConnectionString(new_config['Database']['mongodb_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test MongoDB connection string button">Test MongoDB connection string</ng-container></button>
+                    @if (testing_connection_string) {
+                      <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
+                    }
+                  </div>
+                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
+                    <mat-label i18n="DB migration mode">DB migration mode</mat-label>
+                    <mat-select [(ngModel)]="new_config['Database']['db_migrate']">
+                      <mat-option value="" i18n="DB migration off option">Disabled</mat-option>
+                      <mat-option value="postgres">MongoDB to PostgreSQL on startup</mat-option>
+                      <mat-option value="mongo">PostgreSQL to MongoDB on startup</mat-option>
+                    </mat-select>
+                    <mat-hint i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Successful migrations clear the saved setting automatically, but remove the env var so it is not re-applied on the next boot.</mat-hint>
+                  </mat-form-field>
                   <div class="transfer-db-div">
-                    <button [disabled]="db_transferring" color="accent" (click)="transferDB()" mat-raised-button><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? 'MongoDB' : 'Local'}}</button>
+                    <button [disabled]="db_transferring" color="accent" (click)="transferDB()" mat-raised-button><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? (db_info['configured_remote_db_label'] || 'Remote DB') : 'Local'}}</button>
                   </div>
                 </div>
               }

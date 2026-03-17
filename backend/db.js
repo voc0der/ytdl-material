@@ -1,25 +1,48 @@
 const fs = require('fs-extra')
 const path = require('path')
-const { MongoClient } = require("mongodb");
 const _ = require('lodash');
 
 const config_api = require('./config');
 const utils = require('./utils')
 const logger = require('./logger');
+const postgres_store = require('./postgres-store');
 
 const low = require('./lowdb-compat')
 const FileSync = require('./lowdb-compat/adapters/FileSync');
 const { BehaviorSubject } = require('rxjs');
 
 let local_db = null;
-let database = null;
+let db = null;
+let users_db = null;
+let mongo_client = null;
+let mongo_database = null;
+let postgres_pool = null;
+let remote_db_type = null;
 exports.database_initialized = false;
 exports.database_initialized_bs = new BehaviorSubject(false);
+
+const DB_TYPES = Object.freeze({
+    local: 'local',
+    mongo: 'mongo',
+    postgres: 'postgres'
+});
 
 const tables = {
     files: {
         name: 'files',
         primary_key: 'uid',
+        field_types: {
+            uid: 'text',
+            registered: 'numeric',
+            user_uid: 'text',
+            sub_id: 'text',
+            isAudio: 'boolean',
+            duplicate_key: 'text',
+            favorite: 'boolean',
+            url: 'text',
+            path: 'text',
+            'category.uid': 'text'
+        },
         text_search: {
             title: 'text',
             uploader: 'text',
@@ -41,28 +64,52 @@ const tables = {
     playlists: {
         name: 'playlists',
         primary_key: 'id',
+        field_types: {
+            id: 'text',
+            user_uid: 'text'
+        },
         indexes: [
             { keys: { user_uid: 1 } }
         ]
     },
     categories: {
         name: 'categories',
-        primary_key: 'uid'
+        primary_key: 'uid',
+        field_types: {
+            uid: 'text'
+        }
     },
     subscriptions: {
         name: 'subscriptions',
         primary_key: 'id',
+        field_types: {
+            id: 'text',
+            user_uid: 'text',
+            paused: 'boolean',
+            streamingOnly: 'boolean',
+            isPlaylist: 'boolean',
+            name: 'text',
+            url: 'text'
+        },
         indexes: [
             { keys: { user_uid: 1 } },
             { keys: { paused: 1, streamingOnly: 1 } }
         ]
     },
     downloads: {
-        name: 'downloads'
+        name: 'downloads',
+        field_types: {
+            key: 'text'
+        }
     },
     users: {
         name: 'users',
         primary_key: 'uid',
+        field_types: {
+            uid: 'text',
+            name: 'text',
+            oidc_subject: 'text'
+        },
         indexes: [
             { keys: { name: 1 } },
             { keys: { oidc_subject: 1 } }
@@ -70,11 +117,26 @@ const tables = {
     },
     roles: {
         name: 'roles',
-        primary_key: 'key'
+        primary_key: 'key',
+        field_types: {
+            key: 'text'
+        }
     },
     download_queue: {
         name: 'download_queue',
         primary_key: 'uid',
+        field_types: {
+            uid: 'text',
+            finished: 'boolean',
+            paused: 'boolean',
+            finished_step: 'boolean',
+            timestamp_start: 'numeric',
+            user_uid: 'text',
+            sub_id: 'text',
+            error: 'text',
+            running: 'boolean',
+            url: 'text'
+        },
         indexes: [
             { keys: { finished: 1, paused: 1, finished_step: 1, timestamp_start: 1 } },
             { keys: { user_uid: 1, finished: 1, paused: 1 } },
@@ -85,30 +147,73 @@ const tables = {
     },
     tasks: {
         name: 'tasks',
-        primary_key: 'key'
+        primary_key: 'key',
+        field_types: {
+            key: 'text',
+            'data.task_key': 'text'
+        }
     },
     notifications: {
         name: 'notifications',
         primary_key: 'uid',
+        field_types: {
+            uid: 'text',
+            user_uid: 'text',
+            read: 'boolean',
+            'data.task_key': 'text'
+        },
         indexes: [
             { keys: { user_uid: 1 } }
         ]
     },
     archives: {
         name: 'archives',
+        field_types: {
+            extractor: 'text',
+            id: 'text',
+            type: 'text',
+            sub_id: 'text',
+            user_uid: 'text'
+        },
         indexes: [
             { keys: { extractor: 1, id: 1, type: 1, sub_id: 1, user_uid: 1 } },
             { keys: { sub_id: 1, user_uid: 1, type: 1 } }
         ]
     },
     test: {
-        name: 'test'
+        name: 'test',
+        field_types: {
+            uid: 'text',
+            key: 'text',
+            test: 'text',
+            added_field: 'boolean',
+            test_remove: 'text',
+            test_property: 'text'
+        }
     }
 }
 
 const tables_list = Object.keys(tables);
 
 let using_local_db = null; 
+let MongoClientCtor = null;
+
+function getMongoClientCtor() {
+    if (!MongoClientCtor) {
+        ({ MongoClient: MongoClientCtor } = require('mongodb'));
+    }
+    return MongoClientCtor;
+}
+
+function writeBackupSnapshot(table_to_records = {}, backup_prefix = null) {
+    const backup_dir = path.join('appdata', 'db_backup');
+    fs.ensureDirSync(backup_dir);
+    const snapshot_prefix = backup_prefix || (using_local_db ? 'local' : 'remote');
+    const backup_file_name = `${snapshot_prefix}_db.json.${Date.now()/1000}.bak`;
+    const path_to_backup = path.join(backup_dir, backup_file_name);
+    fs.writeJsonSync(path_to_backup, table_to_records);
+    return { backup_file_name, path_to_backup };
+}
 
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
@@ -183,6 +288,51 @@ function isMongoWriteAck(result) {
     return true;
 }
 
+function normalizeDBType(value = null) {
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim().toLowerCase();
+    if (normalized === DB_TYPES.mongo || normalized === 'mongodb') return DB_TYPES.mongo;
+    if (normalized === DB_TYPES.postgres || normalized === 'postgresql') return DB_TYPES.postgres;
+    return null;
+}
+
+function inferDBTypeFromConnectionString(connectionString = '') {
+    if (typeof connectionString !== 'string') return null;
+    const normalized = connectionString.trim().toLowerCase();
+    if (normalized.startsWith('mongodb://') || normalized.startsWith('mongodb+srv://')) return DB_TYPES.mongo;
+    if (normalized.startsWith('postgres://') || normalized.startsWith('postgresql://')) return DB_TYPES.postgres;
+    return null;
+}
+
+function getRemoteConnectionStringForType(dbType) {
+    if (dbType === DB_TYPES.postgres) return config_api.getConfigItem('ytdl_postgresdb_connection_string');
+    return config_api.getConfigItem('ytdl_mongodb_connection_string');
+}
+
+function getConfiguredRemoteDBType(options = {}) {
+    const { preferMigrationTarget = false } = options;
+    const configuredType = normalizeDBType(config_api.getConfigItem('ytdl_remote_db_type'));
+    const migrationTarget = normalizeDBType(config_api.getConfigItem('ytdl_db_migrate'));
+    const postgresConnectionString = config_api.getConfigItem('ytdl_postgresdb_connection_string');
+
+    if (preferMigrationTarget && migrationTarget) return migrationTarget;
+    if (configuredType) return configuredType;
+    if (migrationTarget) return migrationTarget;
+    if (typeof postgresConnectionString === 'string' && postgresConnectionString.trim().length > 0) return DB_TYPES.postgres;
+    return DB_TYPES.mongo;
+}
+
+function getActiveDBType() {
+    if (using_local_db) return DB_TYPES.local;
+    return remote_db_type || getConfiguredRemoteDBType();
+}
+
+function getDBLabel(dbType) {
+    if (dbType === DB_TYPES.postgres) return 'PostgreSQL';
+    if (dbType === DB_TYPES.mongo) return 'MongoDB';
+    return 'Local';
+}
+
 function setDB(input_db, input_users_db) {
     db = input_db; users_db = input_users_db;
     exports.db = input_db;
@@ -203,15 +353,190 @@ exports.initialize = (input_db, input_users_db, db_name = 'local_db.json') => {
     local_db.defaults(local_db_defaults).write();
 }
 
+async function closeRemoteConnections(options = {}) {
+    const { keepType = null } = options;
+
+    if (keepType !== DB_TYPES.mongo && mongo_client) {
+        await mongo_client.close().catch(() => null);
+        mongo_client = null;
+        mongo_database = null;
+    }
+
+    if (keepType !== DB_TYPES.postgres && postgres_pool) {
+        await postgres_store.closeConnection(postgres_pool).catch(() => null);
+        postgres_pool = null;
+    }
+
+    if (!keepType) remote_db_type = null;
+}
+
+async function listMongoCollectionNames(database) {
+    return (await database.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name);
+}
+
+async function mongoCollectionExists(database, collection_name) {
+    const collection = await database.listCollections({ name: collection_name }, { nameOnly: true }).toArray();
+    return collection.length > 0;
+}
+
+async function ensureMongoCollection(database, collection_name, table_meta = {}) {
+    if (!(await mongoCollectionExists(database, collection_name))) {
+        await database.createCollection(collection_name);
+    }
+
+    const table_collection = database.collection(collection_name);
+    const primary_key = table_meta['primary_key'];
+    if (primary_key) {
+        await table_collection.createIndex({[primary_key]: 1}, { unique: true });
+    }
+
+    const text_search = table_meta['text_search'];
+    if (text_search) {
+        await table_collection.createIndex(text_search);
+    }
+
+    const extra_indexes = table_meta['indexes'] || [];
+    for (const extra_index of extra_indexes) {
+        if (!extra_index || !extra_index.keys) continue;
+        await table_collection.createIndex(extra_index.keys, extra_index.options || {});
+    }
+}
+
+async function prepareMongoDatabase(database) {
+    for (const table of tables_list) {
+        await ensureMongoCollection(database, table, tables[table]);
+    }
+}
+
+async function hasAnyRecordsInMongoDatabase(database, collection_names = tables_list) {
+    const existing_collections = new Set(await listMongoCollectionNames(database));
+    for (const table of collection_names) {
+        if (!existing_collections.has(table)) continue;
+        const record = await database.collection(table).findOne({}, { projection: { _id: 1 } });
+        if (record) return true;
+    }
+    return false;
+}
+
+function getMongoIncomingCollectionName(table_name, suffix) {
+    return `${table_name}__incoming_${suffix}`;
+}
+
+function getMongoBackupCollectionName(table_name, suffix) {
+    return `${table_name}__backup_${suffix}`;
+}
+
+function generateMongoMigrationSuffix() {
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function renameMongoCollection(database, current_name, next_name) {
+    if (!(await mongoCollectionExists(database, current_name))) return false;
+    await database.collection(current_name).rename(next_name, { dropTarget: true });
+    return true;
+}
+
+async function dropMongoCollection(database, collection_name) {
+    if (!(await mongoCollectionExists(database, collection_name))) return false;
+    try {
+        await database.collection(collection_name).drop();
+    } catch (error) {
+        const missing_namespace = error && (error.codeName === 'NamespaceNotFound' || String(error.message || '').toLowerCase().includes('ns not found'));
+        if (!missing_namespace) throw error;
+    }
+    return true;
+}
+
+async function cleanupMongoSwapCollections(database, swap_state_by_table = {}) {
+    for (const state of Object.values(swap_state_by_table)) {
+        await dropMongoCollection(database, state.incoming_name).catch(() => null);
+        await dropMongoCollection(database, state.backup_name).catch(() => null);
+    }
+}
+
+async function rollbackMongoTableReplacement(database, swap_state_by_table = {}) {
+    const tables_to_restore = Object.keys(swap_state_by_table).reverse();
+    for (const table of tables_to_restore) {
+        const swap_state = swap_state_by_table[table];
+
+        if (swap_state.swapped) {
+            await renameMongoCollection(database, table, swap_state.incoming_name).catch(() => null);
+            swap_state.swapped = false;
+        }
+
+        if (swap_state.backed_up) {
+            await renameMongoCollection(database, swap_state.backup_name, table).catch(() => null);
+            swap_state.backed_up = false;
+        }
+    }
+
+    await cleanupMongoSwapCollections(database, swap_state_by_table);
+}
+
+function readAllTablesFromLocal() {
+    const table_to_records = {};
+    for (const table of tables_list) {
+        table_to_records[table] = _.cloneDeep(local_db.get(table).value() || []);
+    }
+    return table_to_records;
+}
+
+function localDatabaseHasRecords() {
+    return tables_list.some(table => {
+        const records = local_db.get(table).value();
+        return Array.isArray(records) && records.length > 0;
+    });
+}
+
+async function connectMongoDB(uri, options = {}) {
+    const { testOnly = false } = options;
+    const MongoClient = getMongoClientCtor();
+    const client = new MongoClient(uri);
+    await client.connect();
+    const database = client.db('ytdl_material');
+
+    if (testOnly) {
+        await client.close();
+        return true;
+    }
+
+    await prepareMongoDatabase(database);
+
+    await closeRemoteConnections({ keepType: DB_TYPES.mongo });
+    mongo_client = client;
+    mongo_database = database;
+    remote_db_type = DB_TYPES.mongo;
+    using_local_db = false;
+    return true;
+}
+
+async function connectPostgresDB(connection_string, options = {}) {
+    const { testOnly = false } = options;
+    const pool = await postgres_store.createConnection(connection_string, tables, { testOnly: testOnly });
+    if (testOnly) {
+        await postgres_store.closeConnection(pool);
+        return true;
+    }
+
+    await closeRemoteConnections({ keepType: DB_TYPES.postgres });
+    postgres_pool = pool;
+    remote_db_type = DB_TYPES.postgres;
+    using_local_db = false;
+    return true;
+}
+
 exports.connectToDB = async (retries = 5, no_fallback = false, custom_connection_string = null) => {
-    const success = await exports._connectToDB(custom_connection_string);
+    const target_db_type = custom_connection_string
+        ? inferDBTypeFromConnectionString(custom_connection_string)
+        : getConfiguredRemoteDBType({ preferMigrationTarget: true });
+    const success = await exports._connectToDB(custom_connection_string, target_db_type);
     if (success) return true;
 
     if (retries) {
-        logger.warn(`MongoDB connection failed! Retrying ${retries} times...`);
+        logger.warn(`${getDBLabel(target_db_type)} connection failed! Retrying ${retries} times...`);
         const retry_delay_ms = 2000;
         for (let i = 0; i < retries; i++) {
-            const retry_succeeded = await exports._connectToDB();
+            const retry_succeeded = await exports._connectToDB(null, target_db_type);
             if (retry_succeeded) {
                 logger.info(`Successfully connected to DB after ${i+1} attempt(s)`);
                 return true;
@@ -227,58 +552,40 @@ exports.connectToDB = async (retries = 5, no_fallback = false, custom_connection
     }
     
     if (no_fallback) {
-        logger.error('Failed to connect to MongoDB. Verify your connection string is valid.');
-        return;
+        logger.error(`Failed to connect to ${getDBLabel(target_db_type)}. Verify your connection string is valid.`);
+        return false;
     }
+    await closeRemoteConnections();
     using_local_db = true;
     config_api.setConfigItem('ytdl_use_local_db', true);
-    logger.error('Failed to connect to MongoDB, using Local DB as a fallback. Make sure your MongoDB instance is accessible, or set Local DB as a default through the config.');
+    logger.error(`Failed to connect to ${getDBLabel(target_db_type)}, using Local DB as a fallback. Make sure your remote database is accessible, or set Local DB as a default through the config.`);
     return true;
 }
 
-exports._connectToDB = async (custom_connection_string = null) => {
-    const uri = !custom_connection_string ? config_api.getConfigItem('ytdl_mongodb_connection_string') : custom_connection_string; // "mongodb://127.0.0.1:27017/?compressors=zlib&gssapiServiceName=mongodb";
-    const client = new MongoClient(uri);
+exports._connectToDB = async (custom_connection_string = null, custom_db_type = null) => {
+    const db_type = custom_db_type
+        || (custom_connection_string ? inferDBTypeFromConnectionString(custom_connection_string) : getConfiguredRemoteDBType({ preferMigrationTarget: true }));
+    const connection_string = custom_connection_string || getRemoteConnectionStringForType(db_type);
 
     try {
-        await client.connect();
-        database = client.db('ytdl_material');
-
-        // avoid doing anything else if it's just a test
-        if (custom_connection_string) return true;
-
-        const existing_collections = (await database.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name);
-
-        const missing_tables = tables_list.filter(table => !(existing_collections.includes(table)));
-        await Promise.all(missing_tables.map(table => database.createCollection(table)));
-
-        for (const table of tables_list) {
-            const table_collection = database.collection(table);
-
-            const primary_key = tables[table]['primary_key'];
-            if (primary_key) {
-                await table_collection.createIndex({[primary_key]: 1}, { unique: true });
-            }
-
-            const text_search = tables[table]['text_search'];
-            if (text_search) {
-                await table_collection.createIndex(text_search);
-            }
-
-            const extra_indexes = tables[table]['indexes'] || [];
-            for (const extra_index of extra_indexes) {
-                if (!extra_index || !extra_index.keys) continue;
-                await table_collection.createIndex(extra_index.keys, extra_index.options || {});
-            }
+        if (!db_type) {
+            logger.error('Could not determine remote database type from configuration.');
+            return false;
         }
-        using_local_db = false; // needs to happen for tests (in normal operation using_local_db is guaranteed false)
+        if (!connection_string || String(connection_string).trim().length === 0) {
+            logger.error(`No ${getDBLabel(db_type)} connection string has been configured.`);
+            return false;
+        }
+
+        if (db_type === DB_TYPES.postgres) {
+            await connectPostgresDB(connection_string, { testOnly: !!custom_connection_string });
+        } else {
+            await connectMongoDB(connection_string, { testOnly: !!custom_connection_string });
+        }
         return true;
     } catch(err) {
         logger.error(err);
         return false;
-    } finally {
-        // Ensures that the client will close when you finish/error
-        // await client.close();
     }
 }
 
@@ -371,8 +678,12 @@ exports.insertRecordIntoTable = async (table, doc, replaceFilter = null) => {
         return true;
     }
 
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.insertRecord(postgres_pool, tables, table, doc, replaceFilter);
+    }
+
     if (replaceFilter) {
-        const output = await database.collection(table).bulkWrite([
+        const output = await mongo_database.collection(table).bulkWrite([
             {
                 deleteMany: {
                     filter: replaceFilter
@@ -388,7 +699,7 @@ exports.insertRecordIntoTable = async (table, doc, replaceFilter = null) => {
         return isMongoWriteAck(output);
     }
 
-    const output = await database.collection(table).insertOne(doc);
+    const output = await mongo_database.collection(table).insertOne(doc);
     logger.debug(`Inserted doc into ${table}`);
     return isMongoWriteAck(output);
 }
@@ -407,7 +718,10 @@ exports.insertRecordsIntoTable = async (table, docs, ignore_errors = false) => {
         }
         return true;
     }
-    const output = await database.collection(table).insertMany(docs, {ordered: !ignore_errors});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.insertRecords(postgres_pool, tables, table, docs, ignore_errors);
+    }
+    const output = await mongo_database.collection(table).insertMany(docs, {ordered: !ignore_errors});
     logger.debug(`Inserted ${output.insertedCount} docs into ${table}`);
     return isMongoWriteAck(output);
 }
@@ -419,8 +733,12 @@ exports.bulkInsertRecordsIntoTable = async (table, docs) => {
     }
     if (!docs || docs.length === 0) return true;
 
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.bulkInsertRecords(postgres_pool, tables, table, docs);
+    }
+
     // not a necessary function as insertRecords does the same thing but gives us more control on batch size if needed
-    const output = await database.collection(table).bulkWrite(
+    const output = await mongo_database.collection(table).bulkWrite(
         docs.map(doc => ({
             insertOne: {
                 document: doc
@@ -440,7 +758,11 @@ exports.getRecord = async (table, filter_obj) => {
         return exports.applyFilterLocalDB(local_db.get(table), filter_obj, 'find').value();
     }
 
-    return await database.collection(table).findOne(filter_obj);
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.getRecord(postgres_pool, tables, table, filter_obj);
+    }
+
+    return await mongo_database.collection(table).findOne(filter_obj);
 }
 
 exports.getRecords = async (table, filter_obj = null, return_count = false, sort = null, range = null) => {
@@ -456,7 +778,11 @@ exports.getRecords = async (table, filter_obj = null, return_count = false, sort
         return !return_count ? cursor : cursor.length;
     }
 
-    const collection = database.collection(table);
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.getRecords(postgres_pool, tables, table, filter_obj, return_count, sort, range);
+    }
+
+    const collection = mongo_database.collection(table);
     if (return_count) {
         return await collection.countDocuments(filter_obj || {});
     }
@@ -483,7 +809,11 @@ exports.aggregateRecords = async (table, pipeline = []) => {
         return [];
     }
 
-    return await database.collection(table).aggregate(Array.isArray(pipeline) ? pipeline : []).toArray();
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.aggregateRecords(postgres_pool, tables, table, pipeline);
+    }
+
+    return await mongo_database.collection(table).aggregate(Array.isArray(pipeline) ? pipeline : []).toArray();
 }
 
 // Update
@@ -522,7 +852,11 @@ exports.updateRecord = async (table, filter_obj, update_obj, nested_mode = false
         return false;
     }
 
-    const output = await database.collection(table).updateOne(sanitized_filter_obj, {$set: sanitized_update_obj});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.updateRecord(postgres_pool, tables, table, sanitized_filter_obj, sanitized_update_obj);
+    }
+
+    const output = await mongo_database.collection(table).updateOne(sanitized_filter_obj, {$set: sanitized_update_obj});
     return isMongoWriteAck(output);
 }
 
@@ -561,7 +895,11 @@ exports.updateRecords = async (table, filter_obj, update_obj) => {
         return false;
     }
 
-    const output = await database.collection(table).updateMany(sanitized_filter_obj, {$set: sanitized_update_obj});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.updateRecords(postgres_pool, tables, table, sanitized_filter_obj, sanitized_update_obj);
+    }
+
+    const output = await mongo_database.collection(table).updateMany(sanitized_filter_obj, {$set: sanitized_update_obj});
     return isMongoWriteAck(output);
 }
 
@@ -573,7 +911,11 @@ exports.removePropertyFromRecord = async (table, filter_obj, remove_obj) => {
         return true;
     }
 
-    const output = await database.collection(table).updateOne(filter_obj, {$unset: remove_obj});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.removePropertyFromRecord(postgres_pool, tables, table, filter_obj, remove_obj);
+    }
+
+    const output = await mongo_database.collection(table).updateOne(filter_obj, {$unset: remove_obj});
     return isMongoWriteAck(output);
 }
 
@@ -594,10 +936,14 @@ exports.bulkUpdateRecordsByKey = async (table, key_label, update_obj) => {
         return true;
     }
 
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.bulkUpdateRecordsByKey(postgres_pool, tables, table, key_label, update_obj);
+    }
+
     const item_ids_to_update = Object.keys(update_obj);
     if (item_ids_to_update.length === 0) return true;
 
-    const output = await database.collection(table).bulkWrite(
+    const output = await mongo_database.collection(table).bulkWrite(
         item_ids_to_update.map(item_id_to_update => ({
             updateOne: {
                 filter: {[key_label]: item_id_to_update},
@@ -616,7 +962,11 @@ exports.pushToRecordsArray = async (table, filter_obj, key, value) => {
         return true;
     }
 
-    const output = await database.collection(table).updateOne(filter_obj, {$push: {[key]: value}});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.pushToRecordsArray(postgres_pool, tables, table, filter_obj, key, value);
+    }
+
+    const output = await mongo_database.collection(table).updateOne(filter_obj, {$push: {[key]: value}});
     return isMongoWriteAck(output);
 }
 
@@ -627,7 +977,11 @@ exports.pullFromRecordsArray = async (table, filter_obj, key, value) => {
         return true;
     }
 
-    const output = await database.collection(table).updateOne(filter_obj, {$pull: {[key]: value}});
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.pullFromRecordsArray(postgres_pool, tables, table, filter_obj, key, value);
+    }
+
+    const output = await mongo_database.collection(table).updateOne(filter_obj, {$pull: {[key]: value}});
     return isMongoWriteAck(output);
 }
 
@@ -640,7 +994,11 @@ exports.removeRecord = async (table, filter_obj) => {
         return true;
     }
 
-    const output = await database.collection(table).deleteOne(filter_obj);
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.removeRecord(postgres_pool, tables, table, filter_obj);
+    }
+
+    const output = await mongo_database.collection(table).deleteOne(filter_obj);
     return isMongoWriteAck(output);
 }
 
@@ -687,8 +1045,12 @@ exports.findDuplicatesByKey = async (table, key) => {
         }
         return duplicates;
     }
+
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.findDuplicatesByKey(postgres_pool, tables, table, key);
+    }
     
-    const duplicated_values = await database.collection(table).aggregate([
+    const duplicated_values = await mongo_database.collection(table).aggregate([
         {"$group" : { "_id": `$${key}`, "count": { "$sum": 1 } } },
         {"$match": {"_id" :{ "$ne" : null } , "count" : {"$gt": 1} } }, 
         {"$project": {[key] : "$_id", "_id" : 0} }
@@ -711,18 +1073,22 @@ exports.removeAllRecords = async (table = null, filter_obj = null) => {
     if (using_local_db) {
         for (let i = 0; i < tables_to_remove.length; i++) {
             const table_to_remove = tables_to_remove[i];
-            if (filter_obj) exports.applyFilterLocalDB(local_db.get(table), filter_obj, 'remove').write();
+            if (filter_obj) exports.applyFilterLocalDB(local_db.get(table_to_remove), filter_obj, 'remove').write();
             else local_db.assign({[table_to_remove]: []}).write();
             logger.debug(`Successfully removed records from ${table_to_remove}`);
         }
         return true;
     }
 
+    if (getActiveDBType() === DB_TYPES.postgres) {
+        return await postgres_store.removeAllRecords(postgres_pool, tables, table, filter_obj);
+    }
+
     let success = true;
     for (let i = 0; i < tables_to_remove.length; i++) {
         const table_to_remove = tables_to_remove[i];
 
-        const output = await database.collection(table_to_remove).deleteMany(filter_obj ? filter_obj : {});
+        const output = await mongo_database.collection(table_to_remove).deleteMany(filter_obj ? filter_obj : {});
         logger.debug(`Successfully removed records from ${table_to_remove}`);
         success &= isMongoWriteAck(output);
     }
@@ -739,7 +1105,16 @@ exports.getDBStats = async () => {
 
         stats_by_table[table] = await getDBTableStats(table);
     }
-    return {stats_by_table: stats_by_table, using_local_db: using_local_db};
+    const current_db_type = getActiveDBType();
+    const configured_remote_db_type = getConfiguredRemoteDBType({ preferMigrationTarget: true });
+    return {
+        stats_by_table: stats_by_table,
+        using_local_db: using_local_db,
+        current_db_type: current_db_type,
+        current_db_label: getDBLabel(current_db_type),
+        configured_remote_db_type: configured_remote_db_type,
+        configured_remote_db_label: getDBLabel(configured_remote_db_type)
+    };
 }
 
 const getDBTableStats = async (table) => {
@@ -747,8 +1122,11 @@ const getDBTableStats = async (table) => {
     // local db override
     if (using_local_db) {
         table_stats['records_count'] = local_db.get(table).value().length;
+    } else if (getActiveDBType() === DB_TYPES.postgres) {
+        const postgres_table_stats = await postgres_store.getTableStats(postgres_pool, table);
+        table_stats['records_count'] = postgres_table_stats['records_count'];
     } else {
-        table_stats['records_count'] = await database.collection(table).countDocuments({});
+        table_stats['records_count'] = await mongo_database.collection(table).countDocuments({});
     }
     return table_stats;
 }
@@ -878,21 +1256,14 @@ const createDownloadsRecords = (downloads) => {
 }
 
 exports.backupDB = async () => {
-    const backup_dir = path.join('appdata', 'db_backup');
-    fs.ensureDirSync(backup_dir);
-    const backup_file_name = `${using_local_db ? 'local' : 'remote'}_db.json.${Date.now()/1000}.bak`;
-    const path_to_backups = path.join(backup_dir, backup_file_name);
-
-    logger.info(`Backing up ${using_local_db ? 'local' : 'remote'} DB to ${path_to_backups}`);
-
     const table_to_records = {};
     for (let i = 0; i < tables_list.length; i++) {
         const table = tables_list[i];
         table_to_records[table] = await exports.getRecords(table);
     }
 
-    fs.writeJsonSync(path_to_backups, table_to_records);
-
+    const { backup_file_name, path_to_backup } = writeBackupSnapshot(table_to_records);
+    logger.info(`Backing up ${using_local_db ? 'local' : 'remote'} DB to ${path_to_backup}`);
     return backup_file_name;
 }
 
@@ -943,11 +1314,11 @@ exports.transferDB = async (local_to_remote) => {
     if (local_to_remote) {
         const db_connected = await exports.connectToDB(5, true);
         if (!db_connected) {
-            logger.error('Failed to transfer database - could not connect to MongoDB. Verify that your connection URL is valid.');
+            logger.error(`Failed to transfer database - could not connect to ${getDBLabel(getConfiguredRemoteDBType({ preferMigrationTarget: true }))}. Verify that your connection URL is valid.`);
             return false;
         }
     }
-    success = true;
+    let success = true;
 
     logger.debug('Clearing new database before transfer...');
 
@@ -966,6 +1337,211 @@ exports.transferDB = async (local_to_remote) => {
     logger.debug('Transfer finished!');
 
     return success;
+}
+
+async function readAllTablesFromMongo(connection_string) {
+    const MongoClient = getMongoClientCtor();
+    const client = new MongoClient(connection_string);
+    await client.connect();
+    const database = client.db('ytdl_material');
+    try {
+        const table_to_records = {};
+        for (const table of tables_list) {
+            table_to_records[table] = await database.collection(table).find().toArray();
+        }
+        return table_to_records;
+    } finally {
+        await client.close().catch(() => null);
+    }
+}
+
+async function mongoDatabaseHasRecords(connection_string) {
+    const MongoClient = getMongoClientCtor();
+    const client = new MongoClient(connection_string);
+    await client.connect();
+    const database = client.db('ytdl_material');
+    try {
+        return await hasAnyRecordsInMongoDatabase(database);
+    } finally {
+        await client.close().catch(() => null);
+    }
+}
+
+async function replaceAllTablesInMongo(connection_string, table_to_records = {}) {
+    const MongoClient = getMongoClientCtor();
+    const client = new MongoClient(connection_string);
+    await client.connect();
+    const database = client.db('ytdl_material');
+    const swap_suffix = generateMongoMigrationSuffix();
+    const swap_state_by_table = {};
+    tables_list.forEach(table => {
+        swap_state_by_table[table] = {
+            incoming_name: getMongoIncomingCollectionName(table, swap_suffix),
+            backup_name: getMongoBackupCollectionName(table, swap_suffix),
+            had_original: false,
+            backed_up: false,
+            swapped: false
+        };
+    });
+
+    try {
+        const existing_collections = new Set(await listMongoCollectionNames(database));
+        for (const table of tables_list) {
+            const swap_state = swap_state_by_table[table];
+            swap_state.had_original = existing_collections.has(table);
+            await dropMongoCollection(database, swap_state.incoming_name).catch(() => null);
+            await dropMongoCollection(database, swap_state.backup_name).catch(() => null);
+            await ensureMongoCollection(database, swap_state.incoming_name, tables[table]);
+            const records = Array.isArray(table_to_records[table]) ? table_to_records[table] : [];
+            if (records.length > 0) {
+                await database.collection(swap_state.incoming_name).insertMany(records, { ordered: true });
+            }
+        }
+
+        try {
+            for (const table of tables_list) {
+                const swap_state = swap_state_by_table[table];
+                if (swap_state.had_original) {
+                    const backup_renamed = await renameMongoCollection(database, table, swap_state.backup_name);
+                    if (!backup_renamed) throw new Error(`Failed to back up MongoDB collection '${table}' before migration.`);
+                    swap_state.backed_up = true;
+                }
+
+                const incoming_renamed = await renameMongoCollection(database, swap_state.incoming_name, table);
+                if (!incoming_renamed) throw new Error(`Failed to activate migrated MongoDB collection '${table}'.`);
+                swap_state.swapped = true;
+            }
+        } catch (error) {
+            await rollbackMongoTableReplacement(database, swap_state_by_table);
+            throw error;
+        }
+
+        await cleanupMongoSwapCollections(database, swap_state_by_table);
+        return true;
+    } catch (error) {
+        await cleanupMongoSwapCollections(database, swap_state_by_table);
+        throw error;
+    } finally {
+        await client.close().catch(() => null);
+    }
+}
+
+async function readAllTablesFromPostgres(connection_string) {
+    const pool = await postgres_store.createConnection(connection_string, tables);
+    try {
+        return await postgres_store.readAllTables(pool, tables);
+    } finally {
+        await postgres_store.closeConnection(pool).catch(() => null);
+    }
+}
+
+async function postgresDatabaseHasRecords(connection_string) {
+    const pool = await postgres_store.createConnection(connection_string, tables, { testOnly: true });
+    try {
+        return await postgres_store.hasAnyRecords(pool, tables);
+    } finally {
+        await postgres_store.closeConnection(pool).catch(() => null);
+    }
+}
+
+async function replaceAllTablesInPostgres(connection_string, table_to_records = {}) {
+    const pool = await postgres_store.createConnection(connection_string, tables);
+    try {
+        return await postgres_store.replaceAllTables(pool, tables, table_to_records);
+    } finally {
+        await postgres_store.closeConnection(pool).catch(() => null);
+    }
+}
+
+async function readAllTablesFromRemote(db_type, connection_string) {
+    if (db_type === DB_TYPES.postgres) return await readAllTablesFromPostgres(connection_string);
+    return await readAllTablesFromMongo(connection_string);
+}
+
+async function remoteDatabaseHasRecords(db_type, connection_string) {
+    if (db_type === DB_TYPES.postgres) return await postgresDatabaseHasRecords(connection_string);
+    return await mongoDatabaseHasRecords(connection_string);
+}
+
+async function replaceAllTablesInRemote(db_type, connection_string, table_to_records = {}) {
+    if (db_type === DB_TYPES.postgres) return await replaceAllTablesInPostgres(connection_string, table_to_records);
+    return await replaceAllTablesInMongo(connection_string, table_to_records);
+}
+
+async function migrateRemoteDB(source_db_type, target_db_type, source_connection_string, target_connection_string) {
+    const table_to_records = await readAllTablesFromRemote(source_db_type, source_connection_string);
+    await replaceAllTablesInRemote(target_db_type, target_connection_string, table_to_records);
+    return true;
+}
+
+exports.runConfiguredDBMigration = async () => {
+    const migration_target = normalizeDBType(config_api.getConfigItem('ytdl_db_migrate'));
+    if (!migration_target) return true;
+
+    if (config_api.getConfigItem('ytdl_use_local_db')) {
+        throw new Error('ytdl_db_migrate requires ytdl_use_local_db to be false.');
+    }
+
+    const source_db_type = migration_target === DB_TYPES.mongo ? DB_TYPES.postgres : DB_TYPES.mongo;
+    const source_connection_string = getRemoteConnectionStringForType(source_db_type);
+    const target_connection_string = getRemoteConnectionStringForType(migration_target);
+
+    if (!source_connection_string || !target_connection_string) {
+        throw new Error(`ytdl_db_migrate=${migration_target} requires both ytdl_mongodb_connection_string and ytdl_postgresdb_connection_string to be set.`);
+    }
+
+    if (await remoteDatabaseHasRecords(migration_target, target_connection_string)) {
+        throw new Error(`Configured DB migration aborted: target ${getDBLabel(migration_target)} database already contains data. Remove ytdl_db_migrate after a successful migration, or empty the target database before retrying.`);
+    }
+
+    logger.info(`Beginning configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)}.`);
+
+    try {
+        await migrateRemoteDB(source_db_type, migration_target, source_connection_string, target_connection_string);
+        remote_db_type = migration_target;
+        const persisted = config_api.setConfigItems([
+            { key: 'ytdl_remote_db_type', value: migration_target },
+            { key: 'ytdl_db_migrate', value: '' }
+        ]);
+        if (!persisted) {
+            const persistence_error = new Error(`Configured DB migration completed, but failed to persist ytdl_remote_db_type=${migration_target} and clear ytdl_db_migrate. Update those settings manually before restarting.`);
+            persistence_error.migration_completed = true;
+            throw persistence_error;
+        }
+        logger.info(`Configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)} completed successfully.`);
+        return true;
+    } catch (error) {
+        if (error && error.migration_completed) {
+            logger.error(error.message);
+            throw error;
+        }
+        logger.error(`Configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)} failed. The source database was left untouched.`);
+        throw error;
+    }
+}
+
+exports.bootstrapRemoteDBFromLocalIfNeeded = async () => {
+    if (using_local_db) return false;
+    if (normalizeDBType(config_api.getConfigItem('ytdl_db_migrate'))) return false;
+    if (!localDatabaseHasRecords()) return false;
+
+    const target_db_type = getConfiguredRemoteDBType();
+    const target_connection_string = getRemoteConnectionStringForType(target_db_type);
+    if (!target_connection_string || String(target_connection_string).trim().length === 0) return false;
+    if (await remoteDatabaseHasRecords(target_db_type, target_connection_string)) return false;
+
+    const table_to_records = readAllTablesFromLocal();
+    const { backup_file_name, path_to_backup } = writeBackupSnapshot(table_to_records, 'local');
+    logger.info(`Configured ${getDBLabel(target_db_type)} database is empty while the local DB contains data. Bootstrapping the remote DB from local data using backup '${path_to_backup}'.`);
+
+    try {
+        await replaceAllTablesInRemote(target_db_type, target_connection_string, table_to_records);
+        logger.info(`Bootstrapped ${getDBLabel(target_db_type)} from local DB data successfully. Local backup written to '${backup_file_name}'.`);
+        return true;
+    } catch (error) {
+        logger.error(`Failed to bootstrap ${getDBLabel(target_db_type)} from local DB data. The local DB was left untouched and its backup remains at '${path_to_backup}'.`);
+        throw error;
+    }
 }
 
 /*
@@ -1026,8 +1602,31 @@ exports.applyFilterLocalDB = (db_path, filter_obj, operation) => {
 // should only be used for tests
 exports.setLocalDBMode = (mode) => {
     using_local_db = mode;
+    if (mode) remote_db_type = null;
 }
 
 exports.isUsingLocalDB = () => {
     return using_local_db;
+}
+
+exports.isUsingPostgresDB = () => {
+    return !using_local_db && getActiveDBType() === DB_TYPES.postgres;
+}
+
+exports.isUsingMongoDB = () => {
+    return !using_local_db && getActiveDBType() === DB_TYPES.mongo;
+}
+
+exports.getConfiguredRemoteDBType = getConfiguredRemoteDBType;
+exports.getActiveDBType = getActiveDBType;
+exports.getDBLabel = getDBLabel;
+exports._migrateRemoteDB = migrateRemoteDB;
+exports.setPostgresPoolFactory = postgres_store.setPoolFactory;
+exports.resetPostgresPoolFactory = postgres_store.resetPoolFactory;
+exports.parsePostgresConnectionConfig = postgres_store.parsePostgresConnectionConfig;
+exports.setMongoClientCtor = (ctor) => {
+    MongoClientCtor = ctor || null;
+}
+exports.resetMongoClientCtor = () => {
+    MongoClientCtor = null;
 }

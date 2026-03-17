@@ -310,7 +310,10 @@ const DEFAULT_CONFIG = {
       },
       "Database": {
         "use_local_db": true,
-        "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib"
+        "remote_db_type": "",
+        "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib",
+        "postgresdb_connection_string": "",
+        "db_migrate": ""
       },
       "Advanced": {
         "default_downloader": "yt-dlp",

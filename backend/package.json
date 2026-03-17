@@ -59,6 +59,7 @@
     "passport-jwt": "^4.0.1",
     "passport-ldapauth": "^3.0.1",
     "passport-local": "^1.0.0",
+    "pg": "^8.20.0",
     "progress": "^2.0.3",
     "ps-node": "^0.1.6",
     "read-last-lines": "^1.8.0",
@@ -85,5 +86,8 @@
     "xmlbuilder2": {
       "js-yaml": "3.14.2"
     }
+  },
+  "devDependencies": {
+    "pg-mem": "^3.0.14"
   }
 }

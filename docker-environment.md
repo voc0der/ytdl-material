@@ -1,15 +1,18 @@
 # Docker Environment Variables
 
-The default [docker-compose.yml](./docker-compose.yml) is intentionally minimal and uses the local JSON database with no required environment variables.
+The default [docker-compose.yml](./docker-compose.yml) now ships with PostgreSQL as the default remote database.
 
-For a fully commented example with MongoDB, OIDC, reverse proxy, and other advanced options, see [docker-compose-extended.yml](./docker-compose-extended.yml).
+For a fully commented example with PostgreSQL, optional MongoDB support, OIDC, reverse proxy, and other advanced options, see [docker-compose-extended.yml](./docker-compose-extended.yml).
 
 Docker examples here use lowercase environment variable names consistently. For user and group IDs, prefer `ytdl_uid` and `ytdl_gid`; legacy `uid`/`gid` and `UID`/`GID` aliases remain supported.
 
 Common Docker environment variables you can use with the provided compose files:
 
-* `ytdl_mongodb_connection_string`: MongoDB connection string (default compose file points to `mongodb://ytdl-mongo-db:27017`)
-* `ytdl_use_local_db`: set to `'false'` to use MongoDB instead of the local JSON DB
+* `ytdl_use_local_db`: set to `'false'` to use a remote database instead of the local JSON DB
+* `ytdl_remote_db_type`: optional explicit remote DB engine (`postgres` or `mongo`). When omitted, PostgreSQL is preferred when `ytdl_postgresdb_connection_string` is set, otherwise MongoDB is used.
+* `ytdl_postgresdb_connection_string`: PostgreSQL connection string (default compose file points to `postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material`)
+* `ytdl_mongodb_connection_string`: MongoDB connection string for optional MongoDB support
+* `ytdl_db_migrate`: optional one-time DB-to-DB migration mode (`postgres` to move MongoDB to PostgreSQL, `mongo` to move PostgreSQL to MongoDB). Requires both remote connection strings plus `ytdl_use_local_db='false'`. A successful migration clears the config setting automatically, but you should still remove the environment variable so it is not reapplied on the next boot.
 * `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
@@ -47,8 +50,11 @@ Common Docker environment variables you can use with the provided compose files:
 
 ```yaml
 environment:
-  ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
   ytdl_use_local_db: 'false'
+  ytdl_remote_db_type: 'postgres'
+  ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+  # ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
+  # ytdl_db_migrate: 'postgres'
   write_ytdl_config: 'true'
   # ytdl_uid: 1000
   # ytdl_gid: 1000
@@ -84,3 +90,5 @@ environment:
 Prefer using Docker's `user: "<uid>:<gid>"` together with `ytdl_uid`/`ytdl_gid`.
 
 When `ytdl_oidc_enabled` is `'true'`, `ytdl_multi_user_mode` must also be `'true'` or backend startup will fail.
+
+For local JSON to PostgreSQL, set `ytdl_use_local_db='false'` and provide `ytdl_postgresdb_connection_string`. For local JSON to MongoDB, set `ytdl_use_local_db='false'` and provide `ytdl_mongodb_connection_string`. On startup, if the configured remote database is empty and the local DB contains records, ytdl-material will copy the local DB into that remote database automatically.
