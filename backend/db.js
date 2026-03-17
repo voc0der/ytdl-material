@@ -1,6 +1,5 @@
 const fs = require('fs-extra')
 const path = require('path')
-const { MongoClient } = require("mongodb");
 const _ = require('lodash');
 
 const config_api = require('./config');
@@ -197,6 +196,14 @@ const tables = {
 const tables_list = Object.keys(tables);
 
 let using_local_db = null; 
+let MongoClientCtor = null;
+
+function getMongoClientCtor() {
+    if (!MongoClientCtor) {
+        ({ MongoClient: MongoClientCtor } = require('mongodb'));
+    }
+    return MongoClientCtor;
+}
 
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
@@ -381,6 +388,7 @@ async function prepareMongoDatabase(database) {
 
 async function connectMongoDB(uri, options = {}) {
     const { testOnly = false } = options;
+    const MongoClient = getMongoClientCtor();
     const client = new MongoClient(uri);
     await client.connect();
     const database = client.db('ytdl_material');
@@ -1237,6 +1245,7 @@ exports.transferDB = async (local_to_remote) => {
 }
 
 async function readAllTablesFromMongo(connection_string) {
+    const MongoClient = getMongoClientCtor();
     const client = new MongoClient(connection_string);
     await client.connect();
     const database = client.db('ytdl_material');
@@ -1252,6 +1261,7 @@ async function readAllTablesFromMongo(connection_string) {
 }
 
 async function mongoDatabaseHasRecords(connection_string) {
+    const MongoClient = getMongoClientCtor();
     const client = new MongoClient(connection_string);
     await client.connect();
     const database = client.db('ytdl_material');
@@ -1267,6 +1277,7 @@ async function mongoDatabaseHasRecords(connection_string) {
 }
 
 async function replaceAllTablesInMongo(connection_string, table_to_records = {}) {
+    const MongoClient = getMongoClientCtor();
     const client = new MongoClient(connection_string);
     await client.connect();
     const database = client.db('ytdl_material');

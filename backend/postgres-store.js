@@ -1,11 +1,17 @@
 const fs = require('fs');
-const { Pool } = require('pg');
 const _ = require('lodash');
 
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const NUMERIC_PATTERN = '^-?[0-9]+(\\.[0-9]+)?$';
 
-let poolFactory = (config) => new Pool(config);
+function createDefaultPoolFactory() {
+    return (config) => {
+        const { Pool } = require('pg');
+        return new Pool(config);
+    };
+}
+
+let poolFactory = createDefaultPoolFactory();
 
 function quoteIdentifier(identifier) {
     if (typeof identifier !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
@@ -778,11 +784,11 @@ async function aggregateRecords(pool, tables, tableName, pipeline = []) {
 }
 
 exports.setPoolFactory = (factory) => {
-    poolFactory = factory || ((config) => new Pool(config));
+    poolFactory = factory || createDefaultPoolFactory();
 };
 
 exports.resetPoolFactory = () => {
-    poolFactory = (config) => new Pool(config);
+    poolFactory = createDefaultPoolFactory();
 };
 
 exports.parsePostgresConnectionConfig = parsePostgresConnectionConfig;
