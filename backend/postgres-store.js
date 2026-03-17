@@ -458,7 +458,7 @@ async function ensureTable(pool, tableName, tableMeta = {}) {
         const expressions = indexFields.map(([fieldPath, order]) => {
             validateFieldPath(fieldPath);
             const direction = Number(order) === -1 ? 'DESC' : 'ASC';
-            return `${getIndexExpression(tableMeta, fieldPath)} ${direction} NULLS LAST`;
+            return `(${getIndexExpression(tableMeta, fieldPath)}) ${direction} NULLS LAST`;
         });
 
         const indexName = sanitizeIndexName(`${tableName}_${indexFields.map(([fieldPath]) => fieldPath.replace(/\./g, '_')).join('_')}_idx`);

@@ -177,6 +177,39 @@ describe('PostgreSQL backend integration points', function() {
         fs.removeSync(tempDir);
     });
 
+    it('wraps PostgreSQL index expressions when ensuring schema', async function() {
+        const queries = [];
+        const fakePool = {
+            query: async (queryText) => {
+                queries.push(queryText);
+                return { rows: [] };
+            }
+        };
+
+        await postgres_store.ensureSchema(fakePool, {
+            files: {
+                primary_key: 'uid',
+                field_types: {
+                    uid: 'text',
+                    registered: 'numeric',
+                    isAudio: 'boolean',
+                    duplicate_key: 'text'
+                },
+                indexes: [
+                    { keys: { registered: -1 } },
+                    { keys: { duplicate_key: 1, registered: 1 } },
+                    { keys: { isAudio: 1, registered: -1 } }
+                ]
+            }
+        });
+
+        const indexQueries = queries.filter(queryText => queryText.includes('CREATE INDEX IF NOT EXISTS'));
+        assert(indexQueries.length >= 3);
+        assert(indexQueries.some(queryText => queryText.includes('(CASE WHEN') && queryText.includes('END) DESC NULLS LAST')));
+        assert(indexQueries.some(queryText => queryText.includes('(doc #>>') && queryText.includes('ASC NULLS LAST')));
+        assert(indexQueries.some(queryText => queryText.includes('(CASE WHEN') && queryText.includes('END) ASC NULLS LAST')));
+    });
+
     it('connectToDB selects PostgreSQL when configured', async function() {
         configurePostgresRemote();
 
