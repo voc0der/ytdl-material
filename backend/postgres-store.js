@@ -62,23 +62,23 @@ function getFieldType(tableMeta = {}, fieldPath, value = undefined) {
     return 'text';
 }
 
-function buildJsonbExpr(tableMeta, fieldPath, docRef = 'doc') {
+function buildIndexJsonbExpr(tableMeta, fieldPath, docRef = 'doc') {
     const primaryKey = getPrimaryKey(tableMeta);
     if (fieldPath === primaryKey) return `to_jsonb(doc_key)`;
 
     return `${docRef} #> ${toPathLiteral(getFieldPathParts(fieldPath))}`;
 }
 
-function buildTextExpr(tableMeta, fieldPath, docRef = 'doc') {
+function buildIndexTextExpr(tableMeta, fieldPath, docRef = 'doc') {
     const primaryKey = getPrimaryKey(tableMeta);
     if (fieldPath === primaryKey) return `doc_key`;
 
     return `${docRef} #>> ${toPathLiteral(getFieldPathParts(fieldPath))}`;
 }
 
-function buildNumericExpr(tableMeta, fieldPath, docRef = 'doc') {
-    const jsonbExpr = buildJsonbExpr(tableMeta, fieldPath, docRef);
-    const textExpr = buildTextExpr(tableMeta, fieldPath, docRef);
+function buildIndexNumericExpr(tableMeta, fieldPath, docRef = 'doc') {
+    const jsonbExpr = buildIndexJsonbExpr(tableMeta, fieldPath, docRef);
+    const textExpr = buildIndexTextExpr(tableMeta, fieldPath, docRef);
     return [
         'CASE',
         `WHEN jsonb_typeof(${jsonbExpr}) = 'number' THEN (${textExpr})::numeric`,
@@ -88,9 +88,9 @@ function buildNumericExpr(tableMeta, fieldPath, docRef = 'doc') {
     ].join(' ');
 }
 
-function buildBooleanExpr(tableMeta, fieldPath, docRef = 'doc') {
-    const jsonbExpr = buildJsonbExpr(tableMeta, fieldPath, docRef);
-    const textExpr = buildTextExpr(tableMeta, fieldPath, docRef);
+function buildIndexBooleanExpr(tableMeta, fieldPath, docRef = 'doc') {
+    const jsonbExpr = buildIndexJsonbExpr(tableMeta, fieldPath, docRef);
+    const textExpr = buildIndexTextExpr(tableMeta, fieldPath, docRef);
     return [
         'CASE',
         `WHEN jsonb_typeof(${jsonbExpr}) = 'boolean' THEN (${textExpr})::boolean`,
@@ -100,23 +100,69 @@ function buildBooleanExpr(tableMeta, fieldPath, docRef = 'doc') {
     ].join(' ');
 }
 
-function buildComparableExpr(tableMeta, fieldPath, value = undefined, docRef = 'doc') {
+function buildIndexComparableExpr(tableMeta, fieldPath, value = undefined, docRef = 'doc') {
     const fieldType = getFieldType(tableMeta, fieldPath, value);
-    if (fieldType === 'numeric') return buildNumericExpr(tableMeta, fieldPath, docRef);
-    if (fieldType === 'boolean') return buildBooleanExpr(tableMeta, fieldPath, docRef);
-    return buildTextExpr(tableMeta, fieldPath, docRef);
+    if (fieldType === 'numeric') return buildIndexNumericExpr(tableMeta, fieldPath, docRef);
+    if (fieldType === 'boolean') return buildIndexBooleanExpr(tableMeta, fieldPath, docRef);
+    return buildIndexTextExpr(tableMeta, fieldPath, docRef);
+}
+
+function buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef = 'doc') {
+    validateFieldPath(fieldPath);
+    const primaryKey = getPrimaryKey(tableMeta);
+    if (fieldPath === primaryKey) {
+        return {
+            jsonbExpr: 'to_jsonb(doc_key)',
+            textExpr: 'doc_key'
+        };
+    }
+
+    const pathPlaceholder = `${addParam(params, getFieldPathParts(fieldPath))}::text[]`;
+    return {
+        jsonbExpr: `jsonb_extract_path(${docRef}, VARIADIC ${pathPlaceholder})`,
+        textExpr: `jsonb_extract_path_text(${docRef}, VARIADIC ${pathPlaceholder})`
+    };
+}
+
+function buildRuntimeNumericExpr(tableMeta, fieldPath, params, value = undefined, docRef = 'doc') {
+    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+    return [
+        'CASE',
+        `WHEN jsonb_typeof(${fieldRef.jsonbExpr}) = 'number' THEN (${fieldRef.textExpr})::numeric`,
+        `WHEN jsonb_typeof(${fieldRef.jsonbExpr}) = 'string' AND (${fieldRef.textExpr}) ~ '${NUMERIC_PATTERN}' THEN (${fieldRef.textExpr})::numeric`,
+        'ELSE NULL',
+        'END'
+    ].join(' ');
+}
+
+function buildRuntimeBooleanExpr(tableMeta, fieldPath, params, docRef = 'doc') {
+    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+    return [
+        'CASE',
+        `WHEN jsonb_typeof(${fieldRef.jsonbExpr}) = 'boolean' THEN (${fieldRef.textExpr})::boolean`,
+        `WHEN lower(COALESCE(${fieldRef.textExpr}, '')) IN ('true', 'false') THEN (${fieldRef.textExpr})::boolean`,
+        'ELSE NULL',
+        'END'
+    ].join(' ');
+}
+
+function buildRuntimeComparableExpr(tableMeta, fieldPath, params, value = undefined, docRef = 'doc') {
+    const fieldType = getFieldType(tableMeta, fieldPath, value);
+    if (fieldType === 'numeric') return buildRuntimeNumericExpr(tableMeta, fieldPath, params, value, docRef);
+    if (fieldType === 'boolean') return buildRuntimeBooleanExpr(tableMeta, fieldPath, params, docRef);
+    return buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
 }
 
 function buildEqualityClause(tableMeta, fieldPath, value, params, docRef = 'doc') {
-    const jsonbExpr = buildJsonbExpr(tableMeta, fieldPath, docRef);
+    const jsonbExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).jsonbExpr;
     const placeholder = addParam(params, JSON.stringify(value));
     return `${jsonbExpr} = ${placeholder}::jsonb`;
 }
 
 function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = 'doc') {
-    validateFieldPath(fieldPath);
-    const jsonbExpr = buildJsonbExpr(tableMeta, fieldPath, docRef);
-    const textExpr = buildTextExpr(tableMeta, fieldPath, docRef);
+    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+    const jsonbExpr = fieldRef.jsonbExpr;
+    const textExpr = fieldRef.textExpr;
 
     if (filterValue === undefined || filterValue === null) {
         return `${textExpr} IS NULL`;
@@ -142,7 +188,7 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
         if ('$lt' in filterValue || '$gt' in filterValue || '$lte' in filterValue || '$gte' in filterValue) {
             const comparisons = [];
             const comparisonKeys = ['$lt', '$gt', '$lte', '$gte'];
-            const comparableExpr = buildComparableExpr(tableMeta, fieldPath, filterValue.$lt ?? filterValue.$gt ?? filterValue.$lte ?? filterValue.$gte, docRef);
+            const comparableExpr = buildRuntimeComparableExpr(tableMeta, fieldPath, params, filterValue.$lt ?? filterValue.$gt ?? filterValue.$lte ?? filterValue.$gte, docRef);
             const operators = {
                 $lt: '<',
                 $gt: '>',
@@ -168,11 +214,11 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
             }
             if (values.every(value => typeof value === 'number')) {
                 const placeholder = addParam(params, values);
-                return `${buildNumericExpr(tableMeta, fieldPath, docRef)} = ANY(${placeholder}::numeric[])`;
+                return `${buildRuntimeNumericExpr(tableMeta, fieldPath, params, undefined, docRef)} = ANY(${placeholder}::numeric[])`;
             }
             if (values.every(value => typeof value === 'boolean')) {
                 const placeholder = addParam(params, values);
-                return `${buildBooleanExpr(tableMeta, fieldPath, docRef)} = ANY(${placeholder}::boolean[])`;
+                return `${buildRuntimeBooleanExpr(tableMeta, fieldPath, params, docRef)} = ANY(${placeholder}::boolean[])`;
             }
 
             const orClauses = values.map(value => buildEqualityClause(tableMeta, fieldPath, value, params, docRef));
@@ -189,10 +235,10 @@ function buildWhereClause(tableMeta, filterObj = null, params = [], docRef = 'do
     return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE';
 }
 
-function buildSortClause(tableMeta, sort = null, docRef = 'doc') {
+function buildSortClause(tableMeta, sort = null, params = [], docRef = 'doc') {
     if (!sort || !sort.by) return '';
     const direction = sort.order === -1 ? 'DESC' : 'ASC';
-    const sortExpr = buildComparableExpr(tableMeta, sort.by, undefined, docRef);
+    const sortExpr = buildRuntimeComparableExpr(tableMeta, sort.by, params, undefined, docRef);
     return ` ORDER BY ${sortExpr} ${direction} NULLS LAST`;
 }
 
@@ -219,32 +265,35 @@ function buildUpdatedDocExpression(tableMeta, updateObj = {}, params = [], docRe
     let currentExpr = docRef;
     for (const [fieldPath, value] of Object.entries(updateObj)) {
         if (fieldPath === '_id') continue;
-        const placeholder = addParam(params, JSON.stringify(value));
-        currentExpr = `jsonb_set(${currentExpr}, ${toPathLiteral(getFieldPathParts(fieldPath))}, ${placeholder}::jsonb, true)`;
+        const pathPlaceholder = `${addParam(params, getFieldPathParts(fieldPath))}::text[]`;
+        const valuePlaceholder = addParam(params, JSON.stringify(value));
+        currentExpr = `jsonb_set(${currentExpr}, ${pathPlaceholder}, ${valuePlaceholder}::jsonb, true)`;
     }
     return currentExpr;
 }
 
-function buildRemovedDocExpression(tableMeta, removeObj = {}, docRef = 'doc') {
+function buildRemovedDocExpression(tableMeta, removeObj = {}, params = [], docRef = 'doc') {
     let currentExpr = docRef;
     for (const fieldPath of Object.keys(removeObj || {})) {
         if (fieldPath === '_id') continue;
-        currentExpr = `(${currentExpr} #- ${toPathLiteral(getFieldPathParts(fieldPath))})`;
+        const pathPlaceholder = `${addParam(params, getFieldPathParts(fieldPath))}::text[]`;
+        currentExpr = `(${currentExpr} #- ${pathPlaceholder})`;
     }
     return currentExpr;
 }
 
-function buildDocKeyExpr(tableMeta, docExpr = 'doc') {
-    const docKeyPath = getDocKeyPath(tableMeta);
-    if (!docKeyPath) return 'doc_key';
-    return `${docExpr} #>> ${docKeyPath}`;
+function buildDocKeyExpr(tableMeta, params = [], docExpr = 'doc') {
+    const primaryKey = getPrimaryKey(tableMeta);
+    if (!primaryKey) return 'doc_key';
+    const pathPlaceholder = `${addParam(params, getFieldPathParts(primaryKey))}::text[]`;
+    return `jsonb_extract_path_text(${docExpr}, VARIADIC ${pathPlaceholder})`;
 }
 
 function getIndexExpression(tableMeta, fieldPath) {
     const fieldType = getFieldType(tableMeta, fieldPath);
-    if (fieldType === 'numeric') return buildNumericExpr(tableMeta, fieldPath);
-    if (fieldType === 'boolean') return buildBooleanExpr(tableMeta, fieldPath);
-    return buildTextExpr(tableMeta, fieldPath);
+    if (fieldType === 'numeric') return buildIndexNumericExpr(tableMeta, fieldPath);
+    if (fieldType === 'boolean') return buildIndexBooleanExpr(tableMeta, fieldPath);
+    return buildIndexTextExpr(tableMeta, fieldPath);
 }
 
 async function ensureTable(pool, tableName, tableMeta = {}) {
@@ -421,7 +470,7 @@ async function getRecords(pool, tables, tableName, filterObj = null, returnCount
         return Number(result.rows[0] && result.rows[0].count ? result.rows[0].count : 0);
     }
 
-    const sortClause = buildSortClause(tableMeta, sort);
+    const sortClause = buildSortClause(tableMeta, sort, params);
     const rangeClause = buildRangeClause(range, params);
     const result = await pool.query(`SELECT doc FROM ${tableIdentifier} WHERE ${whereClause}${sortClause}${rangeClause}`, params);
     return result.rows.map(row => row.doc);
@@ -434,7 +483,7 @@ async function updateRecord(pool, tables, tableName, filterObj = null, updateObj
     const updatedDocExpr = buildUpdatedDocExpression(tableMeta, updateObj, params);
     const whereClause = buildWhereClause(tableMeta, filterObj, params);
     const result = await pool.query(
-        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, updatedDocExpr)} WHERE ${whereClause}`,
+        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, params, updatedDocExpr)} WHERE ${whereClause}`,
         params
     );
     return result.rowCount >= 0;
@@ -448,10 +497,10 @@ async function removePropertyFromRecord(pool, tables, tableName, filterObj = nul
     const tableMeta = tables[tableName];
     const tableIdentifier = quoteIdentifier(tableName);
     const params = [];
-    const removedDocExpr = buildRemovedDocExpression(tableMeta, removeObj);
+    const removedDocExpr = buildRemovedDocExpression(tableMeta, removeObj, params);
     const whereClause = buildWhereClause(tableMeta, filterObj, params);
     const result = await pool.query(
-        `UPDATE ${tableIdentifier} SET doc = ${removedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, removedDocExpr)} WHERE ${whereClause}`,
+        `UPDATE ${tableIdentifier} SET doc = ${removedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, params, removedDocExpr)} WHERE ${whereClause}`,
         params
     );
     return result.rowCount >= 0;
@@ -475,11 +524,12 @@ async function pushToRecordsArray(pool, tables, tableName, filterObj = null, key
     const tableIdentifier = quoteIdentifier(tableName);
     const params = [];
     const valuePlaceholder = addParam(params, JSON.stringify([value]));
-    const pathLiteral = toPathLiteral(getFieldPathParts(key));
+    const pathPlaceholder = `${addParam(params, getFieldPathParts(key))}::text[]`;
     const whereClause = buildWhereClause(tableMeta, filterObj, params);
-    const updatedDocExpr = `jsonb_set(doc, ${pathLiteral}, COALESCE(CASE WHEN jsonb_typeof(doc #> ${pathLiteral}) = 'array' THEN doc #> ${pathLiteral} ELSE '[]'::jsonb END, '[]'::jsonb) || ${valuePlaceholder}::jsonb, true)`;
+    const pathJsonbExpr = `jsonb_extract_path(doc, VARIADIC ${pathPlaceholder})`;
+    const updatedDocExpr = `jsonb_set(doc, ${pathPlaceholder}, COALESCE(CASE WHEN jsonb_typeof(${pathJsonbExpr}) = 'array' THEN ${pathJsonbExpr} ELSE '[]'::jsonb END, '[]'::jsonb) || ${valuePlaceholder}::jsonb, true)`;
     const result = await pool.query(
-        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, updatedDocExpr)} WHERE ${whereClause}`,
+        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, params, updatedDocExpr)} WHERE ${whereClause}`,
         params
     );
     return result.rowCount >= 0;
@@ -491,11 +541,12 @@ async function pullFromRecordsArray(pool, tables, tableName, filterObj = null, k
     const tableIdentifier = quoteIdentifier(tableName);
     const params = [];
     const valuePlaceholder = addParam(params, JSON.stringify(value));
-    const pathLiteral = toPathLiteral(getFieldPathParts(key));
+    const pathPlaceholder = `${addParam(params, getFieldPathParts(key))}::text[]`;
     const whereClause = buildWhereClause(tableMeta, filterObj, params);
-    const updatedDocExpr = `jsonb_set(doc, ${pathLiteral}, COALESCE((SELECT jsonb_agg(elem) FROM jsonb_array_elements(CASE WHEN jsonb_typeof(doc #> ${pathLiteral}) = 'array' THEN doc #> ${pathLiteral} ELSE '[]'::jsonb END) elem WHERE elem <> ${valuePlaceholder}::jsonb), '[]'::jsonb), true)`;
+    const pathJsonbExpr = `jsonb_extract_path(doc, VARIADIC ${pathPlaceholder})`;
+    const updatedDocExpr = `jsonb_set(doc, ${pathPlaceholder}, COALESCE((SELECT jsonb_agg(elem) FROM jsonb_array_elements(CASE WHEN jsonb_typeof(${pathJsonbExpr}) = 'array' THEN ${pathJsonbExpr} ELSE '[]'::jsonb END) elem WHERE elem <> ${valuePlaceholder}::jsonb), '[]'::jsonb), true)`;
     const result = await pool.query(
-        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, updatedDocExpr)} WHERE ${whereClause}`,
+        `UPDATE ${tableIdentifier} SET doc = ${updatedDocExpr}, doc_key = ${buildDocKeyExpr(tableMeta, params, updatedDocExpr)} WHERE ${whereClause}`,
         params
     );
     return result.rowCount >= 0;
@@ -562,7 +613,8 @@ async function findDuplicatesByKey(pool, tables, tableName, key) {
     validateFieldPath(key);
     const tableMeta = tables[tableName];
     const tableIdentifier = quoteIdentifier(tableName);
-    const textExpr = buildTextExpr(tableMeta, key);
+    const params = [];
+    const textExpr = buildRuntimeFieldRef(tableMeta, key, params).textExpr;
     const sortExpr = getPrimaryKey(tableMeta) ? 'doc_key' : 'row_id::text';
     const result = await pool.query(`
         WITH ranked_records AS (
@@ -573,7 +625,7 @@ async function findDuplicatesByKey(pool, tables, tableName, key) {
         SELECT doc
         FROM ranked_records
         WHERE duplicate_rank > 1
-    `);
+    `, params);
     return result.rows.map(row => row.doc);
 }
 
