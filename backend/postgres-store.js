@@ -82,6 +82,10 @@ function buildIndexTextExpr(tableMeta, fieldPath, docRef = 'doc') {
     return `${docRef} #>> ${toPathLiteral(getFieldPathParts(fieldPath))}`;
 }
 
+function buildTextHashExpr(textExpr) {
+    return `CASE WHEN ${textExpr} IS NULL THEN NULL ELSE md5(${textExpr}) END`;
+}
+
 function buildIndexNumericExpr(tableMeta, fieldPath, docRef = 'doc') {
     const jsonbExpr = buildIndexJsonbExpr(tableMeta, fieldPath, docRef);
     const textExpr = buildIndexTextExpr(tableMeta, fieldPath, docRef);
@@ -160,12 +164,44 @@ function buildRuntimeComparableExpr(tableMeta, fieldPath, params, value = undefi
 }
 
 function buildEqualityClause(tableMeta, fieldPath, value, params, docRef = 'doc') {
+    const primaryKey = getPrimaryKey(tableMeta);
+    const fieldType = getFieldType(tableMeta, fieldPath, value);
+    if (fieldPath === primaryKey && fieldType === 'text' && typeof value === 'string') {
+        const placeholder = addParam(params, value);
+        return `doc_key = ${placeholder}::text`;
+    }
+
     const jsonbExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).jsonbExpr;
     const placeholder = addParam(params, JSON.stringify(value));
     return `${jsonbExpr} = ${placeholder}::jsonb`;
 }
 
+function buildTextEqualityClause(tableMeta, fieldPath, value, params, docRef = 'doc') {
+    const primaryKey = getPrimaryKey(tableMeta);
+    if (fieldPath === primaryKey) {
+        const placeholder = addParam(params, value);
+        return `doc_key = ${placeholder}::text`;
+    }
+
+    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+    const placeholder = addParam(params, value);
+    return `${buildTextHashExpr(fieldRef.textExpr)} = md5(${placeholder}::text) AND ${fieldRef.jsonbExpr} = to_jsonb(${placeholder}::text)`;
+}
+
+function buildTextInClause(tableMeta, fieldPath, values, params, docRef = 'doc') {
+    const primaryKey = getPrimaryKey(tableMeta);
+    const placeholder = addParam(params, values);
+    if (fieldPath === primaryKey) {
+        return `doc_key = ANY(${placeholder}::text[])`;
+    }
+
+    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+    return `${buildTextHashExpr(fieldRef.textExpr)} = ANY(ARRAY(SELECT md5(value) FROM unnest(${placeholder}::text[]) AS value)) AND ${fieldRef.textExpr} = ANY(${placeholder}::text[])`;
+}
+
 function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = 'doc') {
+    const fieldType = getFieldType(tableMeta, fieldPath, filterValue);
+
     if (filterValue === undefined || filterValue === null) {
         const textExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
         return `${textExpr} IS NULL`;
@@ -173,6 +209,9 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
 
     if (_.isPlainObject(filterValue)) {
         if ('$eq' in filterValue) {
+            if (fieldType === 'text' && typeof filterValue.$eq === 'string') {
+                return buildTextEqualityClause(tableMeta, fieldPath, filterValue.$eq, params, docRef);
+            }
             return buildEqualityClause(tableMeta, fieldPath, filterValue.$eq, params, docRef);
         }
 
@@ -216,6 +255,10 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
             if (!Array.isArray(filterValue.$in) || filterValue.$in.length === 0) return 'FALSE';
             const values = filterValue.$in;
             if (values.every(value => typeof value === 'string')) {
+                if (fieldType === 'text') {
+                    return buildTextInClause(tableMeta, fieldPath, values, params, docRef);
+                }
+                const textExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
                 const placeholder = addParam(params, values);
                 return `${textExpr} = ANY(${placeholder}::text[])`;
             }
@@ -231,6 +274,10 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
             const orClauses = values.map(value => buildEqualityClause(tableMeta, fieldPath, value, params, docRef));
             return `(${orClauses.join(' OR ')})`;
         }
+    }
+
+    if (fieldType === 'text' && typeof filterValue === 'string') {
+        return buildTextEqualityClause(tableMeta, fieldPath, filterValue, params, docRef);
     }
 
     return buildEqualityClause(tableMeta, fieldPath, filterValue, params, docRef);
@@ -431,7 +478,7 @@ function getIndexExpression(tableMeta, fieldPath) {
     const fieldType = getFieldType(tableMeta, fieldPath);
     if (fieldType === 'numeric') return buildIndexNumericExpr(tableMeta, fieldPath);
     if (fieldType === 'boolean') return buildIndexBooleanExpr(tableMeta, fieldPath);
-    return buildIndexTextExpr(tableMeta, fieldPath);
+    return buildTextHashExpr(buildIndexTextExpr(tableMeta, fieldPath));
 }
 
 async function ensureTable(pool, tableName, tableMeta = {}) {

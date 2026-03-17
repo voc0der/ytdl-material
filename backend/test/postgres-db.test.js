@@ -206,7 +206,7 @@ describe('PostgreSQL backend integration points', function() {
         const indexQueries = queries.filter(queryText => queryText.includes('CREATE INDEX IF NOT EXISTS'));
         assert(indexQueries.length >= 3);
         assert(indexQueries.some(queryText => queryText.includes('(CASE WHEN') && queryText.includes('END) DESC NULLS LAST')));
-        assert(indexQueries.some(queryText => queryText.includes('(doc #>>') && queryText.includes('ASC NULLS LAST')));
+        assert(indexQueries.some(queryText => queryText.includes("ELSE md5(doc #>> '{duplicate_key}') END") && queryText.includes('ASC NULLS LAST')));
         assert(indexQueries.some(queryText => queryText.includes('(CASE WHEN') && queryText.includes('END) ASC NULLS LAST')));
     });
 
@@ -231,6 +231,52 @@ describe('PostgreSQL backend integration points', function() {
 
         assert.strictEqual(capturedQuery, 'SELECT doc FROM "download_queue" WHERE jsonb_extract_path(doc, VARIADIC $1::text[]) = $2::jsonb');
         assert.deepStrictEqual(capturedParams, [['finished'], 'false']);
+    });
+
+    it('uses hashed text predicates for string equality filters', async function() {
+        let capturedQuery = null;
+        let capturedParams = null;
+        const fakePool = {
+            query: async (queryText, params) => {
+                capturedQuery = queryText;
+                capturedParams = params;
+                return { rows: [] };
+            }
+        };
+
+        await postgres_store.getRecords(fakePool, {
+            files: {
+                field_types: {
+                    url: 'text'
+                }
+            }
+        }, 'files', { url: 'https://example.com/watch?v=abc123' });
+
+        assert.strictEqual(capturedQuery, 'SELECT doc FROM "files" WHERE CASE WHEN jsonb_extract_path_text(doc, VARIADIC $1::text[]) IS NULL THEN NULL ELSE md5(jsonb_extract_path_text(doc, VARIADIC $1::text[])) END = md5($2::text) AND jsonb_extract_path(doc, VARIADIC $1::text[]) = to_jsonb($2::text)');
+        assert.deepStrictEqual(capturedParams, [['url'], 'https://example.com/watch?v=abc123']);
+    });
+
+    it('uses hashed text predicates for string IN filters', async function() {
+        let capturedQuery = null;
+        let capturedParams = null;
+        const fakePool = {
+            query: async (queryText, params) => {
+                capturedQuery = queryText;
+                capturedParams = params;
+                return { rows: [] };
+            }
+        };
+
+        await postgres_store.getRecords(fakePool, {
+            files: {
+                field_types: {
+                    'category.uid': 'text'
+                }
+            }
+        }, 'files', { 'category.uid': { $in: ['cat-a', 'cat-b'] } });
+
+        assert.strictEqual(capturedQuery, 'SELECT doc FROM "files" WHERE CASE WHEN jsonb_extract_path_text(doc, VARIADIC $2::text[]) IS NULL THEN NULL ELSE md5(jsonb_extract_path_text(doc, VARIADIC $2::text[])) END = ANY(ARRAY(SELECT md5(value) FROM unnest($1::text[]) AS value)) AND jsonb_extract_path_text(doc, VARIADIC $2::text[]) = ANY($1::text[])');
+        assert.deepStrictEqual(capturedParams, [['cat-a', 'cat-b'], ['category', 'uid']]);
     });
 
     it('connectToDB selects PostgreSQL when configured', async function() {
