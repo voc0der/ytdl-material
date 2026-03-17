@@ -335,6 +335,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_postgresdb_connection_string',
         'path': 'YtdlMaterial.Database.postgresdb_connection_string'
     },
+    'ytdl_redis_connection_string': {
+        'key': 'ytdl_redis_connection_string',
+        'path': 'YtdlMaterial.Database.redis_connection_string'
+    },
     'ytdl_db_migrate': {
         'key': 'ytdl_db_migrate',
         'path': 'YtdlMaterial.Database.db_migrate'

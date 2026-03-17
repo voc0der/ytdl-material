@@ -313,6 +313,7 @@ const DEFAULT_CONFIG = {
         "remote_db_type": "",
         "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib",
         "postgresdb_connection_string": "",
+        "redis_connection_string": "",
         "db_migrate": ""
       },
       "Advanced": {

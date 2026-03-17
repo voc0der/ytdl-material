@@ -6,6 +6,8 @@ services:
       ytdl_use_local_db: 'false'
       ytdl_remote_db_type: 'postgres'
       ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+      # Optional Redis-backed rate limiting:
+      # ytdl_redis_connection_string: 'redis://ytdl-redis:6379/0'
       # Optional MongoDB support:
       # ytdl_remote_db_type: 'mongo'
       # ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
@@ -74,6 +76,9 @@ services:
     depends_on:
       ytdl-postgres-db:
         condition: service_healthy
+      # Uncomment when enabling ytdl_redis_connection_string below.
+      # ytdl-redis:
+      #   condition: service_healthy
     volumes:
       - ./appdata:/app/appdata
       - ./audio:/app/audio
@@ -119,3 +124,17 @@ services:
   #   restart: always
   #   volumes:
   #     - ./db-mongo:/data/db
+
+  # Optional Redis service for shared rate limiting.
+  # ytdl-redis:
+  #   image: redis:alpine
+  #   container_name: ytdl-redis
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 15s
+  #     timeout: 30s
+  #     retries: 5
+  #     start_period: 10s
+  #   logging:
+  #     driver: "none"
+  #   restart: always

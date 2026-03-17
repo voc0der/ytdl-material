@@ -12,6 +12,7 @@ Common Docker environment variables you can use with the provided compose files:
 * `ytdl_remote_db_type`: optional explicit remote DB engine (`postgres` or `mongo`). When omitted, PostgreSQL is preferred when `ytdl_postgresdb_connection_string` is set, otherwise MongoDB is used.
 * `ytdl_postgresdb_connection_string`: PostgreSQL connection string (default compose file points to `postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material`)
 * `ytdl_mongodb_connection_string`: MongoDB connection string for optional MongoDB support
+* `ytdl_redis_connection_string`: optional Redis connection string (`redis://` or `rediss://`) for shared rate-limiting state; when no Redis connection string is configured, in-memory rate limiting remains the default
 * `ytdl_db_migrate`: optional one-time DB-to-DB migration mode (`postgres` to move MongoDB to PostgreSQL, `mongo` to move PostgreSQL to MongoDB). Requires both remote connection strings plus `ytdl_use_local_db='false'`. A successful migration clears the config setting automatically, but you should still remove the environment variable so it is not reapplied on the next boot.
 * `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container (default behavior drops to `1000:1000`)
@@ -53,6 +54,9 @@ environment:
   ytdl_use_local_db: 'false'
   ytdl_remote_db_type: 'postgres'
   ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+  # ytdl_redis_connection_string: 'redis://ytdl-redis:6379/0'
+  # To clear a previously written Redis setting while write_ytdl_config is true:
+  # ytdl_redis_connection_string: ''
   # ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
   # ytdl_db_migrate: 'postgres'
   write_ytdl_config: 'true'
@@ -92,3 +96,7 @@ Prefer using Docker's `user: "<uid>:<gid>"` together with `ytdl_uid`/`ytdl_gid`.
 When `ytdl_oidc_enabled` is `'true'`, `ytdl_multi_user_mode` must also be `'true'` or backend startup will fail.
 
 For local JSON to PostgreSQL, set `ytdl_use_local_db='false'` and provide `ytdl_postgresdb_connection_string`. For local JSON to MongoDB, set `ytdl_use_local_db='false'` and provide `ytdl_mongodb_connection_string`. On startup, if the configured remote database is empty and the local DB contains records, ytdl-material will copy the local DB into that remote database automatically.
+
+If `ytdl_redis_connection_string` is configured, ytdl-material will attempt to use Redis for shared Express rate-limiter state during startup. If Redis is unreachable or the connection string is invalid, the backend logs a warning, continues with the default in-memory limiter store, and keeps retrying the Redis connection in the background until Redis becomes available.
+
+When using env-managed Docker setups with `write_ytdl_config='true'`, you can clear a previously written Redis connection string by setting `ytdl_redis_connection_string=''` for one startup, then removing the line entirely afterward.

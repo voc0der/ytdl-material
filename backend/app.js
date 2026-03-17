@@ -14,6 +14,8 @@ const bodyParser = require("body-parser");
 const archiver = require('archiver');
 const unzipper = require('unzipper');
 const db_api = require('./db');
+const { DelegatingRateLimitStore } = require('./rate-limit-store');
+const redis_store = require('./redis-store');
 const utils = require('./utils')
 const low = require('./lowdb-compat')
 const fetch = globalThis.fetch;
@@ -191,6 +193,9 @@ const OPENAPI_SPEC_PATH_CANDIDATES = [
 let documentation_api_enabled = false;
 let documentation_api_handler = null;
 let openapi_spec_path = null;
+let redisRateLimitClient = null;
+let redisRateLimitReconnectTimer = null;
+let redisRateLimitConnectionString = '';
 
 if (debugMode) logger.info('YTDL-Material in debug mode!');
 
@@ -762,6 +767,7 @@ async function setConfigFromEnv() {
 async function loadConfig() {
     loadConfigValues();
     initializeDocumentationAPI();
+    await initializeRateLimiters();
 
     const oidc_enabled = oidc_api.isEnabled();
     if (oidc_enabled && !config_api.getConfigItem('ytdl_multi_user_mode')) {
@@ -896,6 +902,10 @@ function escapeXmlEntities(value) {
     return String(value).replace(/[&<>"']/g, char => XML_ENTITY_MAP[char]);
 }
 
+function isEnvConfigItemDefined(key) {
+    return process.env[key] !== undefined || process.env[key.toUpperCase()] !== undefined;
+}
+
 // gets a list of config items that are stored as an environment variable
 function getEnvConfigItems() {
     let config_items = [];
@@ -903,7 +913,7 @@ function getEnvConfigItems() {
     let config_item_keys = Object.keys(config_api.CONFIG_ITEMS);
     for (let i = 0; i < config_item_keys.length; i++) {
         let key = config_item_keys[i];
-        if (process['env'][key] || process['env'][key.toUpperCase()]) {
+        if (isEnvConfigItemDefined(key)) {
             const config_item = generateEnvVarConfigItem(key);
             config_items.push(config_item);
         }
@@ -914,7 +924,8 @@ function getEnvConfigItems() {
 
 // gets value of a config item and stores it in an object
 function generateEnvVarConfigItem(key) {
-    return {key: key, value: process['env'][key] || process['env'][key.toUpperCase()]};
+    const value = process.env[key] !== undefined ? process.env[key] : process.env[key.toUpperCase()];
+    return {key: key, value: value};
 }
 
 // youtube-dl functions
@@ -959,12 +970,19 @@ const rateLimitValidateOptions = {
     xForwardedForHeader: false
 };
 
+const testCookiesRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:test-cookies:');
+const apiRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:api:');
+const authRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:auth:');
+const docsRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:docs:');
+
 const testCookiesRateLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     validate: rateLimitValidateOptions,
+    store: testCookiesRateLimitStore,
+    passOnStoreError: false,
     message: {
         success: false,
         error: 'Too many cookie test requests. Please wait a minute and try again.'
@@ -977,6 +995,8 @@ const apiRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     validate: rateLimitValidateOptions,
+    store: apiRateLimitStore,
+    passOnStoreError: false,
     // Keep public media/feed endpoints usable while protecting stateful/file-system routes.
     skip: (req) => req.path.includes('/api/stream/') ||
                    req.path.includes('/api/thumbnail/') ||
@@ -990,6 +1010,8 @@ const authRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     validate: rateLimitValidateOptions,
+    store: authRateLimitStore,
+    passOnStoreError: false,
     message: {
         success: false,
         error: 'Too many authentication requests. Please wait and try again.'
@@ -1001,8 +1023,85 @@ const docsRateLimiter = rateLimit({
     max: 120,
     standardHeaders: true,
     legacyHeaders: false,
-    validate: rateLimitValidateOptions
+    validate: rateLimitValidateOptions,
+    store: docsRateLimitStore,
+    passOnStoreError: false
 });
+
+function clearRedisRateLimitReconnectTimer() {
+    if (!redisRateLimitReconnectTimer) return;
+    clearTimeout(redisRateLimitReconnectTimer);
+    redisRateLimitReconnectTimer = null;
+}
+
+function scheduleRedisRateLimitReconnect(delayMs = 5000) {
+    if (!redisRateLimitConnectionString || redisRateLimitReconnectTimer) return;
+
+    redisRateLimitReconnectTimer = setTimeout(async () => {
+        redisRateLimitReconnectTimer = null;
+        const connected = await connectRedisRateLimitClient(redisRateLimitConnectionString, { scheduleRetryOnFailure: true });
+        if (!connected) scheduleRedisRateLimitReconnect(delayMs);
+    }, delayMs);
+}
+
+function attachRedisRateLimitClientEventHandlers(client) {
+    client.on('ready', () => {
+        logger.info('Redis rate-limit client ready.');
+    });
+    client.on('reconnecting', () => {
+        logger.warn('Redis rate-limit client reconnecting. Using in-memory rate limiting until Redis is ready again.');
+    });
+    client.on('end', () => {
+        logger.warn('Redis rate-limit client connection ended.');
+    });
+}
+
+async function connectRedisRateLimitClient(connectionString, options = {}) {
+    const { scheduleRetryOnFailure = false } = options;
+
+    try {
+        const client = await redis_store.createConnection(connectionString, {
+            onError: error => {
+                logger.warn(`Redis rate-limit client error: ${error.message}`);
+            }
+        });
+
+        attachRedisRateLimitClientEventHandlers(client);
+        clearRedisRateLimitReconnectTimer();
+        redisRateLimitClient = client;
+        await testCookiesRateLimitStore.useRedisStore(redisRateLimitClient);
+        await apiRateLimitStore.useRedisStore(redisRateLimitClient);
+        await authRateLimitStore.useRedisStore(redisRateLimitClient);
+        await docsRateLimitStore.useRedisStore(redisRateLimitClient);
+        logger.info('Redis-backed rate limiting enabled.');
+        return true;
+    } catch (error) {
+        logger.warn(`Redis rate-limit store initialization failed. Using in-memory rate limiting instead. ${error.message}`);
+        if (scheduleRetryOnFailure) scheduleRedisRateLimitReconnect();
+        return false;
+    }
+}
+
+async function initializeRateLimiters() {
+    await testCookiesRateLimitStore.useMemoryStore();
+    await apiRateLimitStore.useMemoryStore();
+    await authRateLimitStore.useMemoryStore();
+    await docsRateLimitStore.useMemoryStore();
+    clearRedisRateLimitReconnectTimer();
+
+    if (redisRateLimitClient) {
+        await redis_store.closeConnection(redisRateLimitClient).catch(() => null);
+        redisRateLimitClient = null;
+    }
+
+    const redisConnectionString = config_api.getConfigItem('ytdl_redis_connection_string');
+    redisRateLimitConnectionString = typeof redisConnectionString === 'string' ? redisConnectionString.trim() : '';
+    if (!redisRateLimitConnectionString) {
+        return true;
+    }
+
+    return connectRedisRateLimitClient(redisRateLimitConnectionString, { scheduleRetryOnFailure: true });
+}
 
 app.use('/api', apiRateLimiter);
 app.use('/api/auth', authRateLimiter);
@@ -1122,8 +1221,14 @@ app.post('/api/testConnectionString', optionalJwt, async (req, res) => {
     const connection_string = req.body.connection_string;
     let success = null;
     let error = '';
-    success = await db_api.connectToDB(0, true, connection_string);
-    if (!success) error = 'Connection string failed.';
+    if (redis_store.isRedisConnectionString(connection_string)) {
+        const result = await redis_store.testConnectionString(connection_string);
+        success = result.success;
+        error = result.error || '';
+    } else {
+        success = await db_api.connectToDB(0, true, connection_string);
+        if (!success) error = 'Connection string failed.';
+    }
 
     res.send({success: success, error: error});
 });

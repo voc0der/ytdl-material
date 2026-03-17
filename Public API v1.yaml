@@ -1459,7 +1459,7 @@ paths:
         - Auth query parameter: []
   /api/testConnectionString:
     post:
-      summary: Tests a MongoDB connection string
+      summary: Tests a MongoDB, PostgreSQL, or Redis connection string
       tags:
         - db
       responses:
@@ -1475,7 +1475,7 @@ paths:
             schema:
               $ref: '#/components/schemas/TestConnectionStringRequest'
       operationId: post-api-testConnectionString
-      description: Tests a MongoDB connection string and returns an error if one exists.
+      description: Tests a MongoDB, PostgreSQL, or Redis connection string and returns an error if one exists.
       security:
         - Auth query parameter: []
   /api/getFullTwitchChat:
