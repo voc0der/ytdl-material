@@ -166,11 +166,8 @@ function buildEqualityClause(tableMeta, fieldPath, value, params, docRef = 'doc'
 }
 
 function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = 'doc') {
-    const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
-    const jsonbExpr = fieldRef.jsonbExpr;
-    const textExpr = fieldRef.textExpr;
-
     if (filterValue === undefined || filterValue === null) {
+        const textExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
         return `${textExpr} IS NULL`;
     }
 
@@ -180,6 +177,7 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
         }
 
         if ('$regex' in filterValue) {
+            const textExpr = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
             const regexPlaceholder = addParam(params, filterValue.$regex);
             const options = typeof filterValue.$options === 'string' ? filterValue.$options : '';
             const operator = options.includes('i') ? '~*' : '~';
@@ -187,6 +185,9 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
         }
 
         if ('$ne' in filterValue) {
+            const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
+            const jsonbExpr = fieldRef.jsonbExpr;
+            const textExpr = fieldRef.textExpr;
             const placeholder = addParam(params, JSON.stringify(filterValue.$ne));
             return `${textExpr} IS NOT NULL AND NOT (${jsonbExpr} = ${placeholder}::jsonb)`;
         }

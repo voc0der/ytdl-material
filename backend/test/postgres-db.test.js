@@ -210,6 +210,29 @@ describe('PostgreSQL backend integration points', function() {
         assert(indexQueries.some(queryText => queryText.includes('(CASE WHEN') && queryText.includes('END) ASC NULLS LAST')));
     });
 
+    it('does not emit unused parameters for simple equality filters', async function() {
+        let capturedQuery = null;
+        let capturedParams = null;
+        const fakePool = {
+            query: async (queryText, params) => {
+                capturedQuery = queryText;
+                capturedParams = params;
+                return { rows: [] };
+            }
+        };
+
+        await postgres_store.getRecords(fakePool, {
+            download_queue: {
+                field_types: {
+                    finished: 'boolean'
+                }
+            }
+        }, 'download_queue', { finished: false });
+
+        assert.strictEqual(capturedQuery, 'SELECT doc FROM "download_queue" WHERE jsonb_extract_path(doc, VARIADIC $1::text[]) = $2::jsonb');
+        assert.deepStrictEqual(capturedParams, [['finished'], 'false']);
+    });
+
     it('connectToDB selects PostgreSQL when configured', async function() {
         configurePostgresRemote();
 
