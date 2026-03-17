@@ -36,7 +36,7 @@
     "@fontsource/material-icons": "^5.2.7",
     "@ngneat/content-loader": "^7.0.0",
     "@videogular/ngx-videogular": "^20.0.0",
-    "core-js": "^3.48.0",
+    "core-js": "^3.49.0",
     "crypto-js": "^4.2.0",
     "file-saver": "^2.0.2",
     "filesize": "^11.0.13",
