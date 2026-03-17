@@ -1251,6 +1251,21 @@ async function readAllTablesFromMongo(connection_string) {
     }
 }
 
+async function mongoDatabaseHasRecords(connection_string) {
+    const client = new MongoClient(connection_string);
+    await client.connect();
+    const database = client.db('ytdl_material');
+    try {
+        for (const table of tables_list) {
+            const record = await database.collection(table).findOne({}, { projection: { _id: 1 } });
+            if (record) return true;
+        }
+        return false;
+    } finally {
+        await client.close().catch(() => null);
+    }
+}
+
 async function replaceAllTablesInMongo(connection_string, table_to_records = {}) {
     const client = new MongoClient(connection_string);
     await client.connect();
@@ -1279,6 +1294,15 @@ async function readAllTablesFromPostgres(connection_string) {
     }
 }
 
+async function postgresDatabaseHasRecords(connection_string) {
+    const pool = await postgres_store.createConnection(connection_string, tables, { testOnly: true });
+    try {
+        return await postgres_store.hasAnyRecords(pool, tables);
+    } finally {
+        await postgres_store.closeConnection(pool).catch(() => null);
+    }
+}
+
 async function replaceAllTablesInPostgres(connection_string, table_to_records = {}) {
     const pool = await postgres_store.createConnection(connection_string, tables);
     try {
@@ -1291,6 +1315,11 @@ async function replaceAllTablesInPostgres(connection_string, table_to_records = 
 async function readAllTablesFromRemote(db_type, connection_string) {
     if (db_type === DB_TYPES.postgres) return await readAllTablesFromPostgres(connection_string);
     return await readAllTablesFromMongo(connection_string);
+}
+
+async function remoteDatabaseHasRecords(db_type, connection_string) {
+    if (db_type === DB_TYPES.postgres) return await postgresDatabaseHasRecords(connection_string);
+    return await mongoDatabaseHasRecords(connection_string);
 }
 
 async function replaceAllTablesInRemote(db_type, connection_string, table_to_records = {}) {
@@ -1318,6 +1347,10 @@ exports.runConfiguredDBMigration = async () => {
 
     if (!source_connection_string || !target_connection_string) {
         throw new Error(`ytdl_db_migrate=${migration_target} requires both ytdl_mongodb_connection_string and ytdl_postgresdb_connection_string to be set.`);
+    }
+
+    if (await remoteDatabaseHasRecords(migration_target, target_connection_string)) {
+        throw new Error(`Configured DB migration aborted: target ${getDBLabel(migration_target)} database already contains data. Remove ytdl_db_migrate after a successful migration, or empty the target database before retrying.`);
     }
 
     logger.info(`Beginning configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)}.`);

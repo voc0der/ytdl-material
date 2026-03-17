@@ -18,6 +18,7 @@ describe('PostgreSQL backend integration points', function() {
             updateRecord: postgres_store.updateRecord,
             removeRecord: postgres_store.removeRecord,
             getTableStats: postgres_store.getTableStats,
+            hasAnyRecords: postgres_store.hasAnyRecords,
             readAllTables: postgres_store.readAllTables,
             replaceAllTables: postgres_store.replaceAllTables
         };
@@ -146,6 +147,49 @@ describe('PostgreSQL backend integration points', function() {
             async () => await db_api.runConfiguredDBMigration(),
             /requires both ytdl_mongodb_connection_string and ytdl_postgresdb_connection_string/
         );
+    });
+
+    it('refuses DB-to-DB migration when the target PostgreSQL database already has records', async function() {
+        config_api.setConfigItem('ytdl_use_local_db', false);
+        config_api.setConfigItem('ytdl_db_migrate', 'postgres');
+        config_api.setConfigItem('ytdl_mongodb_connection_string', 'mongodb://mongo.example:27017/ytdl_material');
+        config_api.setConfigItem('ytdl_postgresdb_connection_string', 'postgresql://user:pass@db.example:5432/ytdl-material');
+
+        const fakePool = { id: 'target' };
+        let createConnectionCalls = 0;
+        let readAllTablesCalled = false;
+        let replaceAllTablesCalled = false;
+
+        postgres_store.createConnection = async (connectionString, tables, options = {}) => {
+            createConnectionCalls += 1;
+            assert.strictEqual(connectionString, 'postgresql://user:pass@db.example:5432/ytdl-material');
+            assert.deepStrictEqual(options, { testOnly: true });
+            return fakePool;
+        };
+        postgres_store.closeConnection = async (pool) => {
+            assert.strictEqual(pool, fakePool);
+        };
+        postgres_store.hasAnyRecords = async (pool) => {
+            assert.strictEqual(pool, fakePool);
+            return true;
+        };
+        postgres_store.readAllTables = async () => {
+            readAllTablesCalled = true;
+            return {};
+        };
+        postgres_store.replaceAllTables = async () => {
+            replaceAllTablesCalled = true;
+            return true;
+        };
+
+        await assert.rejects(
+            async () => await db_api.runConfiguredDBMigration(),
+            /target PostgreSQL database already contains data/
+        );
+
+        assert.strictEqual(createConnectionCalls, 1);
+        assert.strictEqual(readAllTablesCalled, false);
+        assert.strictEqual(replaceAllTablesCalled, false);
     });
 
     it('migrates records between remote stores through the shared migration helper', async function() {

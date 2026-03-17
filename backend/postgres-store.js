@@ -581,6 +581,28 @@ async function getTableStats(pool, tableName) {
     return { records_count: Number(result.rows[0] && result.rows[0].count ? result.rows[0].count : 0) };
 }
 
+async function hasAnyRecords(pool, tables = {}) {
+    const tableNames = Object.keys(tables);
+    if (tableNames.length === 0) return false;
+
+    const existingTablesResult = await pool.query(`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+            AND table_name = ANY($1::text[])
+    `, [tableNames]);
+    const existingTables = new Set(existingTablesResult.rows.map(row => row.table_name));
+
+    for (const tableName of tableNames) {
+        if (!existingTables.has(tableName)) continue;
+        const tableIdentifier = quoteIdentifier(tableName);
+        const result = await pool.query(`SELECT EXISTS (SELECT 1 FROM ${tableIdentifier} LIMIT 1) AS has_rows`);
+        if (result.rows[0] && result.rows[0].has_rows) return true;
+    }
+
+    return false;
+}
+
 async function readAllTables(pool, tables = {}) {
     const tableToRecords = {};
     for (const tableName of Object.keys(tables)) {
@@ -781,6 +803,7 @@ exports.pullFromRecordsArray = pullFromRecordsArray;
 exports.removeRecord = removeRecord;
 exports.removeAllRecords = removeAllRecords;
 exports.getTableStats = getTableStats;
+exports.hasAnyRecords = hasAnyRecords;
 exports.readAllTables = readAllTables;
 exports.replaceAllTables = replaceAllTables;
 exports.findDuplicatesByKey = findDuplicatesByKey;
