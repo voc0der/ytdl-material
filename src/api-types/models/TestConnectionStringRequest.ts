@@ -4,7 +4,7 @@
 
 export type TestConnectionStringRequest = {
     /**
-     * MongoDB or PostgreSQL connection string
+     * MongoDB, PostgreSQL, or Redis connection string
      */
     connection_string: string;
 };

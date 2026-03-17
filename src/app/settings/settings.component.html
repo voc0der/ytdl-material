@@ -426,6 +426,17 @@
                     </mat-select>
                     <mat-hint i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Successful migrations clear the saved setting automatically, but remove the env var so it is not re-applied on the next boot.</mat-hint>
                   </mat-form-field>
+                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
+                    <mat-label i18n="Redis Connection String">Redis Connection String</mat-label>
+                    <input [(ngModel)]="new_config['Database']['redis_connection_string']" matInput>
+                    <mat-hint><ng-container i18n="Redis Connection String setting hint AKA preamble">Optional shared rate-limit store. Restart required after changing this setting. Example:</ng-container>&nbsp;redis://127.0.0.1:6379/0<br>Docker: redis://ytdl-redis:6379/0</mat-hint>
+                  </mat-form-field>
+                  <div class="test-connection-div">
+                    <button (click)="testConnectionString(new_config['Database']['redis_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test Redis connection string button">Test Redis connection string</ng-container></button>
+                    @if (testing_connection_string) {
+                      <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
+                    }
+                  </div>
                   <div class="transfer-db-div">
                     <button [disabled]="db_transferring" color="accent" (click)="transferDB()" mat-raised-button><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? (db_info['configured_remote_db_label'] || 'Remote DB') : 'Local'}}</button>
                   </div>

@@ -14,6 +14,7 @@ const bodyParser = require("body-parser");
 const archiver = require('archiver');
 const unzipper = require('unzipper');
 const db_api = require('./db');
+const redis_store = require('./redis-store');
 const utils = require('./utils')
 const low = require('./lowdb-compat')
 const fetch = globalThis.fetch;
@@ -191,6 +192,8 @@ const OPENAPI_SPEC_PATH_CANDIDATES = [
 let documentation_api_enabled = false;
 let documentation_api_handler = null;
 let openapi_spec_path = null;
+let redisRateLimitClient = null;
+let activeRateLimiters = null;
 
 if (debugMode) logger.info('YTDL-Material in debug mode!');
 
@@ -762,6 +765,7 @@ async function setConfigFromEnv() {
 async function loadConfig() {
     loadConfigValues();
     initializeDocumentationAPI();
+    await initializeRateLimiters();
 
     const oidc_enabled = oidc_api.isEnabled();
     if (oidc_enabled && !config_api.getConfigItem('ytdl_multi_user_mode')) {
@@ -959,53 +963,93 @@ const rateLimitValidateOptions = {
     xForwardedForHeader: false
 };
 
-const testCookiesRateLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    validate: rateLimitValidateOptions,
-    message: {
-        success: false,
-        error: 'Too many cookie test requests. Please wait a minute and try again.'
+function createRateLimiterOptions(options = {}, storePrefix = null) {
+    const limiterOptions = {
+        standardHeaders: true,
+        legacyHeaders: false,
+        validate: rateLimitValidateOptions,
+        ...options
+    };
+
+    if (redisRateLimitClient) {
+        limiterOptions.store = redis_store.createRateLimitStore(redisRateLimitClient, { prefix: storePrefix });
+        limiterOptions.passOnStoreError = true;
     }
-});
 
-const apiRateLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 300,
-    standardHeaders: true,
-    legacyHeaders: false,
-    validate: rateLimitValidateOptions,
-    // Keep public media/feed endpoints usable while protecting stateful/file-system routes.
-    skip: (req) => req.path.includes('/api/stream/') ||
-                   req.path.includes('/api/thumbnail/') ||
-                   req.path.includes('/api/rss') ||
-                   req.path.includes('/api/telegramRequest')
-});
+    return limiterOptions;
+}
 
-const authRateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 25,
-    standardHeaders: true,
-    legacyHeaders: false,
-    validate: rateLimitValidateOptions,
-    message: {
-        success: false,
-        error: 'Too many authentication requests. Please wait and try again.'
+function createRateLimiters() {
+    return {
+        testCookies: rateLimit(createRateLimiterOptions({
+            windowMs: 60 * 1000,
+            max: 10,
+            message: {
+                success: false,
+                error: 'Too many cookie test requests. Please wait a minute and try again.'
+            }
+        }, 'ytdl:rate-limit:test-cookies:')),
+        api: rateLimit(createRateLimiterOptions({
+            windowMs: 60 * 1000,
+            max: 300,
+            // Keep public media/feed endpoints usable while protecting stateful/file-system routes.
+            skip: (req) => req.path.includes('/api/stream/') ||
+                           req.path.includes('/api/thumbnail/') ||
+                           req.path.includes('/api/rss') ||
+                           req.path.includes('/api/telegramRequest')
+        }, 'ytdl:rate-limit:api:')),
+        auth: rateLimit(createRateLimiterOptions({
+            windowMs: 15 * 60 * 1000,
+            max: 25,
+            message: {
+                success: false,
+                error: 'Too many authentication requests. Please wait and try again.'
+            }
+        }, 'ytdl:rate-limit:auth:')),
+        docs: rateLimit(createRateLimiterOptions({
+            windowMs: 60 * 1000,
+            max: 120
+        }, 'ytdl:rate-limit:docs:'))
+    };
+}
+
+function getRateLimiterMiddleware(name) {
+    return (req, res, next) => activeRateLimiters[name](req, res, next);
+}
+
+async function initializeRateLimiters() {
+    if (redisRateLimitClient) {
+        await redis_store.closeConnection(redisRateLimitClient).catch(() => null);
+        redisRateLimitClient = null;
     }
-});
 
-const docsRateLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    validate: rateLimitValidateOptions
-});
+    activeRateLimiters = createRateLimiters();
 
-app.use('/api', apiRateLimiter);
-app.use('/api/auth', authRateLimiter);
+    const redisConnectionString = config_api.getConfigItem('ytdl_redis_connection_string');
+    if (!redisConnectionString || String(redisConnectionString).trim() === '') {
+        return true;
+    }
+
+    try {
+        redisRateLimitClient = await redis_store.createConnection(redisConnectionString, {
+            onError: error => {
+                logger.warn(`Redis rate-limit client error: ${error.message}`);
+            }
+        });
+        activeRateLimiters = createRateLimiters();
+        logger.info('Redis-backed rate limiting enabled.');
+    } catch (error) {
+        logger.warn(`Redis rate-limit store initialization failed. Using in-memory rate limiting instead. ${error.message}`);
+        activeRateLimiters = createRateLimiters();
+    }
+
+    return true;
+}
+
+activeRateLimiters = createRateLimiters();
+
+app.use('/api', getRateLimiterMiddleware('api'));
+app.use('/api/auth', getRateLimiterMiddleware('auth'));
 
 function isPublicAuthPath(req_path) {
     return req_path.includes('/api/auth/register')
@@ -1069,7 +1113,7 @@ app.get('/api/versionInfo', (req, res) => {
     res.send({version_info: version_info});
 });
 
-app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
+app.get('/openapi.yaml', getRateLimiterMiddleware('docs'), (req, res) => {
     if (!documentation_api_enabled || !openapi_spec_path) {
         res.sendStatus(404);
         return;
@@ -1079,7 +1123,7 @@ app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
     res.sendFile(openapi_spec_path);
 });
 
-app.use('/docs', docsRateLimiter, (req, res, next) => {
+app.use('/docs', getRateLimiterMiddleware('docs'), (req, res, next) => {
     if (!documentation_api_enabled || !documentation_api_handler) {
         res.sendStatus(404);
         return;
@@ -1122,8 +1166,14 @@ app.post('/api/testConnectionString', optionalJwt, async (req, res) => {
     const connection_string = req.body.connection_string;
     let success = null;
     let error = '';
-    success = await db_api.connectToDB(0, true, connection_string);
-    if (!success) error = 'Connection string failed.';
+    if (redis_store.isRedisConnectionString(connection_string)) {
+        const result = await redis_store.testConnectionString(connection_string);
+        success = result.success;
+        error = result.error || '';
+    } else {
+        success = await db_api.connectToDB(0, true, connection_string);
+        if (!success) error = 'Connection string failed.';
+    }
 
     res.send({success: success, error: error});
 });
@@ -2081,7 +2131,7 @@ function normalizeCookieTestError(err) {
     return message.length > max_error_length ? message.substring(0, max_error_length) + '...' : message;
 }
 
-app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, async (req, res) => {
+app.post('/api/testCookies', getRateLimiterMiddleware('testCookies'), optionalJwt, async (req, res) => {
     const logs = [];
     const use_cookies_enabled = config_api.getConfigItem('ytdl_use_cookies');
     const downloader = config_api.getConfigItem('ytdl_default_downloader');
