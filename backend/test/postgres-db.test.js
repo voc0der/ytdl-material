@@ -27,6 +27,7 @@ describe('PostgreSQL backend integration points', function() {
     afterEach(async function() {
         Object.assign(postgres_store, originalPostgresStoreFns);
         config_api.setConfigFile(originalConfigFile);
+        db_api.resetMongoClientCtor();
         db_api.setLocalDBMode(!!config_api.getConfigItem('ytdl_use_local_db'));
     });
 
@@ -34,6 +35,130 @@ describe('PostgreSQL backend integration points', function() {
         config_api.setConfigItem('ytdl_use_local_db', false);
         config_api.setConfigItem('ytdl_remote_db_type', 'postgres');
         config_api.setConfigItem('ytdl_postgresdb_connection_string', 'postgresql://user:pass@db.example:5432/ytdl-material');
+    }
+
+    function createFakeMongoClientCtor(options = {}) {
+        const databaseName = options.databaseName || 'ytdl_material';
+        const clone = value => JSON.parse(JSON.stringify(value));
+
+        class FakeMongoDatabase {
+            constructor(initialCollections = {}, behavior = {}) {
+                this.collections = new Map();
+                this.behavior = behavior;
+                Object.entries(initialCollections).forEach(([collectionName, docs]) => {
+                    this.collections.set(collectionName, { docs: clone(docs), indexes: [] });
+                });
+            }
+
+            listCollections(filter = {}) {
+                const rows = [...this.collections.keys()]
+                    .filter(collectionName => !filter.name || collectionName === filter.name)
+                    .map(collectionName => ({ name: collectionName }));
+                return { toArray: async () => rows };
+            }
+
+            async createCollection(collectionName) {
+                if (!this.collections.has(collectionName)) {
+                    this.collections.set(collectionName, { docs: [], indexes: [] });
+                }
+            }
+
+            collection(collectionName) {
+                const database = this;
+                return {
+                    createIndex: async (keys, indexOptions = {}) => {
+                        const collection = database.ensureCollection(collectionName);
+                        collection.indexes.push({ keys, options: indexOptions });
+                        return true;
+                    },
+                    insertMany: async (docs = []) => {
+                        const collection = database.ensureCollection(collectionName);
+                        collection.docs.push(...clone(docs));
+                        return { acknowledged: true };
+                    },
+                    rename: async (nextCollectionName, renameOptions = {}) => {
+                        if (database.shouldFailRename(collectionName, nextCollectionName)) {
+                            throw new Error(`rename failed: ${collectionName} -> ${nextCollectionName}`);
+                        }
+
+                        const collection = database.collections.get(collectionName);
+                        if (!collection) {
+                            throw new Error(`missing collection: ${collectionName}`);
+                        }
+
+                        if (renameOptions.dropTarget && database.collections.has(nextCollectionName)) {
+                            database.collections.delete(nextCollectionName);
+                        }
+
+                        database.collections.delete(collectionName);
+                        database.collections.set(nextCollectionName, collection);
+                        return database.collection(nextCollectionName);
+                    },
+                    drop: async () => {
+                        if (!database.collections.has(collectionName)) {
+                            const error = new Error('ns not found');
+                            error.codeName = 'NamespaceNotFound';
+                            throw error;
+                        }
+
+                        database.collections.delete(collectionName);
+                        return true;
+                    },
+                    findOne: async () => {
+                        const collection = database.collections.get(collectionName);
+                        return collection && collection.docs.length > 0 ? clone(collection.docs[0]) : null;
+                    },
+                    find: () => ({
+                        toArray: async () => clone((database.collections.get(collectionName) || { docs: [] }).docs)
+                    })
+                };
+            }
+
+            ensureCollection(collectionName) {
+                if (!this.collections.has(collectionName)) {
+                    this.collections.set(collectionName, { docs: [], indexes: [] });
+                }
+                return this.collections.get(collectionName);
+            }
+
+            shouldFailRename(currentCollectionName, nextCollectionName) {
+                return typeof this.behavior.renameFailure === 'function'
+                    ? this.behavior.renameFailure(currentCollectionName, nextCollectionName)
+                    : false;
+            }
+
+            snapshot(collectionName) {
+                return clone((this.collections.get(collectionName) || { docs: [] }).docs);
+            }
+
+            collectionNames() {
+                return [...this.collections.keys()].sort();
+            }
+        }
+
+        const databases = new Map(Object.entries(options.collectionsByConnectionString || {}).map(([connectionString, collections]) => {
+            return [connectionString, new FakeMongoDatabase(collections, options)];
+        }));
+
+        class FakeMongoClient {
+            constructor(connectionString) {
+                this.connectionString = connectionString;
+                if (!databases.has(connectionString)) {
+                    databases.set(connectionString, new FakeMongoDatabase({}, options));
+                }
+            }
+
+            async connect() {}
+
+            db(name) {
+                assert.strictEqual(name, databaseName);
+                return databases.get(this.connectionString);
+            }
+
+            async close() {}
+        }
+
+        return { FakeMongoClient, databases };
     }
 
     it('parses PostgreSQL SSL connection settings from the connection string', function() {
@@ -242,5 +367,166 @@ describe('PostgreSQL backend integration points', function() {
         assert.strictEqual(replaceArgs.pool, targetPool);
         assert.deepStrictEqual(replaceArgs.records, snapshot);
         assert(replaceArgs.tables.files);
+    });
+
+    it('persists the migration target and clears ytdl_db_migrate after a successful migration', async function() {
+        config_api.setConfigItem('ytdl_use_local_db', false);
+        config_api.setConfigItem('ytdl_remote_db_type', 'mongo');
+        config_api.setConfigItem('ytdl_db_migrate', 'postgres');
+        config_api.setConfigItem('ytdl_mongodb_connection_string', 'mongodb://source-db');
+        config_api.setConfigItem('ytdl_postgresdb_connection_string', 'postgresql://target-db');
+
+        const { FakeMongoClient } = createFakeMongoClientCtor({
+            collectionsByConnectionString: {
+                'mongodb://source-db': {
+                    files: [{ uid: 'mongo-file-1' }]
+                }
+            }
+        });
+        db_api.setMongoClientCtor(FakeMongoClient);
+
+        const fakeTargetPool = { id: 'target' };
+        let replacedRecords = null;
+        postgres_store.createConnection = async () => fakeTargetPool;
+        postgres_store.closeConnection = async () => {};
+        postgres_store.hasAnyRecords = async () => false;
+        postgres_store.replaceAllTables = async (pool, tables, records) => {
+            assert.strictEqual(pool, fakeTargetPool);
+            replacedRecords = records;
+            return true;
+        };
+
+        const success = await db_api.runConfiguredDBMigration();
+
+        assert.strictEqual(success, true);
+        assert.deepStrictEqual(replacedRecords.files, [{ uid: 'mongo-file-1' }]);
+        assert.strictEqual(config_api.getConfigItem('ytdl_remote_db_type'), 'postgres');
+        assert.strictEqual(config_api.getConfigItem('ytdl_db_migrate'), '');
+    });
+
+    it('bootstraps an empty remote PostgreSQL database from local DB data', async function() {
+        db_api.setLocalDBMode(true);
+        await db_api.removeAllRecords('test');
+        await db_api.insertRecordIntoTable('test', { uid: 'local-test-record', key: 'local-key' });
+
+        config_api.setConfigItem('ytdl_use_local_db', false);
+        config_api.setConfigItem('ytdl_remote_db_type', 'postgres');
+        config_api.setConfigItem('ytdl_postgresdb_connection_string', 'postgresql://bootstrap-target');
+        config_api.setConfigItem('ytdl_db_migrate', '');
+        db_api.setLocalDBMode(false);
+
+        const fakeTargetPool = { id: 'bootstrap-target' };
+        let replaceArgs = null;
+        postgres_store.createConnection = async () => fakeTargetPool;
+        postgres_store.closeConnection = async () => {};
+        postgres_store.hasAnyRecords = async () => false;
+        postgres_store.replaceAllTables = async (pool, tables, records) => {
+            replaceArgs = { pool, tables, records };
+            return true;
+        };
+
+        const bootstrapped = await db_api.bootstrapRemoteDBFromLocalIfNeeded();
+
+        assert.strictEqual(bootstrapped, true);
+        assert.strictEqual(replaceArgs.pool, fakeTargetPool);
+        assert.deepStrictEqual(replaceArgs.records.test, [{ uid: 'local-test-record', key: 'local-key' }]);
+    });
+
+    it('rolls back MongoDB destination changes when a staged swap fails', async function() {
+        const sourcePool = { id: 'source' };
+        const { FakeMongoClient, databases } = createFakeMongoClientCtor({
+            collectionsByConnectionString: {
+                'mongodb://target-db': {
+                    files: [{ uid: 'existing-file' }],
+                    playlists: [{ id: 'existing-playlist' }]
+                }
+            },
+            renameFailure: (currentCollectionName, nextCollectionName) => currentCollectionName.startsWith('playlists__incoming_') && nextCollectionName === 'playlists'
+        });
+        db_api.setMongoClientCtor(FakeMongoClient);
+
+        postgres_store.createConnection = async () => sourcePool;
+        postgres_store.closeConnection = async () => {};
+        postgres_store.readAllTables = async () => ({
+            files: [{ uid: 'new-file' }],
+            playlists: [{ id: 'new-playlist' }],
+            categories: [],
+            subscriptions: [],
+            downloads: [],
+            users: [],
+            roles: [],
+            download_queue: [],
+            tasks: [],
+            notifications: [],
+            archives: [],
+            test: []
+        });
+
+        await assert.rejects(
+            async () => await db_api._migrateRemoteDB('postgres', 'mongo', 'postgresql://source-db', 'mongodb://target-db'),
+            /rename failed/
+        );
+
+        const targetDatabase = databases.get('mongodb://target-db');
+        assert.deepStrictEqual(targetDatabase.snapshot('files'), [{ uid: 'existing-file' }]);
+        assert.deepStrictEqual(targetDatabase.snapshot('playlists'), [{ id: 'existing-playlist' }]);
+        assert.deepStrictEqual(targetDatabase.collectionNames(), ['files', 'playlists']);
+    });
+
+    it('executes duplicate count aggregate pipelines in SQL for PostgreSQL', async function() {
+        const fakePool = {
+            query: async (queryText, params) => {
+                assert(queryText.includes('GROUP BY'));
+                assert(queryText.includes('"duplicate_group_count"'));
+                assert(queryText.includes('"count" >'));
+                assert(params.length > 0);
+                return { rows: [{ duplicate_group_count: 4 }] };
+            }
+        };
+
+        const aggregateRows = await postgres_store.aggregateRecords(fakePool, {
+            files: {
+                primary_key: 'uid',
+                field_types: {
+                    uid: 'text',
+                    duplicate_key: 'text'
+                }
+            }
+        }, 'files', [
+            { $match: { duplicate_key: { $ne: null } } },
+            { $group: { _id: '$duplicate_key', count: { $sum: 1 } } },
+            { $match: { count: { $gt: 1 } } },
+            { $count: 'duplicate_group_count' }
+        ]);
+
+        assert.deepStrictEqual(aggregateRows, [{ duplicate_group_count: 4 }]);
+    });
+
+    it('executes duplicate group aggregate pipelines in SQL for PostgreSQL', async function() {
+        const fakePool = {
+            query: async (queryText) => {
+                assert(queryText.includes('MAX('));
+                assert(queryText.includes('ORDER BY "newest_registered" DESC'));
+                return { rows: [{ _id: 'dup-1', count: 2, newest_registered: '123' }] };
+            }
+        };
+
+        const aggregateRows = await postgres_store.aggregateRecords(fakePool, {
+            files: {
+                primary_key: 'uid',
+                field_types: {
+                    uid: 'text',
+                    duplicate_key: 'text',
+                    registered: 'numeric'
+                }
+            }
+        }, 'files', [
+            { $match: { duplicate_key: { $ne: null } } },
+            { $group: { _id: '$duplicate_key', count: { $sum: 1 }, newest_registered: { $max: '$registered' } } },
+            { $match: { count: { $gt: 1 } } },
+            { $sort: { newest_registered: -1 } }
+        ]);
+
+        assert.deepStrictEqual(aggregateRows, [{ _id: 'dup-1', count: 2, newest_registered: '123' }]);
     });
 });

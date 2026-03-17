@@ -267,6 +267,137 @@ function extractDocKey(tableMeta = {}, doc = {}) {
         : null;
 }
 
+function buildAggregateFilterClause(filterObj = {}, params = []) {
+    if (!filterObj || Object.keys(filterObj).length === 0) return 'TRUE';
+
+    const clauses = [];
+    for (const [fieldName, filterValue] of Object.entries(filterObj)) {
+        const fieldIdentifier = quoteIdentifier(fieldName);
+        if (filterValue === undefined || filterValue === null) {
+            clauses.push(`${fieldIdentifier} IS NULL`);
+            continue;
+        }
+
+        if (_.isPlainObject(filterValue)) {
+            if ('$eq' in filterValue) {
+                const placeholder = addParam(params, filterValue.$eq);
+                clauses.push(`${fieldIdentifier} = ${placeholder}`);
+                continue;
+            }
+            if ('$ne' in filterValue) {
+                const placeholder = addParam(params, filterValue.$ne);
+                clauses.push(`${fieldIdentifier} IS NOT NULL AND ${fieldIdentifier} <> ${placeholder}`);
+                continue;
+            }
+
+            const comparisonOperators = {
+                $lt: '<',
+                $gt: '>',
+                $lte: '<=',
+                $gte: '>='
+            };
+            const comparisons = [];
+            for (const [comparisonKey, comparisonOperator] of Object.entries(comparisonOperators)) {
+                if (!(comparisonKey in filterValue)) continue;
+                const placeholder = addParam(params, filterValue[comparisonKey]);
+                comparisons.push(`${fieldIdentifier} ${comparisonOperator} ${placeholder}`);
+            }
+            if (comparisons.length > 0) {
+                clauses.push(comparisons.join(' AND '));
+                continue;
+            }
+            return null;
+        }
+
+        const placeholder = addParam(params, filterValue);
+        clauses.push(`${fieldIdentifier} = ${placeholder}`);
+    }
+
+    return clauses.join(' AND ') || 'TRUE';
+}
+
+function buildAggregateSortClause(sortStage = {}) {
+    const sortEntries = Object.entries(sortStage || {});
+    if (sortEntries.length === 0) return '';
+
+    const sortClauses = [];
+    for (const [fieldName, direction] of sortEntries) {
+        const fieldIdentifier = quoteIdentifier(fieldName);
+        const sortDirection = Number(direction) === -1 ? 'DESC' : 'ASC';
+        sortClauses.push(`${fieldIdentifier} ${sortDirection} NULLS LAST`);
+    }
+
+    return sortClauses.length > 0 ? ` ORDER BY ${sortClauses.join(', ')}` : '';
+}
+
+function tryBuildAggregateQuery(tables, tableName, pipeline = []) {
+    const tableMeta = tables[tableName];
+    if (!tableMeta || !Array.isArray(pipeline) || pipeline.length === 0) return null;
+
+    let stageIndex = 0;
+    let preGroupMatch = null;
+    if (pipeline[stageIndex] && pipeline[stageIndex].$match) {
+        preGroupMatch = pipeline[stageIndex].$match;
+        stageIndex += 1;
+    }
+
+    const groupStage = pipeline[stageIndex] && pipeline[stageIndex].$group;
+    if (!groupStage || typeof groupStage._id !== 'string' || !groupStage._id.startsWith('$')) return null;
+    stageIndex += 1;
+
+    const params = [];
+    const tableIdentifier = quoteIdentifier(tableName);
+    const groupFieldPath = groupStage._id.slice(1);
+    const groupFieldExpr = buildRuntimeFieldRef(tableMeta, groupFieldPath, params).textExpr;
+    const selectClauses = [`${groupFieldExpr} AS ${quoteIdentifier('_id')}`];
+
+    for (const [outputField, aggregation] of Object.entries(groupStage)) {
+        if (outputField === '_id') continue;
+        const outputIdentifier = quoteIdentifier(outputField);
+
+        if (_.isPlainObject(aggregation) && aggregation.$sum === 1) {
+            selectClauses.push(`COUNT(*)::integer AS ${outputIdentifier}`);
+            continue;
+        }
+
+        if (_.isPlainObject(aggregation) && typeof aggregation.$max === 'string' && aggregation.$max.startsWith('$')) {
+            const sourceField = aggregation.$max.slice(1);
+            const maxExpr = buildRuntimeComparableExpr(tableMeta, sourceField, params, undefined, 'doc');
+            selectClauses.push(`MAX(${maxExpr}) AS ${outputIdentifier}`);
+            continue;
+        }
+
+        return null;
+    }
+
+    const whereClauses = [];
+    if (preGroupMatch) whereClauses.push(buildWhereClause(tableMeta, preGroupMatch, params));
+    whereClauses.push(`${groupFieldExpr} IS NOT NULL`);
+
+    let queryText = `SELECT ${selectClauses.join(', ')} FROM ${tableIdentifier} WHERE ${whereClauses.join(' AND ')} GROUP BY ${groupFieldExpr}`;
+
+    if (pipeline[stageIndex] && pipeline[stageIndex].$match) {
+        const aggregateWhereClause = buildAggregateFilterClause(pipeline[stageIndex].$match, params);
+        if (!aggregateWhereClause) return null;
+        queryText = `SELECT * FROM (${queryText}) AS grouped_records WHERE ${aggregateWhereClause}`;
+        stageIndex += 1;
+    }
+
+    if (pipeline[stageIndex] && pipeline[stageIndex].$sort) {
+        queryText += buildAggregateSortClause(pipeline[stageIndex].$sort);
+        stageIndex += 1;
+    }
+
+    if (pipeline[stageIndex] && pipeline[stageIndex].$count) {
+        const outputIdentifier = quoteIdentifier(pipeline[stageIndex].$count);
+        queryText = `SELECT COUNT(*)::integer AS ${outputIdentifier} FROM (${queryText}) AS counted_records`;
+        stageIndex += 1;
+    }
+
+    if (stageIndex !== pipeline.length) return null;
+    return { queryText, params };
+}
+
 function buildUpdatedDocExpression(tableMeta, updateObj = {}, params = [], docRef = 'doc') {
     let currentExpr = docRef;
     for (const [fieldPath, value] of Object.entries(updateObj)) {
@@ -750,6 +881,12 @@ function applyAggregateGroup(records = [], groupStage = {}) {
 }
 
 async function aggregateRecords(pool, tables, tableName, pipeline = []) {
+    const aggregateQuery = tryBuildAggregateQuery(tables, tableName, pipeline);
+    if (aggregateQuery) {
+        const result = await pool.query(aggregateQuery.queryText, aggregateQuery.params);
+        return result.rows;
+    }
+
     let records = await getRecords(pool, tables, tableName);
     for (const stage of Array.isArray(pipeline) ? pipeline : []) {
         if (stage.$match) {

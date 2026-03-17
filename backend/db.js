@@ -205,6 +205,16 @@ function getMongoClientCtor() {
     return MongoClientCtor;
 }
 
+function writeBackupSnapshot(table_to_records = {}, backup_prefix = null) {
+    const backup_dir = path.join('appdata', 'db_backup');
+    fs.ensureDirSync(backup_dir);
+    const snapshot_prefix = backup_prefix || (using_local_db ? 'local' : 'remote');
+    const backup_file_name = `${snapshot_prefix}_db.json.${Date.now()/1000}.bak`;
+    const path_to_backup = path.join(backup_dir, backup_file_name);
+    fs.writeJsonSync(path_to_backup, table_to_records);
+    return { backup_file_name, path_to_backup };
+}
+
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 function isPlainObject(value) {
@@ -360,30 +370,122 @@ async function closeRemoteConnections(options = {}) {
     if (!keepType) remote_db_type = null;
 }
 
+async function listMongoCollectionNames(database) {
+    return (await database.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name);
+}
+
+async function mongoCollectionExists(database, collection_name) {
+    const collection = await database.listCollections({ name: collection_name }, { nameOnly: true }).toArray();
+    return collection.length > 0;
+}
+
+async function ensureMongoCollection(database, collection_name, table_meta = {}) {
+    if (!(await mongoCollectionExists(database, collection_name))) {
+        await database.createCollection(collection_name);
+    }
+
+    const table_collection = database.collection(collection_name);
+    const primary_key = table_meta['primary_key'];
+    if (primary_key) {
+        await table_collection.createIndex({[primary_key]: 1}, { unique: true });
+    }
+
+    const text_search = table_meta['text_search'];
+    if (text_search) {
+        await table_collection.createIndex(text_search);
+    }
+
+    const extra_indexes = table_meta['indexes'] || [];
+    for (const extra_index of extra_indexes) {
+        if (!extra_index || !extra_index.keys) continue;
+        await table_collection.createIndex(extra_index.keys, extra_index.options || {});
+    }
+}
+
 async function prepareMongoDatabase(database) {
-    const existing_collections = (await database.listCollections({}, { nameOnly: true }).toArray()).map(collection => collection.name);
-    const missing_tables = tables_list.filter(table => !(existing_collections.includes(table)));
-    await Promise.all(missing_tables.map(table => database.createCollection(table)));
-
     for (const table of tables_list) {
-        const table_collection = database.collection(table);
+        await ensureMongoCollection(database, table, tables[table]);
+    }
+}
 
-        const primary_key = tables[table]['primary_key'];
-        if (primary_key) {
-            await table_collection.createIndex({[primary_key]: 1}, { unique: true });
+async function hasAnyRecordsInMongoDatabase(database, collection_names = tables_list) {
+    const existing_collections = new Set(await listMongoCollectionNames(database));
+    for (const table of collection_names) {
+        if (!existing_collections.has(table)) continue;
+        const record = await database.collection(table).findOne({}, { projection: { _id: 1 } });
+        if (record) return true;
+    }
+    return false;
+}
+
+function getMongoIncomingCollectionName(table_name, suffix) {
+    return `${table_name}__incoming_${suffix}`;
+}
+
+function getMongoBackupCollectionName(table_name, suffix) {
+    return `${table_name}__backup_${suffix}`;
+}
+
+function generateMongoMigrationSuffix() {
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function renameMongoCollection(database, current_name, next_name) {
+    if (!(await mongoCollectionExists(database, current_name))) return false;
+    await database.collection(current_name).rename(next_name, { dropTarget: true });
+    return true;
+}
+
+async function dropMongoCollection(database, collection_name) {
+    if (!(await mongoCollectionExists(database, collection_name))) return false;
+    try {
+        await database.collection(collection_name).drop();
+    } catch (error) {
+        const missing_namespace = error && (error.codeName === 'NamespaceNotFound' || String(error.message || '').toLowerCase().includes('ns not found'));
+        if (!missing_namespace) throw error;
+    }
+    return true;
+}
+
+async function cleanupMongoSwapCollections(database, swap_state_by_table = {}) {
+    for (const state of Object.values(swap_state_by_table)) {
+        await dropMongoCollection(database, state.incoming_name).catch(() => null);
+        await dropMongoCollection(database, state.backup_name).catch(() => null);
+    }
+}
+
+async function rollbackMongoTableReplacement(database, swap_state_by_table = {}) {
+    const tables_to_restore = Object.keys(swap_state_by_table).reverse();
+    for (const table of tables_to_restore) {
+        const swap_state = swap_state_by_table[table];
+
+        if (swap_state.swapped) {
+            await renameMongoCollection(database, table, swap_state.incoming_name).catch(() => null);
+            swap_state.swapped = false;
         }
 
-        const text_search = tables[table]['text_search'];
-        if (text_search) {
-            await table_collection.createIndex(text_search);
-        }
-
-        const extra_indexes = tables[table]['indexes'] || [];
-        for (const extra_index of extra_indexes) {
-            if (!extra_index || !extra_index.keys) continue;
-            await table_collection.createIndex(extra_index.keys, extra_index.options || {});
+        if (swap_state.backed_up) {
+            await renameMongoCollection(database, swap_state.backup_name, table).catch(() => null);
+            swap_state.backed_up = false;
         }
     }
+
+    await cleanupMongoSwapCollections(database, swap_state_by_table);
+}
+
+function readAllTablesFromLocal() {
+    const table_to_records = {};
+    for (const table of tables_list) {
+        table_to_records[table] = _.cloneDeep(local_db.get(table).value() || []);
+    }
+    return table_to_records;
+}
+
+function localDatabaseHasRecords() {
+    return tables_list.some(table => {
+        const records = local_db.get(table).value();
+        return Array.isArray(records) && records.length > 0;
+    });
 }
 
 async function connectMongoDB(uri, options = {}) {
@@ -1154,21 +1256,14 @@ const createDownloadsRecords = (downloads) => {
 }
 
 exports.backupDB = async () => {
-    const backup_dir = path.join('appdata', 'db_backup');
-    fs.ensureDirSync(backup_dir);
-    const backup_file_name = `${using_local_db ? 'local' : 'remote'}_db.json.${Date.now()/1000}.bak`;
-    const path_to_backups = path.join(backup_dir, backup_file_name);
-
-    logger.info(`Backing up ${using_local_db ? 'local' : 'remote'} DB to ${path_to_backups}`);
-
     const table_to_records = {};
     for (let i = 0; i < tables_list.length; i++) {
         const table = tables_list[i];
         table_to_records[table] = await exports.getRecords(table);
     }
 
-    fs.writeJsonSync(path_to_backups, table_to_records);
-
+    const { backup_file_name, path_to_backup } = writeBackupSnapshot(table_to_records);
+    logger.info(`Backing up ${using_local_db ? 'local' : 'remote'} DB to ${path_to_backup}`);
     return backup_file_name;
 }
 
@@ -1266,11 +1361,7 @@ async function mongoDatabaseHasRecords(connection_string) {
     await client.connect();
     const database = client.db('ytdl_material');
     try {
-        for (const table of tables_list) {
-            const record = await database.collection(table).findOne({}, { projection: { _id: 1 } });
-            if (record) return true;
-        }
-        return false;
+        return await hasAnyRecordsInMongoDatabase(database);
     } finally {
         await client.close().catch(() => null);
     }
@@ -1281,16 +1372,55 @@ async function replaceAllTablesInMongo(connection_string, table_to_records = {})
     const client = new MongoClient(connection_string);
     await client.connect();
     const database = client.db('ytdl_material');
+    const swap_suffix = generateMongoMigrationSuffix();
+    const swap_state_by_table = {};
+    tables_list.forEach(table => {
+        swap_state_by_table[table] = {
+            incoming_name: getMongoIncomingCollectionName(table, swap_suffix),
+            backup_name: getMongoBackupCollectionName(table, swap_suffix),
+            had_original: false,
+            backed_up: false,
+            swapped: false
+        };
+    });
+
     try {
-        await prepareMongoDatabase(database);
+        const existing_collections = new Set(await listMongoCollectionNames(database));
         for (const table of tables_list) {
-            await database.collection(table).deleteMany({});
+            const swap_state = swap_state_by_table[table];
+            swap_state.had_original = existing_collections.has(table);
+            await dropMongoCollection(database, swap_state.incoming_name).catch(() => null);
+            await dropMongoCollection(database, swap_state.backup_name).catch(() => null);
+            await ensureMongoCollection(database, swap_state.incoming_name, tables[table]);
             const records = Array.isArray(table_to_records[table]) ? table_to_records[table] : [];
             if (records.length > 0) {
-                await database.collection(table).insertMany(records, { ordered: true });
+                await database.collection(swap_state.incoming_name).insertMany(records, { ordered: true });
             }
         }
+
+        try {
+            for (const table of tables_list) {
+                const swap_state = swap_state_by_table[table];
+                if (swap_state.had_original) {
+                    const backup_renamed = await renameMongoCollection(database, table, swap_state.backup_name);
+                    if (!backup_renamed) throw new Error(`Failed to back up MongoDB collection '${table}' before migration.`);
+                    swap_state.backed_up = true;
+                }
+
+                const incoming_renamed = await renameMongoCollection(database, swap_state.incoming_name, table);
+                if (!incoming_renamed) throw new Error(`Failed to activate migrated MongoDB collection '${table}'.`);
+                swap_state.swapped = true;
+            }
+        } catch (error) {
+            await rollbackMongoTableReplacement(database, swap_state_by_table);
+            throw error;
+        }
+
+        await cleanupMongoSwapCollections(database, swap_state_by_table);
         return true;
+    } catch (error) {
+        await cleanupMongoSwapCollections(database, swap_state_by_table);
+        throw error;
     } finally {
         await client.close().catch(() => null);
     }
@@ -1369,10 +1499,47 @@ exports.runConfiguredDBMigration = async () => {
     try {
         await migrateRemoteDB(source_db_type, migration_target, source_connection_string, target_connection_string);
         remote_db_type = migration_target;
+        const persisted = config_api.setConfigItems([
+            { key: 'ytdl_remote_db_type', value: migration_target },
+            { key: 'ytdl_db_migrate', value: '' }
+        ]);
+        if (!persisted) {
+            const persistence_error = new Error(`Configured DB migration completed, but failed to persist ytdl_remote_db_type=${migration_target} and clear ytdl_db_migrate. Update those settings manually before restarting.`);
+            persistence_error.migration_completed = true;
+            throw persistence_error;
+        }
         logger.info(`Configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)} completed successfully.`);
         return true;
     } catch (error) {
+        if (error && error.migration_completed) {
+            logger.error(error.message);
+            throw error;
+        }
         logger.error(`Configured DB migration from ${getDBLabel(source_db_type)} to ${getDBLabel(migration_target)} failed. The source database was left untouched.`);
+        throw error;
+    }
+}
+
+exports.bootstrapRemoteDBFromLocalIfNeeded = async () => {
+    if (using_local_db) return false;
+    if (normalizeDBType(config_api.getConfigItem('ytdl_db_migrate'))) return false;
+    if (!localDatabaseHasRecords()) return false;
+
+    const target_db_type = getConfiguredRemoteDBType();
+    const target_connection_string = getRemoteConnectionStringForType(target_db_type);
+    if (!target_connection_string || String(target_connection_string).trim().length === 0) return false;
+    if (await remoteDatabaseHasRecords(target_db_type, target_connection_string)) return false;
+
+    const table_to_records = readAllTablesFromLocal();
+    const { backup_file_name, path_to_backup } = writeBackupSnapshot(table_to_records, 'local');
+    logger.info(`Configured ${getDBLabel(target_db_type)} database is empty while the local DB contains data. Bootstrapping the remote DB from local data using backup '${path_to_backup}'.`);
+
+    try {
+        await replaceAllTablesInRemote(target_db_type, target_connection_string, table_to_records);
+        logger.info(`Bootstrapped ${getDBLabel(target_db_type)} from local DB data successfully. Local backup written to '${backup_file_name}'.`);
+        return true;
+    } catch (error) {
+        logger.error(`Failed to bootstrap ${getDBLabel(target_db_type)} from local DB data. The local DB was left untouched and its backup remains at '${path_to_backup}'.`);
         throw error;
     }
 }
@@ -1457,3 +1624,9 @@ exports._migrateRemoteDB = migrateRemoteDB;
 exports.setPostgresPoolFactory = postgres_store.setPoolFactory;
 exports.resetPostgresPoolFactory = postgres_store.resetPoolFactory;
 exports.parsePostgresConnectionConfig = postgres_store.parsePostgresConnectionConfig;
+exports.setMongoClientCtor = (ctor) => {
+    MongoClientCtor = ctor || null;
+}
+exports.resetMongoClientCtor = () => {
+    MongoClientCtor = null;
+}

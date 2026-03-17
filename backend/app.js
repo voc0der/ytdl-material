@@ -780,6 +780,7 @@ async function loadConfig() {
     if (!config_api.getConfigItem('ytdl_use_local_db')) {
         await db_api.runConfiguredDBMigration();
         await db_api.connectToDB();
+        await db_api.bootstrapRemoteDBFromLocalIfNeeded();
     }
     db_api.database_initialized = true;
     db_api.database_initialized_bs.next(true);

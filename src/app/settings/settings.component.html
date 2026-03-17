@@ -424,7 +424,7 @@
                       <mat-option value="postgres">MongoDB to PostgreSQL on startup</mat-option>
                       <mat-option value="mongo">PostgreSQL to MongoDB on startup</mat-option>
                     </mat-select>
-                    <mat-hint i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Remove the setting after a successful startup migration.</mat-hint>
+                    <mat-hint i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Successful migrations clear the saved setting automatically, but remove the env var so it is not re-applied on the next boot.</mat-hint>
                   </mat-form-field>
                   <div class="transfer-db-div">
                     <button [disabled]="db_transferring" color="accent" (click)="transferDB()" mat-raised-button><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? (db_info['configured_remote_db_label'] || 'Remote DB') : 'Local'}}</button>
