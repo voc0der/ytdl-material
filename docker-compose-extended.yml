@@ -76,6 +76,9 @@ services:
     depends_on:
       ytdl-postgres-db:
         condition: service_healthy
+      # Uncomment when enabling ytdl_redis_connection_string below.
+      # ytdl-redis:
+      #   condition: service_healthy
     volumes:
       - ./appdata:/app/appdata
       - ./audio:/app/audio
@@ -126,6 +129,12 @@ services:
   # ytdl-redis:
   #   image: redis:alpine
   #   container_name: ytdl-redis
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 15s
+  #     timeout: 30s
+  #     retries: 5
+  #     start_period: 10s
   #   logging:
   #     driver: "none"
   #   restart: always
