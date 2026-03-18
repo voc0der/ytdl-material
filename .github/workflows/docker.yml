@@ -78,11 +78,27 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build & push images
+        if: github.event_name != 'schedule'
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+          cache-from: type=gha,scope=docker-main
+          cache-to: type=gha,mode=max,scope=docker-main
+          push: true
+          tags: ${{ steps.docker-meta.outputs.tags }}
+          labels: ${{ steps.docker-meta.outputs.labels }}
+
+      - name: build & push images (scheduled cold rebuild)
+        if: github.event_name == 'schedule'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          no-cache: true
+          cache-to: type=gha,mode=max,scope=docker-main
           push: true
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}

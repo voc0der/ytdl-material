@@ -1,7 +1,10 @@
 .git
+.github
 db
 appdata
 audio
 video
 subscriptions
 users
+backend/test
+backend/tmp-progress-sanitize

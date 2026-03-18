@@ -51,15 +51,11 @@ RUN apt update && \
 # Build frontend
 ARG BUILDPLATFORM
 FROM --platform=${BUILDPLATFORM} node:24 AS frontend
-RUN npm install -g @angular/cli
 WORKDIR /build
 COPY [ ".npmrc", "package.json", "package-lock.json", "angular.json", "tsconfig.json", "/build/" ]
 COPY [ "src/", "/build/src/" ]
-RUN npm install && \
-    npm run build && \
-    ls -al /build/backend/public
-RUN npm uninstall -g @angular/cli
-RUN rm -rf node_modules
+RUN npm ci && \
+    npm run build
 
 
 # Install backend deps
@@ -67,8 +63,7 @@ FROM base AS backend
 WORKDIR /app
 COPY [ "backend/","/app/" ]
 RUN npm config set strict-ssl false && \
-    npm install --prod && \
-    ls -al
+    npm ci --omit=dev
 
 #FROM base as python
 # armv7 need build from source
