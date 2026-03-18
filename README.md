@@ -1,7 +1,15 @@
-# ytdl-material
+<h1>
+  <a href="https://github.com/voc0der/ytdl-material">
+    <img src="./src/assets/images/logo_64px.png" alt="ytdl-material logo" width="48" />
+  </a>
+  ytdl-material
+</h1>
 
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
+<a href="https://github.com/voc0der/ytdl-material/tree/main/backend/test">
+  <img src="https://img.shields.io/badge/coverage-59.9%25-orange" alt="Code coverage percentage" />
+</a>
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
 [![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/main/LICENSE.md)
 [![Dependencies badge](https://img.shields.io/badge/dependencies-out%20of%20date-orange)](https://github.com/voc0der/ytdl-material/network/dependencies)
