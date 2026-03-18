@@ -3,7 +3,7 @@ import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
 import { DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, filter, take } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatChipListboxChange } from '@angular/material/chips';
 import { MatSelectionListChange } from '@angular/material/list';
@@ -111,6 +111,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private virtualRowUpdateFrameId: number = null;
   private autoLoadQueued = false;
   private scrollListenerTarget: HTMLElement | Window | null = null;
+  private readonly destroy$ = new Subject<void>();
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
   @ViewChild('videoGridContainer')
@@ -185,7 +186,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       }
     } else {
       this.postsService.service_initialized
-        .pipe(filter(Boolean), take(1))
+        .pipe(filter(Boolean), take(1), takeUntil(this.destroy$))
         .subscribe(() => {
           this.getAllFiles();
           this.getAvailablePlaylists();
@@ -195,13 +196,17 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         });
     }
 
-    this.postsService.files_changed.subscribe(changed => {
-      if (changed) {
-        this.getAllFiles();
-      }
-    });
+    this.postsService.files_changed
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(changed => {
+        if (changed) {
+          this.getAllFiles();
+        }
+      });
 
-    this.postsService.playlists_changed.subscribe(changed => {
+    this.postsService.playlists_changed
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(changed => {
       if (changed) {
         this.getAvailablePlaylists();
         if (this.showLibraryTabs) {
@@ -217,7 +222,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.searchChangedSubject
       .pipe(
         debounceTime(500),
-        distinctUntilChanged()
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
       ).subscribe(model => {
         if (model.length > 0) {
           this.search_mode = true;
@@ -231,6 +237,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.unbindScrollListener();
   }
 

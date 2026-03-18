@@ -977,10 +977,28 @@ function getRateLimitRequestPath(req) {
     return `${baseUrl}${requestPath}`;
 }
 
+function isPublicApiRateLimitExemptPath(requestPath) {
+    return requestPath.includes('/api/stream/')
+        || requestPath.includes('/api/thumbnail/')
+        || requestPath.includes('/api/rss')
+        || requestPath.includes('/api/telegramRequest');
+}
+
 function skipAuthRateLimit(req) {
     const requestPath = getRateLimitRequestPath(req);
     return requestPath.includes('/api/auth/jwtAuth')
         || requestPath.includes('/api/auth/adminExists');
+}
+
+function skipApiRateLimit(req) {
+    const requestPath = getRateLimitRequestPath(req);
+    return isPublicApiRateLimitExemptPath(requestPath)
+        || requestPath.includes('/api/auth/jwtAuth')
+        || requestPath.includes('/api/auth/adminExists')
+        || requestPath.includes('/api/get')
+        || requestPath.includes('/api/versionInfo')
+        || requestPath.includes('/api/updaterStatus')
+        || requestPath.includes('/api/checkConcurrentStream');
 }
 
 const testCookiesRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:test-cookies:');
@@ -1010,11 +1028,8 @@ const apiRateLimiter = rateLimit({
     validate: rateLimitValidateOptions,
     store: apiRateLimitStore,
     passOnStoreError: false,
-    // Keep public media/feed endpoints usable while protecting stateful/file-system routes.
-    skip: (req) => req.path.includes('/api/stream/') ||
-                   req.path.includes('/api/thumbnail/') ||
-                   req.path.includes('/api/rss') ||
-                   req.path.includes('/api/telegramRequest')
+    // Keep routine read-only browsing/status requests usable while protecting mutating/file-system routes.
+    skip: skipApiRateLimit
 });
 
 const authRateLimiter = rateLimit({
