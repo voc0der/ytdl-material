@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha test --exit -s 1000",
     "start": "pm2-runtime --raw pm2.config.js",
-    "debug": "set YTDL_MODE=debug && node app.js"
+    "debug": "node -e \"process.env.YTDL_MODE='debug'; require('./app.js')\""
   },
   "repository": {
     "type": "git",
