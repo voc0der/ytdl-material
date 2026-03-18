@@ -182,3 +182,172 @@ $light-theme: mat.m2-define-light-theme((
   align-items: center !important;
   display: inline-flex !important;
 }
+
+app-player vg-player {
+  display: block;
+  position: relative;
+}
+
+app-player .chapter-overlay {
+  backdrop-filter: blur(16px);
+  background: var(--chapter-overlay-panel);
+  border: 1px solid var(--chapter-overlay-border);
+  border-radius: 16px;
+  bottom: 58px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+  color: #f8fafc;
+  left: 16px;
+  padding: 12px;
+  position: absolute;
+  right: 16px;
+  z-index: 2;
+}
+
+app-player .chapter-overlay-header {
+  align-items: flex-end;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+app-player .chapter-overlay-current {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+app-player .chapter-overlay-time,
+app-player .chapter-segment-time {
+  font-family: monospace;
+}
+
+app-player .chapter-overlay-time {
+  font-size: 0.76rem;
+  opacity: 0.86;
+}
+
+app-player .chapter-overlay-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+app-player .chapter-overlay-index {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.82;
+  white-space: nowrap;
+}
+
+app-player .chapter-segment-track {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+app-player .chapter-segment {
+  appearance: none;
+  background: var(--chapter-segment-surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+app-player .chapter-segment:hover {
+  transform: translateY(-1px);
+}
+
+app-player .chapter-segment:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+app-player .chapter-segment.active {
+  border-color: var(--chapter-segment-active-border);
+}
+
+app-player .chapter-segment-fill {
+  background: var(--chapter-segment-fill);
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: width 0.12s linear;
+}
+
+app-player .chapter-segment.active .chapter-segment-fill {
+  background: var(--chapter-segment-active-fill);
+}
+
+app-player .chapter-segment-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+  position: relative;
+  z-index: 1;
+}
+
+app-player .chapter-segment-time {
+  font-size: 0.7rem;
+  opacity: 0.82;
+}
+
+app-player .chapter-segment-label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.light-theme app-player .chapter-overlay {
+  color: #0f172a;
+}
+
+@media (max-width: 767px) {
+  app-player .chapter-overlay {
+    bottom: 62px;
+    left: 10px;
+    padding: 10px;
+    right: 10px;
+  }
+
+  app-player .chapter-overlay-header {
+    margin-bottom: 8px;
+  }
+
+  app-player .chapter-overlay-index {
+    display: none;
+  }
+
+  app-player .chapter-segment-track {
+    gap: 4px;
+  }
+
+  app-player .chapter-segment-meta {
+    padding: 6px 8px;
+  }
+
+  app-player .chapter-segment-time {
+    font-size: 0.66rem;
+  }
+
+  app-player .chapter-segment-label {
+    font-size: 0.76rem;
+  }
+}

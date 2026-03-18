@@ -7,6 +7,37 @@
             <vg-player style="height: fit-content; max-height: 75vh" (onPlayerReady)="onPlayerReady($event)" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
               <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [vgMedia]="$any(media)" [src]="currentItem.src" id="singleVideo" preload="auto" controls playsinline>
               </video>
+              @if (currentChapters.length > 0 && currentItem.type !== 'audio/mp3') {
+                <div class="chapter-overlay">
+                  <div class="chapter-overlay-header">
+                    <div class="chapter-overlay-current">
+                      <span class="chapter-overlay-time">{{formatChapterTimestamp(playbackTime)}} / {{formatChapterTimestamp(getChapterTimelineDuration())}}</span>
+                      <span class="chapter-overlay-title">{{currentChapterLabel}}</span>
+                    </div>
+                    <span class="chapter-overlay-index">{{getActiveChapterPositionLabel()}}</span>
+                  </div>
+                  <div class="chapter-segment-track">
+                    @for (chapter of currentChapters; track chapter.start_time; let chapterIndex = $index) {
+                      <button
+                        class="chapter-segment"
+                        type="button"
+                        [class.active]="chapterIndex === activeChapterIndex"
+                        [style.flex-grow]="getChapterSegmentFlex(chapter)"
+                        [style.flex-basis.px]="0"
+                        [attr.aria-current]="chapterIndex === activeChapterIndex ? 'true' : null"
+                        [attr.aria-label]="chapter.title"
+                        [title]="getChapterTooltip(chapter)"
+                        (click)="jumpToChapter(chapter)">
+                        <span class="chapter-segment-fill" [style.width.%]="getChapterProgressWidth(chapter)"></span>
+                        <span class="chapter-segment-meta">
+                          <span class="chapter-segment-time">{{formatChapterTimestamp(chapter.start_time)}}</span>
+                          <span class="chapter-segment-label">{{chapter.title}}</span>
+                        </span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
               @if (postsService['config']['API']['use_sponsorblock_API'] && api && playlist?.length > 0 && playlist[currentIndex]['type'] === 'video/mp4') {
                 <app-skip-ad-button (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [current_video]="playlist[currentIndex]" [playback_timestamp]="api?.currentTime ?? 0" class="skip-ad-button"></app-skip-ad-button>
               }

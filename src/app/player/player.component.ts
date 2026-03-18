@@ -92,6 +92,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
   autoplay_queue_file_objs: DatabaseFile[] = [];
+  playbackTime = 0;
   currentChapters: IChapter[] = [];
   chapterDropdownOpen = false;
   currentChapterLabel = $localize`Chapters`;
@@ -322,6 +323,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   updateCurrentItem(newCurrentItem: IMedia, newCurrentIndex: number) {
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
+    this.playbackTime = 0;
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
@@ -476,6 +478,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   setPlaybackTimestamp(time: number): void {
     this.api.seekTime(time);
+    this.playbackTime = time;
+    this.refreshCurrentChapterState(time);
   }
 
   togglePlayback(to_play: boolean): void {
@@ -730,6 +734,36 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.currentChapterLabel;
   }
 
+  getChapterTimelineDuration(): number {
+    const last_chapter_end = this.currentChapters[this.currentChapters.length - 1]?.end_time ?? 0;
+    const file_duration = Number(this.currentFile?.duration ?? this.db_file?.duration ?? 0);
+    return Math.max(last_chapter_end, Number.isFinite(file_duration) ? file_duration : 0);
+  }
+
+  getChapterSegmentFlex(chapter: IChapter): number {
+    return Math.max(chapter.end_time - chapter.start_time, 1);
+  }
+
+  getChapterProgressWidth(chapter: IChapter): number {
+    const duration = chapter.end_time - chapter.start_time;
+    if (duration <= 0) return 0;
+
+    const elapsed = Math.min(Math.max(this.playbackTime - chapter.start_time, 0), duration);
+    return (elapsed / duration) * 100;
+  }
+
+  getActiveChapterPositionLabel(): string {
+    if (this.currentChapters.length === 0 || this.activeChapterIndex < 0) {
+      return '';
+    }
+
+    return `${this.activeChapterIndex + 1}/${this.currentChapters.length}`;
+  }
+
+  getChapterTooltip(chapter: IChapter): string {
+    return `${this.formatChapterTimestamp(chapter.start_time)} - ${this.formatChapterTimestamp(chapter.end_time)}  ${chapter.title}`;
+  }
+
   formatChapterTimestamp(total_seconds: number): string {
     const safe_seconds = Math.max(0, Math.floor(total_seconds || 0));
     const hours = Math.floor(safe_seconds / 3600);
@@ -750,10 +784,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onPlaybackTimeUpdate(): void {
-    this.refreshCurrentChapterState();
+    this.playbackTime = this.api?.currentTime ?? 0;
+    this.refreshCurrentChapterState(this.playbackTime);
   }
 
-  refreshCurrentChapterState(current_time = this.api?.currentTime ?? 0): void {
+  refreshCurrentChapterState(current_time = this.api?.currentTime ?? this.playbackTime): void {
+    this.playbackTime = current_time;
     if (this.currentChapters.length === 0) {
       this.activeChapterIndex = -1;
       this.currentChapterLabel = $localize`Chapters`;

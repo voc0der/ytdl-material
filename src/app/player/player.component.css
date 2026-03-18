@@ -1,3 +1,12 @@
+:host {
+    --chapter-overlay-panel: rgba(9, 14, 22, 0.84);
+    --chapter-overlay-border: rgba(255, 255, 255, 0.14);
+    --chapter-segment-surface: rgba(255, 255, 255, 0.08);
+    --chapter-segment-fill: rgba(255, 255, 255, 0.16);
+    --chapter-segment-active-fill: linear-gradient(90deg, rgba(255, 183, 77, 0.88), rgba(255, 137, 43, 0.96));
+    --chapter-segment-active-border: rgba(255, 228, 183, 0.78);
+}
+
 .video-player {
     margin: 0 auto;
     min-width: 300px;
@@ -258,6 +267,15 @@
     padding-left: 12px;
     padding-right: 12px;
     width: 100%;
+}
+
+:host-context(.light-theme) {
+    --chapter-overlay-panel: rgba(248, 250, 252, 0.82);
+    --chapter-overlay-border: rgba(71, 85, 105, 0.28);
+    --chapter-segment-surface: rgba(148, 163, 184, 0.16);
+    --chapter-segment-fill: rgba(15, 23, 42, 0.12);
+    --chapter-segment-active-fill: linear-gradient(90deg, rgba(245, 158, 11, 0.82), rgba(249, 115, 22, 0.9));
+    --chapter-segment-active-border: rgba(194, 65, 12, 0.4);
 }
 
 .watch-together-section app-concurrent-stream {

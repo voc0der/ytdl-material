@@ -275,4 +275,27 @@ describe('PlayerComponent', () => {
     expect(component.activeChapterIndex).toBe(0);
     expect(component.currentChapterLabel).toBe('Intro');
   });
+
+  it('should calculate chapter segment progress from the current playback time', () => {
+    component.playbackTime = 45;
+    const chapter: IChapter = { title: 'Part 2', start_time: 30, end_time: 90 };
+
+    expect(component.getChapterProgressWidth(chapter)).toBe(25);
+
+    component.playbackTime = 120;
+    expect(component.getChapterProgressWidth(chapter)).toBe(100);
+  });
+
+  it('should use file duration when building the chapter timeline duration', () => {
+    component.currentChapters = [
+      { title: 'Intro', start_time: 0, end_time: 30 },
+      { title: 'Part 2', start_time: 30, end_time: 90 }
+    ];
+    component.currentFile = { duration: 120 } as DatabaseFile;
+
+    expect(component.getChapterTimelineDuration()).toBe(120);
+
+    component.currentFile = { duration: 60 } as DatabaseFile;
+    expect(component.getChapterTimelineDuration()).toBe(90);
+  });
 });
