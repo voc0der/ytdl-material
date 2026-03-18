@@ -22,6 +22,17 @@ type CookiesTestResponse = {
   logs: string[];
 };
 
+type DownloaderVersionInfo = {
+  downloader: string;
+  version: string | null;
+  binary_exists: boolean;
+  loaded: boolean;
+};
+
+type VersionInfoWithDownloader = {
+  downloader_info?: Record<string, DownloaderVersionInfo>;
+};
+
 @Component({
     selector: 'app-settings',
     templateUrl: './settings.component.html',
@@ -48,6 +59,7 @@ export class SettingsComponent implements OnInit {
 
   latestGithubRelease = null;
   CURRENT_VERSION = CURRENT_VERSION
+  downloaderInfo: Record<string, DownloaderVersionInfo> = {};
 
   tabs = ['main', 'downloader', 'extra', 'database', 'notifications', 'advanced', 'users', 'logs'];
   tabIndex = 0;
@@ -76,12 +88,14 @@ export class SettingsComponent implements OnInit {
     if (this.postsService.initialized) {
       this.getConfig();
       this.getDBInfo();
+      this.getDownloaderInfo();
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
         .subscribe(() => {
           this.getConfig();
           this.getDBInfo();
+          this.getDownloaderInfo();
         });
     }
 
@@ -96,6 +110,18 @@ export class SettingsComponent implements OnInit {
   getConfig(): void {
     this.initial_config = this.postsService.config;
     this.new_config = JSON.parse(JSON.stringify(this.initial_config));
+  }
+
+  getDownloaderInfo(): void {
+    this.postsService.getVersionInfo().subscribe(res => {
+      const versionInfo = res as VersionInfoWithDownloader;
+      this.downloaderInfo = versionInfo.downloader_info || {};
+    });
+  }
+
+  getDownloaderLabel(downloader: string): string {
+    const details = this.downloaderInfo[downloader];
+    return details?.loaded && details.version ? `${downloader} (${details.version})` : downloader;
   }
 
   settingsSame(): boolean {

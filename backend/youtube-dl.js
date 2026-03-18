@@ -115,6 +115,33 @@ function getYoutubeDLPath(youtubedl_fork = config_api.getConfigItem('ytdl_defaul
     return binary_path;
 }
 
+function getStoredYoutubeDLDetails() {
+    return fs.existsSync(CONSTS.DETAILS_BIN_PATH)
+        ? fs.readJSONSync(CONSTS.DETAILS_BIN_PATH)
+        : {};
+}
+
+exports.getYoutubeDLDetails = (youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {
+    const output_file_path = getYoutubeDLPath(youtubedl_fork);
+    const stored_details = getStoredYoutubeDLDetails();
+    const details = stored_details[youtubedl_fork] || {};
+    const binary_exists = fs.existsSync(output_file_path);
+    const loaded = !!(binary_exists && details['downloader'] === youtubedl_fork && details['version']);
+
+    return {
+        downloader: youtubedl_fork,
+        version: loaded ? details['version'] : null,
+        binary_exists: binary_exists,
+        loaded: loaded
+    };
+}
+
+exports.getAllYoutubeDLDetails = () => {
+    return Object.fromEntries(
+        Object.keys(exports.youtubedl_forks).map((fork) => [fork, exports.getYoutubeDLDetails(fork)])
+    );
+}
+
 exports.killYoutubeDLProcess = async (child_process) => {
     kill(child_process.pid, 'SIGKILL');
 }

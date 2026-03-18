@@ -2,20 +2,24 @@
   <div style="display: inline-block">
     <ng-container i18n="Select a version">Select a version:</ng-container>
   </div>
-  @if (availableVersions) {
+  @if (versionsLoaded) {
     <div style="display: inline-block; margin-left: 15px;">
       <mat-form-field>
-        <mat-select [(ngModel)]="selectedVersion">
-          @for (version of availableVersionsFiltered; track version) {
-            <mat-option [value]="version['tag_name']">
-              {{version['tag_name'] + (version === latestStableRelease ? ' - Latest Stable' : '') + (version['tag_name'] === CURRENT_VERSION ? ' - Current Version' : '')}}
-            </mat-option>
+        <mat-select [(ngModel)]="selectedVersion" [disabled]="!hasStableVersions">
+          @if (!hasStableVersions) {
+            <mat-option [value]="NIGHTLY_VERSION_LABEL" disabled>{{NIGHTLY_VERSION_LABEL}}</mat-option>
+          } @else {
+            @for (version of availableVersionsFiltered; track version) {
+              <mat-option [value]="version['tag_name']">
+                {{version['tag_name'] + (version === latestStableRelease ? ' - Latest Stable' : '') + (version['tag_name'] === CURRENT_VERSION ? ' - Current Version' : '')}}
+              </mat-option>
+            }
           }
         </mat-select>
       </mat-form-field>
     </div>
   }
-  @if (selectedVersion && selectedVersion !== CURRENT_VERSION) {
+  @if (canUpdateSelectedVersion()) {
     <div style="display: inline-block; margin-left: 15px;">
       <button (click)="updateServer()" color="accent" mat-raised-button><mat-icon>update</mat-icon>&nbsp;&nbsp;
       @if (selectedVersion > CURRENT_VERSION) {
