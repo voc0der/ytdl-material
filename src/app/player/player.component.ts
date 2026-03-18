@@ -94,6 +94,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_queue_file_objs: DatabaseFile[] = [];
   playbackTime = 0;
   currentChapters: IChapter[] = [];
+  chapterTimelineVisible = false;
   chapterDropdownOpen = false;
   currentChapterLabel = $localize`Chapters`;
   activeChapterIndex = -1;
@@ -324,6 +325,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.playbackTime = 0;
+    this.chapterTimelineVisible = false;
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
@@ -682,6 +684,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.refreshCurrentChapterState();
     this.ensureCurrentItemChaptersLoaded();
+    this.chapterTimelineVisible = false;
     this.chapterDropdownOpen = false;
   }
 
@@ -717,6 +720,26 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chapterDropdownOpen = !this.chapterDropdownOpen;
   }
 
+  onPlayerMouseMove(event: MouseEvent): void {
+    if (this.currentItem?.type === 'audio/mp3' || this.currentChapters.length === 0) {
+      this.chapterTimelineVisible = false;
+      return;
+    }
+
+    const player_element = event.currentTarget as HTMLElement | null;
+    if (!player_element) return;
+
+    const player_rect = player_element.getBoundingClientRect();
+    const distance_from_bottom = player_rect.bottom - event.clientY;
+    const hover_height = this.getChapterTimelineHoverHeight(player_element.clientHeight);
+
+    this.chapterTimelineVisible = distance_from_bottom >= 0 && distance_from_bottom <= hover_height;
+  }
+
+  onPlayerMouseLeave(): void {
+    this.chapterTimelineVisible = false;
+  }
+
   selectChapterFromDropdown(chapter: IChapter, event: MouseEvent): void {
     event.stopPropagation();
     this.jumpToChapter(chapter);
@@ -738,6 +761,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const last_chapter_end = this.currentChapters[this.currentChapters.length - 1]?.end_time ?? 0;
     const file_duration = Number(this.currentFile?.duration ?? this.db_file?.duration ?? 0);
     return Math.max(last_chapter_end, Number.isFinite(file_duration) ? file_duration : 0);
+  }
+
+  getChapterTimelineHoverHeight(player_height: number): number {
+    return Math.max(96, Math.min(player_height * 0.2, 132));
   }
 
   getChapterSegmentFlex(chapter: IChapter): number {
