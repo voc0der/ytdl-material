@@ -33,7 +33,7 @@ export const h401InterceptorFn: HttpInterceptorFn = (request, next) => {
                 }
             }
 
-            const error = err?.error?.message || err?.statusText || 'Request failed';
+            const error = err?.error?.message || err?.error?.error || err?.statusText || 'Request failed';
             return throwError(error);
         })
     );

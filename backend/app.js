@@ -970,6 +970,19 @@ const rateLimitValidateOptions = {
     xForwardedForHeader: false
 };
 
+function getRateLimitRequestPath(req) {
+    if (req.originalUrl) return req.originalUrl;
+    const baseUrl = req.baseUrl || '';
+    const requestPath = req.path || req.url || '';
+    return `${baseUrl}${requestPath}`;
+}
+
+function skipAuthRateLimit(req) {
+    const requestPath = getRateLimitRequestPath(req);
+    return requestPath.includes('/api/auth/jwtAuth')
+        || requestPath.includes('/api/auth/adminExists');
+}
+
 const testCookiesRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:test-cookies:');
 const apiRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:api:');
 const authRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:auth:');
@@ -1012,6 +1025,7 @@ const authRateLimiter = rateLimit({
     validate: rateLimitValidateOptions,
     store: authRateLimitStore,
     passOnStoreError: false,
+    skip: skipAuthRateLimit,
     message: {
         success: false,
         error: 'Too many authentication requests. Please wait and try again.'
