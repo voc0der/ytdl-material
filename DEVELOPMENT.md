@@ -1,38 +1,43 @@
 <h1>Development</h1>
 
-- [First time...](#first-time)
-  - [Setup](#setup)
-  - [Startup](#startup)
-- [Debugging the backend (VSC)](#debugging-the-backend-vsc)
+- [Setup](#setup)
+- [Running locally](#running-locally)
+- [Visual Studio Code](#visual-studio-code)
 - [Deploy changes](#deploy-changes)
-  - [Frontend](#frontend)
-  - [Backend](#backend)
 
-# First time...
-
-## Setup
+# Setup
 Checkout the repository and navigate to the `ytdl-material` directory.
 ```bash
-vim ./src/assets/default.json # Edit settings for your local environment. This config file is just the dev config file, if YTDL_MODE is not set to "debug", then ./backend/appdata/default.json will be used
-npm -g install pm2 # Install pm2
-npm install # Install dependencies for the frontend
-cd ./backend
-npm install # Install dependencies for the backend
-cd ..
-npm run build # Build the frontend
+vim ./src/assets/default.json # Local dev config used when YTDL_MODE=debug
+npm ci
+npm ci --prefix backend
+npm run build # Build frontend assets once if you want the backend to serve the UI on :17442
 ```
-This step have to be done only once.
+This step only needs to be repeated when dependencies change.
 
-## Startup
-Navigate to the `ytdl-material/backend` directory and run `npm start`.
+# Running locally
+Frontend dev server:
+```bash
+npm start
+```
 
-# Debugging the backend (VSC)
-Open the `ytdl-material` directory in Visual Studio Code and run the launch configuration `Dev: Debug Backend`.
+Backend in debug/local-config mode:
+```bash
+cd backend
+npm run debug
+```
+
+If you prefer to use the backend-served UI instead of `ng serve`, rebuild the frontend from the repo root with `npm run build`.
+
+# Visual Studio Code
+Open the `ytdl-material` directory in Visual Studio Code.
+
+- Use the `Dev: Debug Backend` launch configuration to start the backend with `YTDL_MODE=debug`.
+- Use the `Dev: start frontend` task to run `ng serve`.
+- Use the `Dev: build frontend for backend` task when you need fresh compiled assets in `backend/public`.
 
 # Deploy changes
 
-## Frontend
 Navigate to the `ytdl-material` directory and run `npm run build`. Restart the backend.
 
-## Backend
 Simply restart the backend.
