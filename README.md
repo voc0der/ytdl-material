@@ -16,7 +16,7 @@ ytdl-material is a Material Design frontend for [youtube-dl](https://rg3.github.
 
 ### Setup
 
-1. Download `docker-compose.yml`:
+1. Download [docker-compose.yml](https://github.com/voc0der/ytdl-material/blob/main/docker-compose.yml):
 
 ```bash
 curl -L https://raw.githubusercontent.com/voc0der/ytdl-material/refs/heads/main/docker-compose.yml -o docker-compose.yml
@@ -29,16 +29,10 @@ docker compose pull   # if needed
 docker compose up -d
 ```
 
-The default compose file uses PostgreSQL as the remote database backend.
-
 Docker environment variables: [docker-environment.md](./docker-environment.md). See [Wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for host-specific instructions.
 
 #### Build manually
 See the [install and build guide](./install-and-build.md).
-
-## Remote Databases
-
-The project now supports PostgreSQL and MongoDB as remote database backends. The shipped Docker examples default to PostgreSQL, while MongoDB remains available through the database settings and Docker environment variables. When you switch from the local JSON DB to a remote DB, ytdl-material will bootstrap the remote automatically on startup if that remote DB is empty. For MongoDB-specific setup and upgrades, see the [MongoDB tutorial](https://github.com/voc0der/ytdl-material/wiki/Setting-a-MongoDB-backend-to-use-as-database-provider-for-YTDL-M) and [Upgrading MongoDB to 8.x](https://github.com/voc0der/ytdl-material/wiki/Update-MongoDB-to-8.x). Redis is also available as an optional shared rate-limiter backend through `ytdl_redis_connection_string`; when it is not configured, the existing in-memory rate limiting behavior remains unchanged.
 
 ## API
 
