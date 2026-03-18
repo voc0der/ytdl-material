@@ -32,6 +32,17 @@ export class LoginComponent implements OnInit {
 
   constructor(private postsService: PostsService, private snackBar: MatSnackBar, private router: Router, private route: ActivatedRoute) { }
 
+  private getErrorCode(err: any): number | null {
+    return err && typeof err === 'object' && typeof err.status === 'number' ? err.status : null;
+  }
+
+  private getErrorMessage(err: any): string {
+    if (typeof err === 'string') {
+      return err;
+    }
+    return err?.error?.message || err?.error?.error || err?.statusText || 'Login failed, unknown error.';
+  }
+
   ngOnInit(): void {
     const routeReturnTo = this.route.snapshot.queryParamMap.get('returnTo');
     this.returnTo = routeReturnTo && routeReturnTo.startsWith('/') ? routeReturnTo : '/home';
@@ -77,13 +88,16 @@ export class LoginComponent implements OnInit {
       }
     }, err => {
       this.loggingIn = false;
-      const error_code = err.status;
-      if (error_code === 401) {
+      const error_code = this.getErrorCode(err);
+      const error_message = this.getErrorMessage(err);
+      if (error_code === 401 || error_message === 'Unauthorized') {
         this.openSnackBar('User name or password is incorrect!');
       } else if (error_code === 404) {
         this.openSnackBar('Login failed, cannot connect to the server.');
+      } else if (error_code === 429 || error_message === 'Too Many Requests' || error_message === 'Too many authentication requests. Please wait and try again.') {
+        this.openSnackBar('Too many authentication requests. Please wait and try again.');
       } else {
-        this.openSnackBar('Login failed, unknown error.');
+        this.openSnackBar(error_message || 'Login failed, unknown error.');
       }
     });
   }

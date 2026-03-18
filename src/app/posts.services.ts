@@ -225,12 +225,13 @@ export class PostsService {
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
-                    if (!this.isOIDCEnabled()) {
+                    const storedToken = this.getStoredJwtToken();
+                    if (!storedToken && !this.isOIDCEnabled()) {
                         this.checkAdminCreationStatus();
                     }
                     // login stuff
-                    if (localStorage.getItem('jwt_token') && localStorage.getItem('jwt_token') !== 'null') {
-                        this.token = localStorage.getItem('jwt_token');
+                    if (storedToken) {
+                        this.token = storedToken;
                         this.httpOptions.params = this.httpOptions.params.set('jwt', this.token);
                         this.jwtAuth();
                     } else if (redirect_not_required) {
@@ -837,6 +838,55 @@ export class PostsService {
         return `${this.path}auth/oidc/login?returnTo=${encodeURIComponent(return_to)}`;
     }
 
+    private getStoredJwtToken(): string | null {
+        const storedToken = localStorage.getItem('jwt_token');
+        return storedToken && storedToken !== 'null' ? storedToken : null;
+    }
+
+    private clearStoredJwtToken() {
+        this.token = null;
+        localStorage.setItem('jwt_token', null);
+        this.resetHttpParams();
+    }
+
+    private getErrorMessage(err: any): string {
+        if (typeof err === 'string') {
+            return err;
+        }
+        return err?.error?.message || err?.error?.error || err?.statusText || err?.message || 'Request failed';
+    }
+
+    private isUnauthorizedError(err: any): boolean {
+        return err?.status === 401 || this.getErrorMessage(err) === 'Unauthorized';
+    }
+
+    private isTooManyRequestsError(err: any): boolean {
+        const message = this.getErrorMessage(err);
+        return err?.status === 429
+            || message === 'Too Many Requests'
+            || message === 'Too many authentication requests. Please wait and try again.';
+    }
+
+    private handleBootstrapAuthFailure(err: any): void {
+        if (this.isUnauthorizedError(err)) {
+            this.clearStoredJwtToken();
+            this.checkAdminCreationStatus();
+            this.sendToLogin(false);
+            return;
+        }
+
+        const errorMessage = this.getErrorMessage(err);
+        console.error('Failed to restore session during app startup.', err);
+
+        if (this.isTooManyRequestsError(err)) {
+            this.openSnackBar('Too many authentication requests. Please wait and try again.');
+        } else {
+            this.openSnackBar(errorMessage || 'Failed to restore your session. Please log in again.');
+        }
+
+        this.sendToLogin(false);
+    }
+
     // user methods
     jwtAuth() {
         const call = this.http.post(this.path + 'auth/jwtAuth', {}, this.httpOptions);
@@ -845,12 +895,7 @@ export class PostsService {
                 this.afterLogin(res['user'], res['token'], res['permissions'], res['available_permissions']);
             }
         }, err => {
-            if (err === 'Unauthorized') {
-                this.sendToLogin();
-                this.token = null;
-                this.resetHttpParams();
-            }
-            console.log(err);
+            this.handleBootstrapAuthFailure(err);
         });
         return call;
     }
@@ -883,7 +928,7 @@ export class PostsService {
         return call;
     }
 
-    sendToLogin() {
+    sendToLogin(showNotification = true) {
         if (!this.initialized) {
             this.setInitialized();
         }
@@ -898,8 +943,9 @@ export class PostsService {
             return;
         }
 
-        // send login notification
-        this.openSnackBar('You must log in to access this page!');
+        if (showNotification) {
+            this.openSnackBar('You must log in to access this page!');
+        }
     }
 
     resetHttpParams() {
@@ -950,6 +996,15 @@ export class PostsService {
             if (!res['exists']) {
                 // must create admin account
                 this.open_create_default_admin_dialog.next(true);
+            }
+        }, err => {
+            console.error('Failed to check whether a default admin account exists.', err);
+            if (force_show) {
+                if (this.isTooManyRequestsError(err)) {
+                    this.openSnackBar('Too many authentication requests. Please wait and try again.');
+                } else {
+                    this.openSnackBar('Failed to check whether a default admin account exists.');
+                }
             }
         });
     }

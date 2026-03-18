@@ -970,6 +970,37 @@ const rateLimitValidateOptions = {
     xForwardedForHeader: false
 };
 
+function getRateLimitRequestPath(req) {
+    if (req.originalUrl) return req.originalUrl;
+    const baseUrl = req.baseUrl || '';
+    const requestPath = req.path || req.url || '';
+    return `${baseUrl}${requestPath}`;
+}
+
+function isPublicApiRateLimitExemptPath(requestPath) {
+    return requestPath.includes('/api/stream/')
+        || requestPath.includes('/api/thumbnail/')
+        || requestPath.includes('/api/rss')
+        || requestPath.includes('/api/telegramRequest');
+}
+
+function skipAuthRateLimit(req) {
+    const requestPath = getRateLimitRequestPath(req);
+    return requestPath.includes('/api/auth/jwtAuth')
+        || requestPath.includes('/api/auth/adminExists');
+}
+
+function skipApiRateLimit(req) {
+    const requestPath = getRateLimitRequestPath(req);
+    return isPublicApiRateLimitExemptPath(requestPath)
+        || requestPath.includes('/api/auth/jwtAuth')
+        || requestPath.includes('/api/auth/adminExists')
+        || requestPath.includes('/api/get')
+        || requestPath.includes('/api/versionInfo')
+        || requestPath.includes('/api/updaterStatus')
+        || requestPath.includes('/api/checkConcurrentStream');
+}
+
 const testCookiesRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:test-cookies:');
 const apiRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:api:');
 const authRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:auth:');
@@ -997,11 +1028,8 @@ const apiRateLimiter = rateLimit({
     validate: rateLimitValidateOptions,
     store: apiRateLimitStore,
     passOnStoreError: false,
-    // Keep public media/feed endpoints usable while protecting stateful/file-system routes.
-    skip: (req) => req.path.includes('/api/stream/') ||
-                   req.path.includes('/api/thumbnail/') ||
-                   req.path.includes('/api/rss') ||
-                   req.path.includes('/api/telegramRequest')
+    // Keep routine read-only browsing/status requests usable while protecting mutating/file-system routes.
+    skip: skipApiRateLimit
 });
 
 const authRateLimiter = rateLimit({
@@ -1012,6 +1040,7 @@ const authRateLimiter = rateLimit({
     validate: rateLimitValidateOptions,
     store: authRateLimitStore,
     passOnStoreError: false,
+    skip: skipAuthRateLimit,
     message: {
         success: false,
         error: 'Too many authentication requests. Please wait and try again.'

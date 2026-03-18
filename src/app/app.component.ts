@@ -63,9 +63,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   private readonly ACTIVE_DOWNLOADS_POLL_INTERVAL_MS = 1000;
+  private readonly IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS = 10000;
   private readonly ACTIVE_DOWNLOADS_AUTO_CLOSE_MS = 5000;
   private readonly ACTIVE_DOWNLOADS_COMPLETION_BADGE_MS = 2500;
-  private active_downloads_poll_interval_id: number = null;
+  private active_downloads_poll_timeout_id: number = null;
   private active_downloads_auto_close_timeout_id: number = null;
   private active_downloads_completion_badge_timeout_id: number = null;
   private active_download_uids = new Set<string>();
@@ -138,10 +139,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.active_downloads_poll_interval_id) {
-      clearInterval(this.active_downloads_poll_interval_id);
-      this.active_downloads_poll_interval_id = null;
-    }
+    this.clearActiveDownloadsPollTimer();
     this.clearActiveDownloadsAutoCloseTimer();
     this.clearCompletionBadgeTimer();
     if (this.playlist_progress_dialog_ref) {
@@ -419,15 +417,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startActiveDownloadsPolling(): void {
-    if (this.active_downloads_poll_interval_id) {
-      clearInterval(this.active_downloads_poll_interval_id);
-      this.active_downloads_poll_interval_id = null;
-    }
-
+    this.clearActiveDownloadsPollTimer();
     this.refreshActiveDownloads();
-    this.active_downloads_poll_interval_id = window.setInterval(() => {
-      this.refreshActiveDownloads();
-    }, this.ACTIVE_DOWNLOADS_POLL_INTERVAL_MS);
   }
 
   private refreshActiveDownloads(): void {
@@ -435,6 +426,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (multi_user_mode_enabled && !this.postsService.isLoggedIn) {
       this.previous_download_states.clear();
       this.setActiveDownloads([], false);
+      this.scheduleNextActiveDownloadsPoll(this.IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS);
       return;
     }
 
@@ -446,7 +438,29 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         .sort((download1, download2) => Number(download2.timestamp_start) - Number(download1.timestamp_start));
 
       this.setActiveDownloads(active_downloads, successful_completion_detected);
-    }, () => {});
+      const next_poll_delay = active_downloads.length > 0
+        ? this.ACTIVE_DOWNLOADS_POLL_INTERVAL_MS
+        : this.IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS;
+      this.scheduleNextActiveDownloadsPoll(next_poll_delay);
+    }, () => {
+      this.scheduleNextActiveDownloadsPoll(this.IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS);
+    });
+  }
+
+  private scheduleNextActiveDownloadsPoll(delay_ms: number): void {
+    this.clearActiveDownloadsPollTimer();
+    this.active_downloads_poll_timeout_id = window.setTimeout(() => {
+      this.active_downloads_poll_timeout_id = null;
+      this.refreshActiveDownloads();
+    }, delay_ms);
+  }
+
+  private clearActiveDownloadsPollTimer(): void {
+    if (!this.active_downloads_poll_timeout_id) {
+      return;
+    }
+    clearTimeout(this.active_downloads_poll_timeout_id);
+    this.active_downloads_poll_timeout_id = null;
   }
 
   private setActiveDownloads(active_downloads: Download[], successful_completion_detected = false): void {

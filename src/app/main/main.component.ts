@@ -12,7 +12,7 @@ import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
-import { debounceTime, filter, map, switchMap, take, tap } from 'rxjs/operators';
+import { debounceTime, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 
 @Component({
     selector: 'app-root',
@@ -170,6 +170,7 @@ export class MainComponent implements OnInit {
   last_url_check = 0;
 
   argsChangedSubject: Subject<boolean> = new Subject<boolean>();
+  private readonly destroy$ = new Subject<void>();
   simulatedOutput = '';
 
   interval_id = null;
@@ -262,15 +263,17 @@ export class MainComponent implements OnInit {
       this.configLoad();
     } else {
       this.postsService.service_initialized
-        .pipe(filter(Boolean), take(1))
+        .pipe(filter(Boolean), take(1), takeUntil(this.destroy$))
         .subscribe(() => this.configLoad());
     }
 
-    this.postsService.config_reloaded.subscribe(changed => {
-      if (changed) {
-        this.loadConfig();
-      }
-    });
+    this.postsService.config_reloaded
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(changed => {
+        if (changed) {
+          this.loadConfig();
+        }
+      });
 
     this.iOS = this.platform.IOS;
 
@@ -294,7 +297,7 @@ export class MainComponent implements OnInit {
     }
 
     this.argsChangedSubject
-      .pipe(debounceTime(500))
+      .pipe(debounceTime(500), takeUntil(this.destroy$))
       .subscribe((should_simulate) => {
         if (should_simulate) this.getSimulatedOutput();
     });
@@ -309,6 +312,8 @@ export class MainComponent implements OnInit {
 
   ngOnDestroy(): void {
     if (this.interval_id) { clearInterval(this.interval_id) }
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   // download helpers
@@ -806,7 +811,8 @@ export class MainComponent implements OnInit {
         filter((text: string) => text.length > 1),  // filter out if empty
         debounceTime(250),                          // only once every 250ms
         tap(() => this.results_loading = true),     // enable loading
-        switchMap((query: string) => this.youtubeSearch.search(query))
+        switchMap((query: string) => this.youtubeSearch.search(query)),
+        takeUntil(this.destroy$)
       )
       .subscribe(
         (results: Result[]) => {
