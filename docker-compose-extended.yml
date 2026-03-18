@@ -5,7 +5,7 @@ services:
     environment:
       ytdl_use_local_db: 'false'
       ytdl_remote_db_type: 'postgres'
-      ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+      ytdl_postgresdb_connection_string: 'postgresql://PlaceholderUser:PlaceholderPassword@ytdl-postgres-db:5432/PlaceholderDB'
       # Optional Redis-backed rate limiting:
       # ytdl_redis_connection_string: 'redis://ytdl-redis:6379/0'
       # Optional MongoDB support:
@@ -92,11 +92,11 @@ services:
     image: postgres:alpine
     container_name: ytdl-postgres-db
     environment:
-      POSTGRES_PASSWORD: ytdl-material
-      POSTGRES_DB: ytdl-material
-      POSTGRES_USER: ytdl-material
+      POSTGRES_PASSWORD: PlaceholderPassword
+      POSTGRES_DB: PlaceholderDB
+      POSTGRES_USER: PlaceholderUser
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ytdl-material -d ytdl-material"]
+      test: ["CMD-SHELL", "pg_isready -U PlaceholderUser -d PlaceholderDB"]
       interval: 15s
       timeout: 30s
       retries: 5

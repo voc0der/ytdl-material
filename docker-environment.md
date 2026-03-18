@@ -10,7 +10,7 @@ Common Docker environment variables you can use with the provided compose files:
 
 * `ytdl_use_local_db`: set to `'false'` to use a remote database instead of the local JSON DB
 * `ytdl_remote_db_type`: optional explicit remote DB engine (`postgres` or `mongo`). When omitted, PostgreSQL is preferred when `ytdl_postgresdb_connection_string` is set, otherwise MongoDB is used.
-* `ytdl_postgresdb_connection_string`: PostgreSQL connection string (default compose file points to `postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material`)
+* `ytdl_postgresdb_connection_string`: PostgreSQL connection string (default compose file points to `postgresql://PlaceholderUser:PlaceholderPassword@ytdl-postgres-db:5432/PlaceholderDB`)
 * `ytdl_mongodb_connection_string`: MongoDB connection string for optional MongoDB support
 * `ytdl_redis_connection_string`: optional Redis connection string (`redis://` or `rediss://`) for shared rate-limiting state; when no Redis connection string is configured, in-memory rate limiting remains the default
 * `ytdl_db_migrate`: optional one-time DB-to-DB migration mode (`postgres` to move MongoDB to PostgreSQL, `mongo` to move PostgreSQL to MongoDB). Requires both remote connection strings plus `ytdl_use_local_db='false'`. A successful migration clears the config setting automatically, but you should still remove the environment variable so it is not reapplied on the next boot.
@@ -53,7 +53,7 @@ Common Docker environment variables you can use with the provided compose files:
 environment:
   ytdl_use_local_db: 'false'
   ytdl_remote_db_type: 'postgres'
-  ytdl_postgresdb_connection_string: 'postgresql://ytdl-material:ytdl-material@ytdl-postgres-db:5432/ytdl-material'
+  ytdl_postgresdb_connection_string: 'postgresql://PlaceholderUser:PlaceholderPassword@ytdl-postgres-db:5432/PlaceholderDB'
   # ytdl_redis_connection_string: 'redis://ytdl-redis:6379/0'
   # To clear a previously written Redis setting while write_ytdl_config is true:
   # ytdl_redis_connection_string: ''
