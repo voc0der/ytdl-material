@@ -1194,7 +1194,10 @@ app.post('/api/setConfig', optionalJwt, function(req, res) {
 });
 
 app.get('/api/versionInfo', (req, res) => {
-    res.send({version_info: version_info});
+    res.send({
+        version_info: version_info,
+        downloader_info: youtubedl_api.getAllYoutubeDLDetails()
+    });
 });
 
 app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
