@@ -275,4 +275,54 @@ describe('PlayerComponent', () => {
     expect(component.activeChapterIndex).toBe(0);
     expect(component.currentChapterLabel).toBe('Intro');
   });
+
+  it('should calculate chapter segment progress from the current playback time', () => {
+    component.playbackTime = 45;
+    const chapter: IChapter = { title: 'Part 2', start_time: 30, end_time: 90 };
+
+    expect(component.getChapterProgressWidth(chapter)).toBe(25);
+
+    component.playbackTime = 120;
+    expect(component.getChapterProgressWidth(chapter)).toBe(100);
+  });
+
+  it('should use file duration when building the chapter timeline duration', () => {
+    component.currentChapters = [
+      { title: 'Intro', start_time: 0, end_time: 30 },
+      { title: 'Part 2', start_time: 30, end_time: 90 }
+    ];
+    component.currentFile = { duration: 120 } as DatabaseFile;
+
+    expect(component.getChapterTimelineDuration()).toBe(120);
+
+    component.currentFile = { duration: 60 } as DatabaseFile;
+    expect(component.getChapterTimelineDuration()).toBe(90);
+  });
+
+  it('should only show the chapter timeline overlay near the bottom hover band', () => {
+    component.currentItem = {
+      title: 'Hover Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Hover Test',
+      url: 'https://example.com/video'
+    };
+    component.currentChapters = [
+      { title: 'Intro', start_time: 0, end_time: 30 }
+    ];
+
+    const playerElement = {
+      clientHeight: 540,
+      getBoundingClientRect: () => ({ bottom: 500 })
+    } as unknown as HTMLElement;
+
+    component.onPlayerMouseMove({ currentTarget: playerElement, clientY: 430 } as unknown as MouseEvent);
+    expect(component.chapterTimelineVisible).toBeTrue();
+
+    component.onPlayerMouseMove({ currentTarget: playerElement, clientY: 320 } as unknown as MouseEvent);
+    expect(component.chapterTimelineVisible).toBeFalse();
+
+    component.onPlayerMouseLeave();
+    expect(component.chapterTimelineVisible).toBeFalse();
+  });
 });

@@ -182,3 +182,186 @@ $light-theme: mat.m2-define-light-theme((
   align-items: center !important;
   display: inline-flex !important;
 }
+
+app-player vg-player {
+  display: block;
+  position: relative;
+}
+
+app-player .chapter-overlay {
+  background: transparent;
+  bottom: 34px;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  left: 12px;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 12px;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s linear;
+  visibility: hidden;
+  z-index: 2;
+}
+
+app-player .chapter-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+app-player .chapter-overlay-header {
+  align-items: flex-end;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  padding: 0 2px;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.38);
+}
+
+app-player .chapter-overlay-current {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+app-player .chapter-overlay-time,
+app-player .chapter-segment-time {
+  font-family: monospace;
+}
+
+app-player .chapter-overlay-time {
+  font-size: 0.72rem;
+  opacity: 0.92;
+}
+
+app-player .chapter-overlay-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+app-player .chapter-overlay-index {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.86;
+  white-space: nowrap;
+}
+
+app-player .chapter-segment-track {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+app-player .chapter-segment {
+  appearance: none;
+  background: var(--chapter-segment-surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--chapter-segment-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  color: inherit;
+  cursor: pointer;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+app-player .chapter-segment:hover {
+  transform: translateY(-1px);
+}
+
+app-player .chapter-segment:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+app-player .chapter-segment.active {
+  border-color: var(--chapter-segment-active-border);
+}
+
+app-player .chapter-segment-fill {
+  background: var(--chapter-segment-fill);
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: width 0.12s linear;
+}
+
+app-player .chapter-segment.active .chapter-segment-fill {
+  background: var(--chapter-segment-active-fill);
+}
+
+app-player .chapter-segment-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 9px 7px;
+  position: relative;
+  z-index: 1;
+}
+
+app-player .chapter-segment-time {
+  font-size: 0.68rem;
+  opacity: 0.86;
+}
+
+app-player .chapter-segment-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.light-theme app-player .chapter-overlay {
+  color: #0f172a;
+}
+
+@media (max-width: 767px) {
+  app-player .chapter-overlay {
+    bottom: 32px;
+    left: 10px;
+    right: 10px;
+  }
+
+  app-player .chapter-overlay-header {
+    margin-bottom: 0;
+  }
+
+  app-player .chapter-overlay-index {
+    display: none;
+  }
+
+  app-player .chapter-segment-track {
+    gap: 4px;
+  }
+
+  app-player .chapter-segment-meta {
+    padding: 5px 7px 6px;
+  }
+
+  app-player .chapter-segment-time {
+    font-size: 0.64rem;
+  }
+
+  app-player .chapter-segment-label {
+    font-size: 0.74rem;
+  }
+}
