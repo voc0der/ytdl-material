@@ -363,6 +363,37 @@ describe('MediaLibraryComponent', () => {
     expect((manualComponent as any).pendingScrollRestoreSnapshot).toBeNull();
   });
 
+  it('should keep the clicked file uid as the anchor when the rendered lookup misses', () => {
+    const manualComponent = new MediaLibraryComponent(
+      postsServiceStub,
+      routerStub,
+      dialogStub,
+      TestBed.inject(NgZone),
+      navigationStateService
+    );
+    manualComponent.autoPaginationEnabled = true;
+    manualComponent.normal_files_received = true;
+    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
+    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
+    spyOn(manualComponent, 'getVideoGridDocumentTop').and.returnValue(100);
+
+    (manualComponent as any).scrollListenerTarget = window;
+    (manualComponent as any).videoGridContainerElement = {
+      querySelectorAll: () => [{
+        getAttribute: () => 'file-1',
+        getBoundingClientRect: () => ({ top: 0, bottom: 200 })
+      }]
+    };
+
+    const anchor = (manualComponent as any).getNavigationRestoreAnchor('file-3', null);
+
+    expect(anchor.anchorUid).toBe('file-3');
+  });
+
   it('should cache the current library view before navigating to the player', () => {
     component.normal_files_received = true;
     component.file_count = 2;

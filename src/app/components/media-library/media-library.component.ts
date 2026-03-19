@@ -343,8 +343,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  private buildNavigationRestoreSnapshot(preferredAnchorUid: string | null = null): MediaLibraryRestoreSnapshot {
-    const { anchorUid, anchorOffset } = this.getNavigationRestoreAnchor(preferredAnchorUid);
+  private buildNavigationRestoreSnapshot(preferredAnchorUid: string | null = null, preferredAnchorElement: HTMLElement | null = null): MediaLibraryRestoreSnapshot {
+    const { anchorUid, anchorOffset } = this.getNavigationRestoreAnchor(preferredAnchorUid, preferredAnchorElement);
     return {
       routeKey: this.getCurrentRouteKey(),
       activeLibraryTab: this.activeLibraryTab,
@@ -365,9 +365,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     };
   }
 
-  private saveNavigationRestoreState(preferredAnchorUid: string | null = null): void {
+  private saveNavigationRestoreState(preferredAnchorUid: string | null = null, preferredAnchorElement: HTMLElement | null = null): void {
     this.mediaLibraryNavigationState.savePendingRestoreState({
-      snapshot: this.buildNavigationRestoreSnapshot(preferredAnchorUid),
+      snapshot: this.buildNavigationRestoreSnapshot(preferredAnchorUid, preferredAnchorElement),
       files: this.paged_data ?? [],
       playlistLibraryItems: this.playlistLibraryItems ?? [],
       playlistLibraryReceived: this.playlistLibraryReceived
@@ -375,13 +375,29 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.getCurrentRouteKey());
   }
 
-  private getNavigationRestoreAnchor(preferredAnchorUid: string | null): { anchorUid: string | null; anchorOffset: number } {
-    const preferred_anchor = this.getVideoAnchorForUid(preferredAnchorUid);
+  private getNavigationRestoreAnchor(preferredAnchorUid: string | null, preferredAnchorElement: HTMLElement | null): { anchorUid: string | null; anchorOffset: number } {
+    const preferred_anchor = this.getVideoAnchorForElement(preferredAnchorElement) ?? this.getVideoAnchorForUid(preferredAnchorUid);
     if (preferred_anchor) {
       return preferred_anchor;
     }
 
     return this.getVisibleVideoAnchor();
+  }
+
+  private getVideoAnchorForElement(anchorElement: HTMLElement | null): { anchorUid: string | null; anchorOffset: number } | null {
+    if (!anchorElement || !this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return null;
+    }
+
+    const anchor_uid = anchorElement.getAttribute('data-file-uid');
+    if (!anchor_uid) {
+      return null;
+    }
+
+    return {
+      anchorUid: anchor_uid,
+      anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(anchorElement)
+    };
   }
 
   private getVideoAnchorForUid(anchorUid: string | null): { anchorUid: string | null; anchorOffset: number } | null {
@@ -391,12 +407,26 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
     const rendered_anchor_element = this.getRenderedVideoAnchorElement(anchorUid);
     if (!rendered_anchor_element) {
-      return null;
+      return this.getApproximateVideoAnchorForUid(anchorUid);
     }
 
     return {
       anchorUid,
       anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(rendered_anchor_element)
+    };
+  }
+
+  private getApproximateVideoAnchorForUid(anchorUid: string): { anchorUid: string | null; anchorOffset: number } | null {
+    const anchor_index = this.paged_data?.findIndex(file => file.uid === anchorUid) ?? -1;
+    if (anchor_index < 0) {
+      return null;
+    }
+
+    const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
+    const approximate_anchor_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight());
+    return {
+      anchorUid,
+      anchorOffset: this.getViewportScrollTop() - approximate_anchor_top
     };
   }
 
@@ -712,14 +742,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     if (this.postsService.config['Extra']['download_only_mode']) {
       this.downloadFile(file);
     } else {
-      this.navigateToFile(file, event.ctrlKey);
+      this.navigateToFile(file, event.ctrlKey, event);
     }
   }
 
-  navigateToFile(file: DatabaseFile, new_tab: boolean): void {
+  navigateToFile(file: DatabaseFile, new_tab: boolean, event: { target?: EventTarget | null } | null = null): void {
     const routeParams = this.getPlayerRouteParams(file);
     if (!new_tab) {
-      this.saveNavigationRestoreState(file?.uid ?? null);
+      this.saveNavigationRestoreState(file?.uid ?? null, this.getAnchorElementFromEventTarget(event?.target ?? null));
       this.router.navigate(['/player', routeParams]);
     } else {
       const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
@@ -1044,6 +1074,19 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     return this.getElementDocumentTop(rendered_anchor_element);
+  }
+
+  private getAnchorElementFromEventTarget(target: EventTarget | null): HTMLElement | null {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    const anchor_element = target.closest('[data-file-uid]');
+    if (!(anchor_element instanceof HTMLElement) || !this.videoGridContainerElement?.contains(anchor_element)) {
+      return null;
+    }
+
+    return anchor_element;
   }
 
   getVisibleGridTopOffset(): number {
