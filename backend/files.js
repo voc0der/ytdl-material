@@ -803,10 +803,10 @@ exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorit
     if (text_search) {
         const normalized_text_search = text_search.trim();
         if (normalized_text_search !== '') {
-            if (db_api.isUsingLocalDB()) {
-                filter_obj['title'] = {$regex: escapeRegex(normalized_text_search), $options: 'i'};
-            } else {
+            if (db_api.isUsingMongoDB()) {
                 filter_obj['$text'] = { $search: utils.createEdgeNGrams(normalized_text_search) };
+            } else {
+                filter_obj['title'] = {$regex: escapeRegex(normalized_text_search), $options: 'i'};
             }
         }
     }

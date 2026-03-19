@@ -139,4 +139,36 @@ describe('Files', function() {
             files_api.deleteFileObject = original_delete_file_object;
         }
     });
+
+    it('uses regex title filtering for PostgreSQL-style text search', async function() {
+        const original_get_records = db_api.getRecords;
+        const original_is_using_local_db = db_api.isUsingLocalDB;
+        const original_is_using_mongo_db = db_api.isUsingMongoDB;
+        const captured_filters = [];
+
+        try {
+            db_api.isUsingLocalDB = () => false;
+            db_api.isUsingMongoDB = () => false;
+            db_api.getRecords = async (table, filter_obj, return_count) => {
+                captured_filters.push({table, filter_obj, return_count});
+                return return_count ? 0 : [];
+            };
+
+            await files_api.getAllFiles({by: 'registered', order: -1}, [0, 20], 'science', 'both', false, null, null);
+
+            assert.strictEqual(captured_filters.length, 2);
+            assert.deepStrictEqual(captured_filters[0].filter_obj, {
+                title: {$regex: 'science', $options: 'i'}
+            });
+            assert.strictEqual(captured_filters[0].return_count, false);
+            assert.deepStrictEqual(captured_filters[1].filter_obj, {
+                title: {$regex: 'science', $options: 'i'}
+            });
+            assert.strictEqual(captured_filters[1].return_count, true);
+        } finally {
+            db_api.getRecords = original_get_records;
+            db_api.isUsingLocalDB = original_is_using_local_db;
+            db_api.isUsingMongoDB = original_is_using_mongo_db;
+        }
+    });
 });

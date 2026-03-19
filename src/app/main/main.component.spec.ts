@@ -26,13 +26,19 @@ describe('MainComponent', () => {
       hasPermission: () => true,
       getCurrentDownload: () => of({download: null}),
       openSnackBar: () => {},
+      files_changed: {
+        next: jasmine.createSpy('filesChangedNext')
+      },
+      playlists_changed: {
+        next: jasmine.createSpy('playlistsChangedNext')
+      },
       config_reloaded: of(false),
       service_initialized: of(true),
       initialized: true
     };
     const youtube_search_mock: any = { initializeAPI: () => {} };
     const snack_bar_mock: any = { open: () => {} };
-    const router_mock: any = { navigate: () => {} };
+    const router_mock: any = { navigate: () => {}, url: '/home' };
     const dialog_mock: any = { open: () => ({ afterClosed: () => of(null) }) };
     const platform_mock: any = { IOS: false };
     const route_mock: any = { snapshot: { paramMap: { get: () => null } } };
@@ -111,6 +117,18 @@ describe('MainComponent', () => {
 
     expect(helper_spy).toHaveBeenCalledWith(api_download.container as any, 'video', false, false);
     expect(component.current_download).toBeNull();
+  });
+
+  it('reloads the media library before navigating to the player on autoplay', () => {
+    component.autoplay = true;
+    const reload_spy = spyOn(component, 'reloadMediaLibrary').and.callThrough();
+    const router_navigate_spy = spyOn((component as any).router, 'navigate');
+
+    component.downloadHelper({uid: 'file-1'} as any, 'video', false, false);
+
+    expect(reload_spy).toHaveBeenCalledWith(false);
+    expect((component as any).postsService.files_changed.next).toHaveBeenCalledWith(true);
+    expect(router_navigate_spy).toHaveBeenCalledWith(['/player', {type: 'video', uid: 'file-1'}]);
   });
 
   it('shows a dialog instead of reopening a skipped duplicate single download', () => {

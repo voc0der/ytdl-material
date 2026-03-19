@@ -333,6 +333,7 @@ export class MainComponent implements OnInit {
         }
         this.reloadMediaLibrary(is_playlist);
       } else {
+        this.reloadMediaLibrary(is_playlist);
         sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
         if (is_playlist) {
           this.router.navigate(['/player', {playlist_id: container['id'], type: type}]);
