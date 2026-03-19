@@ -73,6 +73,12 @@ export class UnifiedFileCardComponent implements OnInit {
 
   constructor(private dialog: MatDialog) { }
 
+  private get normalizedBaseStreamPath(): string {
+    return this.baseStreamPath?.endsWith('/')
+      ? this.baseStreamPath.slice(0, -1)
+      : this.baseStreamPath;
+  }
+
   ngOnInit(): void {
     if (!this.loading) {
       this.file_length = fancyTimeFormat(this.file_obj.duration);
@@ -85,7 +91,7 @@ export class UnifiedFileCardComponent implements OnInit {
       } else if (this.apiKeyString) {
         authQuery = `apiKey=${this.apiKeyString}`;
       }
-      this.thumbnailBlobURL = `${this.baseStreamPath}thumbnail/${encodeURIComponent(this.file_obj.thumbnailPath)}${authQuery ? '?' + authQuery : ''}`;
+      this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(this.file_obj.thumbnailPath)}${authQuery ? '?' + authQuery : ''}`;
     }
 
   }
@@ -143,8 +149,10 @@ export class UnifiedFileCardComponent implements OnInit {
   }
 
   generateStreamURL() {
-    const baseLocation = 'stream/';
-    let fullLocation = this.baseStreamPath + baseLocation + `?test=test&uid=${this.file_obj['uid']}`;
+    let fullLocation = `${this.normalizedBaseStreamPath}/stream?uid=${encodeURIComponent(this.file_obj['uid'])}`;
+
+    fullLocation += `&type=${this.file_obj.isAudio ? 'audio' : 'video'}`;
+
     if (this.jwtString) {
       fullLocation += `&jwt=${this.jwtString}`;
     } else if (this.apiKeyString) {

@@ -533,7 +533,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const mediaObject: IMedia = {
       title: file_obj.title,
-      src: this.createStreamURL(file_obj.uid),
+      src: this.createStreamURL(file_obj),
       type: mime_type,
       label: file_obj.title,
       url: file_obj.url,
@@ -543,9 +543,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     return mediaObject;
   }
 
-  createStreamURL(uid: string): string {
-    const baseLocation = 'stream/';
-    let fullLocation = this.baseStreamPath + baseLocation + `?test=test&uid=${uid}`;
+  createStreamURL(file_obj: DatabaseFile): string {
+    const normalizedBaseStreamPath = this.baseStreamPath.endsWith('/')
+      ? this.baseStreamPath.slice(0, -1)
+      : this.baseStreamPath;
+    let fullLocation = `${normalizedBaseStreamPath}/stream?uid=${encodeURIComponent(file_obj.uid)}`;
+
+    fullLocation += `&type=${file_obj.isAudio ? 'audio' : 'video'}`;
 
     if (this.postsService.isLoggedIn) {
       fullLocation += `&jwt=${this.postsService.token}`;
