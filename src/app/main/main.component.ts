@@ -53,7 +53,7 @@ export class MainComponent implements OnInit {
   allowQualitySelect = false;
   downloadOnlyMode = false;
   forceAutoplay = false;
-  sponsorBlockApiEnabled = false;
+  sponsorBlockDownloadsEnabled = false;
   globalCustomArgs = null;
   allowAdvancedDownload = false;
   useDefaultDownloadingAgent = true;
@@ -206,7 +206,7 @@ export class MainComponent implements OnInit {
     this.youtubeSearchEnabled = this.postsService.config['API'] && this.postsService.config['API']['use_youtube_API'] &&
         this.postsService.config['API']['youtube_API_key'];
     this.youtubeAPIKey = this.youtubeSearchEnabled ? this.postsService.config['API']['youtube_API_key'] : null;
-    this.sponsorBlockApiEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_sponsorblock_API']);
+    this.sponsorBlockDownloadsEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_sponsorblock_API']);
     this.allowQualitySelect = this.postsService.config['Extra']['allow_quality_select'];
     this.allowAdvancedDownload = this.postsService.config['Advanced']['allow_advanced_download']
                                   && this.postsService.hasPermission('advanced_download');
@@ -345,7 +345,7 @@ export class MainComponent implements OnInit {
 
   // download click handler
   shouldShowDownloadMenu(): boolean {
-    return this.sponsorBlockApiEnabled || this.hasPlaylistUrlInInput() || this.hasChannelSearchPlaylistUrlInInput();
+    return this.sponsorBlockDownloadsEnabled || this.hasPlaylistUrlInInput() || this.hasChannelSearchPlaylistUrlInInput();
   }
 
   hasPlaylistUrlInInput(): boolean {

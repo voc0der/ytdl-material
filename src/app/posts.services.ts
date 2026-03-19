@@ -1043,11 +1043,6 @@ export class PostsService {
                                                                     this.httpOptions);
     }
 
-    getSponsorBlockDataForVideo(id_hash) {
-        const sponsor_block_api_path = 'https://sponsor.ajay.app/api/';
-        return this.http.get(sponsor_block_api_path + `skipSegments/${id_hash}`);
-    }
-
     // notifications
 
     getNotifications(): Observable<GetNotificationsResponse> {

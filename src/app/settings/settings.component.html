@@ -318,7 +318,7 @@
               <mat-checkbox color="accent" [(ngModel)]="new_config['API']['twitch_auto_download_chat']"><ng-container i18n="Auto download Twitch Chat setting">Auto-download Twitch Chat</ng-container></mat-checkbox>
             </div>
             <div class="col-12 mt-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_sponsorblock_API']" matTooltip="Enables a button to skip ads when viewing supported videos." i18n-matTooltip="SponsorBlock API tooltip"><ng-container i18n="Use SponsorBlock API setting">Use SponsorBlock API</ng-container></mat-checkbox>
+              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_sponsorblock_API']" matTooltip="Removes sponsor segments from yt-dlp downloads and enables a per-download opt-out." i18n-matTooltip="SponsorBlock downloads tooltip"><ng-container i18n="Use SponsorBlock during downloads setting">Use SponsorBlock During Downloads</ng-container></mat-checkbox>
             </div>
             <div class="col-12 mt-2 mb-3">
               <mat-checkbox color="accent" [(ngModel)]="new_config['API']['generate_NFO_files']" matTooltip="Generates NFO files with every download, primarily used by Kodi." i18n-matTooltip="Generate NFO files tooltip"><ng-container i18n="Generate NFO files setting">Generate NFO files</ng-container></mat-checkbox>

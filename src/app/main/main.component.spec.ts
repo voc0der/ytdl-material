@@ -215,8 +215,8 @@ describe('MainComponent', () => {
     expect(component.hasPlaylistUrlInInput()).toBeFalse();
   });
 
-  it('keeps download menu visible when sponsorblock option is enabled', () => {
-    component.sponsorBlockApiEnabled = true;
+  it('keeps download menu visible when sponsorblock downloads are enabled', () => {
+    component.sponsorBlockDownloadsEnabled = true;
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
 
     expect(component.shouldShowDownloadMenu()).toBeTrue();
