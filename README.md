@@ -48,7 +48,7 @@ Enable the public API in Settings -> *Extra*, generate an API key if needed, the
 
 ## Contributing
 
-Review the [Contributing](https://github.com/voc0der/ytdl-material/wiki/Contributing) wiki page for setup and guidelines; pull requests and issues for bugs or feature requests are welcome.
+Review [CONTRIBUTING.md](./CONTRIBUTING.md) for contributor guidelines; pull requests and issues for bugs or feature requests are welcome.
 
 ## Legal Disclaimer
 
