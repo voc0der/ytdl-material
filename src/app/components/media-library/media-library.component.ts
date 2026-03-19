@@ -118,7 +118,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private scrollRestoreFrameId: number = null;
   private autoLoadQueued = false;
   private scrollListenerTarget: HTMLElement | Window | null = null;
-  private pendingRestoreLoadedCount: number = null;
   private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
   private pendingScrollRestoreSnapshot: MediaLibraryRestoreSnapshot = null;
   private readonly destroy$ = new Subject<void>();
@@ -320,7 +319,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const { snapshot, files, playlistLibraryItems, playlistLibraryReceived } = this.pendingNavigationRestoreState;
     this.pendingNavigationRestoreState = null;
     this.pendingScrollRestoreSnapshot = snapshot;
-    this.pendingRestoreLoadedCount = snapshot.loadedCount ?? null;
 
     if (!Array.isArray(files) || files.length === 0) {
       return false;
@@ -445,7 +443,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
     this.setViewportScrollTop(target_scroll_top);
     this.pendingScrollRestoreSnapshot = null;
-    this.pendingRestoreLoadedCount = null;
     this.scheduleVirtualVideoWindowUpdate(true);
   }
 
@@ -635,9 +632,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.file_count = res['file_count'];
       const files = this.normalizeFiles(res['files'] ?? []);
       this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
-      if (!append) {
-        this.pendingRestoreLoadedCount = null;
-      }
       if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
         // Stop auto-prefetch if the backend response did not advance the loaded range.
         this.file_count = this.paged_data?.length ?? this.file_count;
@@ -867,8 +861,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       }
 
       const target_count = cache_mode && Array.isArray(this.paged_data) && this.paged_data.length > 0
-        ? Math.max(this.paged_data.length, auto_page_batch_size, this.pendingRestoreLoadedCount ?? 0)
-        : Math.max(auto_page_batch_size, this.pendingRestoreLoadedCount ?? 0);
+        ? Math.max(this.paged_data.length, auto_page_batch_size)
+        : auto_page_batch_size;
       const aligned_target_count = Math.ceil(target_count / auto_page_columns) * auto_page_columns;
       return [0, aligned_target_count];
     }

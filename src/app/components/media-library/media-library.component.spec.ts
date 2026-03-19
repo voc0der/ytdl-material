@@ -1,11 +1,10 @@
-import { NO_ERRORS_SCHEMA, NgZone } from '@angular/core';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import {
-  MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY,
   MediaLibraryNavigationStateService,
   PLAYER_NAVIGATOR_STORAGE_KEY
 } from 'app/media-library-navigation-state.service';
@@ -261,55 +260,6 @@ describe('MediaLibraryComponent', () => {
     expect(component.selectedFilters).toEqual(['favorited']);
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
     expect(component.normal_files_received).toBeTrue();
-  });
-
-  it('should use the stored snapshot fallback to reload enough auto rows after a refresh', () => {
-    const manualComponent = new MediaLibraryComponent(
-      postsServiceStub,
-      routerStub,
-      dialogStub,
-      TestBed.inject(NgZone),
-      navigationStateService
-    );
-    sessionStorage.setItem(MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY, JSON.stringify({
-      routeKey: '/home',
-      activeLibraryTab: 0,
-      sortProperty: 'registered',
-      descendingMode: true,
-      selectedFilters: [],
-      searchText: '',
-      playlistSearchText: '',
-      autoPaginationEnabled: true,
-      pageSize: 10,
-      manualPageIndex: 0,
-      subId: null,
-      fileCount: 18,
-      loadedCount: 18,
-      anchorUid: 'file-18',
-      anchorOffset: 0,
-      scrollTop: 640
-    }));
-    spyOn(manualComponent, 'getAutoPageBatchSize').and.returnValue(12);
-    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(3);
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.returnValue(of({
-      files: Array.from({length: 18}, (_, index) => ({
-        uid: `file-${index + 1}`,
-        duration: 12
-      })),
-      file_count: 18
-    }));
-
-    manualComponent.ngOnInit();
-
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
-      { by: 'registered', order: -1 },
-      [0, 18],
-      null,
-      'both',
-      false,
-      null
-    );
   });
 
   it('should cache the current library view before navigating to the player', () => {
