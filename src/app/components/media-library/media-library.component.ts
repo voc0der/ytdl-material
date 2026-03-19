@@ -11,6 +11,12 @@ import { saveAs } from 'file-saver';
 import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
+import {
+  MediaLibraryNavigationStateService,
+  MediaLibraryRestoreSnapshot,
+  MediaLibraryRestoreState,
+  PLAYER_NAVIGATOR_STORAGE_KEY
+} from 'app/media-library-navigation-state.service';
 
 type PageSizeOption = number | 'auto';
 interface MediaLibraryRow<T> {
@@ -109,8 +115,13 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
   private virtualRowUpdateFrameId: number = null;
+  private scrollRestoreFrameId: number = null;
   private autoLoadQueued = false;
+  private videoGridResizeObserver: ResizeObserver | null = null;
   private scrollListenerTarget: HTMLElement | Window | null = null;
+  private pendingScrollRestoreAttempts = 0;
+  private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
+  private pendingScrollRestoreSnapshot: MediaLibraryRestoreSnapshot = null;
   private readonly destroy$ = new Subject<void>();
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
@@ -118,10 +129,18 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
     this.videoGridContainerElement = container?.nativeElement ?? null;
     this.refreshScrollListener();
-    this.scheduleVirtualVideoWindowUpdate(true);
+    this.refreshVideoGridResizeObserver();
+    this.refreshVideoRowsForCurrentLayout();
+    this.schedulePendingScrollRestore();
   }
 
-  constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private ngZone: NgZone) {
+  constructor(
+    public postsService: PostsService,
+    private router: Router,
+    private dialog: MatDialog,
+    private ngZone: NgZone,
+    private mediaLibraryNavigationState: MediaLibraryNavigationStateService
+  ) {
     const saved_page_size = this.getStoredPreference(this.pageSizeStorageKey, this.legacyPageSizeStorageKey);
     if (saved_page_size === this.autoPageSizeOption) {
       this.autoPaginationEnabled = true;
@@ -178,22 +197,28 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       delete this.fileFilters['video_only'];
     }
 
-    if (this.postsService.initialized) {
-      this.getAllFiles();
+    this.pendingNavigationRestoreState = this.mediaLibraryNavigationState.consumePendingRestoreState(this.getCurrentRouteKey(), this.sub_id);
+    if (this.pendingNavigationRestoreState) {
+      this.applyRestoredNavigationSnapshot(this.pendingNavigationRestoreState.snapshot);
+    }
+
+    const initializeLibrary = () => {
+      const restored_from_navigation = this.restoreLibraryFromNavigationState();
+      if (!restored_from_navigation) {
+        this.getAllFiles();
+      }
       this.getAvailablePlaylists();
-      if (this.showLibraryTabs) {
+      if (this.showLibraryTabs && !this.playlistLibraryReceived) {
         this.getPlaylistLibraryItems();
       }
+    };
+
+    if (this.postsService.initialized) {
+      initializeLibrary();
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1), takeUntil(this.destroy$))
-        .subscribe(() => {
-          this.getAllFiles();
-          this.getAvailablePlaylists();
-          if (this.showLibraryTabs) {
-            this.getPlaylistLibraryItems();
-          }
-        });
+        .subscribe(() => initializeLibrary());
     }
 
     this.postsService.files_changed
@@ -240,6 +265,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.unbindScrollListener();
+    this.unbindVideoGridResizeObserver();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -257,6 +283,262 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  private getCurrentRouteKey(): string {
+    return this.router.url;
+  }
+
+  private applyRestoredNavigationSnapshot(snapshot: MediaLibraryRestoreSnapshot): void {
+    if (this.showLibraryTabs) {
+      this.activeLibraryTab = [0, 1].includes(snapshot.activeLibraryTab) ? snapshot.activeLibraryTab : 0;
+    } else {
+      this.activeLibraryTab = 0;
+    }
+
+    if (typeof snapshot.sortProperty === 'string' && snapshot.sortProperty.trim()) {
+      this.sortProperty = snapshot.sortProperty;
+    }
+    this.descendingMode = !!snapshot.descendingMode;
+    this.selectedFilters = Array.isArray(snapshot.selectedFilters)
+      ? snapshot.selectedFilters.filter(filter_key => !!this.fileFilters[filter_key])
+      : [];
+    this.search_text = snapshot.searchText ?? '';
+    this.search_mode = !!this.search_text.trim();
+    this.playlistSearchText = snapshot.playlistSearchText ?? '';
+    this.autoPaginationEnabled = !!snapshot.autoPaginationEnabled;
+    if (typeof snapshot.pageSize === 'number' && this.pageSizeOptions.includes(snapshot.pageSize)) {
+      this.pageSize = snapshot.pageSize;
+    }
+    this.manualPageIndex = Math.max(0, snapshot.manualPageIndex ?? 0);
+    if (typeof snapshot.fileCount === 'number' && snapshot.fileCount >= 0) {
+      this.file_count = snapshot.fileCount;
+    }
+    this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
+  }
+
+  private restoreLibraryFromNavigationState(): boolean {
+    if (!this.pendingNavigationRestoreState) {
+      return false;
+    }
+
+    const { snapshot, files, playlistLibraryItems, playlistLibraryReceived } = this.pendingNavigationRestoreState;
+    this.pendingNavigationRestoreState = null;
+    this.pendingScrollRestoreSnapshot = snapshot;
+    this.pendingScrollRestoreAttempts = 0;
+
+    if (!Array.isArray(files) || files.length === 0) {
+      return false;
+    }
+
+    this.paged_data = this.normalizeFiles(files ?? []);
+    this.file_count = typeof snapshot.fileCount === 'number' ? snapshot.fileCount : this.paged_data.length;
+    this.normal_files_received = true;
+    this.autoPageLoadInProgress = false;
+    this.loading_files = [];
+    this.rebuildVideoRows();
+
+    if (this.showLibraryTabs && playlistLibraryReceived) {
+      this.playlistLibraryItems = playlistLibraryItems ?? [];
+      this.playlistLibraryReceived = true;
+    }
+
+    this.scheduleVirtualVideoWindowUpdate(true);
+    this.schedulePendingScrollRestore();
+    return true;
+  }
+
+  private buildNavigationRestoreSnapshot(preferredAnchorUid: string | null = null, preferredAnchorElement: HTMLElement | null = null): MediaLibraryRestoreSnapshot {
+    const { anchorUid, anchorOffset } = this.getNavigationRestoreAnchor(preferredAnchorUid, preferredAnchorElement);
+    return {
+      routeKey: this.getCurrentRouteKey(),
+      activeLibraryTab: this.activeLibraryTab,
+      sortProperty: this.sortProperty,
+      descendingMode: this.descendingMode,
+      selectedFilters: this.selectedFilters.slice(),
+      searchText: this.search_text,
+      playlistSearchText: this.playlistSearchText,
+      autoPaginationEnabled: this.autoPaginationEnabled,
+      pageSize: this.pageSize,
+      manualPageIndex: this.manualPageIndex,
+      subId: this.sub_id ?? null,
+      fileCount: this.file_count,
+      loadedCount: this.paged_data?.length ?? 0,
+      anchorUid,
+      anchorOffset,
+      scrollTop: this.getViewportScrollTop()
+    };
+  }
+
+  private saveNavigationRestoreState(preferredAnchorUid: string | null = null, preferredAnchorElement: HTMLElement | null = null): void {
+    this.mediaLibraryNavigationState.savePendingRestoreState({
+      snapshot: this.buildNavigationRestoreSnapshot(preferredAnchorUid, preferredAnchorElement),
+      files: this.paged_data ?? [],
+      playlistLibraryItems: this.playlistLibraryItems ?? [],
+      playlistLibraryReceived: this.playlistLibraryReceived
+    });
+    sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.getCurrentRouteKey());
+  }
+
+  private getNavigationRestoreAnchor(preferredAnchorUid: string | null, preferredAnchorElement: HTMLElement | null): { anchorUid: string | null; anchorOffset: number } {
+    const preferred_anchor = this.getVideoAnchorForElement(preferredAnchorElement) ?? this.getVideoAnchorForUid(preferredAnchorUid);
+    if (preferred_anchor) {
+      return preferred_anchor;
+    }
+
+    return this.getVisibleVideoAnchor();
+  }
+
+  private getVideoAnchorForElement(anchorElement: HTMLElement | null): { anchorUid: string | null; anchorOffset: number } | null {
+    if (!anchorElement || !this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return null;
+    }
+
+    const anchor_uid = anchorElement.getAttribute('data-file-uid');
+    if (!anchor_uid) {
+      return null;
+    }
+
+    return {
+      anchorUid: anchor_uid,
+      anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(anchorElement)
+    };
+  }
+
+  private getVideoAnchorForUid(anchorUid: string | null): { anchorUid: string | null; anchorOffset: number } | null {
+    if (!anchorUid || !this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return null;
+    }
+
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement(anchorUid);
+    if (!rendered_anchor_element) {
+      return this.getApproximateVideoAnchorForUid(anchorUid);
+    }
+
+    return {
+      anchorUid,
+      anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(rendered_anchor_element)
+    };
+  }
+
+  private getApproximateVideoAnchorForUid(anchorUid: string): { anchorUid: string | null; anchorOffset: number } | null {
+    const anchor_index = this.paged_data?.findIndex(file => file.uid === anchorUid) ?? -1;
+    if (anchor_index < 0) {
+      return null;
+    }
+
+    const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
+    const approximate_anchor_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight());
+    return {
+      anchorUid,
+      anchorOffset: this.getViewportScrollTop() - approximate_anchor_top
+    };
+  }
+
+  private getVisibleVideoAnchor(): { anchorUid: string | null; anchorOffset: number } {
+    if (!this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return {
+        anchorUid: null,
+        anchorOffset: 0
+      };
+    }
+
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement();
+    if (rendered_anchor_element) {
+      return {
+        anchorUid: rendered_anchor_element.getAttribute('data-file-uid'),
+        anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(rendered_anchor_element)
+      };
+    }
+
+    const rows = this.videoRows.length > 0
+      ? this.videoRows
+      : this.buildMediaRows(this.paged_data ?? [], this.getAutoPageColumns());
+    if (rows.length === 0) {
+      return {
+        anchorUid: null,
+        anchorOffset: 0
+      };
+    }
+
+    const row_height = this.getAutoCardRowHeight();
+    const container_top = this.getVideoGridDocumentTop();
+    const viewport_top = this.getViewportScrollTop();
+    const row_index = Math.max(0, Math.min(rows.length - 1, Math.floor((viewport_top - container_top) / row_height)));
+    const anchor_index = rows[row_index]?.startIndex ?? 0;
+    return {
+      anchorUid: this.paged_data?.[anchor_index]?.uid ?? null,
+      anchorOffset: viewport_top - (container_top + (row_index * row_height))
+    };
+  }
+
+  private schedulePendingScrollRestore(): void {
+    if (!this.pendingScrollRestoreSnapshot || !this.videoGridContainerElement || !this.scrollListenerTarget || typeof window === 'undefined') {
+      return;
+    }
+
+    if (this.scrollRestoreFrameId !== null) {
+      return;
+    }
+
+    this.scrollRestoreFrameId = window.requestAnimationFrame(() => {
+      this.scrollRestoreFrameId = null;
+      this.ngZone.run(() => this.restorePendingScrollPosition());
+    });
+  }
+
+  private restorePendingScrollPosition(): void {
+    const snapshot = this.pendingScrollRestoreSnapshot;
+    if (!snapshot || !this.videoGridContainerElement || !this.scrollListenerTarget) {
+      return;
+    }
+
+    if (this.activeLibraryTab !== snapshot.activeLibraryTab) {
+      return;
+    }
+
+    let target_scroll_top = snapshot.scrollTop;
+    let awaiting_exact_anchor_restore = false;
+    if (snapshot.anchorUid && this.autoPaginationEnabled && this.isVideoLibraryActive()) {
+      const rendered_anchor_top = this.getRenderedAnchorDocumentTop(snapshot.anchorUid);
+      if (rendered_anchor_top !== null) {
+        target_scroll_top = rendered_anchor_top + snapshot.anchorOffset;
+      } else {
+        const anchor_index = this.paged_data?.findIndex(file => file.uid === snapshot.anchorUid) ?? -1;
+        if (anchor_index === -1 && (this.paged_data?.length ?? 0) < this.file_count) {
+          this.loadMoreAutoFiles();
+          return;
+        }
+
+        if (anchor_index >= 0) {
+          const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
+          target_scroll_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight()) + snapshot.anchorOffset;
+          awaiting_exact_anchor_restore = true;
+        }
+      }
+    }
+
+    this.setViewportScrollTop(target_scroll_top);
+    this.scheduleVirtualVideoWindowUpdate(true);
+
+    if (awaiting_exact_anchor_restore && this.pendingScrollRestoreAttempts < 2) {
+      this.pendingScrollRestoreAttempts += 1;
+      this.schedulePendingScrollRestore();
+      return;
+    }
+
+    this.pendingScrollRestoreSnapshot = null;
+    this.pendingScrollRestoreAttempts = 0;
+  }
+
+  private setViewportScrollTop(scroll_top: number): void {
+    const safe_scroll_top = Number.isFinite(scroll_top) ? Math.max(0, scroll_top) : 0;
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      this.scrollListenerTarget.scrollTop = safe_scroll_top;
+      return;
+    }
+
+    window.scrollTo({ top: safe_scroll_top });
+  }
+
   @HostListener('window:resize')
   onWindowResize(): void {
     if (!this.autoPaginationEnabled || !this.isVideoLibraryActive()) {
@@ -264,8 +546,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
-    this.rebuildVideoRows();
-    this.scheduleVirtualVideoWindowUpdate(true);
+    this.refreshVideoRowsForCurrentLayout();
   }
 
   get showLibraryTabs(): boolean {
@@ -314,6 +595,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.postsService.getPlaylists(true).subscribe(res => {
       this.playlistLibraryItems = res['playlists'];
       this.playlistLibraryReceived = true;
+      this.schedulePendingScrollRestore();
     });
   }
 
@@ -444,6 +726,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.normal_files_received = true;
       this.autoPageLoadInProgress = false;
       this.scheduleVirtualVideoWindowUpdate(true);
+      this.schedulePendingScrollRestore();
     }, err => {
       if (request_id !== this.latestFileRequestId) {
         return;
@@ -461,14 +744,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     if (this.postsService.config['Extra']['download_only_mode']) {
       this.downloadFile(file);
     } else {
-      this.navigateToFile(file, event.ctrlKey);
+      this.navigateToFile(file, event.ctrlKey, event);
     }
   }
 
-  navigateToFile(file: DatabaseFile, new_tab: boolean): void {
-    localStorage.setItem('player_navigator', this.router.url);
+  navigateToFile(file: DatabaseFile, new_tab: boolean, event: { target?: EventTarget | null } | null = null): void {
     const routeParams = this.getPlayerRouteParams(file);
     if (!new_tab) {
+      this.saveNavigationRestoreState(file?.uid ?? null, this.getAnchorElementFromEventTarget(event?.target ?? null));
       this.router.navigate(['/player', routeParams]);
     } else {
       const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
@@ -732,6 +1015,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return Math.max(1, Math.ceil(this.getViewportHeight() / this.getAutoCardRowHeight()));
   }
 
+  private getVisibleViewportTopBoundary(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.getBoundingClientRect().top;
+    }
+
+    return 0;
+  }
+
   getVideoGridDocumentTop(): number {
     const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
     const container_top = container_rect?.top;
@@ -745,6 +1036,59 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     return container_top + this.getViewportScrollTop();
+  }
+
+  private getElementDocumentTop(element: HTMLElement): number {
+    const element_rect = element?.getBoundingClientRect?.();
+    const element_top = element_rect?.top;
+    if (typeof element_top !== 'number') {
+      return this.getViewportScrollTop();
+    }
+
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      const scroll_container_top = this.scrollListenerTarget.getBoundingClientRect().top;
+      return (element_top - scroll_container_top) + this.scrollListenerTarget.scrollTop;
+    }
+
+    return element_top + this.getViewportScrollTop();
+  }
+
+  private getRenderedVideoAnchorElement(anchorUid: string | null = null): HTMLElement | null {
+    const rendered_anchor_elements = Array.from(
+      this.videoGridContainerElement?.querySelectorAll<HTMLElement>('[data-file-uid]') ?? []
+    );
+    if (rendered_anchor_elements.length === 0) {
+      return null;
+    }
+
+    if (anchorUid) {
+      return rendered_anchor_elements.find(element => element.getAttribute('data-file-uid') === anchorUid) ?? null;
+    }
+
+    const viewport_top_boundary = this.getVisibleViewportTopBoundary();
+    return rendered_anchor_elements.find(element => element.getBoundingClientRect().bottom > viewport_top_boundary) ?? rendered_anchor_elements[0];
+  }
+
+  private getRenderedAnchorDocumentTop(anchorUid: string): number | null {
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement(anchorUid);
+    if (!rendered_anchor_element) {
+      return null;
+    }
+
+    return this.getElementDocumentTop(rendered_anchor_element);
+  }
+
+  private getAnchorElementFromEventTarget(target: EventTarget | null): HTMLElement | null {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    const anchor_element = target.closest('[data-file-uid]');
+    if (!(anchor_element instanceof HTMLElement) || !this.videoGridContainerElement?.contains(anchor_element)) {
+      return null;
+    }
+
+    return anchor_element;
   }
 
   getVisibleGridTopOffset(): number {
@@ -926,7 +1270,41 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.virtualRowUpdateFrameId = null;
     }
 
+    if (typeof window !== 'undefined' && this.scrollRestoreFrameId !== null) {
+      window.cancelAnimationFrame(this.scrollRestoreFrameId);
+      this.scrollRestoreFrameId = null;
+    }
+
     this.autoLoadQueued = false;
+  }
+
+  private refreshVideoGridResizeObserver(): void {
+    this.unbindVideoGridResizeObserver();
+    if (typeof ResizeObserver === 'undefined' || !this.videoGridContainerElement) {
+      return;
+    }
+
+    this.ngZone.runOutsideAngular(() => {
+      this.videoGridResizeObserver = new ResizeObserver(() => {
+        this.ngZone.run(() => this.refreshVideoRowsForCurrentLayout());
+      });
+      this.videoGridResizeObserver.observe(this.videoGridContainerElement);
+    });
+  }
+
+  private unbindVideoGridResizeObserver(): void {
+    this.videoGridResizeObserver?.disconnect();
+    this.videoGridResizeObserver = null;
+  }
+
+  private refreshVideoRowsForCurrentLayout(): void {
+    if (this.autoPaginationEnabled && this.isVideoLibraryActive() && (this.paged_data?.length ?? 0) > 0) {
+      this.rebuildVideoRows();
+    } else {
+      this.scheduleVirtualVideoWindowUpdate(true);
+    }
+
+    this.schedulePendingScrollRestore();
   }
 
   getAutoPageColumns(): number {
@@ -1093,10 +1471,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   navigateToPlaylist(playlist: Playlist, new_tab: boolean): void {
-    localStorage.setItem('player_navigator', this.router.url);
     const routeParams = this.getPlaylistRouteParams(playlist);
 
     if (!new_tab) {
+      this.saveNavigationRestoreState();
       this.router.navigate(['/player', routeParams]);
       return;
     }
