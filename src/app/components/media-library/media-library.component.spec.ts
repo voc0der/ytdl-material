@@ -1,9 +1,10 @@
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
+import { MediaLibraryNavigationStateService, PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
 import { MediaLibraryComponent } from './media-library.component';
 
@@ -12,9 +13,12 @@ describe('MediaLibraryComponent', () => {
   let fixture: ComponentFixture<MediaLibraryComponent>;
   let dialogStub: any;
   let postsServiceStub: any;
+  let routerStub: any;
+  let navigationStateService: MediaLibraryNavigationStateService;
 
   beforeEach(waitForAsync(() => {
     localStorage.clear();
+    sessionStorage.clear();
 
     postsServiceStub = {
       initialized: false,
@@ -45,8 +49,14 @@ describe('MediaLibraryComponent', () => {
       openSnackBar: jasmine.createSpy('openSnackBar'),
       getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue(of({files: [], file_count: 0})),
       getPlaylists: jasmine.createSpy('getPlaylists').and.returnValue(of({playlists: []})),
-      files_changed: { subscribe: () => ({ unsubscribe() {} }) },
-      playlists_changed: { subscribe: () => ({ unsubscribe() {} }) }
+      files_changed: new BehaviorSubject(false),
+      playlists_changed: new BehaviorSubject(false)
+    };
+    routerStub = {
+      url: '/home',
+      navigate: jasmine.createSpy('navigate'),
+      createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue('/player'),
+      serializeUrl: jasmine.createSpy('serializeUrl').and.returnValue('/player')
     };
     dialogStub = {
       open: jasmine.createSpy('open')
@@ -56,7 +66,7 @@ describe('MediaLibraryComponent', () => {
       declarations: [ MediaLibraryComponent ],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
-        { provide: Router, useValue: {} },
+        { provide: Router, useValue: routerStub },
         { provide: MatDialog, useValue: dialogStub }
       ],
       schemas: [NO_ERRORS_SCHEMA]
@@ -67,6 +77,8 @@ describe('MediaLibraryComponent', () => {
   beforeEach(() => {
     fixture = TestBed.createComponent(MediaLibraryComponent);
     component = fixture.componentInstance;
+    navigationStateService = TestBed.inject(MediaLibraryNavigationStateService);
+    navigationStateService.clearPendingRestoreState();
   });
 
   it('should create', () => {
@@ -207,6 +219,81 @@ describe('MediaLibraryComponent', () => {
 
     expect(load_more_spy).toHaveBeenCalled();
   }));
+
+  it('should restore cached library state without refetching files', () => {
+    navigationStateService.savePendingRestoreState({
+      snapshot: {
+        routeKey: '/home',
+        activeLibraryTab: 0,
+        sortProperty: 'registered',
+        descendingMode: true,
+        selectedFilters: ['favorited'],
+        searchText: 'cats',
+        playlistSearchText: '',
+        autoPaginationEnabled: true,
+        pageSize: 10,
+        manualPageIndex: 0,
+        subId: null,
+        fileCount: 2,
+        loadedCount: 2,
+        anchorUid: 'file-2',
+        anchorOffset: 24,
+        scrollTop: 320
+      },
+      files: [
+        { uid: 'file-1', duration: 12 } as any,
+        { uid: 'file-2', duration: 18 } as any
+      ],
+      playlistLibraryItems: [],
+      playlistLibraryReceived: false
+    });
+    postsServiceStub.getAllFiles.calls.reset();
+
+    fixture.detectChanges();
+
+    expect(postsServiceStub.getAllFiles).not.toHaveBeenCalled();
+    expect(component.autoPaginationEnabled).toBeTrue();
+    expect(component.search_text).toBe('cats');
+    expect(component.selectedFilters).toEqual(['favorited']);
+    expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
+    expect(component.normal_files_received).toBeTrue();
+  });
+
+  it('should cache the current library view before navigating to the player', () => {
+    component.normal_files_received = true;
+    component.file_count = 2;
+    component.search_text = 'cats';
+    component.search_mode = true;
+    component.selectedFilters = ['favorited'];
+    component.paged_data = [
+      { uid: 'file-1', duration: 12, isAudio: false } as any,
+      { uid: 'file-2', duration: 18, isAudio: false } as any
+    ];
+
+    component.navigateToFile(component.paged_data[0], false);
+
+    expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/home');
+    expect(routerStub.navigate).toHaveBeenCalled();
+    const restored = navigationStateService.consumePendingRestoreState('/home', null);
+    expect(restored.snapshot.searchText).toBe('cats');
+    expect(restored.snapshot.selectedFilters).toEqual(['favorited']);
+    expect(restored.files.map(file => file.uid)).toEqual(['file-1', 'file-2']);
+  });
+
+  it('should not save restore state when opening the player in a new tab', () => {
+    component.normal_files_received = true;
+    component.paged_data = [
+      { uid: 'file-1', duration: 12, isAudio: false } as any
+    ];
+    const window_open_spy = spyOn(window, 'open');
+
+    component.navigateToFile(component.paged_data[0], true);
+
+    expect(window_open_spy).toHaveBeenCalled();
+    expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBeNull();
+    expect(navigationStateService.consumePendingRestoreState('/home', null)).toBeNull();
+    expect(routerStub.navigate).not.toHaveBeenCalled();
+  });
 
   it('removes only the playlist when the default delete action is chosen', () => {
     const playlist = {

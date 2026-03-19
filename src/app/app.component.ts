@@ -18,6 +18,7 @@ import { ArchiveViewerComponent } from './components/archive-viewer/archive-view
 import { PlaylistDownloadProgressDialogComponent } from './dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
+import { PLAYER_NAVIGATOR_STORAGE_KEY } from './media-library-navigation-state.service';
 
 @Component({
     selector: 'app-root',
@@ -81,10 +82,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     public router: Router, public overlayContainer: OverlayContainer, private elementRef: ElementRef,
   ) {
 
-    this.navigator = localStorage.getItem('player_navigator');
+    this.navigator = this.getStoredPlayerNavigator();
     // runs on navigate, captures the route that navigated to the player (if needed)
     this.router.events.subscribe((e) => { if (e instanceof NavigationStart) {
-      this.navigator = localStorage.getItem('player_navigator');
+      this.navigator = this.getStoredPlayerNavigator();
     } else if (e instanceof NavigationEnd) {
       // blurs hamburger menu if it exists, as the sidenav likes to focus on it after closing
       if (this.hamburgerMenuButton && this.hamburgerMenuButton.nativeElement) {
@@ -254,6 +255,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   themeMenuItemClicked(event): void {
     this.flipTheme();
     event.stopPropagation();
+  }
+
+  private getStoredPlayerNavigator(): string | null {
+    return sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY) || localStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY);
   }
 
   goBack(): void {

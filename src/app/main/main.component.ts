@@ -11,6 +11,7 @@ import { Platform } from '@angular/cdk/platform';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
+import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
 import { debounceTime, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 
@@ -332,7 +333,7 @@ export class MainComponent implements OnInit {
         }
         this.reloadMediaLibrary(is_playlist);
       } else {
-        localStorage.setItem('player_navigator', this.router.url.split(';')[0]);
+        sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
         if (is_playlist) {
           this.router.navigate(['/player', {playlist_id: container['id'], type: type}]);
         } else {

@@ -12,6 +12,7 @@ import { Download, RestartDownloadResponse, SuccessObject } from 'api-types';
 import { forkJoin, of } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
+import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
 @Component({
     selector: 'app-downloads',
@@ -296,7 +297,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   watchContent(download: Download): void {
     const container = download['container'];
-    localStorage.setItem('player_navigator', this.router.url.split(';')[0]);
+    sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
     const is_playlist = container['uids']; // hacky, TODO: fix
     if (is_playlist) {
       this.router.navigate(['/player', {playlist_id: container['id'], type: download['type']}]);

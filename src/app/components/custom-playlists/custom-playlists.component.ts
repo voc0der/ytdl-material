@@ -7,6 +7,7 @@ import { DeletePlaylistResponse, Playlist } from 'api-types';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 import { saveAs } from 'file-saver';
 import { filter, take } from 'rxjs/operators';
+import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
 @Component({
     selector: 'app-custom-playlists',
@@ -70,7 +71,7 @@ export class CustomPlaylistsComponent implements OnInit {
       if (this.postsService.config['Extra']['download_only_mode']) {
         this.downloadPlaylist(playlist.id, playlist.name);
       } else {
-        localStorage.setItem('player_navigator', this.router.url);
+        sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url);
         const routeParams = {playlist_id: playlistID};
         if (playlist.auto) { routeParams['auto'] =  playlist.auto; }
         this.router.navigate(['/player', routeParams]);

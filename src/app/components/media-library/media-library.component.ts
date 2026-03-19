@@ -11,6 +11,12 @@ import { saveAs } from 'file-saver';
 import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
+import {
+  MediaLibraryNavigationStateService,
+  MediaLibraryRestoreSnapshot,
+  MediaLibraryRestoreState,
+  PLAYER_NAVIGATOR_STORAGE_KEY
+} from 'app/media-library-navigation-state.service';
 
 type PageSizeOption = number | 'auto';
 interface MediaLibraryRow<T> {
@@ -109,8 +115,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
   private virtualRowUpdateFrameId: number = null;
+  private scrollRestoreFrameId: number = null;
   private autoLoadQueued = false;
   private scrollListenerTarget: HTMLElement | Window | null = null;
+  private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
+  private pendingScrollRestoreSnapshot: MediaLibraryRestoreSnapshot = null;
   private readonly destroy$ = new Subject<void>();
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
@@ -119,9 +128,16 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.videoGridContainerElement = container?.nativeElement ?? null;
     this.refreshScrollListener();
     this.scheduleVirtualVideoWindowUpdate(true);
+    this.schedulePendingScrollRestore();
   }
 
-  constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private ngZone: NgZone) {
+  constructor(
+    public postsService: PostsService,
+    private router: Router,
+    private dialog: MatDialog,
+    private ngZone: NgZone,
+    private mediaLibraryNavigationState: MediaLibraryNavigationStateService
+  ) {
     const saved_page_size = this.getStoredPreference(this.pageSizeStorageKey, this.legacyPageSizeStorageKey);
     if (saved_page_size === this.autoPageSizeOption) {
       this.autoPaginationEnabled = true;
@@ -178,22 +194,28 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       delete this.fileFilters['video_only'];
     }
 
-    if (this.postsService.initialized) {
-      this.getAllFiles();
+    this.pendingNavigationRestoreState = this.mediaLibraryNavigationState.consumePendingRestoreState(this.getCurrentRouteKey(), this.sub_id);
+    if (this.pendingNavigationRestoreState) {
+      this.applyRestoredNavigationSnapshot(this.pendingNavigationRestoreState.snapshot);
+    }
+
+    const initializeLibrary = () => {
+      const restored_from_navigation = this.restoreLibraryFromNavigationState();
+      if (!restored_from_navigation) {
+        this.getAllFiles();
+      }
       this.getAvailablePlaylists();
-      if (this.showLibraryTabs) {
+      if (this.showLibraryTabs && !this.playlistLibraryReceived) {
         this.getPlaylistLibraryItems();
       }
+    };
+
+    if (this.postsService.initialized) {
+      initializeLibrary();
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1), takeUntil(this.destroy$))
-        .subscribe(() => {
-          this.getAllFiles();
-          this.getAvailablePlaylists();
-          if (this.showLibraryTabs) {
-            this.getPlaylistLibraryItems();
-          }
-        });
+        .subscribe(() => initializeLibrary());
     }
 
     this.postsService.files_changed
@@ -257,6 +279,179 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  private getCurrentRouteKey(): string {
+    return this.router.url;
+  }
+
+  private applyRestoredNavigationSnapshot(snapshot: MediaLibraryRestoreSnapshot): void {
+    if (this.showLibraryTabs) {
+      this.activeLibraryTab = [0, 1].includes(snapshot.activeLibraryTab) ? snapshot.activeLibraryTab : 0;
+    } else {
+      this.activeLibraryTab = 0;
+    }
+
+    if (typeof snapshot.sortProperty === 'string' && snapshot.sortProperty.trim()) {
+      this.sortProperty = snapshot.sortProperty;
+    }
+    this.descendingMode = !!snapshot.descendingMode;
+    this.selectedFilters = Array.isArray(snapshot.selectedFilters)
+      ? snapshot.selectedFilters.filter(filter_key => !!this.fileFilters[filter_key])
+      : [];
+    this.search_text = snapshot.searchText ?? '';
+    this.search_mode = !!this.search_text.trim();
+    this.playlistSearchText = snapshot.playlistSearchText ?? '';
+    this.autoPaginationEnabled = !!snapshot.autoPaginationEnabled;
+    if (typeof snapshot.pageSize === 'number' && this.pageSizeOptions.includes(snapshot.pageSize)) {
+      this.pageSize = snapshot.pageSize;
+    }
+    this.manualPageIndex = Math.max(0, snapshot.manualPageIndex ?? 0);
+    if (typeof snapshot.fileCount === 'number' && snapshot.fileCount >= 0) {
+      this.file_count = snapshot.fileCount;
+    }
+    this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
+  }
+
+  private restoreLibraryFromNavigationState(): boolean {
+    if (!this.pendingNavigationRestoreState) {
+      return false;
+    }
+
+    const { snapshot, files, playlistLibraryItems, playlistLibraryReceived } = this.pendingNavigationRestoreState;
+    this.pendingNavigationRestoreState = null;
+
+    this.paged_data = this.normalizeFiles(files ?? []);
+    this.file_count = typeof snapshot.fileCount === 'number' ? snapshot.fileCount : this.paged_data.length;
+    this.normal_files_received = true;
+    this.autoPageLoadInProgress = false;
+    this.loading_files = [];
+    this.rebuildVideoRows();
+
+    if (this.showLibraryTabs && playlistLibraryReceived) {
+      this.playlistLibraryItems = playlistLibraryItems ?? [];
+      this.playlistLibraryReceived = true;
+    }
+
+    this.pendingScrollRestoreSnapshot = snapshot;
+    this.scheduleVirtualVideoWindowUpdate(true);
+    this.schedulePendingScrollRestore();
+    return true;
+  }
+
+  private buildNavigationRestoreSnapshot(): MediaLibraryRestoreSnapshot {
+    const { anchorUid, anchorOffset } = this.getVisibleVideoAnchor();
+    return {
+      routeKey: this.getCurrentRouteKey(),
+      activeLibraryTab: this.activeLibraryTab,
+      sortProperty: this.sortProperty,
+      descendingMode: this.descendingMode,
+      selectedFilters: this.selectedFilters.slice(),
+      searchText: this.search_text,
+      playlistSearchText: this.playlistSearchText,
+      autoPaginationEnabled: this.autoPaginationEnabled,
+      pageSize: this.pageSize,
+      manualPageIndex: this.manualPageIndex,
+      subId: this.sub_id ?? null,
+      fileCount: this.file_count,
+      loadedCount: this.paged_data?.length ?? 0,
+      anchorUid,
+      anchorOffset,
+      scrollTop: this.getViewportScrollTop()
+    };
+  }
+
+  private saveNavigationRestoreState(): void {
+    this.mediaLibraryNavigationState.savePendingRestoreState({
+      snapshot: this.buildNavigationRestoreSnapshot(),
+      files: this.paged_data ?? [],
+      playlistLibraryItems: this.playlistLibraryItems ?? [],
+      playlistLibraryReceived: this.playlistLibraryReceived
+    });
+    sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.getCurrentRouteKey());
+  }
+
+  private getVisibleVideoAnchor(): { anchorUid: string | null; anchorOffset: number } {
+    if (!this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return {
+        anchorUid: null,
+        anchorOffset: 0
+      };
+    }
+
+    const rows = this.videoRows.length > 0
+      ? this.videoRows
+      : this.buildMediaRows(this.paged_data ?? [], this.getAutoPageColumns());
+    if (rows.length === 0) {
+      return {
+        anchorUid: null,
+        anchorOffset: 0
+      };
+    }
+
+    const row_height = this.getAutoCardRowHeight();
+    const container_top = this.getVideoGridDocumentTop();
+    const viewport_top = this.getViewportScrollTop();
+    const row_index = Math.max(0, Math.min(rows.length - 1, Math.floor((viewport_top - container_top) / row_height)));
+    const anchor_index = rows[row_index]?.startIndex ?? 0;
+    return {
+      anchorUid: this.paged_data?.[anchor_index]?.uid ?? null,
+      anchorOffset: viewport_top - (container_top + (row_index * row_height))
+    };
+  }
+
+  private schedulePendingScrollRestore(): void {
+    if (!this.pendingScrollRestoreSnapshot || !this.videoGridContainerElement || !this.scrollListenerTarget || typeof window === 'undefined') {
+      return;
+    }
+
+    if (this.scrollRestoreFrameId !== null) {
+      return;
+    }
+
+    this.scrollRestoreFrameId = window.requestAnimationFrame(() => {
+      this.scrollRestoreFrameId = null;
+      this.ngZone.run(() => this.restorePendingScrollPosition());
+    });
+  }
+
+  private restorePendingScrollPosition(): void {
+    const snapshot = this.pendingScrollRestoreSnapshot;
+    if (!snapshot || !this.videoGridContainerElement || !this.scrollListenerTarget) {
+      return;
+    }
+
+    if (this.activeLibraryTab !== snapshot.activeLibraryTab) {
+      return;
+    }
+
+    let target_scroll_top = snapshot.scrollTop;
+    if (snapshot.anchorUid && this.autoPaginationEnabled && this.isVideoLibraryActive()) {
+      const anchor_index = this.paged_data?.findIndex(file => file.uid === snapshot.anchorUid) ?? -1;
+      if (anchor_index === -1 && (this.paged_data?.length ?? 0) < this.file_count) {
+        this.loadMoreAutoFiles();
+        return;
+      }
+
+      if (anchor_index >= 0) {
+        const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
+        target_scroll_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight()) + snapshot.anchorOffset;
+      }
+    }
+
+    this.setViewportScrollTop(target_scroll_top);
+    this.pendingScrollRestoreSnapshot = null;
+    this.scheduleVirtualVideoWindowUpdate(true);
+  }
+
+  private setViewportScrollTop(scroll_top: number): void {
+    const safe_scroll_top = Number.isFinite(scroll_top) ? Math.max(0, scroll_top) : 0;
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      this.scrollListenerTarget.scrollTop = safe_scroll_top;
+      return;
+    }
+
+    window.scrollTo({ top: safe_scroll_top });
+  }
+
   @HostListener('window:resize')
   onWindowResize(): void {
     if (!this.autoPaginationEnabled || !this.isVideoLibraryActive()) {
@@ -314,6 +509,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.postsService.getPlaylists(true).subscribe(res => {
       this.playlistLibraryItems = res['playlists'];
       this.playlistLibraryReceived = true;
+      this.schedulePendingScrollRestore();
     });
   }
 
@@ -444,6 +640,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.normal_files_received = true;
       this.autoPageLoadInProgress = false;
       this.scheduleVirtualVideoWindowUpdate(true);
+      this.schedulePendingScrollRestore();
     }, err => {
       if (request_id !== this.latestFileRequestId) {
         return;
@@ -466,9 +663,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   navigateToFile(file: DatabaseFile, new_tab: boolean): void {
-    localStorage.setItem('player_navigator', this.router.url);
     const routeParams = this.getPlayerRouteParams(file);
     if (!new_tab) {
+      this.saveNavigationRestoreState();
       this.router.navigate(['/player', routeParams]);
     } else {
       const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
@@ -926,6 +1123,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.virtualRowUpdateFrameId = null;
     }
 
+    if (typeof window !== 'undefined' && this.scrollRestoreFrameId !== null) {
+      window.cancelAnimationFrame(this.scrollRestoreFrameId);
+      this.scrollRestoreFrameId = null;
+    }
+
     this.autoLoadQueued = false;
   }
 
@@ -1093,10 +1295,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   navigateToPlaylist(playlist: Playlist, new_tab: boolean): void {
-    localStorage.setItem('player_navigator', this.router.url);
     const routeParams = this.getPlaylistRouteParams(playlist);
 
     if (!new_tab) {
+      this.saveNavigationRestoreState();
       this.router.navigate(['/player', routeParams]);
       return;
     }
