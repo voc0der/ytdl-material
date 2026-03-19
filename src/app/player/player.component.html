@@ -38,9 +38,6 @@
                   </div>
                 </div>
               }
-              @if (postsService['config']['API']['use_sponsorblock_API'] && api && playlist?.length > 0 && playlist[currentIndex]['type'] === 'video/mp4') {
-                <app-skip-ad-button (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [current_video]="playlist[currentIndex]" [playback_timestamp]="api?.currentTime ?? 0" class="skip-ad-button"></app-skip-ad-button>
-              }
             </vg-player>
           </div>
           <div class="player-toolbar-section">

@@ -1753,7 +1753,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             } else {
                 const hasSponsorBlockArgs = downloadConfig.some(arg => typeof arg === 'string' && arg.startsWith('--sponsorblock-'));
                 if (!hasSponsorBlockArgs) {
-                    // Mirror the existing "skip ads" SponsorBlock setting for downloads.
+                    // Remove sponsor segments during download unless this request opted out.
                     downloadConfig.push('--sponsorblock-remove', 'sponsor');
                 }
             }

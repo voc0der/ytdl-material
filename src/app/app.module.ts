@@ -87,7 +87,6 @@ import { TwitchChatComponent } from './components/twitch-chat/twitch-chat.compon
 import { LinkifyPipe, SeeMoreComponent } from './components/see-more/see-more.component';
 import { h401InterceptorFn } from './http.interceptor';
 import { ConcurrentStreamComponent } from './components/concurrent-stream/concurrent-stream.component';
-import { SkipAdButtonComponent } from './components/skip-ad-button/skip-ad-button.component';
 import { TasksComponent } from './components/tasks/tasks.component';
 import { UpdateTaskScheduleDialogComponent } from './dialogs/update-task-schedule-dialog/update-task-schedule-dialog.component';
 import { RestoreDbDialogComponent } from './dialogs/restore-db-dialog/restore-db-dialog.component';
@@ -144,7 +143,6 @@ registerLocaleData(es, 'es');
         TwitchChatComponent,
         SeeMoreComponent,
         ConcurrentStreamComponent,
-        SkipAdButtonComponent,
         TasksComponent,
         UpdateTaskScheduleDialogComponent,
         RestoreDbDialogComponent,
