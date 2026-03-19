@@ -23,6 +23,7 @@ const URL = require('url').URL;
 const CONSTS = require('./consts')
 const read_last_lines = require('read-last-lines');
 const ps = require('ps-node');
+const mime = require('mime-types');
 
 const logger = require('./logger');
 const config_api = require('./config.js');
@@ -945,6 +946,13 @@ app.use(function(req, res, next) {
     }
 });
 
+function isPublicApiPath(requestPath = '') {
+    return requestPath.includes('/api/stream')
+        || requestPath.includes('/api/thumbnail/')
+        || requestPath.includes('/api/rss')
+        || requestPath.includes('/api/telegramRequest');
+}
+
 app.use(function(req, res, next) {
     if (!req.path.includes('/api/')) {
         next();
@@ -956,7 +964,7 @@ app.use(function(req, res, next) {
         next();
     } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key') && req.query.apiKey === config_api.getConfigItem('ytdl_api_key')) {
         next();
-    } else if (req.path.includes('/api/stream/') || req.path.includes('/api/thumbnail/') || req.path.includes('/api/rss') || req.path.includes('/api/telegramRequest')) {
+    } else if (isPublicApiPath(req.path)) {
         next();
     } else {
         logger.verbose(`Rejecting request - invalid API use for endpoint: ${req.path}. API key present: ${!!req.query.apiKey}`);
@@ -978,10 +986,7 @@ function getRateLimitRequestPath(req) {
 }
 
 function isPublicApiRateLimitExemptPath(requestPath) {
-    return requestPath.includes('/api/stream/')
-        || requestPath.includes('/api/thumbnail/')
-        || requestPath.includes('/api/rss')
-        || requestPath.includes('/api/telegramRequest');
+    return isPublicApiPath(requestPath);
 }
 
 function skipAuthRateLimit(req) {
@@ -2416,9 +2421,14 @@ app.get('/api/stream', optionalJwt, async (req, res) => {
     const type = req.query.type;
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
-    const mimetype = type === 'audio' ? 'audio/mp3' : 'video/mp4';
     var head;
-    let uid = decodeURIComponent(req.query.uid);
+    const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
+    const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
+
+    if (!uid) {
+        res.status(400).type('text/plain').send('Missing media uid');
+        return;
+    }
 
     let file_path = null;
     let file_obj = null;
@@ -2429,10 +2439,17 @@ app.get('/api/stream', optionalJwt, async (req, res) => {
         if (file_obj) file_path = file_obj['path'];
         else file_path = null;
     }
-    if (!fs.existsSync(file_path)) {
-        logger.error(`File ${file_path} could not be found! UID: ${uid}, ID: ${file_obj && file_obj.id}`);
+    if (!file_path || !file_obj) {
+        logger.warn(`Stream lookup failed for UID ${uid}.`);
+        res.status(404).type('text/plain').send('Media file not found');
         return;
     }
+    if (!fs.existsSync(file_path)) {
+        logger.error(`File ${file_path} could not be found! UID: ${uid}, ID: ${file_obj && file_obj.id}`);
+        res.status(404).type('text/plain').send('Media file not found');
+        return;
+    }
+    const mimetype = mime.lookup(file_path) || (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
     const stat = fs.statSync(file_path);
     const fileSize = stat.size;
     const range = req.headers.range;

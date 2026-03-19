@@ -152,6 +152,19 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
   });
 
+  it('should build stream URLs without a trailing slash before the query string', () => {
+    postsServiceStub.isLoggedIn = false;
+    postsServiceStub.auth_token = 'public-token';
+    component.baseStreamPath = '/api/';
+
+    const streamURL = component.createStreamURL({
+      uid: 'uid with spaces',
+      isAudio: false
+    } as DatabaseFile);
+
+    expect(streamURL).toBe('/api/stream?uid=uid%20with%20spaces&type=video&apiKey=public-token');
+  });
+
   it('should reset page title on destroy', () => {
     component.ngOnDestroy();
 
