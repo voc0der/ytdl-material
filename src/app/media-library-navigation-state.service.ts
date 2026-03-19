@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { DatabaseFile, Playlist } from 'api-types';
 
 export const PLAYER_NAVIGATOR_STORAGE_KEY = 'player_navigator';
+export const MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY = 'media_library_restore_snapshot';
 
 export interface MediaLibraryRestoreSnapshot {
   routeKey: string;
@@ -37,26 +38,59 @@ export class MediaLibraryNavigationStateService {
 
   savePendingRestoreState(state: MediaLibraryRestoreState): void {
     this.pendingRestoreState = this.cloneState(state);
+    sessionStorage.setItem(
+      MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY,
+      JSON.stringify(this.pendingRestoreState.snapshot)
+    );
   }
 
   consumePendingRestoreState(routeKey: string, subId: string | null): MediaLibraryRestoreState | null {
-    if (!this.pendingRestoreState) {
+    if (this.matchesSnapshot(this.pendingRestoreState?.snapshot, routeKey, subId)) {
+      const state = this.cloneState(this.pendingRestoreState);
+      this.clearPendingRestoreState();
+      return state;
+    }
+
+    const stored_snapshot = this.getStoredSnapshot();
+    if (!this.matchesSnapshot(stored_snapshot, routeKey, subId)) {
       return null;
     }
 
-    const matchesRoute = this.pendingRestoreState.snapshot.routeKey === routeKey;
-    const matchesSubId = this.pendingRestoreState.snapshot.subId === (subId ?? null);
-    if (!matchesRoute || !matchesSubId) {
-      return null;
-    }
-
-    const state = this.cloneState(this.pendingRestoreState);
-    this.pendingRestoreState = null;
-    return state;
+    this.clearPendingRestoreState();
+    return {
+      snapshot: stored_snapshot,
+      files: [],
+      playlistLibraryItems: [],
+      playlistLibraryReceived: false
+    };
   }
 
   clearPendingRestoreState(): void {
     this.pendingRestoreState = null;
+    sessionStorage.removeItem(MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY);
+  }
+
+  private matchesSnapshot(snapshot: MediaLibraryRestoreSnapshot | null | undefined, routeKey: string, subId: string | null): boolean {
+    if (!snapshot) {
+      return false;
+    }
+
+    return snapshot.routeKey === routeKey && snapshot.subId === (subId ?? null);
+  }
+
+  private getStoredSnapshot(): MediaLibraryRestoreSnapshot | null {
+    const raw_snapshot = sessionStorage.getItem(MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY);
+    if (!raw_snapshot) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw_snapshot) as MediaLibraryRestoreSnapshot;
+    } catch (error) {
+      console.error('Failed to parse stored media-library restore snapshot', error);
+      sessionStorage.removeItem(MEDIA_LIBRARY_RESTORE_SNAPSHOT_STORAGE_KEY);
+      return null;
+    }
   }
 
   private cloneState(state: MediaLibraryRestoreState): MediaLibraryRestoreState {
