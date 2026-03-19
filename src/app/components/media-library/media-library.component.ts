@@ -118,6 +118,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private scrollRestoreFrameId: number = null;
   private autoLoadQueued = false;
   private scrollListenerTarget: HTMLElement | Window | null = null;
+  private pendingScrollRestoreAttempts = 0;
   private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
   private pendingScrollRestoreSnapshot: MediaLibraryRestoreSnapshot = null;
   private readonly destroy$ = new Subject<void>();
@@ -319,6 +320,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const { snapshot, files, playlistLibraryItems, playlistLibraryReceived } = this.pendingNavigationRestoreState;
     this.pendingNavigationRestoreState = null;
     this.pendingScrollRestoreSnapshot = snapshot;
+    this.pendingScrollRestoreAttempts = 0;
 
     if (!Array.isArray(files) || files.length === 0) {
       return false;
@@ -381,6 +383,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       };
     }
 
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement();
+    if (rendered_anchor_element) {
+      return {
+        anchorUid: rendered_anchor_element.getAttribute('data-file-uid'),
+        anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(rendered_anchor_element)
+      };
+    }
+
     const rows = this.videoRows.length > 0
       ? this.videoRows
       : this.buildMediaRows(this.paged_data ?? [], this.getAutoPageColumns());
@@ -428,22 +438,37 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     let target_scroll_top = snapshot.scrollTop;
+    let awaiting_exact_anchor_restore = false;
     if (snapshot.anchorUid && this.autoPaginationEnabled && this.isVideoLibraryActive()) {
-      const anchor_index = this.paged_data?.findIndex(file => file.uid === snapshot.anchorUid) ?? -1;
-      if (anchor_index === -1 && (this.paged_data?.length ?? 0) < this.file_count) {
-        this.loadMoreAutoFiles();
-        return;
-      }
+      const rendered_anchor_top = this.getRenderedAnchorDocumentTop(snapshot.anchorUid);
+      if (rendered_anchor_top !== null) {
+        target_scroll_top = rendered_anchor_top + snapshot.anchorOffset;
+      } else {
+        const anchor_index = this.paged_data?.findIndex(file => file.uid === snapshot.anchorUid) ?? -1;
+        if (anchor_index === -1 && (this.paged_data?.length ?? 0) < this.file_count) {
+          this.loadMoreAutoFiles();
+          return;
+        }
 
-      if (anchor_index >= 0) {
-        const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
-        target_scroll_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight()) + snapshot.anchorOffset;
+        if (anchor_index >= 0) {
+          const row_index = Math.floor(anchor_index / this.getAutoPageColumns());
+          target_scroll_top = this.getVideoGridDocumentTop() + (row_index * this.getAutoCardRowHeight()) + snapshot.anchorOffset;
+          awaiting_exact_anchor_restore = true;
+        }
       }
     }
 
     this.setViewportScrollTop(target_scroll_top);
-    this.pendingScrollRestoreSnapshot = null;
     this.scheduleVirtualVideoWindowUpdate(true);
+
+    if (awaiting_exact_anchor_restore && this.pendingScrollRestoreAttempts < 2) {
+      this.pendingScrollRestoreAttempts += 1;
+      this.schedulePendingScrollRestore();
+      return;
+    }
+
+    this.pendingScrollRestoreSnapshot = null;
+    this.pendingScrollRestoreAttempts = 0;
   }
 
   private setViewportScrollTop(scroll_top: number): void {
@@ -933,6 +958,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return Math.max(1, Math.ceil(this.getViewportHeight() / this.getAutoCardRowHeight()));
   }
 
+  private getVisibleViewportTopBoundary(): number {
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      return this.scrollListenerTarget.getBoundingClientRect().top;
+    }
+
+    return 0;
+  }
+
   getVideoGridDocumentTop(): number {
     const container_rect = this.videoGridContainerElement?.getBoundingClientRect?.();
     const container_top = container_rect?.top;
@@ -946,6 +979,46 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     return container_top + this.getViewportScrollTop();
+  }
+
+  private getElementDocumentTop(element: HTMLElement): number {
+    const element_rect = element?.getBoundingClientRect?.();
+    const element_top = element_rect?.top;
+    if (typeof element_top !== 'number') {
+      return this.getViewportScrollTop();
+    }
+
+    if (this.scrollListenerTarget instanceof HTMLElement) {
+      const scroll_container_top = this.scrollListenerTarget.getBoundingClientRect().top;
+      return (element_top - scroll_container_top) + this.scrollListenerTarget.scrollTop;
+    }
+
+    return element_top + this.getViewportScrollTop();
+  }
+
+  private getRenderedVideoAnchorElement(anchorUid: string | null = null): HTMLElement | null {
+    const rendered_anchor_elements = Array.from(
+      this.videoGridContainerElement?.querySelectorAll<HTMLElement>('[data-file-uid]') ?? []
+    );
+    if (rendered_anchor_elements.length === 0) {
+      return null;
+    }
+
+    if (anchorUid) {
+      return rendered_anchor_elements.find(element => element.getAttribute('data-file-uid') === anchorUid) ?? null;
+    }
+
+    const viewport_top_boundary = this.getVisibleViewportTopBoundary();
+    return rendered_anchor_elements.find(element => element.getBoundingClientRect().bottom > viewport_top_boundary) ?? rendered_anchor_elements[0];
+  }
+
+  private getRenderedAnchorDocumentTop(anchorUid: string): number | null {
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement(anchorUid);
+    if (!rendered_anchor_element) {
+      return null;
+    }
+
+    return this.getElementDocumentTop(rendered_anchor_element);
   }
 
   getVisibleGridTopOffset(): number {

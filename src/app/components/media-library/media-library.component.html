@@ -119,7 +119,7 @@
           <div class="virtual-video-row-shell" [style.height.px]="getAutoCardRowHeight()">
             <div class="virtual-video-row" [style.grid-template-columns]="getVirtualizedRowTemplateColumns(row)">
               @for (file of row.items; track file.uid; let i = $index) {
-                <div class="virtual-video-card-slot">
+                <div class="virtual-video-card-slot" [attr.data-file-uid]="file.uid">
                   <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="row.startIndex + i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''"></app-unified-file-card>
                   @if (downloading_content[file.uid]) {
                     <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
@@ -135,7 +135,7 @@
       <div class="row justify-content-center">
         @if (normal_files_received && paged_data) {
           @for (file of paged_data; track file.uid; let i = $index) {
-            <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
+            <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [attr.data-file-uid]="file.uid" [ngClass]="[ postsService.card_size === 'small' ? 'col-2 small-col' : '', postsService.card_size === 'medium' ? 'col-6 col-lg-4 medium-col' : '', postsService.card_size === 'large' ? 'col-12 large-col' : '' ]">
               <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [locale]="postsService.locale" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [apiKeyString]="!postsService.isLoggedIn ? postsService.auth_token : ''"></app-unified-file-card>
               @if (downloading_content[file.uid]) {
                 <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>

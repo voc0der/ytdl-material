@@ -1,4 +1,4 @@
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { NO_ERRORS_SCHEMA, NgZone } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
@@ -260,6 +260,107 @@ describe('MediaLibraryComponent', () => {
     expect(component.selectedFilters).toEqual(['favorited']);
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
     expect(component.normal_files_received).toBeTrue();
+  });
+
+  it('should capture the visible anchor from rendered card positions', () => {
+    const manualComponent = new MediaLibraryComponent(
+      postsServiceStub,
+      routerStub,
+      dialogStub,
+      TestBed.inject(NgZone),
+      navigationStateService
+    );
+    manualComponent.autoPaginationEnabled = true;
+    manualComponent.normal_files_received = true;
+    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
+    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
+
+    const anchor_slots = [
+      {
+        getAttribute: () => 'file-1',
+        getBoundingClientRect: () => ({ top: -220, bottom: -20 })
+      },
+      {
+        getAttribute: () => 'file-2',
+        getBoundingClientRect: () => ({ top: -220, bottom: -20 })
+      },
+      {
+        getAttribute: () => 'file-3',
+        getBoundingClientRect: () => ({ top: 60, bottom: 260 })
+      },
+      {
+        getAttribute: () => 'file-4',
+        getBoundingClientRect: () => ({ top: 60, bottom: 260 })
+      }
+    ] as any;
+
+    (manualComponent as any).scrollListenerTarget = window;
+    (manualComponent as any).videoGridContainerElement = {
+      querySelectorAll: () => anchor_slots
+    };
+
+    const anchor = (manualComponent as any).getVisibleVideoAnchor();
+
+    expect(anchor.anchorUid).toBe('file-3');
+    expect(anchor.anchorOffset).toBe(-60);
+  });
+
+  it('should correct restored scroll using the rendered anchor element position', () => {
+    const manualComponent = new MediaLibraryComponent(
+      postsServiceStub,
+      routerStub,
+      dialogStub,
+      TestBed.inject(NgZone),
+      navigationStateService
+    );
+    manualComponent.autoPaginationEnabled = true;
+    manualComponent.normal_files_received = true;
+    manualComponent.file_count = 4;
+    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
+    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
+    spyOn(manualComponent, 'scheduleVirtualVideoWindowUpdate');
+    const set_scroll_spy = spyOn<any>(manualComponent, 'setViewportScrollTop');
+
+    const anchor_element = {
+      getAttribute: () => 'file-3',
+      getBoundingClientRect: () => ({ top: 140, bottom: 340 })
+    } as any;
+
+    (manualComponent as any).scrollListenerTarget = window;
+    (manualComponent as any).videoGridContainerElement = {
+      querySelectorAll: () => [anchor_element]
+    };
+    (manualComponent as any).pendingScrollRestoreSnapshot = {
+      routeKey: '/home',
+      activeLibraryTab: 0,
+      sortProperty: 'registered',
+      descendingMode: true,
+      selectedFilters: [],
+      searchText: '',
+      playlistSearchText: '',
+      autoPaginationEnabled: true,
+      pageSize: 10,
+      manualPageIndex: 0,
+      subId: null,
+      fileCount: 4,
+      loadedCount: 4,
+      anchorUid: 'file-3',
+      anchorOffset: 24,
+      scrollTop: 320
+    };
+
+    (manualComponent as any).restorePendingScrollPosition();
+
+    expect(set_scroll_spy).toHaveBeenCalledWith(664);
+    expect((manualComponent as any).pendingScrollRestoreSnapshot).toBeNull();
   });
 
   it('should cache the current library view before navigating to the player', () => {
