@@ -343,8 +343,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  private buildNavigationRestoreSnapshot(): MediaLibraryRestoreSnapshot {
-    const { anchorUid, anchorOffset } = this.getVisibleVideoAnchor();
+  private buildNavigationRestoreSnapshot(preferredAnchorUid: string | null = null): MediaLibraryRestoreSnapshot {
+    const { anchorUid, anchorOffset } = this.getNavigationRestoreAnchor(preferredAnchorUid);
     return {
       routeKey: this.getCurrentRouteKey(),
       activeLibraryTab: this.activeLibraryTab,
@@ -365,14 +365,39 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     };
   }
 
-  private saveNavigationRestoreState(): void {
+  private saveNavigationRestoreState(preferredAnchorUid: string | null = null): void {
     this.mediaLibraryNavigationState.savePendingRestoreState({
-      snapshot: this.buildNavigationRestoreSnapshot(),
+      snapshot: this.buildNavigationRestoreSnapshot(preferredAnchorUid),
       files: this.paged_data ?? [],
       playlistLibraryItems: this.playlistLibraryItems ?? [],
       playlistLibraryReceived: this.playlistLibraryReceived
     });
     sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.getCurrentRouteKey());
+  }
+
+  private getNavigationRestoreAnchor(preferredAnchorUid: string | null): { anchorUid: string | null; anchorOffset: number } {
+    const preferred_anchor = this.getVideoAnchorForUid(preferredAnchorUid);
+    if (preferred_anchor) {
+      return preferred_anchor;
+    }
+
+    return this.getVisibleVideoAnchor();
+  }
+
+  private getVideoAnchorForUid(anchorUid: string | null): { anchorUid: string | null; anchorOffset: number } | null {
+    if (!anchorUid || !this.isVideoLibraryActive() || !this.autoPaginationEnabled || (this.paged_data?.length ?? 0) === 0) {
+      return null;
+    }
+
+    const rendered_anchor_element = this.getRenderedVideoAnchorElement(anchorUid);
+    if (!rendered_anchor_element) {
+      return null;
+    }
+
+    return {
+      anchorUid,
+      anchorOffset: this.getViewportScrollTop() - this.getElementDocumentTop(rendered_anchor_element)
+    };
   }
 
   private getVisibleVideoAnchor(): { anchorUid: string | null; anchorOffset: number } {
@@ -694,7 +719,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   navigateToFile(file: DatabaseFile, new_tab: boolean): void {
     const routeParams = this.getPlayerRouteParams(file);
     if (!new_tab) {
-      this.saveNavigationRestoreState();
+      this.saveNavigationRestoreState(file?.uid ?? null);
       this.router.navigate(['/player', routeParams]);
     } else {
       const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));

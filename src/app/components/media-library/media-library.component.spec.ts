@@ -368,11 +368,20 @@ describe('MediaLibraryComponent', () => {
     component.file_count = 2;
     component.search_text = 'cats';
     component.search_mode = true;
+    component.autoPaginationEnabled = true;
     component.selectedFilters = ['favorited'];
     component.paged_data = [
       { uid: 'file-1', duration: 12, isAudio: false } as any,
       { uid: 'file-2', duration: 18, isAudio: false } as any
     ];
+    spyOn(component, 'getViewportScrollTop').and.returnValue(500);
+    (component as any).scrollListenerTarget = window;
+    (component as any).videoGridContainerElement = {
+      querySelectorAll: () => [{
+        getAttribute: () => 'file-1',
+        getBoundingClientRect: () => ({ top: 140, bottom: 340 })
+      }]
+    };
 
     component.navigateToFile(component.paged_data[0], false);
 
@@ -381,6 +390,7 @@ describe('MediaLibraryComponent', () => {
     const restored = navigationStateService.consumePendingRestoreState('/home', null);
     expect(restored.snapshot.searchText).toBe('cats');
     expect(restored.snapshot.selectedFilters).toEqual(['favorited']);
+    expect(restored.snapshot.anchorUid).toBe('file-1');
     expect(restored.files.map(file => file.uid)).toEqual(['file-1', 'file-2']);
   });
 
