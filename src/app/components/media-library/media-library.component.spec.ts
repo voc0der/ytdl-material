@@ -394,6 +394,26 @@ describe('MediaLibraryComponent', () => {
     expect(anchor.anchorUid).toBe('file-3');
   });
 
+  it('should rebuild cached auto rows when the grid container becomes available', () => {
+    component.autoPaginationEnabled = true;
+    component.normal_files_received = true;
+    component.paged_data = Array.from({length: 8}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    const column_spy = spyOn(component, 'getAutoPageColumns').and.returnValues(4, 2);
+
+    component.rebuildVideoRows();
+    expect(component.videoRows[0].items.length).toBe(4);
+
+    component.videoGridContainer = {
+      nativeElement: document.createElement('div')
+    } as any;
+
+    expect(column_spy).toHaveBeenCalledTimes(2);
+    expect(component.videoRows[0].items.length).toBe(2);
+  });
+
   it('should cache the current library view before navigating to the player', () => {
     component.normal_files_received = true;
     component.file_count = 2;

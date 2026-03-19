@@ -117,6 +117,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private virtualRowUpdateFrameId: number = null;
   private scrollRestoreFrameId: number = null;
   private autoLoadQueued = false;
+  private videoGridResizeObserver: ResizeObserver | null = null;
   private scrollListenerTarget: HTMLElement | Window | null = null;
   private pendingScrollRestoreAttempts = 0;
   private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
@@ -128,7 +129,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
     this.videoGridContainerElement = container?.nativeElement ?? null;
     this.refreshScrollListener();
-    this.scheduleVirtualVideoWindowUpdate(true);
+    this.refreshVideoGridResizeObserver();
+    this.refreshVideoRowsForCurrentLayout();
     this.schedulePendingScrollRestore();
   }
 
@@ -263,6 +265,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.unbindScrollListener();
+    this.unbindVideoGridResizeObserver();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -543,8 +546,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
-    this.rebuildVideoRows();
-    this.scheduleVirtualVideoWindowUpdate(true);
+    this.refreshVideoRowsForCurrentLayout();
   }
 
   get showLibraryTabs(): boolean {
@@ -1274,6 +1276,35 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     this.autoLoadQueued = false;
+  }
+
+  private refreshVideoGridResizeObserver(): void {
+    this.unbindVideoGridResizeObserver();
+    if (typeof ResizeObserver === 'undefined' || !this.videoGridContainerElement) {
+      return;
+    }
+
+    this.ngZone.runOutsideAngular(() => {
+      this.videoGridResizeObserver = new ResizeObserver(() => {
+        this.ngZone.run(() => this.refreshVideoRowsForCurrentLayout());
+      });
+      this.videoGridResizeObserver.observe(this.videoGridContainerElement);
+    });
+  }
+
+  private unbindVideoGridResizeObserver(): void {
+    this.videoGridResizeObserver?.disconnect();
+    this.videoGridResizeObserver = null;
+  }
+
+  private refreshVideoRowsForCurrentLayout(): void {
+    if (this.autoPaginationEnabled && this.isVideoLibraryActive() && (this.paged_data?.length ?? 0) > 0) {
+      this.rebuildVideoRows();
+    } else {
+      this.scheduleVirtualVideoWindowUpdate(true);
+    }
+
+    this.schedulePendingScrollRestore();
   }
 
   getAutoPageColumns(): number {
