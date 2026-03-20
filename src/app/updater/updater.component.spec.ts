@@ -31,8 +31,8 @@ describe('UpdaterComponent', () => {
 
   it('falls back to nightly when no stable release exists', () => {
     postsService.getAvailableRelease.and.returnValue(of([
-      { tag_name: '4.3.3-rc1' },
-      { tag_name: '4.3.3-rc0' }
+      { tag_name: 'v1.0.1-rc1' },
+      { tag_name: 'v1.0.1-rc0' }
     ]));
 
     component.getAvailableVersions();
@@ -44,15 +44,29 @@ describe('UpdaterComponent', () => {
 
   it('selects the latest stable release when one exists', () => {
     postsService.getAvailableRelease.and.returnValue(of([
-      { tag_name: '4.3.3' },
-      { tag_name: '4.3.2' }
+      { tag_name: 'v1.0.1' },
+      { tag_name: 'v1.0.0' }
     ]));
 
     component.getAvailableVersions();
 
-    expect(component.selectedVersion).toBe('4.3.3');
+    expect(component.selectedVersion).toBe('v1.0.1');
     expect(component.hasStableVersions).toBeTrue();
     expect(component.canUpdateSelectedVersion()).toBeTrue();
+    expect(component.isSelectedVersionUpgrade()).toBeTrue();
+  });
+
+  it('treats equivalent tags with and without a v prefix as the same release', () => {
+    postsService.getAvailableRelease.and.returnValue(of([
+      { tag_name: '1.0.0' }
+    ]));
+
+    component.getAvailableVersions();
+
+    expect(component.selectedVersion).toBe('1.0.0');
+    expect(component.hasStableVersions).toBeTrue();
+    expect(component.canUpdateSelectedVersion()).toBeFalse();
+    expect(component.isCurrentVersion('1.0.0')).toBeTrue();
   });
 
   it('falls back to nightly when the release request fails', () => {

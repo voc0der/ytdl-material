@@ -11,7 +11,7 @@
           } @else {
             @for (version of availableVersionsFiltered; track version) {
               <mat-option [value]="version['tag_name']">
-                {{version['tag_name'] + (version === latestStableRelease ? ' - Latest Stable' : '') + (version['tag_name'] === CURRENT_VERSION ? ' - Current Version' : '')}}
+                {{version['tag_name'] + (version === latestStableRelease ? ' - Latest Stable' : '') + (isCurrentVersion(version['tag_name']) ? ' - Current Version' : '')}}
               </mat-option>
             }
           }
@@ -22,9 +22,9 @@
   @if (canUpdateSelectedVersion()) {
     <div style="display: inline-block; margin-left: 15px;">
       <button (click)="updateServer()" color="accent" mat-raised-button><mat-icon>update</mat-icon>&nbsp;&nbsp;
-      @if (selectedVersion > CURRENT_VERSION) {
+      @if (isSelectedVersionUpgrade()) {
         Upgrade to
-        }@if (selectedVersion < CURRENT_VERSION) {
+        }@if (isSelectedVersionDowngrade()) {
         Downgrade to
       }&nbsp;{{selectedVersion}}</button>
     </div>

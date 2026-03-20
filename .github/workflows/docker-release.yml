@@ -6,6 +6,10 @@ on:
       tags:
         description: 'Docker tags'
         required: true
+      publish_latest:
+        description: 'Also push latest'
+        required: false
+        default: 'false'
   release:
     types: [published]
 
@@ -26,7 +30,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             image_tags="${{ github.event.inputs.tags }}"
-            publish_latest="false"
+            publish_latest="${{ github.event.inputs.publish_latest }}"
           elif [ "${{ github.event_name }}" = "release" ]; then
             image_tags="${{ github.event.release.tag_name }}"
             publish_latest="true"

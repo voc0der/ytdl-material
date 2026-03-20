@@ -622,11 +622,58 @@ async function isNewVersionAvailable() {
     // gets tag of the latest version of ytdl-material, compare to current version
     const latest_tag = await getLatestVersion();
     const current_tag = CONSTS['CURRENT_VERSION'];
-    if (latest_tag > current_tag) {
+    if (compareReleaseVersions(latest_tag, current_tag) > 0) {
         return true;
     } else {
         return false;
     }
+}
+
+function parseReleaseVersion(tag) {
+    if (!tag || typeof tag !== 'string') {
+        return null;
+    }
+
+    const match = tag.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-rc(\d+))?$/i);
+    if (!match) {
+        return null;
+    }
+
+    return {
+        major: Number(match[1]),
+        minor: Number(match[2]),
+        patch: Number(match[3]),
+        prerelease: match[4] === undefined ? null : Number(match[4])
+    };
+}
+
+function compareReleaseVersions(a, b) {
+    const parsedA = parseReleaseVersion(a);
+    const parsedB = parseReleaseVersion(b);
+
+    if (!parsedA || !parsedB) {
+        return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    for (const field of ['major', 'minor', 'patch']) {
+        if (parsedA[field] !== parsedB[field]) {
+            return parsedA[field] - parsedB[field];
+        }
+    }
+
+    if (parsedA.prerelease === parsedB.prerelease) {
+        return 0;
+    }
+
+    if (parsedA.prerelease === null) {
+        return 1;
+    }
+
+    if (parsedB.prerelease === null) {
+        return -1;
+    }
+
+    return parsedA.prerelease - parsedB.prerelease;
 }
 
 async function getLatestVersion() {

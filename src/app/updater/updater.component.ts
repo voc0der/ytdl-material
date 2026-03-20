@@ -3,6 +3,14 @@ import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 import { MatDialog } from '@angular/material/dialog';
 import { UpdateProgressDialogComponent } from 'app/dialogs/update-progress-dialog/update-progress-dialog.component';
+
+type ParsedReleaseVersion = {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: number | null;
+};
+
 @Component({
     selector: 'app-updater',
     templateUrl: './updater.component.html',
@@ -39,7 +47,67 @@ export class UpdaterComponent implements OnInit {
   }
 
   canUpdateSelectedVersion(): boolean {
-    return this.hasStableVersions && !!this.selectedVersion && this.selectedVersion !== CURRENT_VERSION;
+    return this.hasStableVersions && !!this.selectedVersion && this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) !== 0;
+  }
+
+  isCurrentVersion(tagName: string): boolean {
+    return this.compareReleaseVersions(tagName, CURRENT_VERSION) === 0;
+  }
+
+  isSelectedVersionUpgrade(): boolean {
+    return this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) > 0;
+  }
+
+  isSelectedVersionDowngrade(): boolean {
+    return this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) < 0;
+  }
+
+  compareReleaseVersions(a: string | null, b: string | null): number {
+    const parsedA = this.parseReleaseVersion(a);
+    const parsedB = this.parseReleaseVersion(b);
+
+    if (!parsedA || !parsedB) {
+      return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    const numericFields: Array<keyof ParsedReleaseVersion> = ['major', 'minor', 'patch'];
+    for (const field of numericFields) {
+      if (parsedA[field] !== parsedB[field]) {
+        return parsedA[field] - parsedB[field];
+      }
+    }
+
+    if (parsedA.prerelease === parsedB.prerelease) {
+      return 0;
+    }
+
+    if (parsedA.prerelease === null) {
+      return 1;
+    }
+
+    if (parsedB.prerelease === null) {
+      return -1;
+    }
+
+    return parsedA.prerelease - parsedB.prerelease;
+  }
+
+  private parseReleaseVersion(tag: string | null): ParsedReleaseVersion | null {
+    if (!tag) {
+      return null;
+    }
+
+    const match = tag.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-rc(\d+))?$/i);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      major: Number(match[1]),
+      minor: Number(match[2]),
+      patch: Number(match[3]),
+      prerelease: match[4] === undefined ? null : Number(match[4])
+    };
   }
 
   setNightlyFallback(): void {
