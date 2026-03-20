@@ -46,6 +46,18 @@ describe('Utils', async function() {
         ]);
     });
 
+    it('Builds public asset URLs from the configured base URL', function() {
+        const baseURL = utils.getBaseURL();
+        assert.strictEqual(
+            utils.getPublicAssetURL('assets/images/logo_128px.png'),
+            `${baseURL}/assets/images/logo_128px.png`
+        );
+        assert.strictEqual(
+            utils.getPublicAssetURL('/favicon.ico'),
+            `${baseURL}/favicon.ico`
+        );
+    });
+
     it('Parses expected file size from formats for selected format ids', function() {
         const info = {
             format_id: '137+251',

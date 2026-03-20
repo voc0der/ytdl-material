@@ -2,7 +2,6 @@ const db_api = require('./db');
 const config_api = require('./config');
 const logger = require('./logger');
 const utils = require('./utils');
-const consts = require('./consts');
 
 const { v4: uuid } = require('uuid');
 
@@ -308,7 +307,7 @@ async function sendDiscordNotification({body, title, type, url, thumbnail}) {
     const result = await api.webhooks.execute(webhook_id, webhook_token, {
         content: body,
         username: 'ytdl-material',
-        avatar_url: consts.ICON_URL,
+        avatar_url: utils.getPublicAssetURL('assets/images/logo_128px.png'),
         embeds: [embed],
     });
     return result;
