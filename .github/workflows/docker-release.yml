@@ -18,34 +18,43 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      - name: Set release metadata
+        id: release-meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            image_tags="${{ github.event.inputs.tags }}"
+            publish_latest="false"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            image_tags="${{ github.event.release.tag_name }}"
+            publish_latest="true"
+          else
+            echo "Unknown workflow trigger: ${{ github.event_name }}! Cannot determine image tags."
+            exit 1
+          fi
+
+          primary_tag="${image_tags%%,*}"
+          echo "image_tags=${image_tags}" >> "$GITHUB_OUTPUT"
+          echo "primary_tag=${primary_tag}" >> "$GITHUB_OUTPUT"
+          echo "publish_latest=${publish_latest}" >> "$GITHUB_OUTPUT"
 
       - name: Set hash
         id: vars
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        run: echo "date=$(date +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
 
       - name: create-json
         id: create-json
         uses: jsdaniell/create-json@v1.2.3
         with:
           name: "version.json"
-          json: '{"type": "docker", "tag": "latest", "commit": "${{ steps.vars.outputs.sha_short }}", "date": "${{ steps.date.outputs.date }}"}'
+          json: '{"type": "docker", "tag": "${{ steps.release-meta.outputs.primary_tag }}", "commit": "${{ steps.vars.outputs.sha_short }}", "date": "${{ steps.date.outputs.date }}"}'
           dir: 'backend/'
-
-      - name: Set image tag
-        id: tags
-        run: |
-          if [ "${{ github.event.inputs.tags }}" != "" ]; then
-            echo "::set-output name=tags::${{ github.event.inputs.tags }}"
-          elif [ ${{ github.event.action }} == "release" ]; then
-            echo "::set-output name=tags::${{ github.event.release.tag_name }}"
-          else
-            echo "Unknown workflow trigger: ${{ github.event.action }}! Cannot determine default tag."
-            exit 1
-          fi
 
       - name: Generate Docker image metadata
         id: docker-meta
@@ -55,8 +64,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}
             ghcr.io/${{ github.repository_owner }}/${{ secrets.DOCKERHUB_REPO }}
           tags: |
-            type=raw,value=${{ steps.tags.outputs.tags }}
-            type=raw,value=latest
+            type=raw,value=${{ steps.release-meta.outputs.image_tags }}
+            ${{ steps.release-meta.outputs.publish_latest == 'true' && 'type=raw,value=latest' || '' }}
 
       - name: setup platform emulator
         uses: docker/setup-qemu-action@v4
