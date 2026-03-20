@@ -3156,8 +3156,8 @@ app.get('/api/rss', async function (req, res) {
             description: 'ytdl-material downloads',
             id: utils.getBaseURL(),
             link: utils.getBaseURL(),
-            image: 'https://github.com/voc0der/ytdl-material/blob/master/src/assets/images/logo_128px.png',
-            favicon: 'https://raw.githubusercontent.com/voc0der/ytdl-material/master/src/favicon.ico',
+            image: utils.getPublicAssetURL('assets/images/logo_128px.png'),
+            favicon: utils.getPublicAssetURL('favicon.ico'),
             generator: 'ytdl-material'
     });
 

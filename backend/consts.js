@@ -473,6 +473,4 @@ exports.SUBSCRIPTION_BACKUP_PATH = 'subscription_backup.json'
 // we're using a Set here for performance
 exports.YTDL_ARGS_WITH_VALUES = new Set(YTDL_ARGS_WITH_VALUES);
 
-exports.ICON_URL = 'https://i.imgur.com/IKOlr0N.png';
-
 exports.CURRENT_VERSION = 'v1.0.0';

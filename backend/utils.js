@@ -635,6 +635,11 @@ exports.getBaseURL = () => {
     return `${config_api.getConfigItem('ytdl_url')}:${config_api.getConfigItem('ytdl_port')}`
 }
 
+exports.getPublicAssetURL = (assetPath = '') => {
+    const normalizedPath = String(assetPath).replace(/^\/+/, '');
+    return `${exports.getBaseURL()}/${normalizedPath}`;
+}
+
 exports.updateLoggerLevel = (new_logger_level) => {
     const possible_levels = ['error', 'warn', 'info', 'verbose', 'debug'];
     if (!possible_levels.includes(new_logger_level)) {
