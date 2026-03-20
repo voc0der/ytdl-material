@@ -87,7 +87,7 @@
       "@angular/common": "21.2.0",
       "@angular/core": "21.2.0"
     },
-    "flatted": "3.4.1",
+    "flatted": "3.4.2",
     "immutable": "5.1.5",
     "serialize-javascript": "7.0.3",
     "tar": "7.5.11",
