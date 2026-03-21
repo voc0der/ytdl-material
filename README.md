@@ -1,7 +1,7 @@
-<h1>
+<p>
   <img src="./src/assets/images/logo_64px.png" alt="ytdl-material logo" width="32" />
-  ytdl-material
-</h1>
+  <strong>ytdl-material</strong>
+</p>
 
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
