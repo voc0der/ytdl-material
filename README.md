@@ -1,7 +1,5 @@
 <h1>
-  <a href="https://github.com/voc0der/ytdl-material">
-    <img src="./src/assets/images/logo_64px.png" alt="ytdl-material logo" width="32" />
-  </a>
+  <img src="./src/assets/images/logo_64px.png" alt="ytdl-material logo" width="32" />
   ytdl-material
 </h1>
 
