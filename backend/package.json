@@ -23,7 +23,7 @@
   },
   "homepage": "",
   "dependencies": {
-    "@discordjs/builders": "^1.13.1",
+    "@discordjs/builders": "^1.14.0",
     "@discordjs/core": "^2.4.0",
     "@scalar/express-api-reference": "^0.9.4",
     "archiver": "^7.0.1",
