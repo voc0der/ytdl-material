@@ -141,6 +141,50 @@ describe('Downloader', function() {
         assert(!captured_args.includes('--no-simulate'));
     });
 
+    it('Get file info uses yt-dlp when an audio language is requested', async function() {
+        let captured_fork = null;
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        youtubedl_api.runYoutubeDL = async (requestedUrl, run_args, custom_handler, selected_fork) => {
+            captured_fork = selected_fork;
+            return {
+                callback: Promise.resolve({parsed_output: fixture_single, err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            await _originalGetVideoInfoByURL(url, ['-f', 'bestvideo+bestaudio[language=fr]/bestvideo+bestaudio/best'], null, {selectedAudioLanguage: 'fr'});
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+
+        assert.strictEqual(captured_fork, 'yt-dlp');
+    });
+
+    it('Get file info uses yt-dlp when format probing forces it', async function() {
+        let captured_fork = null;
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        youtubedl_api.runYoutubeDL = async (requestedUrl, run_args, custom_handler, selected_fork) => {
+            captured_fork = selected_fork;
+            return {
+                callback: Promise.resolve({parsed_output: fixture_single, err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            await _originalGetVideoInfoByURL(url, [], null, {forceYtDlp: true});
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+
+        assert.strictEqual(captured_fork, 'yt-dlp');
+    });
+
     it('Generate args supports configured invalid filename replacement', async function() {
         const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
         const original_replace_invalid = config_api.getConfigItem('ytdl_replace_invalid_filename_chars');
@@ -1201,6 +1245,141 @@ describe('Downloader', function() {
             config_api.setConfigItem('ytdl_use_sponsorblock_api', original_use_sponsorblock);
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
         }
+    });
+
+    it('Generate args prefers the requested audio language for video downloads', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es'});
+            const format_index = args.indexOf('-f');
+            const sort_index = args.indexOf('-S');
+            assert(format_index !== -1);
+            assert(sort_index !== -1);
+            assert.strictEqual(args[format_index + 1], 'best[language=es]/bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
+            assert.strictEqual(args[sort_index + 1], 'lang:es');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args switches legacy downloader configs to yt-dlp when audio language is requested', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es'}, null, true);
+            const sort_index = args.indexOf('-S');
+            assert(sort_index !== -1);
+            assert.strictEqual(args[sort_index + 1], 'lang:es');
+            assert(args.includes('--no-clean-info-json'));
+            assert(args.includes('--no-simulate'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args switches legacy downloader configs to yt-dlp for exact dubbed format ids', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, customQualityConfiguration: '96-10'}, null, true);
+            const format_index = args.indexOf('-f');
+            assert(format_index !== -1);
+            assert.strictEqual(args[format_index + 1], '96-10');
+            assert(args.includes('--no-clean-info-json'));
+            assert(args.includes('--no-simulate'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args keeps requested audio language when limiting yt-dlp video height', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es', maxHeight: '720'});
+            const format_index = args.indexOf('-f');
+            const sort_index = args.indexOf('-S');
+            assert(format_index !== -1);
+            assert(sort_index !== -1);
+            assert.strictEqual(args[format_index + 1], 'best[height<=720][language=es]/bestvideo[height<=720]+bestaudio[language=es]/bestvideo[height<=720]+bestaudio/best[height<=720]');
+            assert.strictEqual(args[sort_index + 1], 'lang:es,res:720');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args prefers the requested audio language for audio-only downloads', async function() {
+        const args = await downloader_api.generateArgs(url, 'audio', {...options, selectedAudioLanguage: 'es'});
+        const format_index = args.indexOf('-f');
+        const sort_index = args.indexOf('-S');
+        assert(format_index !== -1);
+        assert(sort_index !== -1);
+        assert.strictEqual(args[format_index + 1], 'best[language=es]/bestaudio[language=es]/bestaudio/best');
+        assert.strictEqual(args[sort_index + 1], 'lang:es');
+        assert(args.includes('--audio-quality'));
+    });
+
+    it('Generate args keeps selected dubbed formats ahead of global format overrides', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        const original_custom_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            config_api.setConfigItem('ytdl_custom_args', '-f,,bestvideo+bestaudio,,-S,,res:360');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, customQualityConfiguration: '96-10', selectedAudioLanguage: 'es'});
+            const format_indexes = args.reduce((indexes, arg, index) => {
+                if (arg === '-f') indexes.push(index);
+                return indexes;
+            }, []);
+            const sort_indexes = args.reduce((indexes, arg, index) => {
+                if (arg === '-S') indexes.push(index);
+                return indexes;
+            }, []);
+
+            assert.deepStrictEqual(format_indexes.length, 1);
+            assert.deepStrictEqual(sort_indexes.length, 0);
+            assert.strictEqual(args[format_indexes[0] + 1], '96-10');
+            assert(!args.includes('bestvideo+bestaudio'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+            config_api.setConfigItem('ytdl_custom_args', original_custom_args);
+        }
+    });
+
+    it('Download queued file uses yt-dlp and newline progress when an audio language is requested', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        let captured_fork = null;
+        let captured_args = null;
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const returned_download = await downloader_api.createDownload(url, 'video', {...options, selectedAudioLanguage: 'fr'});
+            await db_api.updateRecord('download_queue', {uid: returned_download['uid']}, {
+                args: ['-o', fixture_single[0]._filename, '-f', 'bestvideo+bestaudio[language=fr]/bestvideo+bestaudio/best'],
+                finished_step: true,
+                step_index: 1
+            });
+
+            youtubedl_api.runYoutubeDL = async (requestedUrl, run_args, custom_handler, selected_fork) => {
+                captured_fork = selected_fork;
+                captured_args = run_args;
+                return {
+                    child_process: null,
+                    callback: Promise.resolve({parsed_output: null, err: new Error('intentional test stop')})
+                };
+            };
+
+            const success = await downloader_api.downloadQueuedFile(returned_download['uid']);
+            assert.strictEqual(success, false);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+
+        assert.strictEqual(captured_fork, 'yt-dlp');
+        assert(Array.isArray(captured_args));
+        assert(captured_args.includes('--newline'));
     });
 
     it.skip('Generate args - subscription', async function() {

@@ -78,6 +78,31 @@
 
 .paginator-page-size-select ::ng-deep .mat-mdc-text-field-wrapper {
     height: 40px;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline {
+    border-radius: inherit;
+    overflow: hidden;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline__leading {
+    border-radius: 999px 0 0 999px;
+    width: 28px !important;
+    min-width: 28px;
+    border-right: none;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline__trailing {
+    border-radius: 0 999px 999px 0;
+    border-left: none;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline__notch {
+    max-width: 0;
+    padding: 0;
+    border: none;
 }
 
 .paginator-page-size-select ::ng-deep .mat-mdc-select-value-text,

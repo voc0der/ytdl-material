@@ -1329,6 +1329,7 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
         selectedHeight: req.body.selectedHeight,
         maxHeight: req.body.maxHeight,
         customQualityConfiguration: req.body.customQualityConfiguration,
+        selectedAudioLanguage: req.body.selectedAudioLanguage,
         youtubeUsername: req.body.youtubeUsername,
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
@@ -1363,6 +1364,7 @@ app.post('/api/generateArgs', optionalJwt, async function(req, res) {
         selectedHeight: req.body.selectedHeight,
         maxHeight: req.body.maxHeight,
         customQualityConfiguration: req.body.customQualityConfiguration,
+        selectedAudioLanguage: req.body.selectedAudioLanguage,
         youtubeUsername: req.body.youtubeUsername,
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
@@ -2860,7 +2862,7 @@ app.post('/api/clearAllLogs', optionalJwt, async function(req, res) {
 
   app.post('/api/getFileFormats', optionalJwt, async (req, res) => {
     const url = req.body.url;
-    const result = await downloader_api.getVideoInfoByURL(url);
+    const result = await downloader_api.getVideoInfoByURL(url, [], null, {forceYtDlp: true});
     res.send({
         result: result && result.length === 1 ? result[0] : null,
         success: result && result.length === 0

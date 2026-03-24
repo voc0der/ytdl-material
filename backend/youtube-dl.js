@@ -27,15 +27,28 @@ exports.youtubedl_forks = {
     }
 }
 
-exports.runYoutubeDL = async (url, args, customDownloadHandler = null) => {
-    const output_file_path = getYoutubeDLPath();
-    if (!fs.existsSync(output_file_path)) await exports.checkForYoutubeDLUpdate();
+function hasArg(args = [], target_arg = '') {
+    if (!Array.isArray(args) || !target_arg) return false;
+    return args.some(arg => typeof arg === 'string' && (arg === target_arg || arg.startsWith(`${target_arg}=`)));
+}
+
+function ensureJavascriptRuntimeArgs(args = [], youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    if (!Array.isArray(args)) return [];
+    if (youtubedl_fork !== 'yt-dlp') return args;
+    if (hasArg(args, '--js-runtimes')) return args;
+    return ['--js-runtimes', 'node', ...args];
+}
+
+exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl_fork = null) => {
+    const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
+    const output_file_path = getYoutubeDLPath(selected_fork);
+    if (!fs.existsSync(output_file_path)) await exports.checkForYoutubeDLUpdate(selected_fork);
     let callback = null;
     let child_process = null;
     if (customDownloadHandler) {
         callback = runYoutubeDLCustom(url, args, customDownloadHandler);
     } else {
-        ({callback, child_process} = await runYoutubeDLProcess(url, args));
+        ({callback, child_process} = await runYoutubeDLProcess(url, args, selected_fork));
     }
 
     return {child_process, callback};
@@ -61,8 +74,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         logger.error(err);
         return;
     }
-    logger.debug(`Spawning ${youtubedl_fork} process with ${args.length + 1} arguments`);
-    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {
+    const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
+    logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
+    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...runtime_args], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,
@@ -146,8 +160,8 @@ exports.killYoutubeDLProcess = async (child_process) => {
     kill(child_process.pid, 'SIGKILL');
 }
 
-exports.checkForYoutubeDLUpdate = async () => {
-    const selected_fork = config_api.getConfigItem('ytdl_default_downloader');
+exports.checkForYoutubeDLUpdate = async (youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {
+    const selected_fork = youtubedl_fork;
     const output_file_path = getYoutubeDLPath(selected_fork);
 
     let current_app_details = fs.existsSync(CONSTS.DETAILS_BIN_PATH)
@@ -178,14 +192,13 @@ exports.checkForYoutubeDLUpdate = async () => {
     if (should_redownload) {
         const target_version = latest_version || current_version || CONSTS.OUTDATED_YOUTUBEDL_VERSION;
         logger.warn(`Updating ${selected_fork} binary to '${output_file_path}', downloading...`);
-        await exports.updateYoutubeDL(target_version);
+        await exports.updateYoutubeDL(target_version, null, selected_fork);
     }
 }
 
-exports.updateYoutubeDL = async (latest_update_version, custom_output_path = null) => {
+exports.updateYoutubeDL = async (latest_update_version, custom_output_path = null, youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {
     await fs.ensureDir(path.join('appdata', 'bin'));
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-    await downloadLatestYoutubeDLBinaryGeneric(default_downloader, latest_update_version, custom_output_path);
+    await downloadLatestYoutubeDLBinaryGeneric(youtubedl_fork, latest_update_version, custom_output_path);
 }
 
 async function downloadLatestYoutubeDLBinaryGeneric(youtubedl_fork, new_version, custom_output_path = null) {

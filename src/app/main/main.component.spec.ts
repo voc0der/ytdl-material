@@ -240,6 +240,156 @@ describe('MainComponent', () => {
     expect(component.shouldShowDownloadMenu()).toBeTrue();
   });
 
+  it('builds language-aware video selectors from loaded formats', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 128, format_id: 'audio-es', ext: 'm4a', language: 'es', filesize: 90},
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-merged-1080', ext: 'mp4', filesize: 1100}
+    ]);
+
+    component.url = 'https://example.com/video';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video[0];
+    component.selectedAudioLanguage = 'es';
+
+    expect(parsedFormats.audio_languages.map(option => option.value)).toEqual(['en', 'es']);
+    expect(component.getSelectedVideoFormat()).toBe('video-only-1080+audio-es');
+  });
+
+  it('prefers muxed language-specific video formats when available', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-en-1080', ext: 'mp4', language: 'en', filesize: 1100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-fr-1080', ext: 'mp4', language: 'fr', filesize: 1150}
+    ]);
+
+    component.url = 'https://example.com/muxed-video';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video[0];
+    component.selectedAudioLanguage = 'fr';
+
+    expect(parsedFormats.audio_languages.map(option => option.value)).toEqual(['en', 'fr']);
+    expect(component.getSelectedVideoFormat()).toBe('video-fr-1080');
+  });
+
+  it('falls back to the best selected language audio track when the chosen bitrate is unavailable', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75}
+    ]);
+
+    component.url = 'https://example.com/audio';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.audio.find(option => option.key === '128K');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedAudioFormat()).toBe('audio-es-96');
+  });
+
+  it('falls back to the best muxed language format for audio downloads when no audio-only dub exists', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-fr-720', ext: 'mp4', language: 'fr', filesize: 400}
+    ]);
+
+    component.url = 'https://example.com/audio-fallback';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.audio.find(option => option.key === '128K');
+    component.selectedAudioLanguage = 'fr';
+
+    expect(component.getSelectedAudioFormat()).toBe('video-fr-720');
+  });
+
+  it('uses the best selected-language audio format when Best is still selected', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75}
+    ]);
+
+    component.url = 'https://example.com/audio-best';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedAudioFormat()).toBe('audio-es-96');
+  });
+
+  it('uses the best muxed selected-language video format when Best is still selected', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'none', height: 1440, fps: 30, format_id: 'video-only-1440', ext: 'mp4', filesize: 1400},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es', filesize: 1100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-en-1080', ext: 'mp4', language: 'en', filesize: 1120}
+    ]);
+
+    component.url = 'https://example.com/video-best';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
+  });
+
+  it('uses the highest resolution muxed selected-language video format when dubbed formats are listed low-to-high', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'mp4a', height: 144, fps: 30, format_id: 'video-es-144', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 360, fps: 30, format_id: 'video-es-360', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-es-720', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es'}
+    ]);
+
+    component.url = 'https://example.com/video-best-ordered';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
+  });
+
+  it('keeps the selected quality when a muxed dubbed format exists at that resolution', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-es-720', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es'}
+    ]);
+
+    component.url = 'https://example.com/video-selected-quality-muxed';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video.find(option => option.key === '720p30');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-720');
+  });
+
+  it('keeps the selected quality when pairing video-only output with the selected language audio', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75},
+      {vcodec: 'avc1', acodec: 'none', height: 720, fps: 30, format_id: 'video-only-720', ext: 'mp4', filesize: 700},
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000}
+    ]);
+
+    component.url = 'https://example.com/video-selected-quality-split';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video.find(option => option.key === '720p30');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-only-720+audio-es-96');
+  });
+
+  it('uses the highest quality video plus selected-language audio when Best is still selected and no muxed dub exists', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75},
+      {vcodec: 'avc1', acodec: 'none', height: 1440, fps: 30, format_id: 'video-only-1440', ext: 'mp4', filesize: 1400}
+    ]);
+
+    component.url = 'https://example.com/video-best-split';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-only-1440+audio-es-96');
+  });
+
   it('maps playlist menu action to canonical playlist URL', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
     const download_spy = spyOn(component, 'downloadClicked');

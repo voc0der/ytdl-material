@@ -163,6 +163,7 @@ export class MainComponent implements OnInit {
 
   selectedMaxQuality = '';
   selectedQuality: string | unknown = '';
+  selectedAudioLanguage = '';
   formats_loading = false;
 
   @ViewChild('urlinput', { read: ElementRef }) urlInput: ElementRef;
@@ -420,6 +421,7 @@ export class MainComponent implements OnInit {
     const type = this.audioOnly ? 'audio' : 'video';
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
 
     let cropFileSettings = null;
 
@@ -431,14 +433,16 @@ export class MainComponent implements OnInit {
     }
 
     const selected_quality = this.selectedQuality;
+    const selected_audio_language = selectedAudioLanguage;
     this.selectedQuality = '';
+    this.selectedAudioLanguage = '';
     this.downloadingfile = true;
 
     const urls = this.getURLArray(effective_url);
     for (let i = 0; i < urls.length; i++) {
       const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist).subscribe(res => {
+        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language).subscribe(res => {
           const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
             ? res['downloads']
             : (res['download'] ? [res['download']] : []);
@@ -477,39 +481,81 @@ export class MainComponent implements OnInit {
     }
   }
 
-  // download canceled handler
-  cancelDownload(download_to_cancel = null): void {
-    // if one is provided, cancel that one. otherwise, remove the current one
-    if (download_to_cancel) {
-      this.removeDownloadFromCurrentDownloads(download_to_cancel)
-      return;
-    }
-    this.downloadingfile = false;
-    this.current_download = null;
-  }
-
   getSelectedAudioFormat(): string {
-    if (typeof this.selectedQuality === 'string') { return null; }
-    const cachedFormatsExists = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
-    if (cachedFormatsExists) {
-      return this.selectedQuality['format_id'];
-    } else {
-      return null;
+    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    if (!cachedFormats) return null;
+
+    if (typeof this.selectedQuality === 'string') {
+      return this.getDefaultAudioFormatForSelection();
     }
+
+    const selectedAudioFormat = this.getPreferredAudioFormatForSelection(this.selectedQuality);
+    return selectedAudioFormat ? selectedAudioFormat['format_id'] : null;
   }
 
   getSelectedVideoFormat(): string {
-    if (typeof this.selectedQuality === 'string') { return null; }
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
     const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
-    if (cachedFormats) {
-      if (this.selectedQuality) {
-        let selected_video_format = this.selectedQuality['format_id'];
-        // add in audio format if necessary
-        const audio_missing = !this.selectedQuality['acodec'] || this.selectedQuality['acodec'] === 'none';
-        if (audio_missing && cachedFormats['best_audio_format']) selected_video_format += `+${cachedFormats['best_audio_format']}`;
-        return selected_video_format;
-      }
+    if (!cachedFormats) return null;
+
+    if (typeof this.selectedQuality === 'string') {
+      return this.getDefaultVideoFormatForSelection();
     }
+
+    if (!this.selectedQuality) return null;
+
+    const preferredVideoFormat = this.getPreferredVideoFormatForSelection(this.selectedQuality);
+    if (selectedAudioLanguage && preferredVideoFormat?.['language'] === selectedAudioLanguage && preferredVideoFormat?.['acodec'] && preferredVideoFormat['acodec'] !== 'none') {
+      return preferredVideoFormat['format_id'];
+    }
+
+    let selected_video_format = preferredVideoFormat?.['format_id'] || this.selectedQuality['format_id'];
+    const mergeAudioFormat = this.getPreferredMergeAudioFormatForSelection();
+
+    if (selectedAudioLanguage && mergeAudioFormat?.['format_id']) {
+      selected_video_format = preferredVideoFormat?.['video_only_format_id'] || this.selectedQuality['video_only_format_id'] || selected_video_format;
+      return `${selected_video_format}+${mergeAudioFormat['format_id']}`;
+    }
+
+    // add in audio format if necessary
+    const audio_missing = !preferredVideoFormat?.['acodec'] || preferredVideoFormat['acodec'] === 'none';
+    if (audio_missing && mergeAudioFormat?.['format_id']) selected_video_format += `+${mergeAudioFormat['format_id']}`;
+    return selected_video_format;
+  }
+
+  private getDefaultAudioFormatForSelection(): string | null {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    if (!selectedAudioLanguage) return null;
+
+    const selectedAudioFormat = cachedFormats['best_audio_formats_by_language']?.[selectedAudioLanguage]
+      || cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage];
+
+    return selectedAudioFormat?.['format_id'] || null;
+  }
+
+  private getDefaultVideoFormatForSelection(): string | null {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    if (!selectedAudioLanguage) return null;
+
+    const preferredMuxedFormat = cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage];
+    if (preferredMuxedFormat?.['format_id']) {
+      return preferredMuxedFormat['format_id'];
+    }
+
+    const highestQualityVideo = Array.isArray(cachedFormats['video']) ? cachedFormats['video'][0] : null;
+    const mergeAudioFormat = cachedFormats['best_merge_audio_formats_by_language']?.[selectedAudioLanguage];
+    const videoFormatId = highestQualityVideo?.['video_only_format_id'] || highestQualityVideo?.['format_id'] || null;
+
+    if (videoFormatId && mergeAudioFormat?.['format_id']) {
+      return `${videoFormatId}+${mergeAudioFormat['format_id']}`;
+    }
+
     return null;
   }
 
@@ -562,6 +608,8 @@ export class MainComponent implements OnInit {
 
   clearInput(): void {
     this.url = '';
+    this.selectedQuality = '';
+    this.selectedAudioLanguage = '';
     this.results_showing = false;
   }
 
@@ -575,11 +623,15 @@ export class MainComponent implements OnInit {
 
   useURL(url: string): void {
     this.results_showing = false;
+    this.selectedQuality = '';
+    this.selectedAudioLanguage = '';
     this.url = url;
+    this.ValidURL(url);
   }
 
   inputChanged(new_val: string): void {
     this.selectedQuality = '';
+    this.selectedAudioLanguage = '';
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -775,6 +827,7 @@ export class MainComponent implements OnInit {
     const type = this.audioOnly ? 'audio' : 'video';
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
 
     let cropFileSettings = null;
 
@@ -786,7 +839,7 @@ export class MainComponent implements OnInit {
     }
 
     this.postsService.generateArgs(this.url, type as FileType, (customQualityConfiguration || this.selectedQuality === '' || typeof this.selectedQuality !== 'string' ? null : this.selectedQuality),
-      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings).subscribe(res => {
+      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage).subscribe(res => {
         const simulated_args = res['args'];
         if (simulated_args) {
           // hide password if needed
@@ -794,7 +847,7 @@ export class MainComponent implements OnInit {
           if (passwordIndex !== -1 && passwordIndex !== simulated_args.length - 1) {
             simulated_args[passwordIndex + 1] = simulated_args[passwordIndex + 1].replace(/./g, '*');
           }
-          const downloader = this.postsService.config.Advanced.default_downloader;
+          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage);
           this.simulatedOutput = `${downloader} ${this.url} ${simulated_args.join(' ')}`;
         }
     });
@@ -871,15 +924,119 @@ export class MainComponent implements OnInit {
     this.argsChanged();
   }
 
+  getAvailableAudioLanguages(): Array<{value: string, label: string}> {
+    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    return cachedFormats?.['audio_languages'] || [];
+  }
+
+  canSelectAudioLanguage(): boolean {
+    if (!this.url) return false;
+    if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
+    return this.getAvailableAudioLanguages().length > 0;
+  }
+
+  private getSelectedAudioLanguage(): string | null {
+    return typeof this.selectedAudioLanguage === 'string' && this.selectedAudioLanguage !== ''
+      ? this.selectedAudioLanguage
+      : null;
+  }
+
+  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null): string {
+    return selectedAudioLanguage ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
+  }
+
+  private getCurrentCachedFormats(): any {
+    return this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats']
+      ? this.cachedAvailableFormats[this.url]['formats']
+      : null;
+  }
+
+  private getPreferredAudioFormatForSelection(selectedQuality: any): any {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats || !selectedQuality) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedKey = selectedQuality['key'];
+    const audioFormatsByKey = cachedFormats['audio_formats_by_key'];
+    const matchingFormats = selectedKey && audioFormatsByKey ? audioFormatsByKey[selectedKey] : null;
+
+    if (matchingFormats) {
+      if (selectedAudioLanguage && matchingFormats['by_language']?.[selectedAudioLanguage]) {
+        return matchingFormats['by_language'][selectedAudioLanguage];
+      }
+      if (selectedAudioLanguage && cachedFormats['best_audio_formats_by_language']?.[selectedAudioLanguage]) {
+        return cachedFormats['best_audio_formats_by_language'][selectedAudioLanguage];
+      }
+      if (selectedAudioLanguage && cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage]) {
+        return cachedFormats['best_muxed_formats_by_language'][selectedAudioLanguage];
+      }
+      if (matchingFormats['default']) {
+        return matchingFormats['default'];
+      }
+    }
+
+    if (selectedAudioLanguage && cachedFormats['best_audio_formats_by_language']?.[selectedAudioLanguage]) {
+      return cachedFormats['best_audio_formats_by_language'][selectedAudioLanguage];
+    }
+
+    if (selectedAudioLanguage && cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage]) {
+      return cachedFormats['best_muxed_formats_by_language'][selectedAudioLanguage];
+    }
+
+    return cachedFormats['best_audio_format'] || null;
+  }
+
+  private getPreferredVideoFormatForSelection(selectedQuality: any): any {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats || !selectedQuality) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedKey = selectedQuality['key'];
+    const videoFormatsByKey = cachedFormats['video_formats_by_key'];
+    const matchingFormats = selectedKey && videoFormatsByKey ? videoFormatsByKey[selectedKey] : null;
+
+    if (matchingFormats) {
+      if (selectedAudioLanguage && matchingFormats['by_language']?.[selectedAudioLanguage]) {
+        return matchingFormats['by_language'][selectedAudioLanguage];
+      }
+      if (matchingFormats['default']) {
+        return matchingFormats['default'];
+      }
+    }
+
+    return selectedQuality;
+  }
+
+  private getPreferredMergeAudioFormatForSelection(): any {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    if (selectedAudioLanguage && cachedFormats['best_merge_audio_formats_by_language']?.[selectedAudioLanguage]) {
+      return cachedFormats['best_merge_audio_formats_by_language'][selectedAudioLanguage];
+    }
+
+    return cachedFormats['best_merge_audio_format'] || null;
+  }
+
   getAudioAndVideoFormats(formats): void {
     const audio_formats: any = {};
+    const audio_formats_by_key: any = {};
     const video_formats: any = {};
+    const video_formats_by_key: any = {};
+    const language_options: any = {};
+    const best_audio_formats_by_language: any = {};
+    const best_merge_audio_formats_by_language: any = {};
+    const best_muxed_formats_by_language: any = {};
+    let best_audio_format = null;
+    let best_merge_audio_format = null;
 
     for (let i = 0; i < formats.length; i++) {
       const format_obj = {type: null};
 
       const format = formats[i];
       const format_type = (format.vcodec === 'none') ? 'audio' : 'video';
+      const language = this.getNormalizedAudioLanguage(format);
 
       format_obj.type = format_type;
       if (format_obj.type === 'audio' && format.abr) {
@@ -889,15 +1046,54 @@ export class MainComponent implements OnInit {
         format_obj['format_id'] = format.format_id;
         format_obj['ext'] = format.ext;
         format_obj['label'] = key;
+        format_obj['language'] = language;
+        format_obj['language_preference'] = this.getAudioLanguagePreference(format);
         format_obj['expected_filesize'] = format.filesize ? format.filesize : (format.filesize_approx || null);
 
-        // don't overwrite if not m4a
-        if (audio_formats[key]) {
-          if (format.ext === 'm4a') {
-            audio_formats[key] = format_obj;
-          }
-        } else {
-          audio_formats[key] = format_obj;
+        if (language) {
+          language_options[language] = {
+            value: language,
+            label: this.getAudioLanguageLabel(language)
+          };
+        }
+
+        if (!audio_formats_by_key[key]) {
+          audio_formats_by_key[key] = {
+            default: null,
+            by_language: {}
+          };
+        }
+
+        if (!audio_formats[key]) {
+          audio_formats[key] = {
+            key: key,
+            bitrate: format.abr,
+            label: key
+          };
+        }
+
+        if (this.shouldReplaceAudioFormat(audio_formats_by_key[key]['default'], format_obj)) {
+          audio_formats_by_key[key]['default'] = format_obj;
+        }
+
+        if (language && this.shouldReplaceAudioFormat(audio_formats_by_key[key]['by_language'][language], format_obj)) {
+          audio_formats_by_key[key]['by_language'][language] = format_obj;
+        }
+
+        if (this.shouldReplaceAudioFormat(best_audio_format, format_obj)) {
+          best_audio_format = format_obj;
+        }
+
+        if (this.shouldReplaceAudioFormat(best_merge_audio_format, format_obj, true)) {
+          best_merge_audio_format = format_obj;
+        }
+
+        if (language && this.shouldReplaceAudioFormat(best_audio_formats_by_language[language], format_obj)) {
+          best_audio_formats_by_language[language] = format_obj;
+        }
+
+        if (language && this.shouldReplaceAudioFormat(best_merge_audio_formats_by_language[language], format_obj, true)) {
+          best_merge_audio_formats_by_language[language] = format_obj;
         }
       } else if (format_obj.type === 'video') {
         // check if video format is mp4
@@ -910,10 +1106,63 @@ export class MainComponent implements OnInit {
           format_obj['label'] = key;
           format_obj['fps'] = Math.round(format.fps);
           format_obj['expected_filesize'] = format.filesize ? format.filesize : (format.filesize_approx || null);
+          format_obj['ext'] = format.ext;
+          format_obj['language'] = language;
 
-          // no acodec means no overwrite
-          if (!(video_formats[key]) || format_obj['acodec'] !== 'none') {
+          if (format.acodec === 'none') {
+            format_obj['video_only_format_id'] = format.format_id;
+          }
+
+          if (language) {
+            language_options[language] = {
+              value: language,
+              label: this.getAudioLanguageLabel(language)
+            };
+          }
+
+          if (!video_formats_by_key[key]) {
+            video_formats_by_key[key] = {
+              default: null,
+              by_language: {}
+            };
+          }
+
+          const existingVideoOnlyFormatId = video_formats[key]?.['video_only_format_id'] || null;
+          const existingVideoOnlyFormatIdByKey = video_formats_by_key[key]['default']?.['video_only_format_id'] || null;
+
+          if (this.shouldReplaceVideoFormat(video_formats[key], format_obj)) {
             video_formats[key] = format_obj;
+          }
+
+          if (existingVideoOnlyFormatId && !video_formats[key]?.['video_only_format_id']) {
+            video_formats[key]['video_only_format_id'] = existingVideoOnlyFormatId;
+          }
+
+          if (format.acodec === 'none' && !video_formats[key]?.['video_only_format_id']) {
+            video_formats[key]['video_only_format_id'] = format.format_id;
+          }
+
+          if (this.shouldReplaceVideoFormat(video_formats_by_key[key]['default'], format_obj)) {
+            video_formats_by_key[key]['default'] = format_obj;
+          }
+
+          if (existingVideoOnlyFormatIdByKey && !video_formats_by_key[key]['default']?.['video_only_format_id']) {
+            video_formats_by_key[key]['default']['video_only_format_id'] = existingVideoOnlyFormatIdByKey;
+          }
+
+          if (format.acodec === 'none' && !video_formats_by_key[key]['default']?.['video_only_format_id']) {
+            video_formats_by_key[key]['default']['video_only_format_id'] = format.format_id;
+          }
+
+          if (language && this.shouldReplaceVideoFormat(video_formats_by_key[key]['by_language'][language], format_obj)) {
+            video_formats_by_key[key]['by_language'][language] = format_obj;
+            if (existingVideoOnlyFormatIdByKey && !video_formats_by_key[key]['by_language'][language]?.['video_only_format_id']) {
+              video_formats_by_key[key]['by_language'][language]['video_only_format_id'] = existingVideoOnlyFormatIdByKey;
+            }
+          }
+
+          if (language && format.acodec !== 'none' && this.shouldReplaceVideoFormat(best_muxed_formats_by_language[language], format_obj)) {
+            best_muxed_formats_by_language[language] = format_obj;
           }
         }
       }
@@ -921,14 +1170,22 @@ export class MainComponent implements OnInit {
 
     const parsed_formats: any = {};
 
-    parsed_formats['best_audio_format'] = this.getBestAudioFormatForMp4(audio_formats);
+    parsed_formats['best_audio_format'] = best_audio_format;
+    parsed_formats['best_audio_formats_by_language'] = best_audio_formats_by_language;
+    parsed_formats['best_merge_audio_format'] = best_merge_audio_format || best_audio_format;
+    parsed_formats['best_merge_audio_formats_by_language'] = best_merge_audio_formats_by_language;
+    parsed_formats['best_muxed_formats_by_language'] = best_muxed_formats_by_language;
+    parsed_formats['audio_formats_by_key'] = audio_formats_by_key;
+    parsed_formats['video_formats_by_key'] = video_formats_by_key;
+    parsed_formats['audio_languages'] = Object.values(language_options)
+      .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
     // add audio file size to the expected video file size -- but only if best_audio_format will be used (i.e. when the video has no acodec already). if acodec is present expected filesize will include it
     for (const video_format of Object.values(video_formats)) {
       if ((!video_format['acodec'] || video_format['acodec'] === 'none')
         && video_format['expected_filesize']
-        && parsed_formats['best_audio_format']?.filesize) 
-          video_format['expected_filesize'] += parsed_formats['best_audio_format'].filesize;
+        && parsed_formats['best_merge_audio_format']?.expected_filesize) 
+          video_format['expected_filesize'] += parsed_formats['best_merge_audio_format'].expected_filesize;
     }
 
     parsed_formats['video'] = Object.values(video_formats);
@@ -940,20 +1197,95 @@ export class MainComponent implements OnInit {
     return parsed_formats;
   }
 
-  getBestAudioFormatForMp4(audio_formats): void {
-    let best_audio_format_for_mp4 = null;
-    let best_audio_format_bitrate = 0;
-    const available_audio_format_keys = Object.keys(audio_formats);
-    for (let i = 0; i < available_audio_format_keys.length; i++) {
-      const audio_format_key = available_audio_format_keys[i];
-      const audio_format = audio_formats[audio_format_key];
-      const is_m4a = audio_format.ext === 'm4a';
-      if (is_m4a && audio_format.bitrate > best_audio_format_bitrate) {
-        best_audio_format_for_mp4 = audio_format.format_id;
-        best_audio_format_bitrate = audio_format.bitrate;
-      }
+  private shouldReplaceAudioFormat(currentFormat: any, candidateFormat: any, preferMp4Compatible = false): boolean {
+    if (!candidateFormat) return false;
+    if (!currentFormat) return true;
+
+    const currentLanguagePreference = currentFormat['language_preference'] ?? Number.NEGATIVE_INFINITY;
+    const candidateLanguagePreference = candidateFormat['language_preference'] ?? Number.NEGATIVE_INFINITY;
+    if (candidateLanguagePreference !== currentLanguagePreference) {
+      return candidateLanguagePreference > currentLanguagePreference;
     }
-    return best_audio_format_for_mp4;
+
+    if (preferMp4Compatible && candidateFormat['ext'] !== currentFormat['ext']) {
+      if (candidateFormat['ext'] === 'm4a') return true;
+      if (currentFormat['ext'] === 'm4a') return false;
+    }
+
+    if (candidateFormat['bitrate'] !== currentFormat['bitrate']) {
+      return candidateFormat['bitrate'] > currentFormat['bitrate'];
+    }
+
+    const currentFilesize = currentFormat['expected_filesize'] || 0;
+    const candidateFilesize = candidateFormat['expected_filesize'] || 0;
+    if (candidateFilesize !== currentFilesize) {
+      return candidateFilesize > currentFilesize;
+    }
+
+    if (candidateFormat['ext'] !== currentFormat['ext']) {
+      if (candidateFormat['ext'] === 'm4a') return true;
+      if (currentFormat['ext'] === 'm4a') return false;
+    }
+
+    return false;
+  }
+
+  private shouldReplaceVideoFormat(currentFormat: any, candidateFormat: any): boolean {
+    if (!candidateFormat) return false;
+    if (!currentFormat) return true;
+
+    const currentHasAudio = !!currentFormat['acodec'] && currentFormat['acodec'] !== 'none';
+    const candidateHasAudio = !!candidateFormat['acodec'] && candidateFormat['acodec'] !== 'none';
+    if (candidateHasAudio !== currentHasAudio) {
+      return candidateHasAudio;
+    }
+
+    const currentHeight = currentFormat['height'] || 0;
+    const candidateHeight = candidateFormat['height'] || 0;
+    if (candidateHeight !== currentHeight) {
+      return candidateHeight > currentHeight;
+    }
+
+    const currentFps = currentFormat['fps'] || 0;
+    const candidateFps = candidateFormat['fps'] || 0;
+    if (candidateFps !== currentFps) {
+      return candidateFps > currentFps;
+    }
+
+    const currentFilesize = currentFormat['expected_filesize'] || 0;
+    const candidateFilesize = candidateFormat['expected_filesize'] || 0;
+    if (candidateFilesize !== currentFilesize) {
+      return candidateFilesize > currentFilesize;
+    }
+
+    if (candidateFormat['ext'] !== currentFormat['ext']) {
+      if (candidateFormat['ext'] === 'mp4') return true;
+      if (currentFormat['ext'] === 'mp4') return false;
+    }
+
+    return false;
+  }
+
+  private getNormalizedAudioLanguage(format: any): string | null {
+    if (!format || typeof format['language'] !== 'string') return null;
+    const language = format['language'].trim();
+    if (language === '' || language.toLowerCase() === 'none') return null;
+    return language;
+  }
+
+  private getAudioLanguagePreference(format: any): number {
+    const languagePreference = Number(format?.['language_preference']);
+    return Number.isFinite(languagePreference) ? languagePreference : Number.NEGATIVE_INFINITY;
+  }
+
+  private getAudioLanguageLabel(language: string): string {
+    try {
+      const locale = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
+      const languageName = new Intl.DisplayNames([locale], {type: 'language'}).of(language);
+      return languageName || language;
+    } catch {
+      return language;
+    }
   }
 
   // modify custom args

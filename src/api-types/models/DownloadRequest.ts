@@ -43,6 +43,10 @@ export type DownloadRequest = {
      * Specify ffmpeg/avconv audio quality
      */
     maxBitrate?: string;
+    /**
+     * Preferred audio language code to use when alternate tracks are available.
+     */
+    selectedAudioLanguage?: string;
     type?: FileType;
     cropFileSettings?: CropFileSettings;
     /**
