@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { VgApiService } from '@videogular/ngx-videogular/core';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
-import { IChapter, IMedia, PlayerComponent } from './player.component';
+import { IChapter, IMedia, ISubtitleTrack, PlayerComponent } from './player.component';
 
 describe('PlayerComponent', () => {
   let component: PlayerComponent;
@@ -165,6 +165,16 @@ describe('PlayerComponent', () => {
     expect(streamURL).toBe('/api/stream?uid=uid%20with%20spaces&type=video&apiKey=public-token');
   });
 
+  it('should build subtitle track URLs without a trailing slash before the query string', () => {
+    postsServiceStub.isLoggedIn = false;
+    postsServiceStub.auth_token = 'public-token';
+    component.baseStreamPath = '/api/';
+
+    const subtitleTrackURL = component.createSubtitleTrackURL('uid with spaces', 0);
+
+    expect(subtitleTrackURL).toBe('/api/streamSubtitle?uid=uid%20with%20spaces&index=0&apiKey=public-token');
+  });
+
   it('should reset page title on destroy', () => {
     component.ngOnDestroy();
 
@@ -191,6 +201,37 @@ describe('PlayerComponent', () => {
     expect(component.chapterDropdownOpen).toBeFalse();
   });
 
+  it('should normalize subtitle metadata into player track URLs', () => {
+    postsServiceStub.isLoggedIn = false;
+    postsServiceStub.auth_token = 'public-token';
+    component.baseStreamPath = '/api/';
+
+    const mediaObject = component.createMediaObject({
+      uid: 'uid-subtitle',
+      title: 'Subtitle test',
+      isAudio: false,
+      url: 'https://example.com/video',
+      subtitles: [
+        {
+          label: 'English',
+          language: 'en',
+          kind: 'subtitles',
+          default: true
+        }
+      ]
+    } as DatabaseFile);
+
+    expect(mediaObject.subtitles).toEqual([
+      {
+        label: 'English',
+        language: 'en',
+        kind: 'subtitles',
+        default: true,
+        src: '/api/streamSubtitle?uid=uid-subtitle&index=0&apiKey=public-token'
+      }
+    ]);
+  });
+
   it('should resolve active chapter based on current playback time', () => {
     component.currentChapters = [
       { title: 'Intro', start_time: 0, end_time: 30 },
@@ -213,6 +254,31 @@ describe('PlayerComponent', () => {
     const chapter = component.getCurrentChapter();
 
     expect(chapter?.title).toBe('Intro');
+  });
+
+  it('should sync current subtitle tracks from the current media item', () => {
+    const subtitles: ISubtitleTrack[] = [
+      {
+        label: 'English',
+        language: 'en',
+        kind: 'subtitles',
+        default: true,
+        src: '/api/streamSubtitle?uid=uid-subtitle&index=0'
+      }
+    ];
+    component.currentItem = {
+      title: 'Subtitle Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle Test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle',
+      subtitles
+    };
+
+    component.syncCurrentSubtitles();
+
+    expect(component.currentSubtitleTracks).toEqual(subtitles);
   });
 
   it('should toggle chapter dropdown state', () => {

@@ -19,6 +19,15 @@ export interface IMedia {
   url: string;
   uid?: string;
   chapters?: IChapter[];
+  subtitles?: ISubtitleTrack[];
+}
+
+export interface ISubtitleTrack {
+  label: string;
+  language: string;
+  kind?: string;
+  default?: boolean;
+  src?: string;
 }
 
 export interface IChapter {
@@ -99,7 +108,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   currentChapterLabel = $localize`Chapters`;
   activeChapterIndex = -1;
   chapterCacheByUID = new Map<string, IChapter[]>();
+  subtitleCacheByUID = new Map<string, ISubtitleTrack[]>();
   chapterLoadInFlight = new Set<string>();
+  currentSubtitleTracks: ISubtitleTrack[] = [];
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
 
@@ -329,6 +340,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
+    this.syncCurrentSubtitles();
     this.updatePageTitleForCurrentItem();
   }
 
@@ -528,8 +540,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const mime_type = file_obj.isAudio ? 'audio/mp3' : 'video/mp4';
     const hasChapterPayload = Array.isArray(file_obj.chapters);
     const normalizedChapters = hasChapterPayload ? this.normalizeChapters(file_obj.chapters) : undefined;
+    const hasSubtitlePayload = Array.isArray(file_obj.subtitles);
+    const normalizedSubtitles = hasSubtitlePayload ? this.normalizeSubtitles(file_obj.subtitles, file_obj.uid) : undefined;
     if (hasChapterPayload && file_obj.uid) {
       this.chapterCacheByUID.set(file_obj.uid, normalizedChapters);
+    }
+    if (hasSubtitlePayload && file_obj.uid) {
+      this.subtitleCacheByUID.set(file_obj.uid, normalizedSubtitles);
     }
     const mediaObject: IMedia = {
       title: file_obj.title,
@@ -538,7 +555,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       label: file_obj.title,
       url: file_obj.url,
       uid: file_obj.uid,
-      chapters: normalizedChapters
+      chapters: normalizedChapters,
+      subtitles: normalizedSubtitles
     };
     return mediaObject;
   }
@@ -565,6 +583,29 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       fullLocation += `&sub_id=${this.sub_id}`;
     } else if (this.playlist_id) {
       fullLocation += `&playlist_id=${this.playlist_id}`;
+    }
+
+    return fullLocation;
+  }
+
+  createSubtitleTrackURL(uid: string, index = 0): string {
+    const normalizedBaseStreamPath = this.baseStreamPath.endsWith('/')
+      ? this.baseStreamPath.slice(0, -1)
+      : this.baseStreamPath;
+    let fullLocation = `${normalizedBaseStreamPath}/streamSubtitle?uid=${encodeURIComponent(uid)}&index=${index}`;
+
+    if (this.postsService.isLoggedIn) {
+      fullLocation += `&jwt=${this.postsService.token}`;
+    } else if (this.postsService.auth_token) {
+      fullLocation += `&apiKey=${this.postsService.auth_token}`;
+    }
+
+    if (this.uuid) {
+      fullLocation += `&uuid=${this.uuid}`;
+    }
+
+    if (this.sub_id) {
+      fullLocation += `&sub_id=${this.sub_id}`;
     }
 
     return fullLocation;
@@ -687,9 +728,24 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.refreshCurrentChapterState();
-    this.ensureCurrentItemChaptersLoaded();
+    this.ensureCurrentItemPlaybackMetadataLoaded();
     this.chapterTimelineVisible = false;
     this.chapterDropdownOpen = false;
+  }
+
+  syncCurrentSubtitles(): void {
+    const current_uid = this.currentItem?.uid;
+    if (Array.isArray(this.currentItem?.subtitles)) {
+      this.currentSubtitleTracks = this.currentItem.subtitles;
+      if (current_uid) {
+        this.subtitleCacheByUID.set(current_uid, this.currentSubtitleTracks);
+      }
+    } else if (current_uid && this.subtitleCacheByUID.has(current_uid)) {
+      this.currentSubtitleTracks = this.subtitleCacheByUID.get(current_uid) ?? [];
+      this.currentItem.subtitles = this.currentSubtitleTracks;
+    } else {
+      this.currentSubtitleTracks = [];
+    }
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -706,6 +762,26 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         return {title, start_time, end_time};
       })
       .filter((chapter): chapter is IChapter => !!chapter);
+  }
+
+  normalizeSubtitles(subtitles: DatabaseFile['subtitles'], uid: string = null): ISubtitleTrack[] {
+    if (!Array.isArray(subtitles)) return [];
+
+    return subtitles
+      .map((subtitle, index) => {
+        const label = typeof subtitle.label === 'string' ? subtitle.label.trim() : '';
+        const language = typeof subtitle.language === 'string' ? subtitle.language.trim().toLowerCase() : '';
+        if (!label || !language || !uid) return null;
+
+        return {
+          label,
+          language,
+          kind: typeof subtitle.kind === 'string' && subtitle.kind.trim() !== '' ? subtitle.kind.trim() : 'subtitles',
+          default: subtitle.default === true || index === 0,
+          src: this.createSubtitleTrackURL(uid, index)
+        };
+      })
+      .filter(Boolean) as ISubtitleTrack[];
   }
 
   isChapterActive(chapter: IChapter): boolean {
@@ -832,14 +908,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentChapterLabel = this.currentChapters[this.activeChapterIndex]?.title ?? $localize`Chapters`;
   }
 
-  ensureCurrentItemChaptersLoaded(): void {
+  ensureCurrentItemPlaybackMetadataLoaded(): void {
     const current_uid = this.currentItem?.uid;
     if (!current_uid || this.chapterLoadInFlight.has(current_uid)) {
       return;
     }
 
-    if (this.chapterCacheByUID.has(current_uid)) {
+    if (this.chapterCacheByUID.has(current_uid) && this.subtitleCacheByUID.has(current_uid)) {
       this.applyChaptersToMedia(current_uid, this.chapterCacheByUID.get(current_uid) ?? []);
+      this.applySubtitlesToMedia(current_uid, this.subtitleCacheByUID.get(current_uid) ?? []);
       return;
     }
 
@@ -847,8 +924,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.postsService.getFile(current_uid, this.uuid).subscribe(res => {
       this.chapterLoadInFlight.delete(current_uid);
       const normalized_chapters = this.normalizeChapters(res?.file?.chapters);
+      const normalized_subtitles = this.normalizeSubtitles(res?.file?.subtitles, current_uid);
       this.chapterCacheByUID.set(current_uid, normalized_chapters);
+      this.subtitleCacheByUID.set(current_uid, normalized_subtitles);
       this.applyChaptersToMedia(current_uid, normalized_chapters);
+      this.applySubtitlesToMedia(current_uid, normalized_subtitles);
     }, () => {
       this.chapterLoadInFlight.delete(current_uid);
     });
@@ -877,6 +957,47 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentItem.chapters = chapters;
       this.currentChapters = chapters;
       this.refreshCurrentChapterState();
+    }
+  }
+
+  applySubtitlesToMedia(uid: string, subtitles: ISubtitleTrack[]): void {
+    const playlist_item = this.playlist.find(media => media.uid === uid);
+    if (playlist_item) {
+      playlist_item.subtitles = subtitles;
+    }
+
+    const current_queue_file = this.autoplay_queue_file_objs.find(file_obj => file_obj.uid === uid);
+    if (current_queue_file) {
+      current_queue_file.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.db_file?.uid === uid) {
+      this.db_file.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.currentFile?.uid === uid) {
+      this.currentFile.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.currentItem?.uid === uid) {
+      this.currentItem.subtitles = subtitles;
+      this.currentSubtitleTracks = subtitles;
+      this.cdr.detectChanges();
     }
   }
 

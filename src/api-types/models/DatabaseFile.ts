@@ -52,5 +52,11 @@ export type DatabaseFile = {
         start_time: number;
         end_time: number;
     }>;
+    subtitles?: Array<{
+        label: string;
+        language: string;
+        kind?: string;
+        default?: boolean;
+    }>;
     favorite: boolean;
 };
