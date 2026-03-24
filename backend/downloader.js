@@ -1639,6 +1639,18 @@ function normalizeSelectedAudioLanguage(selected_audio_language) {
     return normalized_language !== '' ? normalized_language : null;
 }
 
+function normalizeSelectedSubtitleLanguage(selected_subtitle_language) {
+    if (typeof selected_subtitle_language !== 'string') return null;
+    const normalized_language = selected_subtitle_language.trim();
+    return normalized_language !== '' ? normalized_language : null;
+}
+
+function normalizeSelectedSubtitleType(selected_subtitle_type) {
+    if (typeof selected_subtitle_type !== 'string') return null;
+    const normalized_type = selected_subtitle_type.trim().toLowerCase();
+    return ['manual', 'automatic'].includes(normalized_type) ? normalized_type : null;
+}
+
 function shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configuration) {
     if (typeof custom_quality_configuration !== 'string') return false;
     const normalized_quality_configuration = custom_quality_configuration.trim();
@@ -1651,10 +1663,11 @@ function shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configurat
 function getPreferredDownloaderFork(options = {}) {
     if (options.forceYtDlp) return 'yt-dlp';
     const selected_audio_language = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
+    const selected_subtitle_language = normalizeSelectedSubtitleLanguage(options.selectedSubtitleLanguage);
     const custom_quality_configuration = typeof options.customQualityConfiguration === 'string'
         ? options.customQualityConfiguration
         : '';
-    return (selected_audio_language || shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configuration))
+    return (selected_audio_language || selected_subtitle_language || shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configuration))
         ? 'yt-dlp'
         : config_api.getConfigItem('ytdl_default_downloader');
 }
@@ -1677,6 +1690,25 @@ function buildPreferredVideoSelector(selected_audio_language, video_filter = '')
     const best_selector = `best${video_filter}`;
     if (!selected_audio_language) return video_filter ? `${best_selector}+bestaudio` : 'bestvideo+bestaudio';
     return `${best_selector}[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio/${best_selector}`;
+}
+
+function buildSubtitleArgs(selected_subtitle_language, selected_subtitle_type = 'manual') {
+    if (!selected_subtitle_language) return null;
+    const subtitle_args = [
+        '--sub-langs',
+        selected_subtitle_language,
+        '--sub-format',
+        'srt/vtt/best',
+        '--embed-subs'
+    ];
+
+    if (selected_subtitle_type === 'automatic') {
+        subtitle_args.unshift('--write-auto-subs');
+    } else {
+        subtitle_args.unshift('--write-subs');
+    }
+
+    return subtitle_args;
 }
 
 exports.generateArgs = async (url, type, options, user_uid = null, simulated = false) => {
@@ -1708,6 +1740,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     let customOutput = options.customOutput;
     const customQualityConfiguration = options.customQualityConfiguration;
     const selectedAudioLanguage = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
+    const selectedSubtitleLanguage = is_audio ? null : normalizeSelectedSubtitleLanguage(options.selectedSubtitleLanguage);
+    const selectedSubtitleType = normalizeSelectedSubtitleType(options.selectedSubtitleType) || 'manual';
 
     // video-specific args
     const selectedHeight = options.selectedHeight;
@@ -1724,6 +1758,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         ? buildFormatSortOrder(selectedAudioLanguage)
         : '';
     const should_preserve_selected_format_args = !!(customQualityConfiguration || selectedAudioLanguage || heightParam);
+    const should_preserve_selected_subtitle_args = !!selectedSubtitleLanguage;
+    const subtitlePath = buildSubtitleArgs(selectedSubtitleLanguage, selectedSubtitleType);
 
     let downloadConfig = null;
     let qualityPath = (is_audio && !options.skip_audio_args)
@@ -1808,6 +1844,14 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
                 downloadConfig = stripArgsWithValues(downloadConfig, ['-f', '--format', '-S', '--format-sort', '--merge-output-format']);
             }
             downloadConfig.push(...qualityPath);
+        }
+
+        if (subtitlePath) {
+            if (should_preserve_selected_subtitle_args) {
+                downloadConfig = stripArgsWithValues(downloadConfig, ['--sub-lang', '--sub-langs', '--sub-format', '--convert-subs']);
+                downloadConfig = stripFlagArgs(downloadConfig, ['--write-subs', '--no-write-subs', '--write-auto-subs', '--no-write-auto-subs', '--all-subs', '--embed-subs', '--no-embed-subs']);
+            }
+            downloadConfig.push(...subtitlePath);
         }
 
         downloadConfig = appendFilenameSanitizationArgs(downloadConfig, default_downloader);
@@ -1964,6 +2008,10 @@ function stripArgsWithValues(args = [], args_to_strip = []) {
         cleaned_args.push(arg);
     }
     return cleaned_args;
+}
+
+function stripFlagArgs(args = [], args_to_strip = []) {
+    return args.filter(arg => !(typeof arg === 'string' && args_to_strip.includes(arg)));
 }
 
 async function checkDownloadPercent(download_uid) {

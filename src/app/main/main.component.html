@@ -139,6 +139,24 @@
             }
             </mat-form-field>
           </div>
+          <div class="main-pane-select-group">
+            <div class="main-pane-action-field-label" i18n="Subtitle select label">Subtitles</div>
+            <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
+              <mat-select aria-label="Subtitles" [disabled]="!canSelectSubtitleLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedSubtitleLanguage" (ngModelChange)="argsChanged()">
+                <mat-option i18n="Default subtitle option" [value]="''">
+                                  Default
+                              </mat-option>
+                @for (option of getAvailableSubtitleLanguages(); track option.value) {
+                  <mat-option [value]="option.value">
+                  {{option.label}}
+                </mat-option>
+              }
+            </mat-select>
+            @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
+              <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
+            }
+            </mat-form-field>
+          </div>
         }
       </div>
       @if (showCreatePlaylistShortcut) {

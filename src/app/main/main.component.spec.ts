@@ -25,6 +25,9 @@ describe('MainComponent', () => {
       },
       hasPermission: () => true,
       getCurrentDownload: () => of({download: null}),
+      downloadFile: () => of({download: {uid: 'queued-default'}}),
+      generateArgs: () => of({args: []}),
+      getFileFormats: () => of({result: null}),
       openSnackBar: () => {},
       files_changed: {
         next: jasmine.createSpy('filesChangedNext')
@@ -388,6 +391,66 @@ describe('MainComponent', () => {
     component.selectedAudioLanguage = 'es';
 
     expect(component.getSelectedVideoFormat()).toBe('video-only-1440+audio-es-96');
+  });
+
+  it('builds subtitle options from manual subtitles and automatic captions in the existing info probe', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats(
+      [{vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-1080', ext: 'mp4'}],
+      {
+        subtitles: {
+          fr: [{ext: 'srt'}],
+          live_chat: [{ext: 'json'}]
+        },
+        automatic_captions: {
+          es: [{ext: 'vtt'}],
+          fr: [{ext: 'vtt'}],
+          en: []
+        }
+      }
+    );
+
+    expect(parsedFormats.subtitle_languages.map(option => ({
+      value: option.value,
+      source: option.source,
+      hasManual: option.hasManual,
+      hasAutomatic: option.hasAutomatic
+    }))).toEqual([
+      {value: 'fr', source: 'manual', hasManual: true, hasAutomatic: true},
+      {value: 'es', source: 'automatic', hasManual: false, hasAutomatic: true}
+    ]);
+  });
+
+  it('passes selected subtitle language and source through the main download request', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles'}}));
+    component.url = 'https://example.com/subtitles';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'es', label: 'Spanish (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+    component.selectedSubtitleLanguage = 'es';
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('es');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
+  it('does not allow subtitle selection in audio-only mode', () => {
+    component.url = 'https://example.com/audio-only';
+    component.audioOnly = true;
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'fr', label: 'French', source: 'manual', hasManual: true, hasAutomatic: false}
+        ]
+      }
+    };
+
+    expect(component.canSelectSubtitleLanguage()).toBeFalse();
   });
 
   it('maps playlist menu action to canonical playlist URL', () => {

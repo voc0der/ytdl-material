@@ -1320,6 +1320,43 @@ describe('Downloader', function() {
         assert(args.includes('--audio-quality'));
     });
 
+    it('Generate args embeds manually selected subtitles for video downloads', async function() {
+        const args = await downloader_api.generateArgs(url, 'video', {...options, selectedSubtitleLanguage: 'fr', selectedSubtitleType: 'manual'});
+        const sub_langs_index = args.indexOf('--sub-langs');
+        const sub_format_index = args.indexOf('--sub-format');
+        assert(args.includes('--write-subs'));
+        assert(!args.includes('--write-auto-subs'));
+        assert(args.includes('--embed-subs'));
+        assert(sub_langs_index !== -1);
+        assert(sub_format_index !== -1);
+        assert.strictEqual(args[sub_langs_index + 1], 'fr');
+        assert.strictEqual(args[sub_format_index + 1], 'srt/vtt/best');
+    });
+
+    it('Generate args embeds auto-generated subtitles when a subtitle language only has auto captions', async function() {
+        const args = await downloader_api.generateArgs(url, 'video', {...options, selectedSubtitleLanguage: 'es', selectedSubtitleType: 'automatic'});
+        const sub_langs_index = args.indexOf('--sub-langs');
+        assert(!args.includes('--write-subs'));
+        assert(args.includes('--write-auto-subs'));
+        assert(args.includes('--embed-subs'));
+        assert(sub_langs_index !== -1);
+        assert.strictEqual(args[sub_langs_index + 1], 'es');
+    });
+
+    it('Generate args switches legacy downloader configs to yt-dlp when subtitles are requested', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedSubtitleLanguage: 'fr', selectedSubtitleType: 'manual'}, null, true);
+            assert(args.includes('--write-subs'));
+            assert(args.includes('--embed-subs'));
+            assert(args.includes('--no-clean-info-json'));
+            assert(args.includes('--no-simulate'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
     it('Generate args keeps selected dubbed formats ahead of global format overrides', async function() {
         const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
         const original_custom_args = config_api.getConfigItem('ytdl_custom_args');
@@ -1340,6 +1377,30 @@ describe('Downloader', function() {
             assert.deepStrictEqual(sort_indexes.length, 0);
             assert.strictEqual(args[format_indexes[0] + 1], '96-10');
             assert(!args.includes('bestvideo+bestaudio'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+            config_api.setConfigItem('ytdl_custom_args', original_custom_args);
+        }
+    });
+
+    it('Generate args keeps selected subtitle args ahead of global subtitle overrides', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        const original_custom_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            config_api.setConfigItem('ytdl_custom_args', '--write-auto-subs,,--sub-langs,,en,,--sub-format,,json3,,--no-embed-subs');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedSubtitleLanguage: 'fr', selectedSubtitleType: 'manual'});
+            const sub_langs_indexes = args.reduce((indexes, arg, index) => {
+                if (arg === '--sub-langs') indexes.push(index);
+                return indexes;
+            }, []);
+
+            assert.strictEqual(sub_langs_indexes.length, 1);
+            assert.strictEqual(args[sub_langs_indexes[0] + 1], 'fr');
+            assert(args.includes('--write-subs'));
+            assert(!args.includes('--write-auto-subs'));
+            assert(args.includes('--embed-subs'));
+            assert(!args.includes('--no-embed-subs'));
         } finally {
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
             config_api.setConfigItem('ytdl_custom_args', original_custom_args);

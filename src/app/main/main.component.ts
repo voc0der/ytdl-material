@@ -164,6 +164,7 @@ export class MainComponent implements OnInit {
   selectedMaxQuality = '';
   selectedQuality: string | unknown = '';
   selectedAudioLanguage = '';
+  selectedSubtitleLanguage = '';
   formats_loading = false;
 
   @ViewChild('urlinput', { read: ElementRef }) urlInput: ElementRef;
@@ -422,6 +423,8 @@ export class MainComponent implements OnInit {
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
+    const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
 
     let cropFileSettings = null;
 
@@ -434,15 +437,18 @@ export class MainComponent implements OnInit {
 
     const selected_quality = this.selectedQuality;
     const selected_audio_language = selectedAudioLanguage;
+    const selected_subtitle_language = selectedSubtitleLanguage;
+    const selected_subtitle_type = selectedSubtitleType;
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
     this.downloadingfile = true;
 
     const urls = this.getURLArray(effective_url);
     for (let i = 0; i < urls.length; i++) {
       const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language).subscribe(res => {
+        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language, selected_subtitle_language, selected_subtitle_type).subscribe(res => {
           const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
             ? res['downloads']
             : (res['download'] ? [res['download']] : []);
@@ -610,6 +616,7 @@ export class MainComponent implements OnInit {
     this.url = '';
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
     this.results_showing = false;
   }
 
@@ -625,6 +632,7 @@ export class MainComponent implements OnInit {
     this.results_showing = false;
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
     this.url = url;
     this.ValidURL(url);
   }
@@ -632,6 +640,7 @@ export class MainComponent implements OnInit {
   inputChanged(new_val: string): void {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -692,7 +701,7 @@ export class MainComponent implements OnInit {
           this.errorFormats(url);
           return;
         }
-        this.cachedAvailableFormats[url]['formats'] = this.getAudioAndVideoFormats(infos.formats);
+        this.cachedAvailableFormats[url]['formats'] = this.getAudioAndVideoFormats(infos.formats, infos);
       }, () => {
         this.errorFormats(url);
       });
@@ -828,6 +837,8 @@ export class MainComponent implements OnInit {
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
+    const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
 
     let cropFileSettings = null;
 
@@ -839,7 +850,7 @@ export class MainComponent implements OnInit {
     }
 
     this.postsService.generateArgs(this.url, type as FileType, (customQualityConfiguration || this.selectedQuality === '' || typeof this.selectedQuality !== 'string' ? null : this.selectedQuality),
-      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage).subscribe(res => {
+      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage, selectedSubtitleLanguage, selectedSubtitleType).subscribe(res => {
         const simulated_args = res['args'];
         if (simulated_args) {
           // hide password if needed
@@ -847,7 +858,7 @@ export class MainComponent implements OnInit {
           if (passwordIndex !== -1 && passwordIndex !== simulated_args.length - 1) {
             simulated_args[passwordIndex + 1] = simulated_args[passwordIndex + 1].replace(/./g, '*');
           }
-          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage);
+          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage, selectedSubtitleLanguage);
           this.simulatedOutput = `${downloader} ${this.url} ${simulated_args.join(' ')}`;
         }
     });
@@ -896,6 +907,7 @@ export class MainComponent implements OnInit {
 
   videoModeChanged(new_val): void {
     this.selectedQuality = '';
+    this.selectedSubtitleLanguage = '';
     localStorage.setItem('audioOnly', new_val.checked.toString());
     this.argsChanged();
   }
@@ -929,10 +941,21 @@ export class MainComponent implements OnInit {
     return cachedFormats?.['audio_languages'] || [];
   }
 
+  getAvailableSubtitleLanguages(): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
+    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    return cachedFormats?.['subtitle_languages'] || [];
+  }
+
   canSelectAudioLanguage(): boolean {
     if (!this.url) return false;
     if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
     return this.getAvailableAudioLanguages().length > 0;
+  }
+
+  canSelectSubtitleLanguage(): boolean {
+    if (this.audioOnly || !this.url) return false;
+    if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
+    return this.getAvailableSubtitleLanguages().length > 0;
   }
 
   private getSelectedAudioLanguage(): string | null {
@@ -941,8 +964,22 @@ export class MainComponent implements OnInit {
       : null;
   }
 
-  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null): string {
-    return selectedAudioLanguage ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
+  private getSelectedSubtitleLanguage(): string | null {
+    return typeof this.selectedSubtitleLanguage === 'string' && this.selectedSubtitleLanguage !== ''
+      ? this.selectedSubtitleLanguage
+      : null;
+  }
+
+  private getSelectedSubtitleType(): string | null {
+    const selectedSubtitleLanguage = this.getSelectedSubtitleLanguage();
+    if (!selectedSubtitleLanguage) return null;
+    const selectedSubtitleOption = this.getAvailableSubtitleLanguages()
+      .find(option => option.value === selectedSubtitleLanguage);
+    return selectedSubtitleOption?.source || null;
+  }
+
+  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null, selectedSubtitleLanguage: string | null = null): string {
+    return (selectedAudioLanguage || selectedSubtitleLanguage) ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
   }
 
   private getCurrentCachedFormats(): any {
@@ -1019,7 +1056,7 @@ export class MainComponent implements OnInit {
     return cachedFormats['best_merge_audio_format'] || null;
   }
 
-  getAudioAndVideoFormats(formats): void {
+  getAudioAndVideoFormats(formats, info = null): void {
     const audio_formats: any = {};
     const audio_formats_by_key: any = {};
     const video_formats: any = {};
@@ -1179,6 +1216,7 @@ export class MainComponent implements OnInit {
     parsed_formats['video_formats_by_key'] = video_formats_by_key;
     parsed_formats['audio_languages'] = Object.values(language_options)
       .sort((a: any, b: any) => a.label.localeCompare(b.label));
+    parsed_formats['subtitle_languages'] = this.getSubtitleLanguageOptions(info);
 
     // add audio file size to the expected video file size -- but only if best_audio_format will be used (i.e. when the video has no acodec already). if acodec is present expected filesize will include it
     for (const video_format of Object.values(video_formats)) {
@@ -1279,6 +1317,60 @@ export class MainComponent implements OnInit {
   }
 
   private getAudioLanguageLabel(language: string): string {
+    return this.getLanguageLabel(language);
+  }
+
+  private getSubtitleLanguageOptions(info: any): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
+    const subtitle_options = Object.create(null);
+    const automatic_label_suffix = $localize`:Automatic subtitle label:auto`;
+    const addSubtitleOptions = (tracks: any, source: 'manual' | 'automatic') => {
+      if (!tracks || typeof tracks !== 'object') return;
+
+      for (const [language, entries] of Object.entries(tracks)) {
+        const normalized_language = this.getNormalizedSubtitleLanguage(language, entries);
+        if (!normalized_language) continue;
+
+        if (!subtitle_options[normalized_language]) {
+          subtitle_options[normalized_language] = {
+            value: normalized_language,
+            hasManual: false,
+            hasAutomatic: false
+          };
+        }
+
+        if (source === 'manual') {
+          subtitle_options[normalized_language].hasManual = true;
+        } else {
+          subtitle_options[normalized_language].hasAutomatic = true;
+        }
+      }
+    };
+
+    addSubtitleOptions(info?.subtitles, 'manual');
+    addSubtitleOptions(info?.automatic_captions, 'automatic');
+
+    return Object.values(subtitle_options)
+      .map((option: any) => ({
+        ...option,
+        source: option.hasManual ? 'manual' : 'automatic',
+        label: option.hasManual
+          ? this.getLanguageLabel(option.value)
+          : `${this.getLanguageLabel(option.value)} (${automatic_label_suffix})`
+      }))
+      .sort((a: any, b: any) => a.label.localeCompare(b.label));
+  }
+
+  private getNormalizedSubtitleLanguage(language: string, entries: any): string | null {
+    if (typeof language !== 'string') return null;
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+
+    const normalized_language = language.trim();
+    if (normalized_language === '' || normalized_language.toLowerCase() === 'live_chat') return null;
+
+    return normalized_language;
+  }
+
+  private getLanguageLabel(language: string): string {
     try {
       const locale = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
       const languageName = new Intl.DisplayNames([locale], {type: 'language'}).of(language);
