@@ -803,7 +803,7 @@ export class MainComponent implements OnInit {
           if (passwordIndex !== -1 && passwordIndex !== simulated_args.length - 1) {
             simulated_args[passwordIndex + 1] = simulated_args[passwordIndex + 1].replace(/./g, '*');
           }
-          const downloader = this.postsService.config.Advanced.default_downloader;
+          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage);
           this.simulatedOutput = `${downloader} ${this.url} ${simulated_args.join(' ')}`;
         }
     });
@@ -895,6 +895,10 @@ export class MainComponent implements OnInit {
     return typeof this.selectedAudioLanguage === 'string' && this.selectedAudioLanguage !== ''
       ? this.selectedAudioLanguage
       : null;
+  }
+
+  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null): string {
+    return selectedAudioLanguage ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
   }
 
   private getCurrentCachedFormats(): any {

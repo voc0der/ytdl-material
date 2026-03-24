@@ -106,11 +106,10 @@ function appendFilenameSanitizationArgs(download_args = [], default_downloader =
 }
 exports.appendFilenameSanitizationArgs = appendFilenameSanitizationArgs;
 
-function appendRealtimeProgressArgs(download_args = []) {
+function appendRealtimeProgressArgs(download_args = [], downloader_fork = config_api.getConfigItem('ytdl_default_downloader')) {
     if (!Array.isArray(download_args)) return [];
 
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
-    if (default_downloader !== 'yt-dlp') return download_args;
+    if (downloader_fork !== 'yt-dlp') return download_args;
     if (hasArg(download_args, '--newline')) return download_args;
     if (hasArg(download_args, '--no-progress') || hasArg(download_args, '-q') || hasArg(download_args, '--quiet')) {
         return download_args;
@@ -1365,7 +1364,7 @@ exports.collectInfo = async (download_uid) => {
     let args = await exports.generateArgs(url, type, options, download['user_uid']);
 
     // get video info prior to download
-    let info = download['prefetched_info'] ? download['prefetched_info'] : await exports.getVideoInfoByURL(url, args, download_uid);
+    let info = download['prefetched_info'] ? download['prefetched_info'] : await exports.getVideoInfoByURL(url, args, download_uid, options);
 
     if (!info || info.length === 0) {
         // info failed, error presumably already recorded
@@ -1407,7 +1406,7 @@ exports.collectInfo = async (download_uid) => {
         options.customOutput = category['custom_output'];
         options.noRelativePath = true;
         args = await exports.generateArgs(url, type, options, download['user_uid']);
-        info = await exports.getVideoInfoByURL(url, args, download_uid);
+        info = await exports.getVideoInfoByURL(url, args, download_uid, options);
     }
 
     const warn_on_duplicate = !!config_api.getConfigItem('ytdl_warn_on_duplicate');
@@ -1491,7 +1490,8 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         const type = download['type'];
         const options = download['options'];
         const args = download['args'];
-        const runtime_download_args = appendRealtimeProgressArgs(Array.isArray(args) ? [...args] : []);
+        const downloader_fork = getPreferredDownloaderFork(options);
+        const runtime_download_args = appendRealtimeProgressArgs(Array.isArray(args) ? [...args] : [], downloader_fork);
         const category = download['category'];
         let fileFolderPath = type === 'audio' ? audioFolderPath : videoFolderPath;
         if (options.customFileFolderPath) {
@@ -1509,7 +1509,7 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         checkDownloadPercent(download['uid']);
         const file_objs = [];
         // download file
-        let {child_process, callback} = await youtubedl_api.runYoutubeDL(url, runtime_download_args, customDownloadHandler);
+        let {child_process, callback} = await youtubedl_api.runYoutubeDL(url, runtime_download_args, customDownloadHandler, downloader_fork);
         const detach_output_progress_listeners = attachDownloadProgressOutputListeners(download['uid'], child_process, download);
         if (child_process) download_to_child_process[download['uid']] = child_process;
         let parsed_output = null;
@@ -1639,9 +1639,22 @@ function normalizeSelectedAudioLanguage(selected_audio_language) {
     return normalized_language !== '' ? normalized_language : null;
 }
 
+function getPreferredDownloaderFork(options = {}) {
+    const selected_audio_language = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
+    return selected_audio_language ? 'yt-dlp' : config_api.getConfigItem('ytdl_default_downloader');
+}
+exports.getPreferredDownloaderFork = getPreferredDownloaderFork;
+
 function buildAudioLanguageSelector(base_selector, selected_audio_language) {
     if (!selected_audio_language) return base_selector;
     return `${base_selector}[language=${selected_audio_language}]/${base_selector}`;
+}
+
+function buildFormatSortOrder(selected_audio_language = null, preferred_height = null) {
+    const sort_fields = [];
+    if (selected_audio_language) sort_fields.push(`lang:${selected_audio_language}`);
+    if (preferred_height) sort_fields.push(`res:${preferred_height}`);
+    return sort_fields.join(',');
 }
 
 function buildPreferredVideoSelector(selected_audio_language, video_filter = '') {
@@ -1652,7 +1665,7 @@ function buildPreferredVideoSelector(selected_audio_language, video_filter = '')
 }
 
 exports.generateArgs = async (url, type, options, user_uid = null, simulated = false) => {
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+    const default_downloader = getPreferredDownloaderFork(options);
 
     if (!simulated && (default_downloader === 'youtube-dl' || default_downloader === 'youtube-dlc')) {
         logger.warn('It is recommended you use yt-dlp! To prevent failed downloads, change the downloader in your settings menu to yt-dlp and restart your instance.')
@@ -1692,10 +1705,14 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     const youtubeUsername = options.youtubeUsername;
     const youtubePassword = options.youtubePassword;
 
+    const language_sort_order = default_downloader === 'yt-dlp'
+        ? buildFormatSortOrder(selectedAudioLanguage)
+        : '';
+
     let downloadConfig = null;
     let qualityPath = (is_audio && !options.skip_audio_args)
-        ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage)]
-        : ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '--merge-output-format', 'mp4'];
+        ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage), ...(language_sort_order ? ['-S', language_sort_order] : [])]
+        : ['-f', buildPreferredVideoSelector(selectedAudioLanguage), ...(language_sort_order ? ['-S', language_sort_order] : []), '--merge-output-format', 'mp4'];
     const is_youtube = url.includes('youtu');
     if (!is_audio && !is_youtube) {
         // tiktok videos fail when using the default format
@@ -1712,13 +1729,13 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             const preferred_video_selector = buildPreferredVideoSelector(selectedAudioLanguage, `[${height_comparator}]`);
             const heightFilter = (maxHeight && default_downloader === 'yt-dlp')
                 ? (selectedAudioLanguage
-                    ? ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '-S', `res:${heightParam}`]
+                    ? ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '-S', buildFormatSortOrder(selectedAudioLanguage, heightParam)]
                     : ['-S', `res:${heightParam}`])
                 : ['-f', preferred_video_selector];
             qualityPath = [...heightFilter, '--merge-output-format', 'mp4'];
         } else if (is_audio) {
             qualityPath = selectedAudioLanguage
-                ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage), '--audio-quality', maxBitrate ? maxBitrate : '0']
+                ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage), ...(language_sort_order ? ['-S', language_sort_order] : []), '--audio-quality', maxBitrate ? maxBitrate : '0']
                 : ['--audio-quality', maxBitrate ? maxBitrate : '0']
         }
 
@@ -1867,8 +1884,9 @@ function filterInfoLookupArgs(args = []) {
     return filtered_args;
 }
 
-exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
+exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options = {}) => {
     logger.debug('getVideoInfoByURL called');
+    const downloader_fork = getPreferredDownloaderFork(options);
 
     // Preserve safe args (notably -o/-f/-S) so progress prediction uses the real
     // filename and selected formats, but strip flags that write files/download data.
@@ -1887,7 +1905,7 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null) => {
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
     logger.debug(`About to call runYoutubeDL with args: ${utils.redactCommandArgsForLogging(new_args).join(' ')}`);
-    let {callback} = await youtubedl_api.runYoutubeDL(url, new_args);
+    let {callback} = await youtubedl_api.runYoutubeDL(url, new_args, null, downloader_fork);
     logger.debug('runYoutubeDL returned, now waiting for callback');
     const {parsed_output, err} = await callback;
     logger.debug(`Callback resolved. parsed_output length: ${parsed_output ? parsed_output.length : 'null'}`);
