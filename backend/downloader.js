@@ -1639,9 +1639,23 @@ function normalizeSelectedAudioLanguage(selected_audio_language) {
     return normalized_language !== '' ? normalized_language : null;
 }
 
+function shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configuration) {
+    if (typeof custom_quality_configuration !== 'string') return false;
+    const normalized_quality_configuration = custom_quality_configuration.trim();
+    if (normalized_quality_configuration === '') return false;
+
+    return normalized_quality_configuration.includes('[language=')
+        || /^\d+-\d+(?:\+\d+-\d+)?$/.test(normalized_quality_configuration);
+}
+
 function getPreferredDownloaderFork(options = {}) {
     const selected_audio_language = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
-    return selected_audio_language ? 'yt-dlp' : config_api.getConfigItem('ytdl_default_downloader');
+    const custom_quality_configuration = typeof options.customQualityConfiguration === 'string'
+        ? options.customQualityConfiguration
+        : '';
+    return (selected_audio_language || shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configuration))
+        ? 'yt-dlp'
+        : config_api.getConfigItem('ytdl_default_downloader');
 }
 exports.getPreferredDownloaderFork = getPreferredDownloaderFork;
 
@@ -1708,6 +1722,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     const language_sort_order = default_downloader === 'yt-dlp'
         ? buildFormatSortOrder(selectedAudioLanguage)
         : '';
+    const should_preserve_selected_format_args = !!(customQualityConfiguration || selectedAudioLanguage || heightParam);
 
     let downloadConfig = null;
     let qualityPath = (is_audio && !options.skip_audio_args)
@@ -1745,8 +1760,6 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         } else {
             downloadConfig = ['-o', path.join(fileFolderPath, videopath + (is_audio ? '.%(ext)s' : '.mp4')), '--write-info-json', '--print-json'];
         }
-
-        if (qualityPath) downloadConfig.push(...qualityPath);
 
         if (is_audio && !options.skip_audio_args) {
             downloadConfig.push('-x');
@@ -1787,6 +1800,13 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 
         if (options.additionalArgs && options.additionalArgs !== '') {
             downloadConfig = utils.injectArgs(downloadConfig, options.additionalArgs.split(',,'));
+        }
+
+        if (qualityPath) {
+            if (should_preserve_selected_format_args) {
+                downloadConfig = stripArgsWithValues(downloadConfig, ['-f', '--format', '-S', '--format-sort', '--merge-output-format']);
+            }
+            downloadConfig.push(...qualityPath);
         }
 
         downloadConfig = appendFilenameSanitizationArgs(downloadConfig, default_downloader);

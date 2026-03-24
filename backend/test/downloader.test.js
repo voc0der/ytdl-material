@@ -1256,6 +1256,21 @@ describe('Downloader', function() {
         }
     });
 
+    it('Generate args switches legacy downloader configs to yt-dlp for exact dubbed format ids', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, customQualityConfiguration: '96-10'}, null, true);
+            const format_index = args.indexOf('-f');
+            assert(format_index !== -1);
+            assert.strictEqual(args[format_index + 1], '96-10');
+            assert(args.includes('--no-clean-info-json'));
+            assert(args.includes('--no-simulate'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
     it('Generate args keeps requested audio language when limiting yt-dlp video height', async function() {
         const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
         try {
@@ -1281,6 +1296,32 @@ describe('Downloader', function() {
         assert.strictEqual(args[format_index + 1], 'best[language=es]/bestaudio[language=es]/bestaudio/best');
         assert.strictEqual(args[sort_index + 1], 'lang:es');
         assert(args.includes('--audio-quality'));
+    });
+
+    it('Generate args keeps selected dubbed formats ahead of global format overrides', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        const original_custom_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            config_api.setConfigItem('ytdl_custom_args', '-f,,bestvideo+bestaudio,,-S,,res:360');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, customQualityConfiguration: '96-10', selectedAudioLanguage: 'es'});
+            const format_indexes = args.reduce((indexes, arg, index) => {
+                if (arg === '-f') indexes.push(index);
+                return indexes;
+            }, []);
+            const sort_indexes = args.reduce((indexes, arg, index) => {
+                if (arg === '-S') indexes.push(index);
+                return indexes;
+            }, []);
+
+            assert.deepStrictEqual(format_indexes.length, 1);
+            assert.deepStrictEqual(sort_indexes.length, 0);
+            assert.strictEqual(args[format_indexes[0] + 1], '96-10');
+            assert(!args.includes('bestvideo+bestaudio'));
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+            config_api.setConfigItem('ytdl_custom_args', original_custom_args);
+        }
     });
 
     it('Download queued file uses yt-dlp and newline progress when an audio language is requested', async function() {
