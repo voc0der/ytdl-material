@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef } from '@angular/core';
 import { VgApiService } from '@videogular/ngx-videogular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -113,6 +113,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   currentSubtitleTracks: ISubtitleTrack[] = [];
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
+  @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
 
   ngOnInit(): void {
     this.initPlaybackModeToggles();
@@ -296,7 +297,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.save_volume_timer = setInterval(() => this.saveVolume(this.api), 2000)
 
-      this.api.getDefaultMedia().subscriptions.loadedMetadata.subscribe(this.playVideo.bind(this));
+      this.api.getDefaultMedia().subscriptions.loadedMetadata.subscribe(() => {
+        this.showDefaultSubtitleTrack();
+        this.playVideo();
+      });
       this.api.getDefaultMedia().subscriptions.ended.subscribe(this.nextVideo.bind(this));
       this.api.getDefaultMedia().subscriptions.timeUpdate.subscribe(this.onPlaybackTimeUpdate.bind(this));
 
@@ -746,6 +750,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.currentSubtitleTracks = [];
     }
+    queueMicrotask(() => this.showDefaultSubtitleTrack());
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -782,6 +787,16 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         };
       })
       .filter(Boolean) as ISubtitleTrack[];
+  }
+
+  showDefaultSubtitleTrack(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element || !media_element.textTracks || this.currentSubtitleTracks.length === 0) return;
+
+    const default_track_index = Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default));
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = i === default_track_index ? 'showing' : 'disabled';
+    }
   }
 
   isChapterActive(chapter: IChapter): boolean {
@@ -998,6 +1013,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentItem.subtitles = subtitles;
       this.currentSubtitleTracks = subtitles;
       this.cdr.detectChanges();
+      queueMicrotask(() => this.showDefaultSubtitleTrack());
     }
   }
 

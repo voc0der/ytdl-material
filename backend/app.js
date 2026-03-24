@@ -2544,6 +2544,9 @@ app.get('/api/streamSubtitle', optionalJwt, async (req, res) => {
     const sub_id = req.query.sub_id;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
     const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
+    const subtitle_track_index = Number.isInteger(Number(req.query.index)) && Number(req.query.index) >= 0
+        ? Number(req.query.index)
+        : 0;
 
     if (!uid) {
         res.status(400).type('text/plain').send('Missing media uid');
@@ -2561,7 +2564,7 @@ app.get('/api/streamSubtitle', optionalJwt, async (req, res) => {
         return;
     }
 
-    const subtitle_sidecar_path = await files_api.ensureSubtitleSidecarForFile(file_obj);
+    const subtitle_sidecar_path = await files_api.ensureSubtitleSidecarForFile(file_obj, subtitle_track_index);
     if (!subtitle_sidecar_path) {
         res.status(404).type('text/plain').send('Subtitle track not found');
         return;

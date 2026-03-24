@@ -281,6 +281,27 @@ describe('PlayerComponent', () => {
     expect(component.currentSubtitleTracks).toEqual(subtitles);
   });
 
+  it('should force the default subtitle track into showing mode', () => {
+    const textTracks = [
+      { mode: 'disabled' },
+      { mode: 'disabled' }
+    ];
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' },
+      { label: 'Spanish', language: 'es', default: false, src: '/api/streamSubtitle?uid=uid-subtitle&index=1' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.showDefaultSubtitleTrack();
+
+    expect(textTracks[0].mode).toBe('showing');
+    expect(textTracks[1].mode).toBe('disabled');
+  });
+
   it('should toggle chapter dropdown state', () => {
     const clickEvent = { stopPropagation: jasmine.createSpy('stopPropagation') } as unknown as MouseEvent;
 

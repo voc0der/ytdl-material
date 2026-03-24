@@ -9,7 +9,7 @@ const archive_api = require('./archive');
 const utils = require('./utils')
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
-const PLAYER_SUBTITLE_SIDECAR_SUFFIX = '.player-subtitles.vtt';
+const PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX = '.player-subtitles';
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -53,7 +53,7 @@ function normalizeSubtitleLanguage(language = '') {
     return normalized_language === '' ? null : normalized_language;
 }
 
-function buildRequestedSubtitleTracks(file_obj = null) {
+function getRequestedSubtitleTracks(file_obj = null) {
     if (!file_obj || file_obj.isAudio || !file_obj.path) return [];
 
     const metadata_json = utils.getJSON(file_obj.path, 'video');
@@ -63,7 +63,7 @@ function buildRequestedSubtitleTracks(file_obj = null) {
     if (!requested_subtitles || typeof requested_subtitles !== 'object') return [];
 
     return Object.entries(requested_subtitles)
-        .map(([language, subtitle_entry]) => {
+        .map(([language, subtitle_entry], index) => {
             const normalized_language = normalizeSubtitleLanguage(language);
             if (!normalized_language || !subtitle_entry || typeof subtitle_entry !== 'object') return null;
 
@@ -71,22 +71,96 @@ function buildRequestedSubtitleTracks(file_obj = null) {
                 ? subtitle_entry.name.trim()
                 : normalized_language;
             return {
+                index: index,
                 language: normalized_language,
-                label: label
+                label: label,
+                kind: 'subtitles',
+                default: index === 0
             };
         })
-        .filter(Boolean)
-        .slice(0, 1);
+        .filter(Boolean);
 }
 
-function getSubtitleSidecarPath(file_path = '') {
+function getSubtitleTrackLabel(stream = null, fallback_language = 'subtitle', track_index = 0) {
+    const tags = stream && typeof stream === 'object' ? (stream.tags || {}) : {};
+    const label_candidates = [tags.name, tags.title, tags.handler_name];
+    for (const label_candidate of label_candidates) {
+        if (typeof label_candidate !== 'string') continue;
+        const normalized_label = label_candidate.trim();
+        if (normalized_label !== '') return normalized_label;
+    }
+
+    return fallback_language === 'und'
+        ? `Subtitle ${track_index + 1}`
+        : fallback_language;
+}
+
+async function probeEmbeddedSubtitleTracks(file_path = '') {
+    if (typeof file_path !== 'string' || file_path.trim() === '') return [];
+    if (!(await fs.pathExists(file_path))) return [];
+
+    return await new Promise(resolve => {
+        ffmpeg.ffprobe(file_path, (err, metadata) => {
+            if (err || !metadata || !Array.isArray(metadata.streams)) {
+                if (err) logger.debug(`Failed to probe subtitle streams for '${file_path}': ${err}`);
+                resolve([]);
+                return;
+            }
+
+            const subtitle_streams = metadata.streams.filter(stream => stream && stream.codec_type === 'subtitle');
+            resolve(subtitle_streams.map((stream, track_index) => {
+                const normalized_language = normalizeSubtitleLanguage(stream?.tags?.language) || 'und';
+                return {
+                    index: track_index,
+                    language: normalized_language,
+                    label: getSubtitleTrackLabel(stream, normalized_language, track_index),
+                    kind: 'subtitles',
+                    default: !!(stream?.disposition && stream.disposition.default === 1) || track_index === 0
+                };
+            }));
+        });
+    });
+}
+
+async function getAvailableSubtitleTracks(file_obj = null) {
+    if (!file_obj || file_obj.isAudio || !file_obj.path) return [];
+
+    const requested_tracks = getRequestedSubtitleTracks(file_obj);
+    const embedded_tracks = await probeEmbeddedSubtitleTracks(file_obj.path);
+    if (embedded_tracks.length === 0) return requested_tracks;
+
+    return embedded_tracks.map((embedded_track, index) => {
+        const matching_requested_track = requested_tracks.find(track => track.index === index)
+            || requested_tracks.find(track => track.language === embedded_track.language)
+            || null;
+        return {
+            index: embedded_track.index,
+            language: matching_requested_track?.language || embedded_track.language,
+            label: matching_requested_track?.label || embedded_track.label,
+            kind: 'subtitles',
+            default: embedded_track.default
+        };
+    });
+}
+
+function buildRequestedSubtitleTracks(file_obj = null) {
+    return getRequestedSubtitleTracks(file_obj);
+}
+
+function getSubtitleSidecarPath(file_path = '', subtitle_track_index = 0) {
     if (typeof file_path !== 'string' || file_path.trim() === '') return null;
-    return `${utils.removeFileExtension(file_path)}${PLAYER_SUBTITLE_SIDECAR_SUFFIX}`;
+    const normalized_track_index = Number.isInteger(subtitle_track_index) && subtitle_track_index > 0
+        ? subtitle_track_index
+        : 0;
+    const base_path = `${utils.removeFileExtension(file_path)}${PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX}`;
+    return normalized_track_index === 0
+        ? `${base_path}.vtt`
+        : `${base_path}.${normalized_track_index}.vtt`;
 }
 exports.getSubtitleSidecarPath = getSubtitleSidecarPath;
 
-async function extractSubtitleSidecar(file_path = '') {
-    const subtitle_sidecar_path = getSubtitleSidecarPath(file_path);
+async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) {
+    const subtitle_sidecar_path = getSubtitleSidecarPath(file_path, subtitle_track_index);
     if (!subtitle_sidecar_path) return null;
     if (!(await fs.pathExists(file_path))) return null;
 
@@ -98,7 +172,7 @@ async function extractSubtitleSidecar(file_path = '') {
 
     return await new Promise(resolve => {
         ffmpeg(file_path)
-            .outputOptions(['-map', '0:s:0'])
+            .outputOptions(['-map', `0:s:${subtitle_track_index}`])
             .format('webvtt')
             .on('end', async () => {
                 try {
@@ -122,48 +196,53 @@ async function extractSubtitleSidecar(file_path = '') {
 }
 exports.extractSubtitleSidecar = extractSubtitleSidecar;
 
-exports.ensureSubtitleSidecarForFile = async (file_obj = null) => {
+exports.ensureSubtitleSidecarForFile = async (file_obj = null, subtitle_track_index = 0) => {
     if (!file_obj || file_obj.isAudio || !file_obj.path) return null;
 
-    const requested_tracks = buildRequestedSubtitleTracks(file_obj);
-    if (requested_tracks.length === 0) return null;
+    const available_tracks = await getAvailableSubtitleTracks(file_obj);
+    if (available_tracks.length === 0) return null;
+    if (!available_tracks.find(track => track.index === subtitle_track_index)) return null;
 
-    const subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path);
+    const subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path, subtitle_track_index);
     if (!subtitle_sidecar_path) return null;
     if (await fs.pathExists(subtitle_sidecar_path)) return subtitle_sidecar_path;
 
-    return await extractSubtitleSidecar(file_obj.path);
+    return await extractSubtitleSidecar(file_obj.path, subtitle_track_index);
 }
 
 exports.attachFileSubtitles = async (file_obj = null, ensure_sidecar = false) => {
     if (!file_obj) return file_obj;
 
-    const requested_tracks = buildRequestedSubtitleTracks(file_obj);
-    if (requested_tracks.length === 0) {
+    const available_tracks = await getAvailableSubtitleTracks(file_obj);
+    if (available_tracks.length === 0) {
         return {
             ...file_obj,
             subtitles: []
         };
     }
 
-    let subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path);
-    const sidecar_exists = subtitle_sidecar_path ? await fs.pathExists(subtitle_sidecar_path) : false;
-    if (!sidecar_exists && ensure_sidecar) {
-        subtitle_sidecar_path = await exports.ensureSubtitleSidecarForFile(file_obj);
-    } else if (!sidecar_exists) {
-        subtitle_sidecar_path = null;
+    const subtitle_tracks = [];
+    for (const available_track of available_tracks) {
+        let subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path, available_track.index);
+        const sidecar_exists = subtitle_sidecar_path ? await fs.pathExists(subtitle_sidecar_path) : false;
+        if (!sidecar_exists && ensure_sidecar) {
+            subtitle_sidecar_path = await exports.ensureSubtitleSidecarForFile(file_obj, available_track.index);
+        } else if (!sidecar_exists) {
+            subtitle_sidecar_path = null;
+        }
+        if (!subtitle_sidecar_path) continue;
+
+        subtitle_tracks.push({
+                language: available_track.language,
+                label: available_track.label,
+                kind: 'subtitles',
+                default: available_track.default
+            });
     }
 
     return {
         ...file_obj,
-        subtitles: subtitle_sidecar_path
-            ? requested_tracks.map((track, index) => ({
-                language: track.language,
-                label: track.label,
-                kind: 'subtitles',
-                default: index === 0
-            }))
-            : []
+        subtitles: subtitle_tracks
     };
 }
 
@@ -772,14 +851,24 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     var altJSONPath = `${filePathNoExtension}.info.json`;
     var thumbnailPath = `${filePathNoExtension}.webp`;
     var altThumbnailPath = `${filePathNoExtension}.jpg`;
-    const subtitleSidecarPath = getSubtitleSidecarPath(file_obj.path);
+    const subtitleSidecarDirectory = path.dirname(file_obj.path);
+    const subtitleSidecarBasename = path.basename(filePathNoExtension);
 
     jsonPath = path.join(__dirname, jsonPath);
     altJSONPath = path.join(__dirname, altJSONPath);
 
     let jsonExists = await fs.pathExists(jsonPath);
     let thumbnailExists = await fs.pathExists(thumbnailPath);
-    const subtitleSidecarExists = subtitleSidecarPath ? await fs.pathExists(subtitleSidecarPath) : false;
+    const subtitleSidecarPaths = [];
+    try {
+        const subtitleSidecarFiles = await fs.readdir(subtitleSidecarDirectory);
+        const subtitleSidecarRegex = new RegExp(`^${escapeRegex(subtitleSidecarBasename)}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
+        subtitleSidecarFiles
+            .filter(file_name => subtitleSidecarRegex.test(file_name))
+            .forEach(file_name => subtitleSidecarPaths.push(path.join(subtitleSidecarDirectory, file_name)));
+    } catch (e) {
+        // Ignore directory read failures here; file deletion can continue.
+    }
 
     if (!jsonExists) {
         if (await fs.pathExists(altJSONPath)) {
@@ -834,7 +923,9 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
 
     if (jsonExists) await fs.unlink(jsonPath);
     if (thumbnailExists) await fs.unlink(thumbnailPath);
-    if (subtitleSidecarExists) await fs.unlink(subtitleSidecarPath);
+    for (const subtitleSidecarPath of subtitleSidecarPaths) {
+        await fs.unlink(subtitleSidecarPath);
+    }
 
     await db_api.removeRecord('files', {uid: file_obj.uid});
 
