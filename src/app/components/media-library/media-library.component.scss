@@ -89,16 +89,20 @@
 
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__leading {
     border-radius: 999px 0 0 999px;
-    min-width: 16px;
+    width: 28px !important;
+    min-width: 28px;
+    border-right: none;
 }
 
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__trailing {
     border-radius: 0 999px 999px 0;
+    border-left: none;
 }
 
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__notch {
-    border-left: none;
-    border-right: none;
+    max-width: 0;
+    padding: 0;
+    border: none;
 }
 
 .paginator-page-size-select ::ng-deep .mat-mdc-select-value-text,
