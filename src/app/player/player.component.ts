@@ -111,6 +111,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   subtitleCacheByUID = new Map<string, ISubtitleTrack[]>();
   chapterLoadInFlight = new Set<string>();
   currentSubtitleTracks: ISubtitleTrack[] = [];
+  subtitleTrackActivationTimer: ReturnType<typeof setTimeout> | null = null;
+  subtitleTrackList?: TextTrackList & EventTarget;
+  subtitleTrackAddListener?: EventListener;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
@@ -151,6 +154,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+      this.subtitleTrackActivationTimer = null;
+    }
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+      this.subtitleTrackAddListener = null;
+      this.subtitleTrackList = null;
+    }
     this.postsService.setPageTitle();
   }
 
@@ -289,6 +301,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.api = api;
       this.api_ready = true;
       this.cdr.detectChanges();
+      this.attachSubtitleTrackListener();
 
       // checks if volume has been previously set. if so, use that as default
       if (localStorage.getItem('player_volume')) {
@@ -793,10 +806,41 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const media_element = this.mediaElement?.nativeElement;
     if (!media_element || !media_element.textTracks || this.currentSubtitleTracks.length === 0) return;
 
+    if (media_element.textTracks.length === 0) {
+      this.scheduleDefaultSubtitleTrackActivation();
+      return;
+    }
+
     const default_track_index = Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default));
     for (let i = 0; i < media_element.textTracks.length; i++) {
       media_element.textTracks[i].mode = i === default_track_index ? 'showing' : 'disabled';
     }
+  }
+
+  attachSubtitleTrackListener(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const text_tracks = media_element?.textTracks as (TextTrackList & EventTarget) | undefined;
+    if (!text_tracks || typeof text_tracks.addEventListener !== 'function') return;
+
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+    }
+
+    this.subtitleTrackList = text_tracks;
+    this.subtitleTrackAddListener = () => {
+      queueMicrotask(() => this.showDefaultSubtitleTrack());
+    };
+    text_tracks.addEventListener('addtrack', this.subtitleTrackAddListener);
+  }
+
+  scheduleDefaultSubtitleTrackActivation(): void {
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+    }
+    this.subtitleTrackActivationTimer = setTimeout(() => {
+      this.subtitleTrackActivationTimer = null;
+      this.showDefaultSubtitleTrack();
+    }, 150);
   }
 
   isChapterActive(chapter: IChapter): boolean {

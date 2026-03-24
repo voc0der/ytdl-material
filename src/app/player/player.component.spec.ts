@@ -1,5 +1,5 @@
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { VgApiService } from '@videogular/ngx-videogular/core';
@@ -301,6 +301,51 @@ describe('PlayerComponent', () => {
     expect(textTracks[0].mode).toBe('showing');
     expect(textTracks[1].mode).toBe('disabled');
   });
+
+  it('should retry subtitle activation when tracks attach after the initial render', fakeAsync(() => {
+    const textTracks: Array<{ mode: string }> = [];
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.showDefaultSubtitleTrack();
+    textTracks.push({ mode: 'disabled' });
+    tick(151);
+
+    expect(textTracks[0].mode).toBe('showing');
+  }));
+
+  it('should reapply subtitle activation when the browser adds tracks later', fakeAsync(() => {
+    let addTrackListener: EventListener = null;
+    const textTracks = {
+      0: { mode: 'disabled' },
+      length: 1,
+      addEventListener: (_event: string, listener: EventListener) => {
+        addTrackListener = listener;
+      },
+      removeEventListener: jasmine.createSpy('removeEventListener')
+    } as unknown as TextTrackList & EventTarget;
+
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.attachSubtitleTrackListener();
+    addTrackListener(new Event('addtrack'));
+    tick();
+
+    expect((textTracks[0] as any).mode).toBe('showing');
+  }));
 
   it('should toggle chapter dropdown state', () => {
     const clickEvent = { stopPropagation: jasmine.createSpy('stopPropagation') } as unknown as MouseEvent;
