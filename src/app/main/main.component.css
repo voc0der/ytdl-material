@@ -99,14 +99,19 @@ mat-form-field.mat-mdc-form-field {
     padding-bottom: 5px;
 }
 
+.main-pane-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
 .main-pane-audio-toggle {
-    float: left;
     margin-top: -12px;
     margin-left: 4px;
 }
 
 .main-pane-autoplay-toggle {
-    float: right;
     margin-top: -12px;
 }
 
@@ -256,6 +261,11 @@ mat-form-field.mat-mdc-form-field {
 @media (max-width: 576px) {
     .download-progress-bar {
         width: 125px;
+    }
+
+    .main-pane-toggle-row {
+        flex-wrap: wrap;
+        justify-content: space-between;
     }
 
     .main-pane-audio-toggle {

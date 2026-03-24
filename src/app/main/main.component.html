@@ -40,18 +40,20 @@
           }
         </form>
         <br/>
-        <mat-checkbox class="main-pane-audio-toggle" [disabled]="autoplay && !!current_download" (change)="videoModeChanged($event)" [(ngModel)]="audioOnly">
-          <ng-container i18n="Only Audio checkbox">
-                        Only Audio
-                    </ng-container>
-        </mat-checkbox>
-        @if (!forceAutoplay) {
-          <mat-checkbox class="main-pane-autoplay-toggle" [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
-            <ng-container i18n="Autoplay checkbox">
-                        Autoplay
-                    </ng-container>
+        <div class="main-pane-toggle-row">
+          <mat-checkbox class="main-pane-audio-toggle" [disabled]="autoplay && !!current_download" (change)="videoModeChanged($event)" [(ngModel)]="audioOnly">
+            <ng-container i18n="Only Audio checkbox">
+                          Only Audio
+                      </ng-container>
           </mat-checkbox>
-        }
+          @if (!forceAutoplay) {
+            <mat-checkbox class="main-pane-autoplay-toggle" [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
+              <ng-container i18n="Autoplay checkbox">
+                          Autoplay
+                      </ng-container>
+            </mat-checkbox>
+          }
+        </div>
       </div>
     </mat-card-content>
     <mat-card-actions>
