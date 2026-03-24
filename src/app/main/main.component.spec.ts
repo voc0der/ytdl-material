@@ -420,6 +420,28 @@ describe('MainComponent', () => {
     ]);
   });
 
+  it('filters translated automatic caption targets down to the real source language', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats(
+      [{vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-1080', ext: 'mp4'}],
+      {
+        subtitles: {},
+        automatic_captions: {
+          'en-orig': [{url: 'https://www.youtube.com/api/timedtext?lang=en&fmt=vtt', ext: 'vtt', name: 'English (Original)'}],
+          en: [{url: 'https://www.youtube.com/api/timedtext?lang=en&fmt=vtt', ext: 'vtt', name: 'English'}],
+          fr: [{url: 'https://www.youtube.com/api/timedtext?lang=en&tlang=fr&fmt=vtt', ext: 'vtt', name: 'French'}],
+          es: [{url: 'https://www.youtube.com/api/timedtext?lang=en&tlang=es&fmt=vtt', ext: 'vtt', name: 'Spanish'}]
+        }
+      }
+    );
+
+    expect(parsedFormats.subtitle_languages.map(option => ({
+      value: option.value,
+      source: option.source
+    }))).toEqual([
+      {value: 'en', source: 'automatic'}
+    ]);
+  });
+
   it('passes selected subtitle language and source through the main download request', () => {
     const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles'}}));
     component.url = 'https://example.com/subtitles';

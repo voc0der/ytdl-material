@@ -1339,7 +1339,7 @@ export class MainComponent implements OnInit {
       if (!tracks || typeof tracks !== 'object') return;
 
       for (const [language, entries] of Object.entries(tracks)) {
-        const normalized_language = this.getNormalizedSubtitleLanguage(language, entries);
+        const normalized_language = this.getNormalizedSubtitleLanguage(language, entries, source);
         if (!normalized_language) continue;
 
         if (!subtitle_options[normalized_language]) {
@@ -1372,14 +1372,39 @@ export class MainComponent implements OnInit {
       .sort((a: any, b: any) => a.label.localeCompare(b.label));
   }
 
-  private getNormalizedSubtitleLanguage(language: string, entries: any): string | null {
+  private getNormalizedSubtitleLanguage(language: string, entries: any, source: 'manual' | 'automatic' = 'manual'): string | null {
     if (typeof language !== 'string') return null;
     if (!Array.isArray(entries) || entries.length === 0) return null;
 
-    const normalized_language = language.trim();
+    const resolved_language = source === 'automatic'
+      ? this.getAutomaticSubtitleSourceLanguage(entries, language)
+      : language;
+    const normalized_language = typeof resolved_language === 'string' ? resolved_language.trim() : '';
     if (normalized_language === '' || normalized_language.toLowerCase() === 'live_chat') return null;
 
     return normalized_language;
+  }
+
+  private getAutomaticSubtitleSourceLanguage(entries: any[], fallbackLanguage: string): string | null {
+    let saw_translated_entry = false;
+
+    for (const entry of entries) {
+      const parsed_url = this.safeParseURL(entry?.url);
+      if (!parsed_url) continue;
+
+      const translated_language = parsed_url.searchParams.get('tlang');
+      if (translated_language) {
+        saw_translated_entry = true;
+        continue;
+      }
+
+      const source_language = parsed_url.searchParams.get('lang');
+      if (source_language && source_language.trim() !== '') {
+        return source_language;
+      }
+    }
+
+    return saw_translated_entry ? null : fallbackLanguage;
   }
 
   private getLanguageLabel(language: string): string {
