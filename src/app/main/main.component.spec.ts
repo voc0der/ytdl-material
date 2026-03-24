@@ -301,6 +301,50 @@ describe('MainComponent', () => {
     expect(component.getSelectedAudioFormat()).toBe('video-fr-720');
   });
 
+  it('uses the best selected-language audio format when Best is still selected', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75}
+    ]);
+
+    component.url = 'https://example.com/audio-best';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedAudioFormat()).toBe('audio-es-96');
+  });
+
+  it('uses the best muxed selected-language video format when Best is still selected', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'none', height: 1440, fps: 30, format_id: 'video-only-1440', ext: 'mp4', filesize: 1400},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es', filesize: 1100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-en-1080', ext: 'mp4', language: 'en', filesize: 1120}
+    ]);
+
+    component.url = 'https://example.com/video-best';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
+  });
+
+  it('uses the highest quality video plus selected-language audio when Best is still selected and no muxed dub exists', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75},
+      {vcodec: 'avc1', acodec: 'none', height: 1440, fps: 30, format_id: 'video-only-1440', ext: 'mp4', filesize: 1400}
+    ]);
+
+    component.url = 'https://example.com/video-best-split';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-only-1440+audio-es-96');
+  });
+
   it('maps playlist menu action to canonical playlist URL', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
     const download_spy = spyOn(component, 'downloadClicked');

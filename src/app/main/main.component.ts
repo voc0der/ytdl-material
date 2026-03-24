@@ -482,41 +482,80 @@ export class MainComponent implements OnInit {
   }
 
   getSelectedAudioFormat(): string {
-    if (typeof this.selectedQuality === 'string') { return null; }
-    const cachedFormatsExists = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
-    if (cachedFormatsExists) {
-      const selectedAudioFormat = this.getPreferredAudioFormatForSelection(this.selectedQuality);
-      return selectedAudioFormat ? selectedAudioFormat['format_id'] : null;
-    } else {
-      return null;
+    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    if (!cachedFormats) return null;
+
+    if (typeof this.selectedQuality === 'string') {
+      return this.getDefaultAudioFormatForSelection();
     }
+
+    const selectedAudioFormat = this.getPreferredAudioFormatForSelection(this.selectedQuality);
+    return selectedAudioFormat ? selectedAudioFormat['format_id'] : null;
   }
 
   getSelectedVideoFormat(): string {
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
-    if (typeof this.selectedQuality === 'string') { return null; }
     const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
-    if (cachedFormats) {
-      if (this.selectedQuality) {
-        const preferredVideoFormat = this.getPreferredVideoFormatForSelection(this.selectedQuality);
-        if (selectedAudioLanguage && preferredVideoFormat?.['language'] === selectedAudioLanguage && preferredVideoFormat?.['acodec'] && preferredVideoFormat['acodec'] !== 'none') {
-          return preferredVideoFormat['format_id'];
-        }
+    if (!cachedFormats) return null;
 
-        let selected_video_format = preferredVideoFormat?.['format_id'] || this.selectedQuality['format_id'];
-        const mergeAudioFormat = this.getPreferredMergeAudioFormatForSelection();
-
-        if (selectedAudioLanguage && mergeAudioFormat?.['format_id']) {
-          selected_video_format = preferredVideoFormat?.['video_only_format_id'] || this.selectedQuality['video_only_format_id'] || selected_video_format;
-          return `${selected_video_format}+${mergeAudioFormat['format_id']}`;
-        }
-
-        // add in audio format if necessary
-        const audio_missing = !preferredVideoFormat?.['acodec'] || preferredVideoFormat['acodec'] === 'none';
-        if (audio_missing && mergeAudioFormat?.['format_id']) selected_video_format += `+${mergeAudioFormat['format_id']}`;
-        return selected_video_format;
-      }
+    if (typeof this.selectedQuality === 'string') {
+      return this.getDefaultVideoFormatForSelection();
     }
+
+    if (!this.selectedQuality) return null;
+
+    const preferredVideoFormat = this.getPreferredVideoFormatForSelection(this.selectedQuality);
+    if (selectedAudioLanguage && preferredVideoFormat?.['language'] === selectedAudioLanguage && preferredVideoFormat?.['acodec'] && preferredVideoFormat['acodec'] !== 'none') {
+      return preferredVideoFormat['format_id'];
+    }
+
+    let selected_video_format = preferredVideoFormat?.['format_id'] || this.selectedQuality['format_id'];
+    const mergeAudioFormat = this.getPreferredMergeAudioFormatForSelection();
+
+    if (selectedAudioLanguage && mergeAudioFormat?.['format_id']) {
+      selected_video_format = preferredVideoFormat?.['video_only_format_id'] || this.selectedQuality['video_only_format_id'] || selected_video_format;
+      return `${selected_video_format}+${mergeAudioFormat['format_id']}`;
+    }
+
+    // add in audio format if necessary
+    const audio_missing = !preferredVideoFormat?.['acodec'] || preferredVideoFormat['acodec'] === 'none';
+    if (audio_missing && mergeAudioFormat?.['format_id']) selected_video_format += `+${mergeAudioFormat['format_id']}`;
+    return selected_video_format;
+  }
+
+  private getDefaultAudioFormatForSelection(): string | null {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    if (!selectedAudioLanguage) return null;
+
+    const selectedAudioFormat = cachedFormats['best_audio_formats_by_language']?.[selectedAudioLanguage]
+      || cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage];
+
+    return selectedAudioFormat?.['format_id'] || null;
+  }
+
+  private getDefaultVideoFormatForSelection(): string | null {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    if (!selectedAudioLanguage) return null;
+
+    const preferredMuxedFormat = cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage];
+    if (preferredMuxedFormat?.['format_id']) {
+      return preferredMuxedFormat['format_id'];
+    }
+
+    const highestQualityVideo = Array.isArray(cachedFormats['video']) ? cachedFormats['video'][0] : null;
+    const mergeAudioFormat = cachedFormats['best_merge_audio_formats_by_language']?.[selectedAudioLanguage];
+    const videoFormatId = highestQualityVideo?.['video_only_format_id'] || highestQualityVideo?.['format_id'] || null;
+
+    if (videoFormatId && mergeAudioFormat?.['format_id']) {
+      return `${videoFormatId}+${mergeAudioFormat['format_id']}`;
+    }
+
     return null;
   }
 
