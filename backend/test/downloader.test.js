@@ -1234,7 +1234,7 @@ describe('Downloader', function() {
             const sort_index = args.indexOf('-S');
             assert(format_index !== -1);
             assert(sort_index !== -1);
-            assert.strictEqual(args[format_index + 1], 'bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
+            assert.strictEqual(args[format_index + 1], 'best[language=es]/bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
             assert.strictEqual(args[sort_index + 1], 'lang:es');
         } finally {
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
@@ -1265,7 +1265,7 @@ describe('Downloader', function() {
             const sort_index = args.indexOf('-S');
             assert(format_index !== -1);
             assert(sort_index !== -1);
-            assert.strictEqual(args[format_index + 1], 'bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
+            assert.strictEqual(args[format_index + 1], 'best[height<=720][language=es]/bestvideo[height<=720]+bestaudio[language=es]/bestvideo[height<=720]+bestaudio/best[height<=720]');
             assert.strictEqual(args[sort_index + 1], 'lang:es,res:720');
         } finally {
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
@@ -1278,7 +1278,7 @@ describe('Downloader', function() {
         const sort_index = args.indexOf('-S');
         assert(format_index !== -1);
         assert(sort_index !== -1);
-        assert.strictEqual(args[format_index + 1], 'bestaudio[language=es]/bestaudio');
+        assert.strictEqual(args[format_index + 1], 'best[language=es]/bestaudio[language=es]/bestaudio/best');
         assert.strictEqual(args[sort_index + 1], 'lang:es');
         assert(args.includes('--audio-quality'));
     });

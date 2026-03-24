@@ -27,6 +27,18 @@ exports.youtubedl_forks = {
     }
 }
 
+function hasArg(args = [], target_arg = '') {
+    if (!Array.isArray(args) || !target_arg) return false;
+    return args.some(arg => typeof arg === 'string' && (arg === target_arg || arg.startsWith(`${target_arg}=`)));
+}
+
+function ensureJavascriptRuntimeArgs(args = [], youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    if (!Array.isArray(args)) return [];
+    if (youtubedl_fork !== 'yt-dlp') return args;
+    if (hasArg(args, '--js-runtimes')) return args;
+    return ['--js-runtimes', 'node', ...args];
+}
+
 exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLPath(selected_fork);
@@ -62,8 +74,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         logger.error(err);
         return;
     }
-    logger.debug(`Spawning ${youtubedl_fork} process with ${args.length + 1} arguments`);
-    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...args], {
+    const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
+    logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
+    const child_process = execa(getYoutubeDLPath(youtubedl_fork), [url, ...runtime_args], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,

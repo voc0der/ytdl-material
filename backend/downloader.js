@@ -1647,7 +1647,7 @@ exports.getPreferredDownloaderFork = getPreferredDownloaderFork;
 
 function buildAudioLanguageSelector(base_selector, selected_audio_language) {
     if (!selected_audio_language) return base_selector;
-    return `${base_selector}[language=${selected_audio_language}]/${base_selector}`;
+    return `best[language=${selected_audio_language}]/${base_selector}[language=${selected_audio_language}]/${base_selector}/best`;
 }
 
 function buildFormatSortOrder(selected_audio_language = null, preferred_height = null) {
@@ -1661,7 +1661,7 @@ function buildPreferredVideoSelector(selected_audio_language, video_filter = '')
     const bestvideo_selector = `bestvideo${video_filter}`;
     const best_selector = `best${video_filter}`;
     if (!selected_audio_language) return video_filter ? `${best_selector}+bestaudio` : 'bestvideo+bestaudio';
-    return `${bestvideo_selector}+bestaudio[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio/${best_selector}`;
+    return `${best_selector}[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio/${best_selector}`;
 }
 
 exports.generateArgs = async (url, type, options, user_uid = null, simulated = false) => {
@@ -1727,11 +1727,11 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         } else if (heightParam && heightParam !== '' && !is_audio) {
             const height_comparator = `height${maxHeight ? '<' : ''}=${heightParam}`;
             const preferred_video_selector = buildPreferredVideoSelector(selectedAudioLanguage, `[${height_comparator}]`);
-            const heightFilter = (maxHeight && default_downloader === 'yt-dlp')
-                ? (selectedAudioLanguage
-                    ? ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '-S', buildFormatSortOrder(selectedAudioLanguage, heightParam)]
-                    : ['-S', `res:${heightParam}`])
-                : ['-f', preferred_video_selector];
+            const heightFilter = (maxHeight && default_downloader === 'yt-dlp' && !selectedAudioLanguage)
+                ? ['-S', `res:${heightParam}`]
+                : ['-f', preferred_video_selector, ...((default_downloader === 'yt-dlp' && selectedAudioLanguage)
+                    ? ['-S', buildFormatSortOrder(selectedAudioLanguage, heightParam)]
+                    : [])];
             qualityPath = [...heightFilter, '--merge-output-format', 'mp4'];
         } else if (is_audio) {
             qualityPath = selectedAudioLanguage

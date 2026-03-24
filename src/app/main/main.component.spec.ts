@@ -257,6 +257,22 @@ describe('MainComponent', () => {
     expect(component.getSelectedVideoFormat()).toBe('video-only-1080+audio-es');
   });
 
+  it('prefers muxed language-specific video formats when available', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-en-1080', ext: 'mp4', language: 'en', filesize: 1100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-fr-1080', ext: 'mp4', language: 'fr', filesize: 1150}
+    ]);
+
+    component.url = 'https://example.com/muxed-video';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video[0];
+    component.selectedAudioLanguage = 'fr';
+
+    expect(parsedFormats.audio_languages.map(option => option.value)).toEqual(['en', 'fr']);
+    expect(component.getSelectedVideoFormat()).toBe('video-fr-1080');
+  });
+
   it('falls back to the best selected language audio track when the chosen bitrate is unavailable', () => {
     const parsedFormats: any = component.getAudioAndVideoFormats([
       {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
@@ -269,6 +285,20 @@ describe('MainComponent', () => {
     component.selectedAudioLanguage = 'es';
 
     expect(component.getSelectedAudioFormat()).toBe('audio-es-96');
+  });
+
+  it('falls back to the best muxed language format for audio downloads when no audio-only dub exists', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-fr-720', ext: 'mp4', language: 'fr', filesize: 400}
+    ]);
+
+    component.url = 'https://example.com/audio-fallback';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.audio.find(option => option.key === '128K');
+    component.selectedAudioLanguage = 'fr';
+
+    expect(component.getSelectedAudioFormat()).toBe('video-fr-720');
   });
 
   it('maps playlist menu action to canonical playlist URL', () => {

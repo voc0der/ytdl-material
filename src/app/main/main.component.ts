@@ -498,16 +498,21 @@ export class MainComponent implements OnInit {
     const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
     if (cachedFormats) {
       if (this.selectedQuality) {
-        let selected_video_format = this.selectedQuality['format_id'];
+        const preferredVideoFormat = this.getPreferredVideoFormatForSelection(this.selectedQuality);
+        if (selectedAudioLanguage && preferredVideoFormat?.['language'] === selectedAudioLanguage && preferredVideoFormat?.['acodec'] && preferredVideoFormat['acodec'] !== 'none') {
+          return preferredVideoFormat['format_id'];
+        }
+
+        let selected_video_format = preferredVideoFormat?.['format_id'] || this.selectedQuality['format_id'];
         const mergeAudioFormat = this.getPreferredMergeAudioFormatForSelection();
 
         if (selectedAudioLanguage && mergeAudioFormat?.['format_id']) {
-          selected_video_format = this.selectedQuality['video_only_format_id'] || selected_video_format;
+          selected_video_format = preferredVideoFormat?.['video_only_format_id'] || this.selectedQuality['video_only_format_id'] || selected_video_format;
           return `${selected_video_format}+${mergeAudioFormat['format_id']}`;
         }
 
         // add in audio format if necessary
-        const audio_missing = !this.selectedQuality['acodec'] || this.selectedQuality['acodec'] === 'none';
+        const audio_missing = !preferredVideoFormat?.['acodec'] || preferredVideoFormat['acodec'] === 'none';
         if (audio_missing && mergeAudioFormat?.['format_id']) selected_video_format += `+${mergeAudioFormat['format_id']}`;
         return selected_video_format;
       }
@@ -923,6 +928,9 @@ export class MainComponent implements OnInit {
       if (selectedAudioLanguage && cachedFormats['best_audio_formats_by_language']?.[selectedAudioLanguage]) {
         return cachedFormats['best_audio_formats_by_language'][selectedAudioLanguage];
       }
+      if (selectedAudioLanguage && cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage]) {
+        return cachedFormats['best_muxed_formats_by_language'][selectedAudioLanguage];
+      }
       if (matchingFormats['default']) {
         return matchingFormats['default'];
       }
@@ -932,7 +940,32 @@ export class MainComponent implements OnInit {
       return cachedFormats['best_audio_formats_by_language'][selectedAudioLanguage];
     }
 
+    if (selectedAudioLanguage && cachedFormats['best_muxed_formats_by_language']?.[selectedAudioLanguage]) {
+      return cachedFormats['best_muxed_formats_by_language'][selectedAudioLanguage];
+    }
+
     return cachedFormats['best_audio_format'] || null;
+  }
+
+  private getPreferredVideoFormatForSelection(selectedQuality: any): any {
+    const cachedFormats = this.getCurrentCachedFormats();
+    if (!cachedFormats || !selectedQuality) return null;
+
+    const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedKey = selectedQuality['key'];
+    const videoFormatsByKey = cachedFormats['video_formats_by_key'];
+    const matchingFormats = selectedKey && videoFormatsByKey ? videoFormatsByKey[selectedKey] : null;
+
+    if (matchingFormats) {
+      if (selectedAudioLanguage && matchingFormats['by_language']?.[selectedAudioLanguage]) {
+        return matchingFormats['by_language'][selectedAudioLanguage];
+      }
+      if (matchingFormats['default']) {
+        return matchingFormats['default'];
+      }
+    }
+
+    return selectedQuality;
   }
 
   private getPreferredMergeAudioFormatForSelection(): any {
@@ -951,9 +984,11 @@ export class MainComponent implements OnInit {
     const audio_formats: any = {};
     const audio_formats_by_key: any = {};
     const video_formats: any = {};
+    const video_formats_by_key: any = {};
     const language_options: any = {};
     const best_audio_formats_by_language: any = {};
     const best_merge_audio_formats_by_language: any = {};
+    const best_muxed_formats_by_language: any = {};
     let best_audio_format = null;
     let best_merge_audio_format = null;
 
@@ -962,11 +997,11 @@ export class MainComponent implements OnInit {
 
       const format = formats[i];
       const format_type = (format.vcodec === 'none') ? 'audio' : 'video';
+      const language = this.getNormalizedAudioLanguage(format);
 
       format_obj.type = format_type;
       if (format_obj.type === 'audio' && format.abr) {
         const key = format.abr.toString() + 'K';
-        const language = this.getNormalizedAudioLanguage(format);
         format_obj['key'] = key;
         format_obj['bitrate'] = format.abr;
         format_obj['format_id'] = format.format_id;
@@ -1032,15 +1067,31 @@ export class MainComponent implements OnInit {
           format_obj['label'] = key;
           format_obj['fps'] = Math.round(format.fps);
           format_obj['expected_filesize'] = format.filesize ? format.filesize : (format.filesize_approx || null);
+          format_obj['ext'] = format.ext;
+          format_obj['language'] = language;
 
           if (format.acodec === 'none') {
             format_obj['video_only_format_id'] = format.format_id;
           }
 
-          const existingVideoOnlyFormatId = video_formats[key]?.['video_only_format_id'] || null;
+          if (language) {
+            language_options[language] = {
+              value: language,
+              label: this.getAudioLanguageLabel(language)
+            };
+          }
 
-          // no acodec means no overwrite
-          if (!(video_formats[key]) || format_obj['acodec'] !== 'none') {
+          if (!video_formats_by_key[key]) {
+            video_formats_by_key[key] = {
+              default: null,
+              by_language: {}
+            };
+          }
+
+          const existingVideoOnlyFormatId = video_formats[key]?.['video_only_format_id'] || null;
+          const existingVideoOnlyFormatIdByKey = video_formats_by_key[key]['default']?.['video_only_format_id'] || null;
+
+          if (this.shouldReplaceVideoFormat(video_formats[key], format_obj)) {
             video_formats[key] = format_obj;
           }
 
@@ -1050,6 +1101,29 @@ export class MainComponent implements OnInit {
 
           if (format.acodec === 'none' && !video_formats[key]?.['video_only_format_id']) {
             video_formats[key]['video_only_format_id'] = format.format_id;
+          }
+
+          if (this.shouldReplaceVideoFormat(video_formats_by_key[key]['default'], format_obj)) {
+            video_formats_by_key[key]['default'] = format_obj;
+          }
+
+          if (existingVideoOnlyFormatIdByKey && !video_formats_by_key[key]['default']?.['video_only_format_id']) {
+            video_formats_by_key[key]['default']['video_only_format_id'] = existingVideoOnlyFormatIdByKey;
+          }
+
+          if (format.acodec === 'none' && !video_formats_by_key[key]['default']?.['video_only_format_id']) {
+            video_formats_by_key[key]['default']['video_only_format_id'] = format.format_id;
+          }
+
+          if (language && this.shouldReplaceVideoFormat(video_formats_by_key[key]['by_language'][language], format_obj)) {
+            video_formats_by_key[key]['by_language'][language] = format_obj;
+            if (existingVideoOnlyFormatIdByKey && !video_formats_by_key[key]['by_language'][language]?.['video_only_format_id']) {
+              video_formats_by_key[key]['by_language'][language]['video_only_format_id'] = existingVideoOnlyFormatIdByKey;
+            }
+          }
+
+          if (language && format.acodec !== 'none' && this.shouldReplaceVideoFormat(best_muxed_formats_by_language[language], format_obj)) {
+            best_muxed_formats_by_language[language] = format_obj;
           }
         }
       }
@@ -1061,7 +1135,9 @@ export class MainComponent implements OnInit {
     parsed_formats['best_audio_formats_by_language'] = best_audio_formats_by_language;
     parsed_formats['best_merge_audio_format'] = best_merge_audio_format || best_audio_format;
     parsed_formats['best_merge_audio_formats_by_language'] = best_merge_audio_formats_by_language;
+    parsed_formats['best_muxed_formats_by_language'] = best_muxed_formats_by_language;
     parsed_formats['audio_formats_by_key'] = audio_formats_by_key;
+    parsed_formats['video_formats_by_key'] = video_formats_by_key;
     parsed_formats['audio_languages'] = Object.values(language_options)
       .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
@@ -1110,6 +1186,30 @@ export class MainComponent implements OnInit {
     if (candidateFormat['ext'] !== currentFormat['ext']) {
       if (candidateFormat['ext'] === 'm4a') return true;
       if (currentFormat['ext'] === 'm4a') return false;
+    }
+
+    return false;
+  }
+
+  private shouldReplaceVideoFormat(currentFormat: any, candidateFormat: any): boolean {
+    if (!candidateFormat) return false;
+    if (!currentFormat) return true;
+
+    const currentHasAudio = !!currentFormat['acodec'] && currentFormat['acodec'] !== 'none';
+    const candidateHasAudio = !!candidateFormat['acodec'] && candidateFormat['acodec'] !== 'none';
+    if (candidateHasAudio !== currentHasAudio) {
+      return candidateHasAudio;
+    }
+
+    const currentFilesize = currentFormat['expected_filesize'] || 0;
+    const candidateFilesize = candidateFormat['expected_filesize'] || 0;
+    if (candidateFilesize !== currentFilesize) {
+      return candidateFilesize > currentFilesize;
+    }
+
+    if (candidateFormat['ext'] !== currentFormat['ext']) {
+      if (candidateFormat['ext'] === 'mp4') return true;
+      if (currentFormat['ext'] === 'mp4') return false;
     }
 
     return false;
