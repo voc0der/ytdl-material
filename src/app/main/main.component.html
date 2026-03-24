@@ -141,13 +141,6 @@
             </mat-select>
           </mat-form-field>
         }
-        @if (!!current_download) {
-          <button class="main-pane-action-button" (click)="cancelDownload()" mat-stroked-button color="warn">
-            <ng-container i18n="Cancel download button">
-                      Cancel
-                  </ng-container>
-          </button>
-        }
       </div>
       @if (showCreatePlaylistShortcut) {
         <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">

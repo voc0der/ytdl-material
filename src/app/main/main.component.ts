@@ -481,17 +481,6 @@ export class MainComponent implements OnInit {
     }
   }
 
-  // download canceled handler
-  cancelDownload(download_to_cancel = null): void {
-    // if one is provided, cancel that one. otherwise, remove the current one
-    if (download_to_cancel) {
-      this.removeDownloadFromCurrentDownloads(download_to_cancel)
-      return;
-    }
-    this.downloadingfile = false;
-    this.current_download = null;
-  }
-
   getSelectedAudioFormat(): string {
     if (typeof this.selectedQuality === 'string') { return null; }
     const cachedFormatsExists = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
