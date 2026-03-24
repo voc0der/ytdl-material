@@ -56,7 +56,7 @@
         </div>
       </div>
     </mat-card-content>
-    <mat-card-actions>
+    <mat-card-actions class="main-pane-card-actions">
       <div class="main-pane-actions-row">
         @if (shouldShowDownloadMenu()) {
           <div class="download-split-button">
@@ -94,7 +94,7 @@
           </button>
         }
         @if (allowQualitySelect) {
-          <mat-form-field color="accent" class="main-pane-action-select">
+          <mat-form-field color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
             <mat-label>
               <ng-container i18n="Quality select label">
                                 Quality
@@ -123,7 +123,7 @@
               <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
             }
           </mat-form-field>
-          <mat-form-field color="accent" class="main-pane-action-select">
+          <mat-form-field color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
             <mat-label>
               <ng-container i18n="Audio language select label">
                                 Language
