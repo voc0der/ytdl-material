@@ -94,52 +94,48 @@
           </button>
         }
         @if (allowQualitySelect) {
-          <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
-            <mat-label>
-              <ng-container i18n="Quality select label">
-                                Quality
-                            </ng-container>
-            </mat-label>
-            <mat-select [disabled]="url === '' || cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedQuality" (ngModelChange)="argsChanged()">
-              <mat-option i18n="Best" [value]="''">
-                                Best
-                            </mat-option>
-              @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats && !cachedAvailableFormats[url]?.formats_failed) {
-                @for (option of cachedAvailableFormats[url]['formats'][audioOnly ? 'audio' : 'video']; track option.key) {
-                  <mat-option [matTooltip]="option.expected_filesize ? humanFileSize(option.expected_filesize) : null" [value]="option">
-                    {{option.key}}
-                  </mat-option>
+          <div class="main-pane-select-group">
+            <div class="main-pane-action-field-label" i18n="Quality select label">Quality</div>
+            <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
+              <mat-select aria-label="Quality" [disabled]="url === '' || cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedQuality" (ngModelChange)="argsChanged()">
+                <mat-option i18n="Best" [value]="''">
+                                  Best
+                              </mat-option>
+                @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats && !cachedAvailableFormats[url]?.formats_failed) {
+                  @for (option of cachedAvailableFormats[url]['formats'][audioOnly ? 'audio' : 'video']; track option.key) {
+                    <mat-option [matTooltip]="option.expected_filesize ? humanFileSize(option.expected_filesize) : null" [value]="option">
+                      {{option.key}}
+                    </mat-option>
+                  }
                 }
+                @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats_failed) {
+                  @for (option of qualityOptions[audioOnly ? 'audio' : 'video']; track option.value) {
+                    <mat-option [value]="option.value">
+                      {{option.label}}
+                    </mat-option>
+                  }
+                }
+              </mat-select>
+              @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
+                <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
               }
-              @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats_failed) {
-                @for (option of qualityOptions[audioOnly ? 'audio' : 'video']; track option.value) {
+            </mat-form-field>
+          </div>
+          <div class="main-pane-select-group">
+            <div class="main-pane-action-field-label" i18n="Audio language select label">Language</div>
+            <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
+              <mat-select aria-label="Language" [disabled]="!canSelectAudioLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedAudioLanguage" (ngModelChange)="argsChanged()">
+                <mat-option i18n="Default audio language option" [value]="''">
+                                  Default
+                              </mat-option>
+                @for (option of getAvailableAudioLanguages(); track option.value) {
                   <mat-option [value]="option.value">
                     {{option.label}}
                   </mat-option>
                 }
-              }
-            </mat-select>
-            @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
-              <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
-            }
-          </mat-form-field>
-          <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
-            <mat-label>
-              <ng-container i18n="Audio language select label">
-                                Language
-                            </ng-container>
-            </mat-label>
-            <mat-select [disabled]="!canSelectAudioLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedAudioLanguage" (ngModelChange)="argsChanged()">
-              <mat-option i18n="Default audio language option" [value]="''">
-                                Default
-                            </mat-option>
-              @for (option of getAvailableAudioLanguages(); track option.value) {
-                <mat-option [value]="option.value">
-                  {{option.label}}
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+              </mat-select>
+            </mat-form-field>
+          </div>
         }
       </div>
       @if (showCreatePlaylistShortcut) {

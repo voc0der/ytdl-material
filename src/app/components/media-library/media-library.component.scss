@@ -78,12 +78,20 @@
 
 .paginator-page-size-select ::ng-deep .mat-mdc-text-field-wrapper {
     height: 40px;
-    border-radius: 16px;
+    border-radius: 999px;
 }
 
-.paginator-page-size-select ::ng-deep .mdc-notched-outline__leading,
+.paginator-page-size-select ::ng-deep .mdc-notched-outline__leading {
+    border-radius: 999px 0 0 999px;
+}
+
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__trailing {
-    border-radius: 16px;
+    border-radius: 0 999px 999px 0;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline__notch {
+    border-left: none;
+    border-right: none;
 }
 
 .paginator-page-size-select ::ng-deep .mat-mdc-select-value-text,

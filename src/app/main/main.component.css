@@ -253,8 +253,21 @@ mat-form-field.mat-mdc-form-field {
 
 .download-split-button,
 .main-pane-action-button.mat-mdc-outlined-button,
-.main-pane-action-select {
+.main-pane-select-group {
     margin: 0 0 8px 0 !important;
+}
+
+.main-pane-select-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.main-pane-action-field-label {
+    padding-left: 14px;
+    font-size: 0.95rem;
+    line-height: 1;
+    opacity: 0.72;
 }
 
 .main-pane-action-select.mat-mdc-form-field {
@@ -272,12 +285,20 @@ mat-form-field.mat-mdc-form-field {
 
 .main-pane-action-select ::ng-deep .mat-mdc-text-field-wrapper {
     padding-bottom: 0;
-    border-radius: 16px;
+    border-radius: 999px;
 }
 
-.main-pane-action-select ::ng-deep .mdc-notched-outline__leading,
+.main-pane-action-select ::ng-deep .mdc-notched-outline__leading {
+    border-radius: 999px 0 0 999px;
+}
+
 .main-pane-action-select ::ng-deep .mdc-notched-outline__trailing {
-    border-radius: 16px;
+    border-radius: 0 999px 999px 0;
+}
+
+.main-pane-action-select ::ng-deep .mdc-notched-outline__notch {
+    border-left: none;
+    border-right: none;
 }
 
 .main-pane-select-spinner {
@@ -304,6 +325,10 @@ mat-form-field.mat-mdc-form-field {
 
     .main-pane-action-select {
         min-width: 0;
+        flex: 1 1 140px;
+    }
+
+    .main-pane-select-group {
         flex: 1 1 140px;
     }
 }
