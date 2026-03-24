@@ -163,6 +163,28 @@ describe('Downloader', function() {
         assert.strictEqual(captured_fork, 'yt-dlp');
     });
 
+    it('Get file info uses yt-dlp when format probing forces it', async function() {
+        let captured_fork = null;
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        youtubedl_api.runYoutubeDL = async (requestedUrl, run_args, custom_handler, selected_fork) => {
+            captured_fork = selected_fork;
+            return {
+                callback: Promise.resolve({parsed_output: fixture_single, err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            await _originalGetVideoInfoByURL(url, [], null, {forceYtDlp: true});
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+
+        assert.strictEqual(captured_fork, 'yt-dlp');
+    });
+
     it('Generate args supports configured invalid filename replacement', async function() {
         const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
         const original_replace_invalid = config_api.getConfigItem('ytdl_replace_invalid_filename_chars');

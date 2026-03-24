@@ -1649,6 +1649,7 @@ function shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configurat
 }
 
 function getPreferredDownloaderFork(options = {}) {
+    if (options.forceYtDlp) return 'yt-dlp';
     const selected_audio_language = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
     const custom_quality_configuration = typeof options.customQualityConfiguration === 'string'
         ? options.customQualityConfiguration

@@ -2862,7 +2862,7 @@ app.post('/api/clearAllLogs', optionalJwt, async function(req, res) {
 
   app.post('/api/getFileFormats', optionalJwt, async (req, res) => {
     const url = req.body.url;
-    const result = await downloader_api.getVideoInfoByURL(url);
+    const result = await downloader_api.getVideoInfoByURL(url, [], null, {forceYtDlp: true});
     res.send({
         result: result && result.length === 1 ? result[0] : null,
         success: result && result.length === 0
