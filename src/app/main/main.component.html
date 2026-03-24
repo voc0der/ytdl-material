@@ -6,49 +6,12 @@
         <form class="example-form">
           <div class="container-fluid">
             <div class="row">
-              <div [ngClass]="allowQualitySelect ? 'col-sm-9' : null" class="col-12">
+              <div class="col-12">
                 <mat-form-field color="accent" class="example-full-width">
                   <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off" matInput (ngModelChange)="inputChanged($event)" [(ngModel)]="url" [placeholder]="'URL' + (youtubeSearchEnabled ? ' or search' : '')" type="url" name="url" #urlinput></textarea>
                 </mat-form-field>
                 <!--<button type="button" class="input-clear-button" mat-icon-button (click)="clearInput()"><mat-icon>clear</mat-icon></button>-->
               </div>
-              @if (allowQualitySelect) {
-                <div class="col-7 col-sm-3">
-                  <mat-form-field color="accent" style="display: inline-block; width: inherit; min-width: 120px;">
-                    <mat-label>
-                      <ng-container i18n="Quality select label">
-                                            Quality
-                                        </ng-container>
-                    </mat-label>
-                    <mat-select [disabled]="url === '' || cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedQuality" (ngModelChange)="argsChanged()">
-                      <mat-option i18n="Best" [value]="''">
-                                            Best
-                                        </mat-option>
-                      @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats && !cachedAvailableFormats[url]?.formats_failed) {
-                        @for (option of cachedAvailableFormats[url]['formats'][audioOnly ? 'audio' : 'video']; track option.key) {
-                          @if (option.key !== 'best_audio_format') {
-                            <mat-option [matTooltip]="option.expected_filesize ? humanFileSize(option.expected_filesize) : null" [value]="option">
-                              {{option.key}}
-                            </mat-option>
-                          }
-                        }
-                      }
-                      @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats_failed) {
-                        @for (option of qualityOptions[audioOnly ? 'audio' : 'video']; track option.value) {
-                          <mat-option [value]="option.value">
-                            {{option.label}}
-                          </mat-option>
-                        }
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
-                    <div class="spinner-div">
-                      <mat-spinner [diameter]="25"></mat-spinner>
-                    </div>
-                  }
-                </div>
-              }
             </div>
           </div>
           @if (results_showing) {
@@ -92,52 +55,102 @@
       </div>
     </mat-card-content>
     <mat-card-actions>
-      @if (showCreatePlaylistShortcut) {
-        <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">
-          <mat-icon>playlist_add</mat-icon>
-          <span i18n="Create playlist button">New playlist</span>
-        </button>
-      }
-      @if (shouldShowDownloadMenu()) {
-        <div class="download-split-button">
-          <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
+      <div class="main-pane-actions-row">
+        @if (shouldShowDownloadMenu()) {
+          <div class="download-split-button">
+            <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
+              <ng-container i18n="Main download button">
+                          Download
+                      </ng-container>
+            </button>
+            <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
+              <mat-icon>arrow_drop_down</mat-icon>
+            </button>
+          </div>
+          <mat-menu #downloadMenu="matMenu" xPosition="after">
+            @if (hasPlaylistUrlInInput()) {
+              <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+                <span i18n="Main download button option for playlist">Download Playlist</span>
+              </button>
+            }
+            @if (hasChannelSearchPlaylistUrlInInput()) {
+              <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+                <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
+              </button>
+            }
+            @if (sponsorBlockDownloadsEnabled) {
+              <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
+                <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
+              </button>
+            }
+          </mat-menu>
+        } @else {
+          <button class="main-pane-action-button" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="submit" mat-stroked-button color="accent">
             <ng-container i18n="Main download button">
                         Download
                     </ng-container>
           </button>
-          <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
-            <mat-icon>arrow_drop_down</mat-icon>
-          </button>
-        </div>
-        <mat-menu #downloadMenu="matMenu" xPosition="after">
-          @if (hasPlaylistUrlInInput()) {
-            <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-              <span i18n="Main download button option for playlist">Download Playlist</span>
-            </button>
-          }
-          @if (hasChannelSearchPlaylistUrlInInput()) {
-            <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-              <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
-            </button>
-          }
-          @if (sponsorBlockDownloadsEnabled) {
-            <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
-              <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
-            </button>
-          }
-        </mat-menu>
-      } @else {
-        <button style="margin-left: 8px; margin-bottom: 8px" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="submit" mat-stroked-button color="accent">
-          <ng-container i18n="Main download button">
-                      Download
+        }
+        @if (allowQualitySelect) {
+          <mat-form-field color="accent" class="main-pane-action-select">
+            <mat-label>
+              <ng-container i18n="Quality select label">
+                                Quality
+                            </ng-container>
+            </mat-label>
+            <mat-select [disabled]="url === '' || cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedQuality" (ngModelChange)="argsChanged()">
+              <mat-option i18n="Best" [value]="''">
+                                Best
+                            </mat-option>
+              @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats && !cachedAvailableFormats[url]?.formats_failed) {
+                @for (option of cachedAvailableFormats[url]['formats'][audioOnly ? 'audio' : 'video']; track option.key) {
+                  <mat-option [matTooltip]="option.expected_filesize ? humanFileSize(option.expected_filesize) : null" [value]="option">
+                    {{option.key}}
+                  </mat-option>
+                }
+              }
+              @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats_failed) {
+                @for (option of qualityOptions[audioOnly ? 'audio' : 'video']; track option.value) {
+                  <mat-option [value]="option.value">
+                    {{option.label}}
+                  </mat-option>
+                }
+              }
+            </mat-select>
+            @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
+              <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
+            }
+          </mat-form-field>
+          <mat-form-field color="accent" class="main-pane-action-select">
+            <mat-label>
+              <ng-container i18n="Audio language select label">
+                                Language
+                            </ng-container>
+            </mat-label>
+            <mat-select [disabled]="!canSelectAudioLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedAudioLanguage" (ngModelChange)="argsChanged()">
+              <mat-option i18n="Default audio language option" [value]="''">
+                                Default
+                            </mat-option>
+              @for (option of getAvailableAudioLanguages(); track option.value) {
+                <mat-option [value]="option.value">
+                  {{option.label}}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+        @if (!!current_download) {
+          <button class="main-pane-action-button" (click)="cancelDownload()" mat-stroked-button color="warn">
+            <ng-container i18n="Cancel download button">
+                      Cancel
                   </ng-container>
-        </button>
-      }
-      @if (!!current_download) {
-        <button (click)="cancelDownload()" style="margin-left: 8px; margin-bottom: 8px" mat-stroked-button color="warn">
-          <ng-container i18n="Cancel download button">
-                    Cancel
-                </ng-container>
+          </button>
+        }
+      </div>
+      @if (showCreatePlaylistShortcut) {
+        <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">
+          <mat-icon>playlist_add</mat-icon>
+          <span i18n="Create playlist button">New playlist</span>
         </button>
       }
     </mat-card-actions>

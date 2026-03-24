@@ -348,7 +348,7 @@ export class PostsService {
     }
 
     // tslint:disable-next-line: max-line-length
-    downloadFile(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings: CropFileSettings = null, disableSponsorBlock: boolean = false, channelSearchPlaylist: boolean = false) {
+    downloadFile(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings: CropFileSettings = null, disableSponsorBlock: boolean = false, channelSearchPlaylist: boolean = false, selectedAudioLanguage: string = null) {
         const body: DownloadRequest = {url: url,
             maxHeight: selectedQuality,
             customQualityConfiguration: customQualityConfiguration,
@@ -360,11 +360,12 @@ export class PostsService {
             type: type,
             cropFileSettings: cropFileSettings,
             disableSponsorBlock: disableSponsorBlock,
-            channelSearchPlaylist: channelSearchPlaylist}
+            channelSearchPlaylist: channelSearchPlaylist,
+            selectedAudioLanguage: selectedAudioLanguage}
         return this.http.post<DownloadResponse>(this.path + 'downloadFile', body, this.httpOptions);
     }
 
-    generateArgs(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings = null, disableSponsorBlock: boolean = false) {
+    generateArgs(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings = null, disableSponsorBlock: boolean = false, selectedAudioLanguage: string = null) {
         const body: DownloadRequest = {url: url,
             maxHeight: selectedQuality,
             customQualityConfiguration: customQualityConfiguration,
@@ -375,7 +376,8 @@ export class PostsService {
             youtubePassword: youtubePassword,
             type: type,
             cropFileSettings: cropFileSettings,
-            disableSponsorBlock: disableSponsorBlock}
+            disableSponsorBlock: disableSponsorBlock,
+            selectedAudioLanguage: selectedAudioLanguage}
         return this.http.post<GenerateArgsResponse>(this.path + 'generateArgs', body, this.httpOptions);
     }
 

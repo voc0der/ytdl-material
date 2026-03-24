@@ -1203,6 +1203,43 @@ describe('Downloader', function() {
         }
     });
 
+    it('Generate args prefers the requested audio language for video downloads', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es'});
+            const format_index = args.indexOf('-f');
+            assert(format_index !== -1);
+            assert.strictEqual(args[format_index + 1], 'bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args keeps requested audio language when limiting yt-dlp video height', async function() {
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es', maxHeight: '720'});
+            const format_index = args.indexOf('-f');
+            const sort_index = args.indexOf('-S');
+            assert(format_index !== -1);
+            assert(sort_index !== -1);
+            assert.strictEqual(args[format_index + 1], 'bestvideo+bestaudio[language=es]/bestvideo+bestaudio/best');
+            assert.strictEqual(args[sort_index + 1], 'res:720');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Generate args prefers the requested audio language for audio-only downloads', async function() {
+        const args = await downloader_api.generateArgs(url, 'audio', {...options, selectedAudioLanguage: 'es'});
+        const format_index = args.indexOf('-f');
+        assert(format_index !== -1);
+        assert.strictEqual(args[format_index + 1], 'bestaudio[language=es]/bestaudio');
+        assert(args.includes('--audio-quality'));
+    });
+
     it.skip('Generate args - subscription', async function() {
         const sub = await subscriptions_api.getSubscription(sub_id);
         const sub_options = subscriptions_api.generateOptionsForSubscriptionDownload(sub, 'admin');

@@ -240,6 +240,37 @@ describe('MainComponent', () => {
     expect(component.shouldShowDownloadMenu()).toBeTrue();
   });
 
+  it('builds language-aware video selectors from loaded formats', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 128, format_id: 'audio-es', ext: 'm4a', language: 'es', filesize: 90},
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-merged-1080', ext: 'mp4', filesize: 1100}
+    ]);
+
+    component.url = 'https://example.com/video';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video[0];
+    component.selectedAudioLanguage = 'es';
+
+    expect(parsedFormats.audio_languages.map(option => option.value)).toEqual(['en', 'es']);
+    expect(component.getSelectedVideoFormat()).toBe('video-only-1080+audio-es');
+  });
+
+  it('falls back to the best selected language audio track when the chosen bitrate is unavailable', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75}
+    ]);
+
+    component.url = 'https://example.com/audio';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.audio.find(option => option.key === '128K');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedAudioFormat()).toBe('audio-es-96');
+  });
+
   it('maps playlist menu action to canonical playlist URL', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
     const download_spy = spyOn(component, 'downloadClicked');

@@ -71,13 +71,6 @@ mat-form-field.mat-mdc-form-field {
     top: 22px;
 }
 
-.spinner-div {
-    display: inline-block;
-    position: absolute;
-    top: 15px;
-    right: -16px;
-}
-
 .margined {
     margin-left: 20px;
     margin-right: 20px;
@@ -118,11 +111,9 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .playlist-shortcut-action.mat-mdc-button-base {
-    float: right;
     min-width: 0;
     padding: 0 2px 0 4px;
-    margin-right: 8px;
-    margin-bottom: 8px;
+    margin: 0 8px 8px auto;
     line-height: 28px;
     color: inherit !important;
     opacity: 0.68;
@@ -189,16 +180,6 @@ mat-form-field.mat-mdc-form-field {
     border-radius: 0px 0px 16px 16px;
 }
 
-@media (max-width: 576px) {
-    .download-progress-bar {
-        width: 125px;
-    }
-
-    .main-pane-audio-toggle {
-        margin-left: 4px;
-    }
-}
-
 .url-input {
     padding-right: 25px;
     overflow-y: hidden;
@@ -210,8 +191,7 @@ mat-form-field.mat-mdc-form-field {
 
 .download-split-button {
     display: inline-flex;
-    margin-left: 8px;
-    margin-bottom: 8px;
+    margin: 0;
     align-items: stretch;
 }
 
@@ -249,4 +229,45 @@ mat-form-field.mat-mdc-form-field {
 
 .download-menu-action.mat-mdc-outlined-button:hover mat-icon {
     opacity: 1;
+}
+
+.main-pane-actions-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+}
+
+.main-pane-action-button.mat-mdc-outlined-button,
+.main-pane-action-select {
+    margin: 0 0 8px 0 !important;
+}
+
+.main-pane-action-select {
+    width: 150px;
+    min-width: 150px;
+}
+
+.main-pane-select-spinner {
+    margin-right: 4px;
+}
+
+@media (max-width: 576px) {
+    .download-progress-bar {
+        width: 125px;
+    }
+
+    .main-pane-audio-toggle {
+        margin-left: 4px;
+    }
+
+    .main-pane-actions-row {
+        align-items: stretch;
+    }
+
+    .main-pane-action-select {
+        min-width: 0;
+        flex: 1 1 140px;
+    }
 }

@@ -1633,6 +1633,24 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
 
 // helper functions
 
+function normalizeSelectedAudioLanguage(selected_audio_language) {
+    if (typeof selected_audio_language !== 'string') return null;
+    const normalized_language = selected_audio_language.trim();
+    return normalized_language !== '' ? normalized_language : null;
+}
+
+function buildAudioLanguageSelector(base_selector, selected_audio_language) {
+    if (!selected_audio_language) return base_selector;
+    return `${base_selector}[language=${selected_audio_language}]/${base_selector}`;
+}
+
+function buildPreferredVideoSelector(selected_audio_language, video_filter = '') {
+    const bestvideo_selector = `bestvideo${video_filter}`;
+    const best_selector = `best${video_filter}`;
+    if (!selected_audio_language) return video_filter ? `${best_selector}+bestaudio` : 'bestvideo+bestaudio';
+    return `${bestvideo_selector}+bestaudio[language=${selected_audio_language}]/${bestvideo_selector}+bestaudio/${best_selector}`;
+}
+
 exports.generateArgs = async (url, type, options, user_uid = null, simulated = false) => {
     const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
 
@@ -1661,6 +1679,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     const customArgs = options.customArgs;
     let customOutput = options.customOutput;
     const customQualityConfiguration = options.customQualityConfiguration;
+    const selectedAudioLanguage = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
 
     // video-specific args
     const selectedHeight = options.selectedHeight;
@@ -1674,7 +1693,9 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     const youtubePassword = options.youtubePassword;
 
     let downloadConfig = null;
-    let qualityPath = (is_audio && !options.skip_audio_args) ? ['-f', 'bestaudio'] : ['-f', 'bestvideo+bestaudio', '--merge-output-format', 'mp4'];
+    let qualityPath = (is_audio && !options.skip_audio_args)
+        ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage)]
+        : ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '--merge-output-format', 'mp4'];
     const is_youtube = url.includes('youtu');
     if (!is_audio && !is_youtube) {
         // tiktok videos fail when using the default format
@@ -1687,10 +1708,18 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         if (customQualityConfiguration) {
             qualityPath = ['-f', customQualityConfiguration, '--merge-output-format', 'mp4'];
         } else if (heightParam && heightParam !== '' && !is_audio) {
-            const heightFilter = (maxHeight && default_downloader === 'yt-dlp') ? ['-S', `res:${heightParam}`] : ['-f', `best[height${maxHeight ? '<' : ''}=${heightParam}]+bestaudio`]
+            const height_comparator = `height${maxHeight ? '<' : ''}=${heightParam}`;
+            const preferred_video_selector = buildPreferredVideoSelector(selectedAudioLanguage, `[${height_comparator}]`);
+            const heightFilter = (maxHeight && default_downloader === 'yt-dlp')
+                ? (selectedAudioLanguage
+                    ? ['-f', buildPreferredVideoSelector(selectedAudioLanguage), '-S', `res:${heightParam}`]
+                    : ['-S', `res:${heightParam}`])
+                : ['-f', preferred_video_selector];
             qualityPath = [...heightFilter, '--merge-output-format', 'mp4'];
         } else if (is_audio) {
-            qualityPath = ['--audio-quality', maxBitrate ? maxBitrate : '0']
+            qualityPath = selectedAudioLanguage
+                ? ['-f', buildAudioLanguageSelector('bestaudio', selectedAudioLanguage), '--audio-quality', maxBitrate ? maxBitrate : '0']
+                : ['--audio-quality', maxBitrate ? maxBitrate : '0']
         }
 
         if (customOutput) {

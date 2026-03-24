@@ -1732,7 +1732,10 @@ components:
         maxBitrate:
           type: string
           description: Specify ffmpeg/avconv audio quality
-          example: '160'      
+          example: '160'
+        selectedAudioLanguage:
+          type: string
+          description: Preferred audio language code to use when alternate tracks are available.
         type:
           $ref: '#/components/schemas/FileType'
         cropFileSettings:
