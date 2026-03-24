@@ -286,10 +286,17 @@ mat-form-field.mat-mdc-form-field {
 .main-pane-action-select ::ng-deep .mat-mdc-text-field-wrapper {
     padding-bottom: 0;
     border-radius: 999px;
+    overflow: hidden;
+}
+
+.main-pane-action-select ::ng-deep .mdc-notched-outline {
+    border-radius: inherit;
+    overflow: hidden;
 }
 
 .main-pane-action-select ::ng-deep .mdc-notched-outline__leading {
     border-radius: 999px 0 0 999px;
+    min-width: 16px;
 }
 
 .main-pane-action-select ::ng-deep .mdc-notched-outline__trailing {

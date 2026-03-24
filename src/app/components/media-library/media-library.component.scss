@@ -79,10 +79,17 @@
 .paginator-page-size-select ::ng-deep .mat-mdc-text-field-wrapper {
     height: 40px;
     border-radius: 999px;
+    overflow: hidden;
+}
+
+.paginator-page-size-select ::ng-deep .mdc-notched-outline {
+    border-radius: inherit;
+    overflow: hidden;
 }
 
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__leading {
     border-radius: 999px 0 0 999px;
+    min-width: 16px;
 }
 
 .paginator-page-size-select ::ng-deep .mdc-notched-outline__trailing {
