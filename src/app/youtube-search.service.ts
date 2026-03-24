@@ -3,38 +3,65 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-export class Result {
-  id: string
-  title: string
-  desc: string
-  thumbnailUrl: string
-  videoUrl: string
-  uploaded: any;
-
-  constructor(obj?: any) {
-    this.id           = obj && obj.id           || null
-    this.title        = obj && obj.title        || null
-    this.desc         = obj && obj.desc         || null
-    this.thumbnailUrl = obj && obj.thumbnailUrl || null
-    this.uploaded = obj && obj.uploaded || null
-    this.videoUrl     = obj && obj.videoUrl     || `https://www.youtube.com/watch?v=${this.id}`
-
-    this.uploaded = formatDate(Date.parse(this.uploaded));
-  }
-
+interface ResultInit {
+  id?: string | null;
+  title?: string | null;
+  desc?: string | null;
+  thumbnailUrl?: string | null;
+  videoUrl?: string | null;
+  uploaded?: string | null;
 }
+
+interface YoutubeSearchResponse {
+  items: YoutubeSearchItem[];
+}
+
+interface YoutubeSearchItem {
+  id: {
+    videoId: string;
+  };
+  snippet: {
+    title: string;
+    description: string;
+    thumbnails: {
+      high: {
+        url: string;
+      };
+    };
+    publishedAt: string;
+  };
+}
+
+export class Result {
+  id: string | null
+  title: string | null
+  desc: string | null
+  thumbnailUrl: string | null
+  videoUrl: string | null
+  uploaded: string | null;
+
+  constructor(obj: ResultInit = {}) {
+    this.id = obj.id ?? null
+    this.title = obj.title ?? null
+    this.desc = obj.desc ?? null
+    this.thumbnailUrl = obj.thumbnailUrl ?? null
+    this.uploaded = obj.uploaded ? formatDate(Date.parse(obj.uploaded)) : null
+    this.videoUrl = obj.videoUrl ?? (this.id ? `https://www.youtube.com/watch?v=${this.id}` : null)
+  }
+}
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class YoutubeSearchService {
 
-  url = 'https://www.googleapis.com/youtube/v3/search';
-  key = null;
+  readonly url = 'https://www.googleapis.com/youtube/v3/search';
+  key: string | null = null;
 
   constructor(private http: HttpClient) { }
 
-  initializeAPI(key) {
+  initializeAPI(key: string): void {
     this.key = key;
   }
 
@@ -50,8 +77,8 @@ export class YoutubeSearchService {
       `maxResults=5`
     ].join('&')
     const queryUrl = `${this.url}?${params}`
-    return this.http.get(queryUrl).pipe(map(response => {
-      return <any>response['items'].map(item => {
+    return this.http.get<YoutubeSearchResponse>(queryUrl).pipe(map((response: YoutubeSearchResponse) => {
+      return response.items.map((item: YoutubeSearchItem) => {
         return new Result({
           id: item.id.videoId,
           title: item.snippet.title,
@@ -64,7 +91,7 @@ export class YoutubeSearchService {
   }
 
   // checks if url is a valid URL
-  ValidURL(str) {
+  ValidURL(str: string): boolean {
     // tslint:disable-next-line: max-line-length
     const strRegex = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/;
     const re = new RegExp(strRegex);
@@ -72,18 +99,17 @@ export class YoutubeSearchService {
   }
 }
 
-function formatDate(dateVal) {
+function formatDate(dateVal: number): string {
   const newDate = new Date(dateVal);
 
   const sMonth = padValue(newDate.getMonth() + 1);
   const sDay = padValue(newDate.getDate());
   const sYear = newDate.getFullYear();
-  let sHour: any;
-  sHour = newDate.getHours();
+  let sHour: number | string = newDate.getHours();
   const sMinute = padValue(newDate.getMinutes());
   let sAMPM = 'AM';
 
-  const iHourCheck = parseInt(sHour, 10);
+  const iHourCheck = Number(sHour);
 
   if (iHourCheck > 12) {
       sAMPM = 'PM';
@@ -97,6 +123,6 @@ function formatDate(dateVal) {
   return sMonth + '-' + sDay + '-' + sYear + ' ' + sHour + ':' + sMinute + ' ' + sAMPM;
 }
 
-function padValue(value) {
-  return (value < 10) ? '0' + value : value;
+function padValue(value: number | string): string {
+  return Number(value) < 10 ? '0' + value : String(value);
 }
