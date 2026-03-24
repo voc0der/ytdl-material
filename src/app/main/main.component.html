@@ -130,10 +130,13 @@
                               </mat-option>
                 @for (option of getAvailableAudioLanguages(); track option.value) {
                   <mat-option [value]="option.value">
-                    {{option.label}}
-                  </mat-option>
-                }
-              </mat-select>
+                  {{option.label}}
+                </mat-option>
+              }
+            </mat-select>
+            @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
+              <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
+            }
             </mat-form-field>
           </div>
         }
