@@ -346,6 +346,35 @@ describe('MainComponent', () => {
     expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
   });
 
+  it('keeps the selected quality when a muxed dubbed format exists at that resolution', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-es-720', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es'}
+    ]);
+
+    component.url = 'https://example.com/video-selected-quality-muxed';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video.find(option => option.key === '720p30');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-720');
+  });
+
+  it('keeps the selected quality when pairing video-only output with the selected language audio', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'none', abr: 96, format_id: 'audio-es-96', ext: 'm4a', language: 'es', filesize: 75},
+      {vcodec: 'avc1', acodec: 'none', height: 720, fps: 30, format_id: 'video-only-720', ext: 'mp4', filesize: 700},
+      {vcodec: 'avc1', acodec: 'none', height: 1080, fps: 30, format_id: 'video-only-1080', ext: 'mp4', filesize: 1000}
+    ]);
+
+    component.url = 'https://example.com/video-selected-quality-split';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = parsedFormats.video.find(option => option.key === '720p30');
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-only-720+audio-es-96');
+  });
+
   it('uses the highest quality video plus selected-language audio when Best is still selected and no muxed dub exists', () => {
     const parsedFormats: any = component.getAudioAndVideoFormats([
       {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
