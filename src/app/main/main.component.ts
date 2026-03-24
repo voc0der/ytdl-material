@@ -1240,6 +1240,18 @@ export class MainComponent implements OnInit {
       return candidateHasAudio;
     }
 
+    const currentHeight = currentFormat['height'] || 0;
+    const candidateHeight = candidateFormat['height'] || 0;
+    if (candidateHeight !== currentHeight) {
+      return candidateHeight > currentHeight;
+    }
+
+    const currentFps = currentFormat['fps'] || 0;
+    const candidateFps = candidateFormat['fps'] || 0;
+    if (candidateFps !== currentFps) {
+      return candidateFps > currentFps;
+    }
+
     const currentFilesize = currentFormat['expected_filesize'] || 0;
     const candidateFilesize = candidateFormat['expected_filesize'] || 0;
     if (candidateFilesize !== currentFilesize) {

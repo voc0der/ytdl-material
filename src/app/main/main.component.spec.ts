@@ -330,6 +330,22 @@ describe('MainComponent', () => {
     expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
   });
 
+  it('uses the highest resolution muxed selected-language video format when dubbed formats are listed low-to-high', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats([
+      {vcodec: 'avc1', acodec: 'mp4a', height: 144, fps: 30, format_id: 'video-es-144', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 360, fps: 30, format_id: 'video-es-360', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 720, fps: 30, format_id: 'video-es-720', ext: 'mp4', language: 'es'},
+      {vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-es-1080', ext: 'mp4', language: 'es'}
+    ]);
+
+    component.url = 'https://example.com/video-best-ordered';
+    component.cachedAvailableFormats[component.url] = {formats: parsedFormats};
+    component.selectedQuality = '';
+    component.selectedAudioLanguage = 'es';
+
+    expect(component.getSelectedVideoFormat()).toBe('video-es-1080');
+  });
+
   it('uses the highest quality video plus selected-language audio when Best is still selected and no muxed dub exists', () => {
     const parsedFormats: any = component.getAudioAndVideoFormats([
       {vcodec: 'none', abr: 128, format_id: 'audio-en-128', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
