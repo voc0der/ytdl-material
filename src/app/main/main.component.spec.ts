@@ -512,6 +512,19 @@ describe('MainComponent', () => {
     expect(component.cachedAvailableFormats[channel_search_url]['formats_failed']).toBeTrue();
   });
 
+  it('probes watch urls with playlist params as a sanitized single-video url', () => {
+    const watch_url_with_playlist = 'https://www.youtube.com/watch?v=K_9tX4eHztY&list=RDBuNBLjJzRoo&index=7';
+    const get_file_formats_spy = jasmine.createSpy('getFileFormats').and.returnValue(of({result: {formats: []}}));
+    (component as any).postsService.getFileFormats = get_file_formats_spy;
+    const parse_formats_spy = spyOn(component, 'getAudioAndVideoFormats').and.returnValue({video: [], audio: [], subtitle_languages: [], audio_languages: []} as any);
+
+    component.getURLInfo(watch_url_with_playlist);
+
+    expect(get_file_formats_spy).toHaveBeenCalledWith('https://www.youtube.com/watch?v=K_9tX4eHztY');
+    expect(parse_formats_spy).toHaveBeenCalled();
+    expect(component.cachedAvailableFormats[watch_url_with_playlist]['formats_loading']).toBeFalse();
+  });
+
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {
     component.mediaLibrary = {
       showLibraryTabs: true,

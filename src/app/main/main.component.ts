@@ -685,8 +685,9 @@ export class MainComponent implements OnInit {
     if (!this.cachedAvailableFormats[url]) {
       this.cachedAvailableFormats[url] = Object.create(null);
     }
+    const probe_url = this.sanitizeSingleVideoProbeUrl(url);
     // If URL resolves to a playlist-like feed, skip per-file format probing.
-    if (this.isYouTubePlaylistUrl(url) || this.isYouTubeChannelSearchPlaylistUrl(url)) {
+    if (this.isYouTubePlaylistUrl(probe_url) || this.isYouTubeChannelSearchPlaylistUrl(probe_url)) {
       // make it think that formats errored so that users have options
       this.cachedAvailableFormats[url]['formats_loading'] = false;
       this.cachedAvailableFormats[url]['formats_failed'] = true;
@@ -694,7 +695,7 @@ export class MainComponent implements OnInit {
     }
     if (!(this.cachedAvailableFormats[url] && this.cachedAvailableFormats[url]['formats'])) {
       this.cachedAvailableFormats[url]['formats_loading'] = true;
-      this.postsService.getFileFormats(url).subscribe(res => {
+      this.postsService.getFileFormats(probe_url).subscribe(res => {
         this.cachedAvailableFormats[url]['formats_loading'] = false;
         const infos = res['result'];
         if (!infos || !infos.formats) {
@@ -792,6 +793,17 @@ export class MainComponent implements OnInit {
 
     if (!videoId) return raw;
     return `https://www.youtube.com/watch?v=${videoId}`;
+  }
+
+  private sanitizeSingleVideoProbeUrl(raw: string): string {
+    const parsed_url = this.safeParseURL(raw);
+    if (!parsed_url) return raw;
+
+    if (parsed_url.searchParams.has('v')) {
+      return this.sanitizeYouTubeWatchUrl(raw);
+    }
+
+    return raw;
   }
 
   // Detect actual playlist pages / pure playlist links.
