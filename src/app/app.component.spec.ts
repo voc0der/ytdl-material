@@ -7,6 +7,8 @@ describe('AppComponent', () => {
   let posts_service_mock: any;
   let active_downloads_trigger_mock: any;
   let dialog_mock: any;
+  let files_changed_subject: Subject<boolean>;
+  let playlists_changed_subject: Subject<boolean>;
 
   const createDownload = (overrides: Partial<Download>): Download => ({
     uid: 'download-1',
@@ -24,9 +26,12 @@ describe('AppComponent', () => {
   });
 
   beforeEach(() => {
+    files_changed_subject = new Subject<boolean>();
+    playlists_changed_subject = new Subject<boolean>();
     posts_service_mock = {
       config_reloaded: of(false),
-      files_changed: of(false),
+      files_changed: files_changed_subject,
+      playlists_changed: playlists_changed_subject,
       open_create_default_admin_dialog: of(false),
       service_initialized: of(true),
       initialized: true,
@@ -142,6 +147,58 @@ describe('AppComponent', () => {
     expect(component.show_completion_badge).toBeFalse();
     expect(component.shouldShowActiveDownloadsIndicator()).toBeFalse();
     jasmine.clock().uninstall();
+  });
+
+  it('emits file refresh when a successful completion is detected after reload polling', () => {
+    const files_changed_spy = spyOn(files_changed_subject, 'next').and.callThrough();
+    (component as any).active_downloads_initialized = true;
+    (component as any).previous_download_states = new Map<string, {finished: boolean, errored: boolean}>([
+      ['download-1', {finished: false, errored: false}]
+    ]);
+    posts_service_mock.getCurrentDownloads = () => of({
+      downloads: [
+        createDownload({
+          uid: 'download-1',
+          running: false,
+          finished: true,
+          finished_step: true,
+          percent_complete: 100,
+          file_uids: ['file-1'],
+          container: {uid: 'file-1'}
+        } as any)
+      ]
+    });
+
+    (component as any).refreshActiveDownloads();
+
+    expect(files_changed_spy).toHaveBeenCalledWith(true);
+  });
+
+  it('emits playlist refresh when a playlist completion is detected after reload polling', () => {
+    const files_changed_spy = spyOn(files_changed_subject, 'next').and.callThrough();
+    const playlists_changed_spy = spyOn(playlists_changed_subject, 'next').and.callThrough();
+    (component as any).active_downloads_initialized = true;
+    (component as any).previous_download_states = new Map<string, {finished: boolean, errored: boolean}>([
+      ['download-2', {finished: false, errored: false}]
+    ]);
+    posts_service_mock.getCurrentDownloads = () => of({
+      downloads: [
+        createDownload({
+          uid: 'download-2',
+          running: false,
+          finished: true,
+          finished_step: true,
+          percent_complete: 100,
+          file_uids: ['file-1', 'file-2'],
+          container: {id: 'playlist-1'}
+        } as any)
+      ]
+    });
+
+    (component as any).refreshActiveDownloads();
+
+    expect(files_changed_spy).toHaveBeenCalledWith(true);
+    expect(playlists_changed_spy).toHaveBeenCalledWith(true);
   });
 
   it('clears completion badge immediately when new active downloads appear', () => {

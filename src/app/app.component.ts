@@ -437,12 +437,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.postsService.getCurrentDownloads().subscribe(res => {
       const downloads = Array.isArray(res && res['downloads']) ? res['downloads'] : [];
-      const successful_completion_detected = this.detectSuccessfulCompletion(downloads);
+      const completion_summary = this.detectSuccessfulCompletion(downloads);
       const active_downloads = downloads
         .filter(download => this.isActiveDownload(download))
         .sort((download1, download2) => Number(download2.timestamp_start) - Number(download1.timestamp_start));
 
-      this.setActiveDownloads(active_downloads, successful_completion_detected);
+      this.handleCompletedDownloads(completion_summary.completed_downloads);
+      this.setActiveDownloads(active_downloads, completion_summary.successful_completion_detected);
       const next_poll_delay = active_downloads.length > 0
         ? this.ACTIVE_DOWNLOADS_POLL_INTERVAL_MS
         : this.IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS;
@@ -490,7 +491,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.active_download_count === 0 && previous_count > 0 && successful_completion_detected) {
       this.showCompletionBadgeTemporarily();
-      this.refreshDuplicateSummary();
     }
 
     if (active_download_count_increased || has_new_active_download) {
@@ -572,8 +572,26 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private detectSuccessfulCompletion(downloads: Download[]): boolean {
+  private handleCompletedDownloads(completed_downloads: Download[]): void {
+    if (!Array.isArray(completed_downloads) || completed_downloads.length === 0) return;
+
+    this.postsService.files_changed.next(true);
+    if (completed_downloads.some(download => this.isPlaylistCompletion(download))) {
+      this.postsService.playlists_changed.next(true);
+    }
+  }
+
+  private isPlaylistCompletion(download: Download): boolean {
+    const file_uids = Array.isArray(download && download['file_uids']) ? download['file_uids'] : [];
+    if (file_uids.length > 1) return true;
+
+    const container = download && download['container'];
+    return !!(container && typeof container === 'object' && container['id']);
+  }
+
+  private detectSuccessfulCompletion(downloads: Download[]): {successful_completion_detected: boolean, completed_downloads: Download[]} {
     const current_download_states = new Map<string, {finished: boolean, errored: boolean}>();
+    const completed_downloads: Download[] = [];
     let successful_completion_detected = false;
 
     for (const download of downloads) {
@@ -584,13 +602,17 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       const previous_state = this.previous_download_states.get(download.uid);
       if (this.active_downloads_initialized && finished && !errored && previous_state && !previous_state.finished) {
         successful_completion_detected = true;
+        completed_downloads.push(download);
       }
 
       current_download_states.set(download.uid, {finished: finished, errored: errored});
     }
 
     this.previous_download_states = current_download_states;
-    return successful_completion_detected;
+    return {
+      successful_completion_detected: successful_completion_detected,
+      completed_downloads: completed_downloads
+    };
   }
 
   private refreshOpenPlaylistProgressDialog(): void {
