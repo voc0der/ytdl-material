@@ -266,12 +266,18 @@ mat-form-field.mat-mdc-form-field {
     min-width: 140px;
 }
 
-.main-pane-action-select .mat-mdc-form-field-subscript-wrapper {
+.main-pane-action-select ::ng-deep .mat-mdc-form-field-subscript-wrapper {
     display: none;
 }
 
-.main-pane-action-select .mat-mdc-text-field-wrapper {
+.main-pane-action-select ::ng-deep .mat-mdc-text-field-wrapper {
     padding-bottom: 0;
+    border-radius: 16px;
+}
+
+.main-pane-action-select ::ng-deep .mdc-notched-outline__leading,
+.main-pane-action-select ::ng-deep .mdc-notched-outline__trailing {
+    border-radius: 16px;
 }
 
 .main-pane-select-spinner {
