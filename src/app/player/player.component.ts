@@ -116,6 +116,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   subtitleTrackAddListener?: EventListener;
   subtitleTrackRefreshToken = 0;
   loadedSubtitleTrackSignature = '';
+  subtitleToggleStateKey: string | null = null;
+  subtitlesEnabled = false;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
@@ -352,6 +354,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   updateCurrentItem(newCurrentItem: IMedia, newCurrentIndex: number) {
+    const current_subtitle_toggle_key = this.getSubtitleToggleStateKey(this.currentItem, this.currentIndex);
+    const next_subtitle_toggle_key = this.getSubtitleToggleStateKey(newCurrentItem, newCurrentIndex);
+    if (current_subtitle_toggle_key !== next_subtitle_toggle_key) {
+      this.subtitleToggleStateKey = null;
+      this.subtitlesEnabled = false;
+    }
     if (this.currentItem?.uid !== newCurrentItem?.uid) {
       this.subtitleTrackRefreshToken += 1;
       this.loadedSubtitleTrackSignature = '';
@@ -769,6 +777,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.currentSubtitleTracks = [];
     }
+    this.syncSubtitleToggleState();
     this.refreshMediaSubtitleTracks();
   }
 
@@ -813,6 +822,49 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     return subtitles
       .map(subtitle => `${subtitle.language ?? ''}:${subtitle.label ?? ''}:${subtitle.src ?? ''}:${subtitle.default === true}`)
       .join('|');
+  }
+
+  getSubtitleToggleStateKey(item: IMedia = this.currentItem, item_index = this.currentIndex): string | null {
+    if (!item) return null;
+    return item.uid || item.url || `${item_index}:${item.title ?? ''}`;
+  }
+
+  canToggleSubtitles(): boolean {
+    return this.currentItem?.type !== 'audio/mp3' && this.currentSubtitleTracks.length > 0;
+  }
+
+  getSubtitleToggleTooltip(): string {
+    return this.subtitlesEnabled
+      ? $localize`Hide subtitles`
+      : $localize`Show subtitles`;
+  }
+
+  syncSubtitleToggleState(): void {
+    if (!this.canToggleSubtitles()) {
+      this.subtitlesEnabled = false;
+      return;
+    }
+
+    const subtitle_toggle_key = this.getSubtitleToggleStateKey();
+    if (subtitle_toggle_key && this.subtitleToggleStateKey !== subtitle_toggle_key) {
+      this.subtitleToggleStateKey = subtitle_toggle_key;
+      this.subtitlesEnabled = true;
+    }
+  }
+
+  disableSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element?.textTracks) return;
+
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = 'disabled';
+    }
+  }
+
+  toggleSubtitles(): void {
+    if (!this.canToggleSubtitles()) return;
+    this.subtitlesEnabled = !this.subtitlesEnabled;
+    this.showDefaultSubtitleTrack();
   }
 
   refreshMediaSubtitleTracks(): void {
@@ -878,7 +930,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showDefaultSubtitleTrack(): void {
     const media_element = this.mediaElement?.nativeElement;
-    if (!media_element || !media_element.textTracks || this.currentSubtitleTracks.length === 0) return;
+    if (!media_element || !media_element.textTracks) return;
+
+    if (this.currentSubtitleTracks.length === 0 || !this.subtitlesEnabled) {
+      this.disableSubtitleTracks();
+      return;
+    }
 
     if (media_element.textTracks.length === 0) {
       this.scheduleDefaultSubtitleTrackActivation();

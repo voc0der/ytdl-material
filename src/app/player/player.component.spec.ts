@@ -279,6 +279,7 @@ describe('PlayerComponent', () => {
     component.syncCurrentSubtitles();
 
     expect(component.currentSubtitleTracks).toEqual(subtitles);
+    expect(component.subtitlesEnabled).toBeTrue();
   });
 
   it('should force the default subtitle track into showing mode', () => {
@@ -286,6 +287,7 @@ describe('PlayerComponent', () => {
       { mode: 'disabled' },
       { mode: 'disabled' }
     ];
+    component.subtitlesEnabled = true;
     component.currentSubtitleTracks = [
       { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' },
       { label: 'Spanish', language: 'es', default: false, src: '/api/streamSubtitle?uid=uid-subtitle&index=1' }
@@ -302,8 +304,59 @@ describe('PlayerComponent', () => {
     expect(textTracks[1].mode).toBe('disabled');
   });
 
+  it('should disable subtitle tracks when subtitles are toggled off', () => {
+    const textTracks = [
+      { mode: 'showing' },
+      { mode: 'disabled' }
+    ];
+    component.currentItem = {
+      title: 'Subtitle Toggle Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle Toggle Test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
+    };
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' },
+      { label: 'Spanish', language: 'es', default: false, src: '/api/streamSubtitle?uid=uid-subtitle&index=1' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.toggleSubtitles();
+
+    expect(component.subtitlesEnabled).toBeFalse();
+    expect(textTracks[0].mode).toBe('disabled');
+    expect(textTracks[1].mode).toBe('disabled');
+  });
+
+  it('should report that subtitles can be toggled when subtitle tracks are available', () => {
+    component.playlist = [{
+      title: 'Subtitle Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle Test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
+    }];
+    component.currentItem = component.playlist[0];
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.subtitlesEnabled = true;
+    component.show_player = true;
+
+    expect(component.canToggleSubtitles()).toBeTrue();
+  });
+
   it('should retry subtitle activation when tracks attach after the initial render', fakeAsync(() => {
     const textTracks: Array<{ mode: string }> = [];
+    component.subtitlesEnabled = true;
     component.currentSubtitleTracks = [
       { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
     ];
@@ -331,6 +384,7 @@ describe('PlayerComponent', () => {
       removeEventListener: jasmine.createSpy('removeEventListener')
     } as unknown as TextTrackList & EventTarget;
 
+    component.subtitlesEnabled = true;
     component.currentSubtitleTracks = [
       { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
     ];
@@ -360,6 +414,7 @@ describe('PlayerComponent', () => {
       url: 'https://example.com/video',
       uid: 'uid-subtitle'
     };
+    component.subtitlesEnabled = true;
     component.currentSubtitleTracks = [
       { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
     ];

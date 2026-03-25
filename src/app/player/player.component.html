@@ -118,6 +118,11 @@
                         <mat-icon>repeat_one</mat-icon>
                       </button>
                     }
+                    @if (canToggleSubtitles()) {
+                      <button class="playback-mode-button subtitle-toggle-button" [class.active]="subtitlesEnabled" (click)="toggleSubtitles()" [matTooltip]="getSubtitleToggleTooltip()" [attr.aria-pressed]="subtitlesEnabled" [attr.aria-label]="getSubtitleToggleTooltip()" mat-icon-button>
+                        <mat-icon>closed_caption</mat-icon>
+                      </button>
+                    }
                     @if (db_file || db_playlist) {
                       <button (click)="openFileInfoDialog()" mat-icon-button><mat-icon>info</mat-icon></button>
                     }
