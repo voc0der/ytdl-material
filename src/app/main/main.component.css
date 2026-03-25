@@ -228,17 +228,34 @@ mat-form-field.mat-mdc-form-field {
 
 .main-pane-actions-row {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
     width: 100%;
+    --main-pane-action-control-height: 36px;
+}
+
+.main-pane-action-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
     flex: 1 1 auto;
     flex-wrap: wrap;
-    --main-pane-action-control-height: 36px;
+    min-width: 0;
+}
+
+.main-pane-download-group {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    margin-left: auto;
 }
 
 .download-split-button,
 .main-pane-action-button.mat-mdc-outlined-button,
-.main-pane-select-group {
+.main-pane-select-group,
+.main-pane-download-group {
     margin: 0 0 8px 0 !important;
 }
 
@@ -346,6 +363,11 @@ mat-form-field.mat-mdc-form-field {
 
     .main-pane-actions-row {
         align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .main-pane-action-controls {
+        width: 100%;
     }
 
     .main-pane-action-select {
@@ -355,5 +377,11 @@ mat-form-field.mat-mdc-form-field {
 
     .main-pane-select-group {
         flex: 1 1 140px;
+    }
+
+    .main-pane-download-group {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
     }
 }
