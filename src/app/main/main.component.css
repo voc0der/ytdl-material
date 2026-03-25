@@ -258,6 +258,11 @@ mat-form-field.mat-mdc-form-field {
     margin: 0 0 8px 0 !important;
 }
 
+.download-split-button,
+.main-pane-action-button.mat-mdc-outlined-button {
+    align-self: flex-end;
+}
+
 .main-pane-select-group {
     display: flex;
     flex-direction: column;
