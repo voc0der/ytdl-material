@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef } from '@angular/core';
 import { VgApiService } from '@videogular/ngx-videogular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -19,6 +19,15 @@ export interface IMedia {
   url: string;
   uid?: string;
   chapters?: IChapter[];
+  subtitles?: ISubtitleTrack[];
+}
+
+export interface ISubtitleTrack {
+  label: string;
+  language: string;
+  kind?: string;
+  default?: boolean;
+  src?: string;
 }
 
 export interface IChapter {
@@ -99,9 +108,19 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   currentChapterLabel = $localize`Chapters`;
   activeChapterIndex = -1;
   chapterCacheByUID = new Map<string, IChapter[]>();
+  subtitleCacheByUID = new Map<string, ISubtitleTrack[]>();
   chapterLoadInFlight = new Set<string>();
+  currentSubtitleTracks: ISubtitleTrack[] = [];
+  subtitleTrackActivationTimer: ReturnType<typeof setTimeout> | null = null;
+  subtitleTrackList?: TextTrackList & EventTarget;
+  subtitleTrackAddListener?: EventListener;
+  subtitleTrackRefreshToken = 0;
+  loadedSubtitleTrackSignature = '';
+  subtitleToggleStateKey: string | null = null;
+  subtitlesEnabled = false;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
+  @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
 
   ngOnInit(): void {
     this.initPlaybackModeToggles();
@@ -139,6 +158,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+      this.subtitleTrackActivationTimer = null;
+    }
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+      this.subtitleTrackAddListener = null;
+      this.subtitleTrackList = null;
+    }
     this.postsService.setPageTitle();
   }
 
@@ -277,6 +305,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.api = api;
       this.api_ready = true;
       this.cdr.detectChanges();
+      this.attachSubtitleTrackListener();
+      // Subtitles can be resolved before the live media element exists.
+      // Reset the loaded signature so the real player can attach/reload tracks.
+      this.loadedSubtitleTrackSignature = '';
+      this.syncCurrentSubtitles();
 
       // checks if volume has been previously set. if so, use that as default
       if (localStorage.getItem('player_volume')) {
@@ -285,7 +318,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.save_volume_timer = setInterval(() => this.saveVolume(this.api), 2000)
 
-      this.api.getDefaultMedia().subscriptions.loadedMetadata.subscribe(this.playVideo.bind(this));
+      this.api.getDefaultMedia().subscriptions.loadedMetadata.subscribe(() => {
+        this.showDefaultSubtitleTrack();
+        this.playVideo();
+      });
       this.api.getDefaultMedia().subscriptions.ended.subscribe(this.nextVideo.bind(this));
       this.api.getDefaultMedia().subscriptions.timeUpdate.subscribe(this.onPlaybackTimeUpdate.bind(this));
 
@@ -322,6 +358,16 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   updateCurrentItem(newCurrentItem: IMedia, newCurrentIndex: number) {
+    const current_subtitle_toggle_key = this.getSubtitleToggleStateKey(this.currentItem, this.currentIndex);
+    const next_subtitle_toggle_key = this.getSubtitleToggleStateKey(newCurrentItem, newCurrentIndex);
+    if (current_subtitle_toggle_key !== next_subtitle_toggle_key) {
+      this.subtitleToggleStateKey = null;
+      this.subtitlesEnabled = false;
+    }
+    if (this.currentItem?.uid !== newCurrentItem?.uid) {
+      this.subtitleTrackRefreshToken += 1;
+      this.loadedSubtitleTrackSignature = '';
+    }
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.playbackTime = 0;
@@ -329,6 +375,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
+    this.syncCurrentSubtitles();
     this.updatePageTitleForCurrentItem();
   }
 
@@ -528,8 +575,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const mime_type = file_obj.isAudio ? 'audio/mp3' : 'video/mp4';
     const hasChapterPayload = Array.isArray(file_obj.chapters);
     const normalizedChapters = hasChapterPayload ? this.normalizeChapters(file_obj.chapters) : undefined;
+    const hasSubtitlePayload = Array.isArray(file_obj.subtitles);
+    const normalizedSubtitles = hasSubtitlePayload ? this.normalizeSubtitles(file_obj.subtitles, file_obj.uid) : undefined;
     if (hasChapterPayload && file_obj.uid) {
       this.chapterCacheByUID.set(file_obj.uid, normalizedChapters);
+    }
+    if (hasSubtitlePayload && file_obj.uid) {
+      this.subtitleCacheByUID.set(file_obj.uid, normalizedSubtitles);
     }
     const mediaObject: IMedia = {
       title: file_obj.title,
@@ -538,7 +590,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       label: file_obj.title,
       url: file_obj.url,
       uid: file_obj.uid,
-      chapters: normalizedChapters
+      chapters: normalizedChapters,
+      subtitles: normalizedSubtitles
     };
     return mediaObject;
   }
@@ -565,6 +618,29 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       fullLocation += `&sub_id=${this.sub_id}`;
     } else if (this.playlist_id) {
       fullLocation += `&playlist_id=${this.playlist_id}`;
+    }
+
+    return fullLocation;
+  }
+
+  createSubtitleTrackURL(uid: string, index = 0): string {
+    const normalizedBaseStreamPath = this.baseStreamPath.endsWith('/')
+      ? this.baseStreamPath.slice(0, -1)
+      : this.baseStreamPath;
+    let fullLocation = `${normalizedBaseStreamPath}/streamSubtitle?uid=${encodeURIComponent(uid)}&index=${index}`;
+
+    if (this.postsService.isLoggedIn) {
+      fullLocation += `&jwt=${this.postsService.token}`;
+    } else if (this.postsService.auth_token) {
+      fullLocation += `&apiKey=${this.postsService.auth_token}`;
+    }
+
+    if (this.uuid) {
+      fullLocation += `&uuid=${this.uuid}`;
+    }
+
+    if (this.sub_id) {
+      fullLocation += `&sub_id=${this.sub_id}`;
     }
 
     return fullLocation;
@@ -687,9 +763,26 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.refreshCurrentChapterState();
-    this.ensureCurrentItemChaptersLoaded();
+    this.ensureCurrentItemPlaybackMetadataLoaded();
     this.chapterTimelineVisible = false;
     this.chapterDropdownOpen = false;
+  }
+
+  syncCurrentSubtitles(): void {
+    const current_uid = this.currentItem?.uid;
+    if (Array.isArray(this.currentItem?.subtitles)) {
+      this.currentSubtitleTracks = this.currentItem.subtitles;
+      if (current_uid) {
+        this.subtitleCacheByUID.set(current_uid, this.currentSubtitleTracks);
+      }
+    } else if (current_uid && this.subtitleCacheByUID.has(current_uid)) {
+      this.currentSubtitleTracks = this.subtitleCacheByUID.get(current_uid) ?? [];
+      this.currentItem.subtitles = this.currentSubtitleTracks;
+    } else {
+      this.currentSubtitleTracks = [];
+    }
+    this.syncSubtitleToggleState();
+    this.refreshMediaSubtitleTracks();
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -706,6 +799,195 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         return {title, start_time, end_time};
       })
       .filter((chapter): chapter is IChapter => !!chapter);
+  }
+
+  normalizeSubtitles(subtitles: DatabaseFile['subtitles'], uid: string = null): ISubtitleTrack[] {
+    if (!Array.isArray(subtitles)) return [];
+
+    return subtitles
+      .map((subtitle, index) => {
+        const label = typeof subtitle.label === 'string' ? subtitle.label.trim() : '';
+        const language = typeof subtitle.language === 'string' ? subtitle.language.trim().toLowerCase() : '';
+        if (!label || !language || !uid) return null;
+
+        return {
+          label,
+          language,
+          kind: typeof subtitle.kind === 'string' && subtitle.kind.trim() !== '' ? subtitle.kind.trim() : 'subtitles',
+          default: subtitle.default === true || index === 0,
+          src: this.createSubtitleTrackURL(uid, index)
+        };
+      })
+      .filter(Boolean) as ISubtitleTrack[];
+  }
+
+  getSubtitleTrackSignature(subtitles: ISubtitleTrack[] = []): string {
+    if (!Array.isArray(subtitles) || subtitles.length === 0) return '';
+    return subtitles
+      .map(subtitle => `${subtitle.language ?? ''}:${subtitle.label ?? ''}:${subtitle.src ?? ''}:${subtitle.default === true}`)
+      .join('|');
+  }
+
+  getSubtitleToggleStateKey(item: IMedia = this.currentItem, item_index = this.currentIndex): string | null {
+    if (!item) return null;
+    return item.uid || item.url || `${item_index}:${item.title ?? ''}`;
+  }
+
+  getAvailableMediaTextTrackCount(): number {
+    const media_element = this.mediaElement?.nativeElement;
+    return media_element?.textTracks?.length ?? 0;
+  }
+
+  canToggleSubtitles(): boolean {
+    return this.currentItem?.type !== 'audio/mp3'
+      && (this.currentSubtitleTracks.length > 0 || this.getAvailableMediaTextTrackCount() > 0);
+  }
+
+  getSubtitleToggleTooltip(): string {
+    return this.subtitlesEnabled
+      ? $localize`Hide subtitles`
+      : $localize`Show subtitles`;
+  }
+
+  syncSubtitleToggleState(): void {
+    if (!this.canToggleSubtitles()) {
+      this.subtitlesEnabled = false;
+      return;
+    }
+
+    const subtitle_toggle_key = this.getSubtitleToggleStateKey();
+    if (subtitle_toggle_key && this.subtitleToggleStateKey !== subtitle_toggle_key) {
+      this.subtitleToggleStateKey = subtitle_toggle_key;
+      this.subtitlesEnabled = true;
+    }
+  }
+
+  disableSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element?.textTracks) return;
+
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = 'disabled';
+    }
+  }
+
+  toggleSubtitles(): void {
+    if (!this.canToggleSubtitles()) return;
+    this.subtitlesEnabled = !this.subtitlesEnabled;
+    this.showDefaultSubtitleTrack();
+  }
+
+  refreshMediaSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const subtitle_signature = this.getSubtitleTrackSignature(this.currentSubtitleTracks);
+
+    if (!media_element || this.currentItem?.type === 'audio/mp3') {
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      queueMicrotask(() => this.showDefaultSubtitleTrack());
+      return;
+    }
+
+    this.cdr.detectChanges();
+    queueMicrotask(() => {
+      this.attachSubtitleTrackListener();
+      const should_reload_media = media_element.readyState > 0
+        && subtitle_signature !== this.loadedSubtitleTrackSignature
+        && typeof media_element.load === 'function';
+
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      if (!should_reload_media) {
+        this.showDefaultSubtitleTrack();
+        return;
+      }
+
+      const refresh_token = ++this.subtitleTrackRefreshToken;
+      const current_uid = this.currentItem?.uid ?? null;
+      const resume_playback = !media_element.paused && !media_element.ended;
+      const resume_time = Number.isFinite(media_element.currentTime) ? media_element.currentTime : 0;
+      const restore_media_state = () => {
+        if (refresh_token !== this.subtitleTrackRefreshToken || current_uid !== (this.currentItem?.uid ?? null)) {
+          return;
+        }
+
+        if (resume_time > 0) {
+          try {
+            const duration = Number.isFinite(media_element.duration) && media_element.duration > 0
+              ? media_element.duration
+              : resume_time;
+            media_element.currentTime = Math.min(resume_time, duration);
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+
+        this.showDefaultSubtitleTrack();
+        if (resume_playback) {
+          try {
+            const play_result = media_element.play();
+            if (play_result && typeof play_result.catch === 'function') {
+              play_result.catch(() => undefined);
+            }
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+      };
+
+      media_element.addEventListener('loadedmetadata', restore_media_state, { once: true });
+      media_element.load();
+    });
+  }
+
+  showDefaultSubtitleTrack(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element || !media_element.textTracks) return;
+
+    if (!this.subtitlesEnabled) {
+      this.disableSubtitleTracks();
+      return;
+    }
+
+    if (media_element.textTracks.length === 0) {
+      this.scheduleDefaultSubtitleTrackActivation();
+      return;
+    }
+
+    const default_track_index = this.currentSubtitleTracks.length > 0
+      ? Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default))
+      : 0;
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = i === default_track_index ? 'showing' : 'disabled';
+    }
+  }
+
+  attachSubtitleTrackListener(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const text_tracks = media_element?.textTracks as (TextTrackList & EventTarget) | undefined;
+    if (!text_tracks || typeof text_tracks.addEventListener !== 'function') return;
+
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+    }
+
+    this.subtitleTrackList = text_tracks;
+    this.subtitleTrackAddListener = () => {
+      queueMicrotask(() => {
+        this.syncSubtitleToggleState();
+        this.cdr.detectChanges();
+        this.showDefaultSubtitleTrack();
+      });
+    };
+    text_tracks.addEventListener('addtrack', this.subtitleTrackAddListener);
+  }
+
+  scheduleDefaultSubtitleTrackActivation(): void {
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+    }
+    this.subtitleTrackActivationTimer = setTimeout(() => {
+      this.subtitleTrackActivationTimer = null;
+      this.showDefaultSubtitleTrack();
+    }, 150);
   }
 
   isChapterActive(chapter: IChapter): boolean {
@@ -832,14 +1114,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentChapterLabel = this.currentChapters[this.activeChapterIndex]?.title ?? $localize`Chapters`;
   }
 
-  ensureCurrentItemChaptersLoaded(): void {
+  ensureCurrentItemPlaybackMetadataLoaded(): void {
     const current_uid = this.currentItem?.uid;
     if (!current_uid || this.chapterLoadInFlight.has(current_uid)) {
       return;
     }
 
-    if (this.chapterCacheByUID.has(current_uid)) {
+    if (this.chapterCacheByUID.has(current_uid) && this.subtitleCacheByUID.has(current_uid)) {
       this.applyChaptersToMedia(current_uid, this.chapterCacheByUID.get(current_uid) ?? []);
+      this.applySubtitlesToMedia(current_uid, this.subtitleCacheByUID.get(current_uid) ?? []);
       return;
     }
 
@@ -847,8 +1130,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.postsService.getFile(current_uid, this.uuid).subscribe(res => {
       this.chapterLoadInFlight.delete(current_uid);
       const normalized_chapters = this.normalizeChapters(res?.file?.chapters);
+      const normalized_subtitles = this.normalizeSubtitles(res?.file?.subtitles, current_uid);
       this.chapterCacheByUID.set(current_uid, normalized_chapters);
+      this.subtitleCacheByUID.set(current_uid, normalized_subtitles);
       this.applyChaptersToMedia(current_uid, normalized_chapters);
+      this.applySubtitlesToMedia(current_uid, normalized_subtitles);
     }, () => {
       this.chapterLoadInFlight.delete(current_uid);
     });
@@ -877,6 +1163,48 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentItem.chapters = chapters;
       this.currentChapters = chapters;
       this.refreshCurrentChapterState();
+    }
+  }
+
+  applySubtitlesToMedia(uid: string, subtitles: ISubtitleTrack[]): void {
+    const playlist_item = this.playlist.find(media => media.uid === uid);
+    if (playlist_item) {
+      playlist_item.subtitles = subtitles;
+    }
+
+    const current_queue_file = this.autoplay_queue_file_objs.find(file_obj => file_obj.uid === uid);
+    if (current_queue_file) {
+      current_queue_file.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.db_file?.uid === uid) {
+      this.db_file.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.currentFile?.uid === uid) {
+      this.currentFile.subtitles = subtitles.map(({label, language, kind, default: is_default}) => ({
+        label,
+        language,
+        kind,
+        default: is_default
+      }));
+    }
+
+    if (this.currentItem?.uid === uid) {
+      this.currentItem.subtitles = subtitles;
+      this.currentSubtitleTracks = subtitles;
+      this.syncSubtitleToggleState();
+      this.refreshMediaSubtitleTracks();
     }
   }
 

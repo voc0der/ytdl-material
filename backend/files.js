@@ -1,5 +1,6 @@
 const fs = require('fs-extra')
 const path = require('path')
+const ffmpeg = require('fluent-ffmpeg');
 const { v4: uuid } = require('uuid');
 
 const config_api = require('./config');
@@ -8,6 +9,7 @@ const archive_api = require('./archive');
 const utils = require('./utils')
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
+const PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX = '.player-subtitles';
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -43,6 +45,203 @@ function getChaptersForFile(file_obj) {
     if (!metadata_json || !Array.isArray(metadata_json.chapters)) return [];
 
     return metadata_json.chapters.map(normalizeChapter).filter(Boolean);
+}
+
+function normalizeSubtitleLanguage(language = '') {
+    if (language === null || language === undefined) return null;
+    const normalized_language = String(language).trim().toLowerCase();
+    return normalized_language === '' ? null : normalized_language;
+}
+
+function getRequestedSubtitleTracks(file_obj = null) {
+    if (!file_obj || file_obj.isAudio || !file_obj.path) return [];
+
+    const metadata_json = utils.getJSON(file_obj.path, 'video');
+    const requested_subtitles = metadata_json && typeof metadata_json === 'object'
+        ? metadata_json.requested_subtitles
+        : null;
+    if (!requested_subtitles || typeof requested_subtitles !== 'object') return [];
+
+    return Object.entries(requested_subtitles)
+        .map(([language, subtitle_entry], index) => {
+            const normalized_language = normalizeSubtitleLanguage(language);
+            if (!normalized_language || !subtitle_entry || typeof subtitle_entry !== 'object') return null;
+
+            const label = typeof subtitle_entry.name === 'string' && subtitle_entry.name.trim() !== ''
+                ? subtitle_entry.name.trim()
+                : normalized_language;
+            return {
+                index: index,
+                language: normalized_language,
+                label: label,
+                kind: 'subtitles',
+                default: index === 0
+            };
+        })
+        .filter(Boolean);
+}
+
+function getSubtitleTrackLabel(stream = null, fallback_language = 'subtitle', track_index = 0) {
+    const tags = stream && typeof stream === 'object' ? (stream.tags || {}) : {};
+    const label_candidates = [tags.name, tags.title, tags.handler_name];
+    for (const label_candidate of label_candidates) {
+        if (typeof label_candidate !== 'string') continue;
+        const normalized_label = label_candidate.trim();
+        if (normalized_label !== '') return normalized_label;
+    }
+
+    return fallback_language === 'und'
+        ? `Subtitle ${track_index + 1}`
+        : fallback_language;
+}
+
+async function probeEmbeddedSubtitleTracks(file_path = '') {
+    if (typeof file_path !== 'string' || file_path.trim() === '') return [];
+    if (!(await fs.pathExists(file_path))) return [];
+
+    return await new Promise(resolve => {
+        ffmpeg.ffprobe(file_path, (err, metadata) => {
+            if (err || !metadata || !Array.isArray(metadata.streams)) {
+                if (err) logger.debug(`Failed to probe subtitle streams for '${file_path}': ${err}`);
+                resolve([]);
+                return;
+            }
+
+            const subtitle_streams = metadata.streams.filter(stream => stream && stream.codec_type === 'subtitle');
+            resolve(subtitle_streams.map((stream, track_index) => {
+                const normalized_language = normalizeSubtitleLanguage(stream?.tags?.language) || 'und';
+                return {
+                    index: track_index,
+                    language: normalized_language,
+                    label: getSubtitleTrackLabel(stream, normalized_language, track_index),
+                    kind: 'subtitles',
+                    default: !!(stream?.disposition && stream.disposition.default === 1) || track_index === 0
+                };
+            }));
+        });
+    });
+}
+
+async function getAvailableSubtitleTracks(file_obj = null) {
+    if (!file_obj || file_obj.isAudio || !file_obj.path) return [];
+
+    const requested_tracks = getRequestedSubtitleTracks(file_obj);
+    const embedded_tracks = await probeEmbeddedSubtitleTracks(file_obj.path);
+    if (embedded_tracks.length === 0) return requested_tracks;
+
+    return embedded_tracks.map((embedded_track, index) => {
+        const matching_requested_track = requested_tracks.find(track => track.index === index)
+            || requested_tracks.find(track => track.language === embedded_track.language)
+            || null;
+        return {
+            index: embedded_track.index,
+            language: matching_requested_track?.language || embedded_track.language,
+            label: matching_requested_track?.label || embedded_track.label,
+            kind: 'subtitles',
+            default: embedded_track.default
+        };
+    });
+}
+
+function buildRequestedSubtitleTracks(file_obj = null) {
+    return getRequestedSubtitleTracks(file_obj);
+}
+
+function getSubtitleSidecarPath(file_path = '', subtitle_track_index = 0) {
+    if (typeof file_path !== 'string' || file_path.trim() === '') return null;
+    const normalized_track_index = Number.isInteger(subtitle_track_index) && subtitle_track_index > 0
+        ? subtitle_track_index
+        : 0;
+    const base_path = `${utils.removeFileExtension(file_path)}${PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX}`;
+    return normalized_track_index === 0
+        ? `${base_path}.vtt`
+        : `${base_path}.${normalized_track_index}.vtt`;
+}
+exports.getSubtitleSidecarPath = getSubtitleSidecarPath;
+
+async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) {
+    const subtitle_sidecar_path = getSubtitleSidecarPath(file_path, subtitle_track_index);
+    if (!subtitle_sidecar_path) return null;
+    if (!(await fs.pathExists(file_path))) return null;
+
+    try {
+        await fs.remove(subtitle_sidecar_path);
+    } catch (e) {
+        logger.warn(`Failed to remove stale subtitle sidecar '${subtitle_sidecar_path}'.`);
+    }
+
+    return await new Promise(resolve => {
+        ffmpeg(file_path)
+            .outputOptions(['-map', `0:s:${subtitle_track_index}`])
+            .format('webvtt')
+            .on('end', async () => {
+                try {
+                    await fs.chmod(subtitle_sidecar_path, 0o644);
+                } catch (e) {
+                    // Non-fatal.
+                }
+                resolve(subtitle_sidecar_path);
+            })
+            .on('error', async (err) => {
+                try {
+                    await fs.remove(subtitle_sidecar_path);
+                } catch (e) {
+                    // Non-fatal.
+                }
+                logger.warn(`Failed to extract subtitle sidecar for '${file_path}': ${err}`);
+                resolve(null);
+            })
+            .save(subtitle_sidecar_path);
+    });
+}
+exports.extractSubtitleSidecar = extractSubtitleSidecar;
+
+exports.ensureSubtitleSidecarForFile = async (file_obj = null, subtitle_track_index = 0) => {
+    if (!file_obj || file_obj.isAudio || !file_obj.path) return null;
+
+    const available_tracks = await getAvailableSubtitleTracks(file_obj);
+    if (available_tracks.length === 0) return null;
+    if (!available_tracks.find(track => track.index === subtitle_track_index)) return null;
+
+    const subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path, subtitle_track_index);
+    if (!subtitle_sidecar_path) return null;
+    if (await fs.pathExists(subtitle_sidecar_path)) return subtitle_sidecar_path;
+
+    return await extractSubtitleSidecar(file_obj.path, subtitle_track_index);
+}
+
+exports.attachFileSubtitles = async (file_obj = null, ensure_sidecar = false) => {
+    if (!file_obj) return file_obj;
+
+    const available_tracks = await getAvailableSubtitleTracks(file_obj);
+    if (available_tracks.length === 0) {
+        return {
+            ...file_obj,
+            subtitles: []
+        };
+    }
+
+    if (ensure_sidecar) {
+        for (const available_track of available_tracks) {
+            await exports.ensureSubtitleSidecarForFile(file_obj, available_track.index);
+        }
+    }
+
+    return {
+        ...file_obj,
+        subtitles: available_tracks.map((available_track) => ({
+            language: available_track.language,
+            label: available_track.label,
+            kind: 'subtitles',
+            default: available_track.default
+        }))
+    };
+}
+
+exports.attachFilePlaybackMetadata = async (file_obj = null, ensure_subtitle_sidecar = false) => {
+    if (!file_obj) return file_obj;
+    const file_with_chapters = exports.attachFileChapters(file_obj);
+    return await exports.attachFileSubtitles(file_with_chapters, ensure_subtitle_sidecar);
 }
 
 exports.attachFileChapters = (file_obj = null) => {
@@ -644,12 +843,24 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     var altJSONPath = `${filePathNoExtension}.info.json`;
     var thumbnailPath = `${filePathNoExtension}.webp`;
     var altThumbnailPath = `${filePathNoExtension}.jpg`;
+    const subtitleSidecarDirectory = path.dirname(file_obj.path);
+    const subtitleSidecarBasename = path.basename(filePathNoExtension);
 
     jsonPath = path.join(__dirname, jsonPath);
     altJSONPath = path.join(__dirname, altJSONPath);
 
     let jsonExists = await fs.pathExists(jsonPath);
     let thumbnailExists = await fs.pathExists(thumbnailPath);
+    const subtitleSidecarPaths = [];
+    try {
+        const subtitleSidecarFiles = await fs.readdir(subtitleSidecarDirectory);
+        const subtitleSidecarRegex = new RegExp(`^${escapeRegex(subtitleSidecarBasename)}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
+        subtitleSidecarFiles
+            .filter(file_name => subtitleSidecarRegex.test(file_name))
+            .forEach(file_name => subtitleSidecarPaths.push(path.join(subtitleSidecarDirectory, file_name)));
+    } catch (e) {
+        // Ignore directory read failures here; file deletion can continue.
+    }
 
     if (!jsonExists) {
         if (await fs.pathExists(altJSONPath)) {
@@ -704,6 +915,9 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
 
     if (jsonExists) await fs.unlink(jsonPath);
     if (thumbnailExists) await fs.unlink(thumbnailPath);
+    for (const subtitleSidecarPath of subtitleSidecarPaths) {
+        await fs.unlink(subtitleSidecarPath);
+    }
 
     await db_api.removeRecord('files', {uid: file_obj.uid});
 

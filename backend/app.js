@@ -1330,6 +1330,8 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
         maxHeight: req.body.maxHeight,
         customQualityConfiguration: req.body.customQualityConfiguration,
         selectedAudioLanguage: req.body.selectedAudioLanguage,
+        selectedSubtitleLanguage: req.body.selectedSubtitleLanguage,
+        selectedSubtitleType: req.body.selectedSubtitleType,
         youtubeUsername: req.body.youtubeUsername,
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
@@ -1365,6 +1367,8 @@ app.post('/api/generateArgs', optionalJwt, async function(req, res) {
         maxHeight: req.body.maxHeight,
         customQualityConfiguration: req.body.customQualityConfiguration,
         selectedAudioLanguage: req.body.selectedAudioLanguage,
+        selectedSubtitleLanguage: req.body.selectedSubtitleLanguage,
+        selectedSubtitleType: req.body.selectedSubtitleType,
         youtubeUsername: req.body.youtubeUsername,
         youtubePassword: req.body.youtubePassword,
         ui_uid: req.body.ui_uid,
@@ -1432,7 +1436,7 @@ app.post('/api/getFile', optionalJwt, async function (req, res) {
 
     // check if chat exists for twitch videos
     if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
-    if (file) file = files_api.attachFileChapters(file);
+    if (file) file = await files_api.attachFilePlaybackMetadata(file, true);
 
     if (file) {
         res.send({
@@ -2533,6 +2537,49 @@ app.get('/api/stream', optionalJwt, async (req, res) => {
         res.writeHead(200, head)
         fs.createReadStream(file_path).pipe(res)
     }
+});
+
+app.get('/api/streamSubtitle', optionalJwt, async (req, res) => {
+    const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
+    const sub_id = req.query.sub_id;
+    const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
+    const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
+    const subtitle_track_index = Number.isInteger(Number(req.query.index)) && Number(req.query.index) >= 0
+        ? Number(req.query.index)
+        : 0;
+
+    if (!uid) {
+        res.status(400).type('text/plain').send('Missing media uid');
+        return;
+    }
+
+    let file_obj = null;
+    const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
+    if (!multiUserMode || req.isAuthenticated() || req.can_watch) {
+        file_obj = await files_api.getVideo(uid, uuid, sub_id);
+    }
+    if (!file_obj) {
+        logger.warn(`Subtitle stream lookup failed for UID ${uid}.`);
+        res.status(404).type('text/plain').send('Subtitle track not found');
+        return;
+    }
+
+    const subtitle_sidecar_path = await files_api.ensureSubtitleSidecarForFile(file_obj, subtitle_track_index);
+    if (!subtitle_sidecar_path) {
+        res.status(404).type('text/plain').send('Subtitle track not found');
+        return;
+    }
+
+    const resolved_subtitle_path = path.isAbsolute(subtitle_sidecar_path)
+        ? subtitle_sidecar_path
+        : path.join(__dirname, subtitle_sidecar_path);
+    if (!fs.existsSync(resolved_subtitle_path)) {
+        res.status(404).type('text/plain').send('Subtitle track not found');
+        return;
+    }
+
+    res.type('text/vtt; charset=utf-8');
+    res.sendFile(resolved_subtitle_path);
 });
 
 app.get('/api/thumbnail/:path', optionalJwt, async (req, res) => {

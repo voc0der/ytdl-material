@@ -31,10 +31,13 @@ export class VideoInfoDialogComponent implements OnInit {
       this.initializeFile(this.data.file);
     }
     this.postsService.reloadCategories();
-    this.write_access = !this.file.user_uid || (this.file.user_uid && this.postsService.user?.uid === this.file.user_uid);
+    if (this.file?.uid) {
+      this.getFile();
+    }
   }
 
   initializeFile(file: DatabaseFile): void {
+    if (!file) return;
     this.file = file;
     this.new_file = JSON.parse(JSON.stringify(file));
 
@@ -43,6 +46,7 @@ export class VideoInfoDialogComponent implements OnInit {
     this.upload_date.setMinutes( this.upload_date.getMinutes() + this.upload_date.getTimezoneOffset() );
 
     this.category = this.file.category ? this.file.category : {};
+    this.write_access = !this.file?.user_uid || (this.file?.user_uid && this.postsService.user?.uid === this.file.user_uid);
 
     // we need to align whether missing category is null or undefined. this line helps with that.
     if (!this.file.category) { this.new_file.category = null; this.file.category = null; }
@@ -100,6 +104,22 @@ export class VideoInfoDialogComponent implements OnInit {
     this.postsService.updateFile(this.file.uid, {favorite: this.file.favorite}).subscribe(res => {
       this.getFile();
     });
+  }
+
+  getSubtitleSummary(): string {
+    const subtitles = this.new_file?.subtitles;
+    if (!Array.isArray(subtitles) || subtitles.length === 0) {
+      return $localize`None detected`;
+    }
+
+    return subtitles.map((subtitle, index) => {
+      const label = typeof subtitle?.label === 'string' && subtitle.label.trim() !== ''
+        ? subtitle.label.trim()
+        : (typeof subtitle?.language === 'string' && subtitle.language.trim() !== ''
+          ? subtitle.language.trim()
+          : `Track ${index + 1}`);
+      return subtitle?.default ? `${label} (${ $localize`default` })` : label;
+    }).join(', ');
   }
 
 }

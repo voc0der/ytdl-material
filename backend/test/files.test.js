@@ -44,6 +44,55 @@ describe('Files', function() {
         assert.deepStrictEqual(output[0].chapters, []);
     });
 
+    it('attachFileSubtitles exposes requested subtitle metadata when a player sidecar exists', async function() {
+        await fs.writeJSON(fixture_info_path, {
+            requested_subtitles: {
+                en: {
+                    name: 'English'
+                }
+            }
+        });
+        await fs.writeFile(files_api.getSubtitleSidecarPath(fixture_file_path), 'WEBVTT\n\n00:00.000 --> 00:01.000\nhello\n');
+
+        const output = await files_api.attachFileSubtitles({
+            path: fixture_file_path,
+            isAudio: false
+        });
+
+        assert.deepStrictEqual(output.subtitles, [
+            {
+                language: 'en',
+                label: 'English',
+                kind: 'subtitles',
+                default: true
+            }
+        ]);
+    });
+
+    it('attachFileSubtitles exposes requested subtitle metadata before a player sidecar exists', async function() {
+        await fs.writeJSON(fixture_info_path, {
+            requested_subtitles: {
+                en: {
+                    name: 'English'
+                }
+            }
+        });
+
+        const output = await files_api.attachFileSubtitles({
+            path: fixture_file_path,
+            isAudio: false
+        });
+
+        assert.deepStrictEqual(output.subtitles, [
+            {
+                language: 'en',
+                label: 'English',
+                kind: 'subtitles',
+                default: true
+            }
+        ]);
+    });
+
     it('deleteFileObject destroys active descriptors using the file uid key', async function() {
         const original_remove_record = db_api.removeRecord;
         const descriptor_uid = 'descriptor-file';
@@ -51,6 +100,7 @@ describe('Files', function() {
 
         try {
             await fs.writeFile(fixture_file_path, 'fixture');
+            await fs.writeFile(files_api.getSubtitleSidecarPath(fixture_file_path), 'WEBVTT');
             db_api.removeRecord = async () => true;
             config_api.descriptors[descriptor_uid] = [
                 {destroy: () => { destroyed_count += 1; }},
@@ -68,6 +118,7 @@ describe('Files', function() {
             assert.strictEqual(output, true);
             assert.strictEqual(destroyed_count, 2);
             assert.strictEqual(await fs.pathExists(fixture_file_path), false);
+            assert.strictEqual(await fs.pathExists(files_api.getSubtitleSidecarPath(fixture_file_path)), false);
         } finally {
             delete config_api.descriptors[descriptor_uid];
             db_api.removeRecord = original_remove_record;

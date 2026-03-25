@@ -80,6 +80,10 @@
     <div class="info-item-label"><strong><ng-container i18n="Video path property">Path:</ng-container>&nbsp;</strong></div>
     <div class="info-item-value">{{new_file.path ? new_file.path : 'N/A'}}</div>
   </div>
+  <div class="info-item">
+    <div class="info-item-label"><strong><ng-container i18n="Video subtitles property">Subtitles:</ng-container>&nbsp;</strong></div>
+    <div class="info-item-value">{{getSubtitleSummary()}}</div>
+  </div>
 
 </mat-dialog-content>
 

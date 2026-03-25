@@ -47,6 +47,14 @@ export type DownloadRequest = {
      * Preferred audio language code to use when alternate tracks are available.
      */
     selectedAudioLanguage?: string;
+    /**
+     * Preferred subtitle language code to use when subtitle tracks are available.
+     */
+    selectedSubtitleLanguage?: string;
+    /**
+     * Preferred subtitle source to use for the selected subtitle language.
+     */
+    selectedSubtitleType?: string;
     type?: FileType;
     cropFileSettings?: CropFileSettings;
     /**

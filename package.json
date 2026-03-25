@@ -40,7 +40,7 @@
     "core-js": "^3.49.0",
     "crypto-js": "^4.2.0",
     "file-saver": "^2.0.2",
-    "filesize": "^11.0.13",
+    "filesize": "^11.0.14",
     "fs-extra": "^11.3.4",
     "material-icons": "^1.10.8",
     "nan": "^2.26.2",

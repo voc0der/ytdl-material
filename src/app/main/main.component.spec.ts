@@ -25,6 +25,9 @@ describe('MainComponent', () => {
       },
       hasPermission: () => true,
       getCurrentDownload: () => of({download: null}),
+      downloadFile: () => of({download: {uid: 'queued-default'}}),
+      generateArgs: () => of({args: []}),
+      getFileFormats: () => of({result: null}),
       openSnackBar: () => {},
       files_changed: {
         next: jasmine.createSpy('filesChangedNext')
@@ -390,6 +393,129 @@ describe('MainComponent', () => {
     expect(component.getSelectedVideoFormat()).toBe('video-only-1440+audio-es-96');
   });
 
+  it('builds subtitle options from manual subtitles and automatic captions in the existing info probe', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats(
+      [{vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-1080', ext: 'mp4'}],
+      {
+        subtitles: {
+          fr: [{ext: 'srt'}],
+          live_chat: [{ext: 'json'}]
+        },
+        automatic_captions: {
+          es: [{ext: 'vtt'}],
+          fr: [{ext: 'vtt'}],
+          en: []
+        }
+      }
+    );
+
+    expect(parsedFormats.subtitle_languages.map(option => ({
+      value: option.value,
+      source: option.source,
+      hasManual: option.hasManual,
+      hasAutomatic: option.hasAutomatic
+    }))).toEqual([
+      {value: 'fr', source: 'manual', hasManual: true, hasAutomatic: true},
+      {value: 'es', source: 'automatic', hasManual: false, hasAutomatic: true}
+    ]);
+  });
+
+  it('filters translated automatic caption targets down to the real source language', () => {
+    const parsedFormats: any = component.getAudioAndVideoFormats(
+      [{vcodec: 'avc1', acodec: 'mp4a', height: 1080, fps: 30, format_id: 'video-1080', ext: 'mp4'}],
+      {
+        subtitles: {},
+        automatic_captions: {
+          'en-orig': [{url: 'https://www.youtube.com/api/timedtext?lang=en&fmt=vtt', ext: 'vtt', name: 'English (Original)'}],
+          en: [{url: 'https://www.youtube.com/api/timedtext?lang=en&fmt=vtt', ext: 'vtt', name: 'English'}],
+          fr: [{url: 'https://www.youtube.com/api/timedtext?lang=en&tlang=fr&fmt=vtt', ext: 'vtt', name: 'French'}],
+          es: [{url: 'https://www.youtube.com/api/timedtext?lang=en&tlang=es&fmt=vtt', ext: 'vtt', name: 'Spanish'}]
+        }
+      }
+    );
+
+    expect(parsedFormats.subtitle_languages.map(option => ({
+      value: option.value,
+      source: option.source
+    }))).toEqual([
+      {value: 'en', source: 'automatic'}
+    ]);
+  });
+
+  it('passes selected subtitle language and source through the main download request', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles'}}));
+    component.url = 'https://example.com/subtitles';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'es', label: 'Spanish (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+    component.onSelectedSubtitleLanguageChanged('es');
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('es');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
+  it('keeps automatic subtitle selection when the watch URL is sanitized before download', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles-sanitized'}}));
+    component.url = 'https://www.youtube.com/watch?v=SsKT0s5J8ko&list=RDBuNBLjJzRoo&index=20';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'en', label: 'English (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+    component.onSelectedSubtitleLanguageChanged('en');
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
+    expect(download_file_spy.calls.argsFor(0)[0]).toBe('https://www.youtube.com/watch?v=SsKT0s5J8ko');
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('en');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
+  it('preserves the selected subtitle source even if cached formats are unavailable at download time', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles-sticky-source'}}));
+    component.url = 'https://www.youtube.com/watch?v=SsKT0s5J8ko&list=RDBuNBLjJzRoo&index=20';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'en', label: 'English (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+
+    component.onSelectedSubtitleLanguageChanged('en');
+    component.cachedAvailableFormats = Object.create(null);
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('en');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
+  it('does not allow subtitle selection in audio-only mode', () => {
+    component.url = 'https://example.com/audio-only';
+    component.audioOnly = true;
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'fr', label: 'French', source: 'manual', hasManual: true, hasAutomatic: false}
+        ]
+      }
+    };
+
+    expect(component.canSelectSubtitleLanguage()).toBeFalse();
+  });
+
   it('maps playlist menu action to canonical playlist URL', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
     const download_spy = spyOn(component, 'downloadClicked');
@@ -447,6 +573,19 @@ describe('MainComponent', () => {
 
     expect(get_file_formats_spy).not.toHaveBeenCalled();
     expect(component.cachedAvailableFormats[channel_search_url]['formats_failed']).toBeTrue();
+  });
+
+  it('probes watch urls with playlist params as a sanitized single-video url', () => {
+    const watch_url_with_playlist = 'https://www.youtube.com/watch?v=K_9tX4eHztY&list=RDBuNBLjJzRoo&index=7';
+    const get_file_formats_spy = jasmine.createSpy('getFileFormats').and.returnValue(of({result: {formats: []}}));
+    (component as any).postsService.getFileFormats = get_file_formats_spy;
+    const parse_formats_spy = spyOn(component, 'getAudioAndVideoFormats').and.returnValue({video: [], audio: [], subtitle_languages: [], audio_languages: []} as any);
+
+    component.getURLInfo(watch_url_with_playlist);
+
+    expect(get_file_formats_spy).toHaveBeenCalledWith('https://www.youtube.com/watch?v=K_9tX4eHztY');
+    expect(parse_formats_spy).toHaveBeenCalled();
+    expect(component.cachedAvailableFormats[watch_url_with_playlist]['formats_loading']).toBeFalse();
   });
 
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {

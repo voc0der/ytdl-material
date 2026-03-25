@@ -164,6 +164,8 @@ export class MainComponent implements OnInit {
   selectedMaxQuality = '';
   selectedQuality: string | unknown = '';
   selectedAudioLanguage = '';
+  selectedSubtitleLanguage = '';
+  selectedSubtitleSource = '';
   formats_loading = false;
 
   @ViewChild('urlinput', { read: ElementRef }) urlInput: ElementRef;
@@ -422,6 +424,8 @@ export class MainComponent implements OnInit {
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
+    const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
 
     let cropFileSettings = null;
 
@@ -434,15 +438,19 @@ export class MainComponent implements OnInit {
 
     const selected_quality = this.selectedQuality;
     const selected_audio_language = selectedAudioLanguage;
+    const selected_subtitle_language = selectedSubtitleLanguage;
+    const selected_subtitle_type = selectedSubtitleType;
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.downloadingfile = true;
 
     const urls = this.getURLArray(effective_url);
     for (let i = 0; i < urls.length; i++) {
       const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
       this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language).subscribe(res => {
+        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language, selected_subtitle_language, selected_subtitle_type).subscribe(res => {
           const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
             ? res['downloads']
             : (res['download'] ? [res['download']] : []);
@@ -610,6 +618,8 @@ export class MainComponent implements OnInit {
     this.url = '';
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.results_showing = false;
   }
 
@@ -625,6 +635,8 @@ export class MainComponent implements OnInit {
     this.results_showing = false;
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.url = url;
     this.ValidURL(url);
   }
@@ -632,6 +644,8 @@ export class MainComponent implements OnInit {
   inputChanged(new_val: string): void {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
+    this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -676,8 +690,9 @@ export class MainComponent implements OnInit {
     if (!this.cachedAvailableFormats[url]) {
       this.cachedAvailableFormats[url] = Object.create(null);
     }
+    const probe_url = this.sanitizeSingleVideoProbeUrl(url);
     // If URL resolves to a playlist-like feed, skip per-file format probing.
-    if (this.isYouTubePlaylistUrl(url) || this.isYouTubeChannelSearchPlaylistUrl(url)) {
+    if (this.isYouTubePlaylistUrl(probe_url) || this.isYouTubeChannelSearchPlaylistUrl(probe_url)) {
       // make it think that formats errored so that users have options
       this.cachedAvailableFormats[url]['formats_loading'] = false;
       this.cachedAvailableFormats[url]['formats_failed'] = true;
@@ -685,14 +700,14 @@ export class MainComponent implements OnInit {
     }
     if (!(this.cachedAvailableFormats[url] && this.cachedAvailableFormats[url]['formats'])) {
       this.cachedAvailableFormats[url]['formats_loading'] = true;
-      this.postsService.getFileFormats(url).subscribe(res => {
+      this.postsService.getFileFormats(probe_url).subscribe(res => {
         this.cachedAvailableFormats[url]['formats_loading'] = false;
         const infos = res['result'];
         if (!infos || !infos.formats) {
           this.errorFormats(url);
           return;
         }
-        this.cachedAvailableFormats[url]['formats'] = this.getAudioAndVideoFormats(infos.formats);
+        this.cachedAvailableFormats[url]['formats'] = this.getAudioAndVideoFormats(infos.formats, infos);
       }, () => {
         this.errorFormats(url);
       });
@@ -785,6 +800,17 @@ export class MainComponent implements OnInit {
     return `https://www.youtube.com/watch?v=${videoId}`;
   }
 
+  private sanitizeSingleVideoProbeUrl(raw: string): string {
+    const parsed_url = this.safeParseURL(raw);
+    if (!parsed_url) return raw;
+
+    if (parsed_url.searchParams.has('v')) {
+      return this.sanitizeYouTubeWatchUrl(raw);
+    }
+
+    return raw;
+  }
+
   // Detect actual playlist pages / pure playlist links.
   // NOTE: watch?v=...&list=... is treated as a single video (we sanitize it above).
   private isYouTubePlaylistUrl(raw: string): boolean {
@@ -828,6 +854,8 @@ export class MainComponent implements OnInit {
 
     const customQualityConfiguration = type === 'audio' ? this.getSelectedAudioFormat() : this.getSelectedVideoFormat();
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
+    const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
+    const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
 
     let cropFileSettings = null;
 
@@ -839,7 +867,7 @@ export class MainComponent implements OnInit {
     }
 
     this.postsService.generateArgs(this.url, type as FileType, (customQualityConfiguration || this.selectedQuality === '' || typeof this.selectedQuality !== 'string' ? null : this.selectedQuality),
-      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage).subscribe(res => {
+      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage, selectedSubtitleLanguage, selectedSubtitleType).subscribe(res => {
         const simulated_args = res['args'];
         if (simulated_args) {
           // hide password if needed
@@ -847,7 +875,7 @@ export class MainComponent implements OnInit {
           if (passwordIndex !== -1 && passwordIndex !== simulated_args.length - 1) {
             simulated_args[passwordIndex + 1] = simulated_args[passwordIndex + 1].replace(/./g, '*');
           }
-          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage);
+          const downloader = this.getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage, selectedSubtitleLanguage);
           this.simulatedOutput = `${downloader} ${this.url} ${simulated_args.join(' ')}`;
         }
     });
@@ -896,7 +924,23 @@ export class MainComponent implements OnInit {
 
   videoModeChanged(new_val): void {
     this.selectedQuality = '';
+    this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     localStorage.setItem('audioOnly', new_val.checked.toString());
+    this.argsChanged();
+  }
+
+  onSelectedSubtitleLanguageChanged(new_value: string): void {
+    this.selectedSubtitleLanguage = typeof new_value === 'string' ? new_value : '';
+    if (this.selectedSubtitleLanguage === '') {
+      this.selectedSubtitleSource = '';
+      this.argsChanged();
+      return;
+    }
+
+    const selected_subtitle_option = this.getAvailableSubtitleLanguages()
+      .find(option => option.value === this.selectedSubtitleLanguage);
+    this.selectedSubtitleSource = selected_subtitle_option?.source || '';
     this.argsChanged();
   }
 
@@ -925,14 +969,25 @@ export class MainComponent implements OnInit {
   }
 
   getAvailableAudioLanguages(): Array<{value: string, label: string}> {
-    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    const cachedFormats = this.getCurrentCachedFormats();
     return cachedFormats?.['audio_languages'] || [];
+  }
+
+  getAvailableSubtitleLanguages(): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
+    const cachedFormats = this.getCurrentCachedFormats();
+    return cachedFormats?.['subtitle_languages'] || [];
   }
 
   canSelectAudioLanguage(): boolean {
     if (!this.url) return false;
-    if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
+    if (this.getCachedFormatsEntry(this.url)?.['formats_loading']) return false;
     return this.getAvailableAudioLanguages().length > 0;
+  }
+
+  canSelectSubtitleLanguage(): boolean {
+    if (this.audioOnly || !this.url) return false;
+    if (this.getCachedFormatsEntry(this.url)?.['formats_loading']) return false;
+    return this.getAvailableSubtitleLanguages().length > 0;
   }
 
   private getSelectedAudioLanguage(): string | null {
@@ -941,13 +996,55 @@ export class MainComponent implements OnInit {
       : null;
   }
 
-  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null): string {
-    return selectedAudioLanguage ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
+  private getSelectedSubtitleLanguage(): string | null {
+    return typeof this.selectedSubtitleLanguage === 'string' && this.selectedSubtitleLanguage !== ''
+      ? this.selectedSubtitleLanguage
+      : null;
+  }
+
+  private getSelectedSubtitleType(): string | null {
+    const selectedSubtitleLanguage = this.getSelectedSubtitleLanguage();
+    if (!selectedSubtitleLanguage) return null;
+    if (this.selectedSubtitleSource === 'manual' || this.selectedSubtitleSource === 'automatic') {
+      return this.selectedSubtitleSource;
+    }
+    const selectedSubtitleOption = this.getAvailableSubtitleLanguages()
+      .find(option => option.value === selectedSubtitleLanguage);
+    return selectedSubtitleOption?.source || null;
+  }
+
+  private getEffectiveDownloaderForCurrentSelection(selectedAudioLanguage: string | null = null, selectedSubtitleLanguage: string | null = null): string {
+    return (selectedAudioLanguage || selectedSubtitleLanguage) ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
+  }
+
+  private getCachedFormatsEntry(url: string): any {
+    if (!url) return null;
+
+    if (this.cachedAvailableFormats[url]) {
+      return this.cachedAvailableFormats[url];
+    }
+
+    const sanitized_url = this.sanitizeSingleVideoProbeUrl(url);
+    if (sanitized_url && sanitized_url !== url && this.cachedAvailableFormats[sanitized_url]) {
+      return this.cachedAvailableFormats[sanitized_url];
+    }
+
+    if (!sanitized_url) return null;
+
+    for (const [cached_url, cached_entry] of Object.entries(this.cachedAvailableFormats)) {
+      if (!cached_entry) continue;
+      if (this.sanitizeSingleVideoProbeUrl(cached_url) === sanitized_url) {
+        return cached_entry;
+      }
+    }
+
+    return null;
   }
 
   private getCurrentCachedFormats(): any {
-    return this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats']
-      ? this.cachedAvailableFormats[this.url]['formats']
+    const cachedFormatsEntry = this.getCachedFormatsEntry(this.url);
+    return cachedFormatsEntry && cachedFormatsEntry['formats']
+      ? cachedFormatsEntry['formats']
       : null;
   }
 
@@ -1019,7 +1116,7 @@ export class MainComponent implements OnInit {
     return cachedFormats['best_merge_audio_format'] || null;
   }
 
-  getAudioAndVideoFormats(formats): void {
+  getAudioAndVideoFormats(formats, info = null): void {
     const audio_formats: any = {};
     const audio_formats_by_key: any = {};
     const video_formats: any = {};
@@ -1179,6 +1276,7 @@ export class MainComponent implements OnInit {
     parsed_formats['video_formats_by_key'] = video_formats_by_key;
     parsed_formats['audio_languages'] = Object.values(language_options)
       .sort((a: any, b: any) => a.label.localeCompare(b.label));
+    parsed_formats['subtitle_languages'] = this.getSubtitleLanguageOptions(info);
 
     // add audio file size to the expected video file size -- but only if best_audio_format will be used (i.e. when the video has no acodec already). if acodec is present expected filesize will include it
     for (const video_format of Object.values(video_formats)) {
@@ -1279,6 +1377,85 @@ export class MainComponent implements OnInit {
   }
 
   private getAudioLanguageLabel(language: string): string {
+    return this.getLanguageLabel(language);
+  }
+
+  private getSubtitleLanguageOptions(info: any): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
+    const subtitle_options = Object.create(null);
+    const automatic_label_suffix = $localize`:Automatic subtitle label:auto`;
+    const addSubtitleOptions = (tracks: any, source: 'manual' | 'automatic') => {
+      if (!tracks || typeof tracks !== 'object') return;
+
+      for (const [language, entries] of Object.entries(tracks)) {
+        const normalized_language = this.getNormalizedSubtitleLanguage(language, entries, source);
+        if (!normalized_language) continue;
+
+        if (!subtitle_options[normalized_language]) {
+          subtitle_options[normalized_language] = {
+            value: normalized_language,
+            hasManual: false,
+            hasAutomatic: false
+          };
+        }
+
+        if (source === 'manual') {
+          subtitle_options[normalized_language].hasManual = true;
+        } else {
+          subtitle_options[normalized_language].hasAutomatic = true;
+        }
+      }
+    };
+
+    addSubtitleOptions(info?.subtitles, 'manual');
+    addSubtitleOptions(info?.automatic_captions, 'automatic');
+
+    return Object.values(subtitle_options)
+      .map((option: any) => ({
+        ...option,
+        source: option.hasManual ? 'manual' : 'automatic',
+        label: option.hasManual
+          ? this.getLanguageLabel(option.value)
+          : `${this.getLanguageLabel(option.value)} (${automatic_label_suffix})`
+      }))
+      .sort((a: any, b: any) => a.label.localeCompare(b.label));
+  }
+
+  private getNormalizedSubtitleLanguage(language: string, entries: any, source: 'manual' | 'automatic' = 'manual'): string | null {
+    if (typeof language !== 'string') return null;
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+
+    const resolved_language = source === 'automatic'
+      ? this.getAutomaticSubtitleSourceLanguage(entries, language)
+      : language;
+    const normalized_language = typeof resolved_language === 'string' ? resolved_language.trim() : '';
+    if (normalized_language === '' || normalized_language.toLowerCase() === 'live_chat') return null;
+
+    return normalized_language;
+  }
+
+  private getAutomaticSubtitleSourceLanguage(entries: any[], fallbackLanguage: string): string | null {
+    let saw_translated_entry = false;
+
+    for (const entry of entries) {
+      const parsed_url = this.safeParseURL(entry?.url);
+      if (!parsed_url) continue;
+
+      const translated_language = parsed_url.searchParams.get('tlang');
+      if (translated_language) {
+        saw_translated_entry = true;
+        continue;
+      }
+
+      const source_language = parsed_url.searchParams.get('lang');
+      if (source_language && source_language.trim() !== '') {
+        return source_language;
+      }
+    }
+
+    return saw_translated_entry ? null : fallbackLanguage;
+  }
+
+  private getLanguageLabel(language: string): string {
     try {
       const locale = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
       const languageName = new Intl.DisplayNames([locale], {type: 'language'}).of(language);

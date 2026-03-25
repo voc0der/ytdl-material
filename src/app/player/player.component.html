@@ -6,6 +6,9 @@
           <div style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
             <vg-player style="height: fit-content; max-height: 75vh" (onPlayerReady)="onPlayerReady($event)" (mousemove)="onPlayerMouseMove($event)" (mouseleave)="onPlayerMouseLeave()" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
               <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [vgMedia]="$any(media)" [src]="currentItem.src" id="singleVideo" preload="auto" controls playsinline>
+                @for (subtitle of currentSubtitleTracks; track subtitle.src ?? subtitle.language ?? $index) {
+                  <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
+                }
               </video>
               @if (currentChapters.length > 0 && currentItem.type !== 'audio/mp3') {
                 <div class="chapter-overlay" [class.visible]="chapterTimelineVisible">
@@ -108,6 +111,11 @@
                       </span>
                     }
                     @if (db_file || playlist[currentIndex]) {
+                      @if (canToggleSubtitles()) {
+                        <button class="playback-mode-button" [class.active]="subtitlesEnabled" [attr.aria-label]="getSubtitleToggleTooltip()" (click)="toggleSubtitles()" [matTooltip]="getSubtitleToggleTooltip()" i18n-matTooltip="Subtitle toggle tooltip" mat-icon-button>
+                          <mat-icon>closed_caption</mat-icon>
+                        </button>
+                      }
                       <button class="playback-mode-button" [class.active]="autoplay_enabled" (click)="toggleAutoplay()" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" mat-icon-button>
                         <mat-icon>playlist_play</mat-icon>
                       </button>
