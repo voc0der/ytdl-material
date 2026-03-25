@@ -347,8 +347,8 @@ export class MainComponent implements OnInit {
     }
   }
 
-  // download click handler
-  shouldShowDownloadMenu(): boolean {
+  // secondary download menu actions beyond the always-available audio toggle
+  hasAdditionalDownloadMenuActions(): boolean {
     return this.sponsorBlockDownloadsEnabled || this.hasPlaylistUrlInInput() || this.hasChannelSearchPlaylistUrlInInput();
   }
 
@@ -922,12 +922,22 @@ export class MainComponent implements OnInit {
     this.argsChangedSubject.next(true);
   }
 
-  videoModeChanged(new_val): void {
+  private setAudioOnly(next_value: boolean): void {
+    this.audioOnly = next_value;
     this.selectedQuality = '';
     this.selectedSubtitleLanguage = '';
     this.selectedSubtitleSource = '';
-    localStorage.setItem('audioOnly', new_val.checked.toString());
+    localStorage.setItem('audioOnly', next_value.toString());
     this.argsChanged();
+  }
+
+  toggleAudioOnlyFromMenu(): void {
+    this.setAudioOnly(!this.audioOnly);
+  }
+
+  toggleAutoplayFromMenu(): void {
+    this.autoplay = !this.autoplay;
+    localStorage.setItem('autoplay', this.autoplay.toString());
   }
 
   onSelectedSubtitleLanguageChanged(new_value: string): void {
