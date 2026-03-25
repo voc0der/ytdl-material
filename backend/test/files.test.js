@@ -69,6 +69,30 @@ describe('Files', function() {
         ]);
     });
 
+    it('attachFileSubtitles exposes requested subtitle metadata before a player sidecar exists', async function() {
+        await fs.writeJSON(fixture_info_path, {
+            requested_subtitles: {
+                en: {
+                    name: 'English'
+                }
+            }
+        });
+
+        const output = await files_api.attachFileSubtitles({
+            path: fixture_file_path,
+            isAudio: false
+        });
+
+        assert.deepStrictEqual(output.subtitles, [
+            {
+                language: 'en',
+                label: 'English',
+                kind: 'subtitles',
+                default: true
+            }
+        ]);
+    });
+
     it('deleteFileObject destroys active descriptors using the file uid key', async function() {
         const original_remove_record = db_api.removeRecord;
         const descriptor_uid = 'descriptor-file';

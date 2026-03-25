@@ -1187,6 +1187,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentItem?.uid === uid) {
       this.currentItem.subtitles = subtitles;
       this.currentSubtitleTracks = subtitles;
+      this.syncSubtitleToggleState();
       this.refreshMediaSubtitleTracks();
     }
   }

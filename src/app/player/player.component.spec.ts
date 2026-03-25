@@ -282,6 +282,26 @@ describe('PlayerComponent', () => {
     expect(component.subtitlesEnabled).toBeTrue();
   });
 
+  it('should enable subtitles when subtitle metadata arrives for the current item later', () => {
+    component.currentItem = {
+      title: 'Subtitle arrival test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle arrival test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
+    };
+    component.subtitlesEnabled = false;
+    spyOn(component, 'refreshMediaSubtitleTracks');
+
+    component.applySubtitlesToMedia('uid-subtitle', [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ]);
+
+    expect(component.subtitlesEnabled).toBeTrue();
+    expect(component.refreshMediaSubtitleTracks).toHaveBeenCalled();
+  });
+
   it('should force the default subtitle track into showing mode', () => {
     const textTracks = [
       { mode: 'disabled' },

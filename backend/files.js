@@ -221,28 +221,20 @@ exports.attachFileSubtitles = async (file_obj = null, ensure_sidecar = false) =>
         };
     }
 
-    const subtitle_tracks = [];
-    for (const available_track of available_tracks) {
-        let subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path, available_track.index);
-        const sidecar_exists = subtitle_sidecar_path ? await fs.pathExists(subtitle_sidecar_path) : false;
-        if (!sidecar_exists && ensure_sidecar) {
-            subtitle_sidecar_path = await exports.ensureSubtitleSidecarForFile(file_obj, available_track.index);
-        } else if (!sidecar_exists) {
-            subtitle_sidecar_path = null;
+    if (ensure_sidecar) {
+        for (const available_track of available_tracks) {
+            await exports.ensureSubtitleSidecarForFile(file_obj, available_track.index);
         }
-        if (!subtitle_sidecar_path) continue;
-
-        subtitle_tracks.push({
-                language: available_track.language,
-                label: available_track.label,
-                kind: 'subtitles',
-                default: available_track.default
-            });
     }
 
     return {
         ...file_obj,
-        subtitles: subtitle_tracks
+        subtitles: available_tracks.map((available_track) => ({
+            language: available_track.language,
+            label: available_track.label,
+            kind: 'subtitles',
+            default: available_track.default
+        }))
     };
 }
 
