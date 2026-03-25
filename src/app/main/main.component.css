@@ -249,6 +249,7 @@ mat-form-field.mat-mdc-form-field {
     width: 100%;
     flex: 1 1 auto;
     flex-wrap: wrap;
+    --main-pane-action-control-height: 36px;
 }
 
 .download-split-button,
@@ -261,6 +262,13 @@ mat-form-field.mat-mdc-form-field {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.download-main-action.mat-mdc-outlined-button,
+.download-menu-action.mat-mdc-outlined-button,
+.main-pane-action-button.mat-mdc-outlined-button {
+    height: var(--main-pane-action-control-height);
+    min-height: var(--main-pane-action-control-height);
 }
 
 .main-pane-action-field-label {
@@ -284,9 +292,35 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .main-pane-action-select ::ng-deep .mat-mdc-text-field-wrapper {
+    height: var(--main-pane-action-control-height);
+    min-height: var(--main-pane-action-control-height);
     padding-bottom: 0;
     border-radius: 999px;
     overflow: hidden;
+}
+
+.main-pane-action-select ::ng-deep .mat-mdc-form-field-flex {
+    height: 100%;
+    align-items: center;
+}
+
+.main-pane-action-select ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 0;
+    height: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    align-items: center;
+}
+
+.main-pane-action-select ::ng-deep .mat-mdc-select-trigger {
+    height: 100%;
+    align-items: center;
+}
+
+.main-pane-action-select ::ng-deep .mat-mdc-form-field-icon-suffix {
+    align-items: center;
+    align-self: center;
 }
 
 .main-pane-action-select ::ng-deep .mdc-notched-outline {
