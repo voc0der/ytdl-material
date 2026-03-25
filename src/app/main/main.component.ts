@@ -935,6 +935,11 @@ export class MainComponent implements OnInit {
     this.setAudioOnly(!this.audioOnly);
   }
 
+  toggleAutoplayFromMenu(): void {
+    this.autoplay = !this.autoplay;
+    localStorage.setItem('autoplay', this.autoplay.toString());
+  }
+
   onSelectedSubtitleLanguageChanged(new_value: string): void {
     this.selectedSubtitleLanguage = typeof new_value === 'string' ? new_value : '';
     if (this.selectedSubtitleLanguage === '') {

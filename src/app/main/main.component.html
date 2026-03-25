@@ -58,6 +58,12 @@
             <mat-icon>{{audioOnly ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
             <span i18n="Main download button option for audio-only mode">Only Audio</span>
           </button>
+          @if (!forceAutoplay) {
+            <button mat-menu-item (click)="toggleAutoplayFromMenu()" [disabled]="downloadingfile || url === '' || getURLArray(url).length > 1">
+              <mat-icon>{{autoplay ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
+              <span i18n="Main download button option for autoplay">Autoplay</span>
+            </button>
+          }
           @if (hasAdditionalDownloadMenuActions()) {
             <mat-divider></mat-divider>
           }
@@ -140,15 +146,6 @@
               <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
             }
             </mat-form-field>
-          </div>
-        }
-        @if (!forceAutoplay) {
-          <div class="main-pane-inline-toggle">
-            <mat-checkbox [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
-              <ng-container i18n="Autoplay checkbox">
-                          Autoplay
-                      </ng-container>
-            </mat-checkbox>
           </div>
         }
       </div>

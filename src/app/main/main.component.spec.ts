@@ -260,6 +260,15 @@ describe('MainComponent', () => {
     expect(component.argsChanged).toHaveBeenCalled();
   });
 
+  it('toggles autoplay from the download menu', () => {
+    component.autoplay = false;
+
+    component.toggleAutoplayFromMenu();
+
+    expect(component.autoplay).toBeTrue();
+    expect(localStorage.getItem('autoplay')).toBe('true');
+  });
+
   it('builds language-aware video selectors from loaded formats', () => {
     const parsedFormats: any = component.getAudioAndVideoFormats([
       {vcodec: 'none', abr: 128, format_id: 'audio-en', ext: 'm4a', language: 'en', language_preference: 10, filesize: 100},
