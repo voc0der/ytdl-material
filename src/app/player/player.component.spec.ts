@@ -374,6 +374,28 @@ describe('PlayerComponent', () => {
     expect(component.canToggleSubtitles()).toBeTrue();
   });
 
+  it('should report that subtitles can be toggled when embedded text tracks are available without subtitle metadata', () => {
+    component.playlist = [{
+      title: 'Embedded Subtitle Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Embedded Subtitle Test',
+      url: 'https://example.com/video',
+      uid: 'uid-embedded-subtitle'
+    }];
+    component.currentItem = component.playlist[0];
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks: {
+          length: 1
+        }
+      }
+    } as any;
+
+    expect(component.canToggleSubtitles()).toBeTrue();
+  });
+
   it('should retry subtitle activation when tracks attach after the initial render', fakeAsync(() => {
     const textTracks: Array<{ mode: string }> = [];
     component.subtitlesEnabled = true;
@@ -392,6 +414,25 @@ describe('PlayerComponent', () => {
 
     expect(textTracks[0].mode).toBe('showing');
   }));
+
+  it('should show the first embedded subtitle track when subtitle metadata is unavailable', () => {
+    const textTracks = [
+      { mode: 'disabled' },
+      { mode: 'disabled' }
+    ];
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.showDefaultSubtitleTrack();
+
+    expect(textTracks[0].mode).toBe('showing');
+    expect(textTracks[1].mode).toBe('disabled');
+  });
 
   it('should reapply subtitle activation when the browser adds tracks later', fakeAsync(() => {
     let addTrackListener: EventListener = null;
@@ -418,6 +459,41 @@ describe('PlayerComponent', () => {
     addTrackListener(new Event('addtrack'));
     tick();
 
+    expect((textTracks[0] as any).mode).toBe('showing');
+  }));
+
+  it('should enable subtitle toggling when embedded tracks are added later without subtitle metadata', fakeAsync(() => {
+    let addTrackListener: EventListener = null;
+    const textTracks = {
+      0: { mode: 'disabled' },
+      length: 1,
+      addEventListener: (_event: string, listener: EventListener) => {
+        addTrackListener = listener;
+      },
+      removeEventListener: jasmine.createSpy('removeEventListener')
+    } as unknown as TextTrackList & EventTarget;
+
+    component.currentItem = {
+      title: 'Embedded subtitle arrival test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Embedded subtitle arrival test',
+      url: 'https://example.com/video',
+      uid: 'uid-embedded-subtitle'
+    };
+    component.subtitlesEnabled = false;
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.attachSubtitleTrackListener();
+    addTrackListener(new Event('addtrack'));
+    tick();
+
+    expect(component.subtitlesEnabled).toBeTrue();
     expect((textTracks[0] as any).mode).toBe('showing');
   }));
 

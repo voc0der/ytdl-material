@@ -829,8 +829,14 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     return item.uid || item.url || `${item_index}:${item.title ?? ''}`;
   }
 
+  getAvailableMediaTextTrackCount(): number {
+    const media_element = this.mediaElement?.nativeElement;
+    return media_element?.textTracks?.length ?? 0;
+  }
+
   canToggleSubtitles(): boolean {
-    return this.currentItem?.type !== 'audio/mp3' && this.currentSubtitleTracks.length > 0;
+    return this.currentItem?.type !== 'audio/mp3'
+      && (this.currentSubtitleTracks.length > 0 || this.getAvailableMediaTextTrackCount() > 0);
   }
 
   getSubtitleToggleTooltip(): string {
@@ -932,7 +938,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const media_element = this.mediaElement?.nativeElement;
     if (!media_element || !media_element.textTracks) return;
 
-    if (this.currentSubtitleTracks.length === 0 || !this.subtitlesEnabled) {
+    if (!this.subtitlesEnabled) {
       this.disableSubtitleTracks();
       return;
     }
@@ -942,7 +948,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const default_track_index = Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default));
+    const default_track_index = this.currentSubtitleTracks.length > 0
+      ? Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default))
+      : 0;
     for (let i = 0; i < media_element.textTracks.length; i++) {
       media_element.textTracks[i].mode = i === default_track_index ? 'showing' : 'disabled';
     }
@@ -959,7 +967,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.subtitleTrackList = text_tracks;
     this.subtitleTrackAddListener = () => {
-      queueMicrotask(() => this.showDefaultSubtitleTrack());
+      queueMicrotask(() => {
+        this.syncSubtitleToggleState();
+        this.cdr.detectChanges();
+        this.showDefaultSubtitleTrack();
+      });
     };
     text_tracks.addEventListener('addtrack', this.subtitleTrackAddListener);
   }
