@@ -220,14 +220,14 @@ describe('MainComponent', () => {
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0&list=PLIhvC56v63IJIujb5cyE13oLuyORZpdkL&index=6';
 
     expect(component.hasPlaylistUrlInInput()).toBeTrue();
-    expect(component.shouldShowDownloadMenu()).toBeTrue();
+    expect(component.hasAdditionalDownloadMenuActions()).toBeTrue();
   });
 
   it('shows channel search playlist option for YouTube channel search URLs', () => {
     component.url = 'https://www.youtube.com/@SimonizeShow/search?query=TBC';
 
     expect(component.hasChannelSearchPlaylistUrlInInput()).toBeTrue();
-    expect(component.shouldShowDownloadMenu()).toBeTrue();
+    expect(component.hasAdditionalDownloadMenuActions()).toBeTrue();
   });
 
   it('does not show playlist download option for non-playlist URL', () => {
@@ -240,7 +240,24 @@ describe('MainComponent', () => {
     component.sponsorBlockDownloadsEnabled = true;
     component.url = 'https://www.youtube.com/watch?v=wOWhfNB_r-0';
 
-    expect(component.shouldShowDownloadMenu()).toBeTrue();
+    expect(component.hasAdditionalDownloadMenuActions()).toBeTrue();
+  });
+
+  it('toggles audio-only mode from the download menu', () => {
+    component.audioOnly = false;
+    component.selectedQuality = 'best';
+    component.selectedSubtitleLanguage = 'en';
+    (component as any).selectedSubtitleSource = 'automatic';
+    spyOn(component, 'argsChanged');
+
+    component.toggleAudioOnlyFromMenu();
+
+    expect(component.audioOnly).toBeTrue();
+    expect(component.selectedQuality).toBe('');
+    expect(component.selectedSubtitleLanguage).toBe('');
+    expect((component as any).selectedSubtitleSource).toBe('');
+    expect(localStorage.getItem('audioOnly')).toBe('true');
+    expect(component.argsChanged).toHaveBeenCalled();
   });
 
   it('builds language-aware video selectors from loaded formats', () => {

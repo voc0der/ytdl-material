@@ -39,60 +39,44 @@
             </div>
           }
         </form>
-        <br/>
-        <div class="main-pane-toggle-row">
-          <mat-checkbox class="main-pane-audio-toggle" [disabled]="autoplay && !!current_download" (change)="videoModeChanged($event)" [(ngModel)]="audioOnly">
-            <ng-container i18n="Only Audio checkbox">
-                          Only Audio
-                      </ng-container>
-          </mat-checkbox>
-          @if (!forceAutoplay) {
-            <mat-checkbox class="main-pane-autoplay-toggle" [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
-              <ng-container i18n="Autoplay checkbox">
-                          Autoplay
-                      </ng-container>
-            </mat-checkbox>
-          }
-        </div>
       </div>
     </mat-card-content>
     <mat-card-actions class="main-pane-card-actions">
       <div class="main-pane-actions-row">
-        @if (shouldShowDownloadMenu()) {
-          <div class="download-split-button">
-            <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
-              <ng-container i18n="Main download button">
-                          Download
-                      </ng-container>
-            </button>
-            <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
-              <mat-icon>arrow_drop_down</mat-icon>
-            </button>
-          </div>
-          <mat-menu #downloadMenu="matMenu" xPosition="after">
-            @if (hasPlaylistUrlInInput()) {
-              <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option for playlist">Download Playlist</span>
-              </button>
-            }
-            @if (hasChannelSearchPlaylistUrlInInput()) {
-              <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
-              </button>
-            }
-            @if (sponsorBlockDownloadsEnabled) {
-              <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
-              </button>
-            }
-          </mat-menu>
-        } @else {
-          <button class="main-pane-action-button" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="submit" mat-stroked-button color="accent">
+        <div class="download-split-button">
+          <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
             <ng-container i18n="Main download button">
                         Download
                     </ng-container>
           </button>
-        }
+          <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
+            <mat-icon>arrow_drop_down</mat-icon>
+          </button>
+        </div>
+        <mat-menu #downloadMenu="matMenu" xPosition="after">
+          <button mat-menu-item (click)="toggleAudioOnlyFromMenu()" [disabled]="downloadingfile || url === '' || (autoplay && !!current_download)">
+            <mat-icon>{{audioOnly ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
+            <span i18n="Main download button option for audio-only mode">Only Audio</span>
+          </button>
+          @if (hasAdditionalDownloadMenuActions()) {
+            <mat-divider></mat-divider>
+          }
+          @if (hasPlaylistUrlInInput()) {
+            <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+              <span i18n="Main download button option for playlist">Download Playlist</span>
+            </button>
+          }
+          @if (hasChannelSearchPlaylistUrlInInput()) {
+            <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+              <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
+            </button>
+          }
+          @if (sponsorBlockDownloadsEnabled) {
+            <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
+              <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
+            </button>
+          }
+        </mat-menu>
         @if (allowQualitySelect) {
           <div class="main-pane-select-group">
             <div class="main-pane-action-field-label" i18n="Quality select label">Quality</div>
@@ -156,6 +140,15 @@
               <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
             }
             </mat-form-field>
+          </div>
+        }
+        @if (!forceAutoplay) {
+          <div class="main-pane-inline-toggle">
+            <mat-checkbox [disabled]="getURLArray(url).length > 1" (change)="autoplayChanged($event)" [(ngModel)]="autoplay">
+              <ng-container i18n="Autoplay checkbox">
+                          Autoplay
+                      </ng-container>
+            </mat-checkbox>
           </div>
         }
       </div>
