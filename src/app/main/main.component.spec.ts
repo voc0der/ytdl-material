@@ -452,7 +452,7 @@ describe('MainComponent', () => {
         ]
       }
     };
-    component.selectedSubtitleLanguage = 'es';
+    component.onSelectedSubtitleLanguageChanged('es');
 
     component.downloadClicked();
 
@@ -471,12 +471,33 @@ describe('MainComponent', () => {
         ]
       }
     };
-    component.selectedSubtitleLanguage = 'en';
+    component.onSelectedSubtitleLanguageChanged('en');
 
     component.downloadClicked();
 
     expect(download_file_spy).toHaveBeenCalled();
     expect(download_file_spy.calls.argsFor(0)[0]).toBe('https://www.youtube.com/watch?v=SsKT0s5J8ko');
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('en');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
+  it('preserves the selected subtitle source even if cached formats are unavailable at download time', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles-sticky-source'}}));
+    component.url = 'https://www.youtube.com/watch?v=SsKT0s5J8ko&list=RDBuNBLjJzRoo&index=20';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'en', label: 'English (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+
+    component.onSelectedSubtitleLanguageChanged('en');
+    component.cachedAvailableFormats = Object.create(null);
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
     expect(download_file_spy.calls.argsFor(0)[13]).toBe('en');
     expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
   });

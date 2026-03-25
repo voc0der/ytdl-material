@@ -165,6 +165,7 @@ export class MainComponent implements OnInit {
   selectedQuality: string | unknown = '';
   selectedAudioLanguage = '';
   selectedSubtitleLanguage = '';
+  selectedSubtitleSource = '';
   formats_loading = false;
 
   @ViewChild('urlinput', { read: ElementRef }) urlInput: ElementRef;
@@ -442,6 +443,7 @@ export class MainComponent implements OnInit {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.downloadingfile = true;
 
     const urls = this.getURLArray(effective_url);
@@ -617,6 +619,7 @@ export class MainComponent implements OnInit {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.results_showing = false;
   }
 
@@ -633,6 +636,7 @@ export class MainComponent implements OnInit {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     this.url = url;
     this.ValidURL(url);
   }
@@ -641,6 +645,7 @@ export class MainComponent implements OnInit {
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -920,7 +925,22 @@ export class MainComponent implements OnInit {
   videoModeChanged(new_val): void {
     this.selectedQuality = '';
     this.selectedSubtitleLanguage = '';
+    this.selectedSubtitleSource = '';
     localStorage.setItem('audioOnly', new_val.checked.toString());
+    this.argsChanged();
+  }
+
+  onSelectedSubtitleLanguageChanged(new_value: string): void {
+    this.selectedSubtitleLanguage = typeof new_value === 'string' ? new_value : '';
+    if (this.selectedSubtitleLanguage === '') {
+      this.selectedSubtitleSource = '';
+      this.argsChanged();
+      return;
+    }
+
+    const selected_subtitle_option = this.getAvailableSubtitleLanguages()
+      .find(option => option.value === this.selectedSubtitleLanguage);
+    this.selectedSubtitleSource = selected_subtitle_option?.source || '';
     this.argsChanged();
   }
 
@@ -985,6 +1005,9 @@ export class MainComponent implements OnInit {
   private getSelectedSubtitleType(): string | null {
     const selectedSubtitleLanguage = this.getSelectedSubtitleLanguage();
     if (!selectedSubtitleLanguage) return null;
+    if (this.selectedSubtitleSource === 'manual' || this.selectedSubtitleSource === 'automatic') {
+      return this.selectedSubtitleSource;
+    }
     const selectedSubtitleOption = this.getAvailableSubtitleLanguages()
       .find(option => option.value === selectedSubtitleLanguage);
     return selectedSubtitleOption?.source || null;
