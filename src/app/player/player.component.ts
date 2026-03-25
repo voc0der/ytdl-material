@@ -306,6 +306,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.api_ready = true;
       this.cdr.detectChanges();
       this.attachSubtitleTrackListener();
+      // Subtitles can be resolved before the live media element exists.
+      // Reset the loaded signature so the real player can attach/reload tracks.
+      this.loadedSubtitleTrackSignature = '';
+      this.syncCurrentSubtitles();
 
       // checks if volume has been previously set. if so, use that as default
       if (localStorage.getItem('player_volume')) {

@@ -544,6 +544,52 @@ describe('PlayerComponent', () => {
     expect(playSpy).toHaveBeenCalled();
   }));
 
+  it('should reapply preloaded subtitles when the player becomes ready', fakeAsync(() => {
+    const loadSpy = jasmine.createSpy('load');
+    const preloadedSubtitles: ISubtitleTrack[] = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    const api = {
+      volume: 1,
+      getDefaultMedia: () => ({
+        subscriptions: {
+          loadedMetadata: { subscribe: () => ({ unsubscribe() {} }) },
+          ended: { subscribe: () => ({ unsubscribe() {} }) },
+          timeUpdate: { subscribe: () => ({ unsubscribe() {} }) }
+        }
+      })
+    } as unknown as VgApiService;
+
+    component.currentItem = {
+      title: 'Preloaded subtitle test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Preloaded subtitle test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle',
+      subtitles: preloadedSubtitles
+    };
+    component.currentSubtitleTracks = preloadedSubtitles;
+    component.loadedSubtitleTrackSignature = component.getSubtitleTrackSignature(preloadedSubtitles);
+    component.mediaElement = {
+      nativeElement: {
+        textTracks: [],
+        readyState: 4,
+        paused: true,
+        ended: false,
+        duration: 100,
+        currentTime: 0,
+        load: loadSpy,
+        addEventListener: jasmine.createSpy('addEventListener')
+      }
+    } as any;
+
+    component.onPlayerReady(api);
+    tick();
+
+    expect(loadSpy).toHaveBeenCalled();
+  }));
+
   it('should toggle chapter dropdown state', () => {
     const clickEvent = { stopPropagation: jasmine.createSpy('stopPropagation') } as unknown as MouseEvent;
 
