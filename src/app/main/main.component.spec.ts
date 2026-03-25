@@ -461,6 +461,26 @@ describe('MainComponent', () => {
     expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
   });
 
+  it('keeps automatic subtitle selection when the watch URL is sanitized before download', () => {
+    const download_file_spy = spyOn((component as any).postsService, 'downloadFile').and.returnValue(of({download: {uid: 'queued-subtitles-sanitized'}}));
+    component.url = 'https://www.youtube.com/watch?v=SsKT0s5J8ko&list=RDBuNBLjJzRoo&index=20';
+    component.cachedAvailableFormats[component.url] = {
+      formats: {
+        subtitle_languages: [
+          {value: 'en', label: 'English (auto)', source: 'automatic', hasManual: false, hasAutomatic: true}
+        ]
+      }
+    };
+    component.selectedSubtitleLanguage = 'en';
+
+    component.downloadClicked();
+
+    expect(download_file_spy).toHaveBeenCalled();
+    expect(download_file_spy.calls.argsFor(0)[0]).toBe('https://www.youtube.com/watch?v=SsKT0s5J8ko');
+    expect(download_file_spy.calls.argsFor(0)[13]).toBe('en');
+    expect(download_file_spy.calls.argsFor(0)[14]).toBe('automatic');
+  });
+
   it('does not allow subtitle selection in audio-only mode', () => {
     component.url = 'https://example.com/audio-only';
     component.audioOnly = true;

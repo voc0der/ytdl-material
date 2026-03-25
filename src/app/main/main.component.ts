@@ -949,24 +949,24 @@ export class MainComponent implements OnInit {
   }
 
   getAvailableAudioLanguages(): Array<{value: string, label: string}> {
-    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    const cachedFormats = this.getCurrentCachedFormats();
     return cachedFormats?.['audio_languages'] || [];
   }
 
   getAvailableSubtitleLanguages(): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
-    const cachedFormats = this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats'];
+    const cachedFormats = this.getCurrentCachedFormats();
     return cachedFormats?.['subtitle_languages'] || [];
   }
 
   canSelectAudioLanguage(): boolean {
     if (!this.url) return false;
-    if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
+    if (this.getCachedFormatsEntry(this.url)?.['formats_loading']) return false;
     return this.getAvailableAudioLanguages().length > 0;
   }
 
   canSelectSubtitleLanguage(): boolean {
     if (this.audioOnly || !this.url) return false;
-    if (this.cachedAvailableFormats[this.url]?.['formats_loading']) return false;
+    if (this.getCachedFormatsEntry(this.url)?.['formats_loading']) return false;
     return this.getAvailableSubtitleLanguages().length > 0;
   }
 
@@ -994,9 +994,34 @@ export class MainComponent implements OnInit {
     return (selectedAudioLanguage || selectedSubtitleLanguage) ? 'yt-dlp' : (this.postsService.config?.Advanced?.default_downloader || 'yt-dlp');
   }
 
+  private getCachedFormatsEntry(url: string): any {
+    if (!url) return null;
+
+    if (this.cachedAvailableFormats[url]) {
+      return this.cachedAvailableFormats[url];
+    }
+
+    const sanitized_url = this.sanitizeSingleVideoProbeUrl(url);
+    if (sanitized_url && sanitized_url !== url && this.cachedAvailableFormats[sanitized_url]) {
+      return this.cachedAvailableFormats[sanitized_url];
+    }
+
+    if (!sanitized_url) return null;
+
+    for (const [cached_url, cached_entry] of Object.entries(this.cachedAvailableFormats)) {
+      if (!cached_entry) continue;
+      if (this.sanitizeSingleVideoProbeUrl(cached_url) === sanitized_url) {
+        return cached_entry;
+      }
+    }
+
+    return null;
+  }
+
   private getCurrentCachedFormats(): any {
-    return this.cachedAvailableFormats[this.url] && this.cachedAvailableFormats[this.url]['formats']
-      ? this.cachedAvailableFormats[this.url]['formats']
+    const cachedFormatsEntry = this.getCachedFormatsEntry(this.url);
+    return cachedFormatsEntry && cachedFormatsEntry['formats']
+      ? cachedFormatsEntry['formats']
       : null;
   }
 
