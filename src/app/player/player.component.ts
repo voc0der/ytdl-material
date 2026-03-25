@@ -114,6 +114,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   subtitleTrackActivationTimer: ReturnType<typeof setTimeout> | null = null;
   subtitleTrackList?: TextTrackList & EventTarget;
   subtitleTrackAddListener?: EventListener;
+  subtitleTrackRefreshToken = 0;
+  loadedSubtitleTrackSignature = '';
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
@@ -350,6 +352,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   updateCurrentItem(newCurrentItem: IMedia, newCurrentIndex: number) {
+    if (this.currentItem?.uid !== newCurrentItem?.uid) {
+      this.subtitleTrackRefreshToken += 1;
+      this.loadedSubtitleTrackSignature = '';
+    }
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.playbackTime = 0;
@@ -763,7 +769,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.currentSubtitleTracks = [];
     }
-    queueMicrotask(() => this.showDefaultSubtitleTrack());
+    this.refreshMediaSubtitleTracks();
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -800,6 +806,74 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         };
       })
       .filter(Boolean) as ISubtitleTrack[];
+  }
+
+  getSubtitleTrackSignature(subtitles: ISubtitleTrack[] = []): string {
+    if (!Array.isArray(subtitles) || subtitles.length === 0) return '';
+    return subtitles
+      .map(subtitle => `${subtitle.language ?? ''}:${subtitle.label ?? ''}:${subtitle.src ?? ''}:${subtitle.default === true}`)
+      .join('|');
+  }
+
+  refreshMediaSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const subtitle_signature = this.getSubtitleTrackSignature(this.currentSubtitleTracks);
+
+    if (!media_element || this.currentItem?.type === 'audio/mp3') {
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      queueMicrotask(() => this.showDefaultSubtitleTrack());
+      return;
+    }
+
+    this.cdr.detectChanges();
+    queueMicrotask(() => {
+      this.attachSubtitleTrackListener();
+      const should_reload_media = media_element.readyState > 0
+        && subtitle_signature !== this.loadedSubtitleTrackSignature
+        && typeof media_element.load === 'function';
+
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      if (!should_reload_media) {
+        this.showDefaultSubtitleTrack();
+        return;
+      }
+
+      const refresh_token = ++this.subtitleTrackRefreshToken;
+      const current_uid = this.currentItem?.uid ?? null;
+      const resume_playback = !media_element.paused && !media_element.ended;
+      const resume_time = Number.isFinite(media_element.currentTime) ? media_element.currentTime : 0;
+      const restore_media_state = () => {
+        if (refresh_token !== this.subtitleTrackRefreshToken || current_uid !== (this.currentItem?.uid ?? null)) {
+          return;
+        }
+
+        if (resume_time > 0) {
+          try {
+            const duration = Number.isFinite(media_element.duration) && media_element.duration > 0
+              ? media_element.duration
+              : resume_time;
+            media_element.currentTime = Math.min(resume_time, duration);
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+
+        this.showDefaultSubtitleTrack();
+        if (resume_playback) {
+          try {
+            const play_result = media_element.play();
+            if (play_result && typeof play_result.catch === 'function') {
+              play_result.catch(() => undefined);
+            }
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+      };
+
+      media_element.addEventListener('loadedmetadata', restore_media_state, { once: true });
+      media_element.load();
+    });
   }
 
   showDefaultSubtitleTrack(): void {
@@ -1056,8 +1130,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentItem?.uid === uid) {
       this.currentItem.subtitles = subtitles;
       this.currentSubtitleTracks = subtitles;
-      this.cdr.detectChanges();
-      queueMicrotask(() => this.showDefaultSubtitleTrack());
+      this.refreshMediaSubtitleTracks();
     }
   }
 

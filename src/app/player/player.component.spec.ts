@@ -347,6 +347,52 @@ describe('PlayerComponent', () => {
     expect((textTracks[0] as any).mode).toBe('showing');
   }));
 
+  it('should reload media when subtitles arrive after playback has already started', fakeAsync(() => {
+    let loadedMetadataListener: EventListener = null;
+    const loadSpy = jasmine.createSpy('load');
+    const playSpy = jasmine.createSpy('play').and.returnValue(Promise.resolve());
+    const textTracks = [{ mode: 'disabled' }];
+    component.currentItem = {
+      title: 'Subtitle reload test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle reload test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
+    };
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks,
+        readyState: 4,
+        paused: false,
+        ended: false,
+        duration: 100,
+        currentTime: 42,
+        load: loadSpy,
+        play: playSpy,
+        addEventListener: (_event: string, listener: EventListener) => {
+          loadedMetadataListener = listener;
+        }
+      }
+    } as any;
+
+    component.refreshMediaSubtitleTracks();
+    tick();
+
+    expect(loadSpy).toHaveBeenCalled();
+    expect(loadedMetadataListener).toBeTruthy();
+
+    (loadedMetadataListener as EventListener)(new Event('loadedmetadata'));
+    tick();
+
+    expect(component.mediaElement.nativeElement.currentTime).toBe(42);
+    expect(textTracks[0].mode).toBe('showing');
+    expect(playSpy).toHaveBeenCalled();
+  }));
+
   it('should toggle chapter dropdown state', () => {
     const clickEvent = { stopPropagation: jasmine.createSpy('stopPropagation') } as unknown as MouseEvent;
 
