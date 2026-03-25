@@ -111,6 +111,11 @@
                       </span>
                     }
                     @if (db_file || playlist[currentIndex]) {
+                      @if (canToggleSubtitles()) {
+                        <button class="playback-mode-button" [class.active]="subtitlesEnabled" [attr.aria-label]="getSubtitleToggleTooltip()" (click)="toggleSubtitles()" [matTooltip]="getSubtitleToggleTooltip()" i18n-matTooltip="Subtitle toggle tooltip" mat-icon-button>
+                          <mat-icon>closed_caption</mat-icon>
+                        </button>
+                      }
                       <button class="playback-mode-button" [class.active]="autoplay_enabled" (click)="toggleAutoplay()" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" mat-icon-button>
                         <mat-icon>playlist_play</mat-icon>
                       </button>
