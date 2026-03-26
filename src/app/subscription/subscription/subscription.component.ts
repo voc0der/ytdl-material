@@ -1,9 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { PostsService } from 'app/posts.services';
-import { ActivatedRoute, Router, ParamMap } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
-import { Subscription } from 'api-types';
+import { Subscription, SubscriptionRefreshStatus } from 'api-types';
 import { saveAs } from 'file-saver';
 import { filter, take } from 'rxjs/operators';
 
@@ -55,16 +55,22 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
 
   getSubscription(low_cost = false) {
     this.postsService.getSubscription(this.id).subscribe(res => {
-      if (low_cost && res['subscription'].videos.length === this.subscription?.videos.length) {
-        if (res['subscription']['downloading'] !== this.subscription['downloading']) {
-          this.subscription['downloading'] = res['subscription']['downloading'];
-        }
+      const next_subscription = res['subscription'] as Subscription;
+      const current_video_count = this.subscription?.videos?.length || 0;
+      const next_video_count = next_subscription?.videos?.length || 0;
+
+      if (low_cost && this.subscription && next_video_count === current_video_count) {
+        this.subscription = {
+          ...this.subscription,
+          ...next_subscription,
+          videos: this.subscription.videos
+        };
         return;
-      } else if (res['subscription']['videos'].length > (this.subscription?.videos.length || 0)) {
+      } else if (next_video_count > current_video_count) {
         // only when files are added so we don't reload files when one is deleted
         this.postsService.files_changed.next(true);
       }
-      this.subscription = res['subscription'];
+      this.subscription = next_subscription;
     });
   }
 
@@ -124,6 +130,161 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       this.cancel_clicked = false;
       this.postsService.openSnackBar('Failed to cancel check subscription!');
     });
+  }
+
+  getRefreshStatus(): SubscriptionRefreshStatus | null {
+    return this.subscription?.refresh_status || null;
+  }
+
+  shouldShowRefreshStatus(): boolean {
+    const refresh_status = this.getRefreshStatus();
+    return !!(refresh_status && (
+      refresh_status.phase !== 'idle'
+      || refresh_status.active
+      || refresh_status.pending_download_count > 0
+      || refresh_status.running_download_count > 0
+      || refresh_status.started_at
+      || refresh_status.completed_at
+    ));
+  }
+
+  hasActiveRefresh(): boolean {
+    const refresh_status = this.getRefreshStatus();
+    return !!(this.subscription?.downloading || refresh_status?.active);
+  }
+
+  getRefreshHeadline(): string {
+    const refresh_status = this.getRefreshStatus();
+    switch (refresh_status?.phase) {
+    case 'collecting':
+      return $localize`Checking channel metadata`;
+    case 'queueing':
+      return $localize`Queueing new downloads`;
+    case 'queued':
+      return refresh_status.pending_download_count > 0
+        ? $localize`Downloads queued`
+        : $localize`Downloads were queued`;
+    case 'complete':
+      return $localize`Channel is up to date`;
+    case 'cancelled':
+      return $localize`Refresh cancelled`;
+    case 'error':
+      return $localize`Refresh failed`;
+    default:
+      return this.subscription?.downloading
+        ? $localize`Checking channel metadata`
+        : $localize`Channel refresh`;
+    }
+  }
+
+  getRefreshDescription(): string {
+    const refresh_status = this.getRefreshStatus();
+    const latest_item_title = refresh_status?.latest_item_title ? ` "${refresh_status.latest_item_title}"` : '';
+    switch (refresh_status?.phase) {
+    case 'collecting':
+      return $localize`The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.` + latest_item_title;
+    case 'queueing':
+      return refresh_status?.new_items_count > 0
+        ? $localize`Found ${refresh_status.new_items_count}:new item count: new item(s). The app is creating download jobs now.`
+        : $localize`The metadata scan finished. The app is preparing download jobs now.`;
+    case 'queued':
+      if (refresh_status?.pending_download_count > 0) {
+        return $localize`Download jobs are queued. New files will appear here as each download completes.`;
+      }
+      return $localize`The refresh queued download jobs successfully.`;
+    case 'complete':
+      return refresh_status?.new_items_count > 0
+        ? $localize`The refresh finished successfully.`
+        : $localize`The last refresh did not find any new videos to download.`;
+    case 'cancelled':
+      return $localize`The refresh was stopped before it finished collecting channel metadata or queueing all downloads.`;
+    case 'error':
+      return refresh_status?.error
+        ? `${$localize`The refresh failed:`} ${refresh_status.error}`
+        : $localize`The refresh failed before the app could finish collecting metadata or queue downloads.`;
+    default:
+      return $localize`The subscription page will show completed files only.`;
+    }
+  }
+
+  shouldShowRefreshProgressBar(): boolean {
+    const phase = this.getRefreshStatus()?.phase;
+    return phase === 'collecting' || phase === 'queueing';
+  }
+
+  getRefreshProgressMode(): 'determinate' | 'indeterminate' {
+    const refresh_status = this.getRefreshStatus();
+    if (!refresh_status) return 'indeterminate';
+
+    if (refresh_status.phase === 'collecting' && refresh_status.total_count > 0) {
+      return 'determinate';
+    }
+
+    if (refresh_status.phase === 'queueing' && refresh_status.new_items_count > 0) {
+      return 'determinate';
+    }
+
+    return 'indeterminate';
+  }
+
+  getRefreshProgressValue(): number {
+    const refresh_status = this.getRefreshStatus();
+    if (!refresh_status) return 0;
+
+    if (refresh_status.phase === 'collecting' && refresh_status.total_count > 0) {
+      return Math.min(100, (refresh_status.discovered_count / refresh_status.total_count) * 100);
+    }
+
+    if (refresh_status.phase === 'queueing' && refresh_status.new_items_count > 0) {
+      return Math.min(100, (refresh_status.queued_count / refresh_status.new_items_count) * 100);
+    }
+
+    return 0;
+  }
+
+  getRefreshMetrics(): string[] {
+    const refresh_status = this.getRefreshStatus();
+    if (!refresh_status) return [];
+
+    const metrics: string[] = [];
+    if (refresh_status.phase === 'collecting') {
+      if (refresh_status.total_count > 0) {
+        metrics.push($localize`${refresh_status.discovered_count}:discovered count: / ${refresh_status.total_count}:total count: items scanned`);
+      } else if (refresh_status.discovered_count > 0) {
+        metrics.push($localize`${refresh_status.discovered_count}:discovered count: items scanned`);
+      }
+    }
+
+    if (refresh_status.new_items_count > 0) {
+      metrics.push($localize`${refresh_status.new_items_count}:new items count: new downloads found`);
+    }
+
+    if (refresh_status.queued_count > 0) {
+      metrics.push($localize`${refresh_status.queued_count}:queued count: queued`);
+    }
+
+    if (refresh_status.running_download_count > 0) {
+      metrics.push($localize`${refresh_status.running_download_count}:running download count: running now`);
+    }
+
+    if (refresh_status.pending_download_count > 0) {
+      metrics.push($localize`${refresh_status.pending_download_count}:pending download count: pending in downloads`);
+    }
+
+    return metrics;
+  }
+
+  canOpenDownloads(): boolean {
+    const refresh_status = this.getRefreshStatus();
+    return !!(
+      refresh_status?.pending_download_count > 0
+      && this.postsService.config?.Extra?.enable_downloads_manager
+      && this.postsService.hasPermission('downloads_manager')
+    );
+  }
+
+  openDownloads(): void {
+    this.router.navigate(['/downloads']);
   }
 
 }

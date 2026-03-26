@@ -850,8 +850,14 @@ async function loadConfig() {
     if (allowSubscriptions) {
         // set downloading to false
         let subscriptions = await subscriptions_api.getAllSubscriptions();
-        subscriptions.forEach(async sub => subscriptions_api.writeSubscriptionMetadata(sub));
-        subscriptions_api.updateSubscriptionPropertyMultiple(subscriptions, {downloading: false, child_process: null});
+        await Promise.all(subscriptions.map(async sub => {
+            subscriptions_api.writeSubscriptionMetadata(sub);
+            await db_api.updateRecord('subscriptions', {id: sub.id}, {
+                downloading: false,
+                child_process: null,
+                refresh_status: subscriptions_api.buildInterruptedSubscriptionRefreshStatus(sub.refresh_status)
+            });
+        }));
         // runs initially, then runs every ${subscriptionCheckInterval} seconds
         subscriptions_api.watchSubscriptionsInterval();
     }

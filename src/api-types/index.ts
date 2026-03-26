@@ -102,6 +102,7 @@ export type { Sort } from './models/Sort';
 export type { SubscribeRequest } from './models/SubscribeRequest';
 export type { SubscribeResponse } from './models/SubscribeResponse';
 export type { Subscription } from './models/Subscription';
+export type { SubscriptionRefreshStatus } from './models/SubscriptionRefreshStatus';
 export type { SubscriptionRequestData } from './models/SubscriptionRequestData';
 export type { SuccessObject } from './models/SuccessObject';
 export type { TableInfo } from './models/TableInfo';

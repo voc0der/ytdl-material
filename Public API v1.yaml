@@ -2923,10 +2923,56 @@ components:
           type: boolean
         paused:
           type: boolean
+        refresh_status:
+          $ref: '#/components/schemas/SubscriptionRefreshStatus'
         videos:
           type: array
           items:
             type: object
+    SubscriptionRefreshStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        phase:
+          type: string
+          enum:
+            - idle
+            - collecting
+            - queueing
+            - queued
+            - complete
+            - cancelled
+            - error
+        discovered_count:
+          type: number
+        total_count:
+          type: number
+          nullable: true
+        new_items_count:
+          type: number
+          nullable: true
+        queued_count:
+          type: number
+        latest_item_title:
+          type: string
+          nullable: true
+        started_at:
+          type: number
+          nullable: true
+        updated_at:
+          type: number
+          nullable: true
+        completed_at:
+          type: number
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        pending_download_count:
+          type: number
+        running_download_count:
+          type: number
     User:
       title: user
       type: object

@@ -3,6 +3,7 @@
 /* eslint-disable */
 
 import type { FileType } from './FileType';
+import type { SubscriptionRefreshStatus } from './SubscriptionRefreshStatus';
 
 export type Subscription = {
     name: string;
@@ -18,5 +19,6 @@ export type Subscription = {
     custom_output?: string;
     downloading?: boolean;
     paused?: boolean;
+    refresh_status?: SubscriptionRefreshStatus;
     videos: Array<any>;
 };

@@ -1,37 +1,75 @@
-<div style="margin-top: 14px;">
+<div class="subscription-page">
   <button class="back-button" (click)="goBack()" mat-icon-button><mat-icon>arrow_back</mat-icon></button>
-  <div style="margin-bottom: 15px;">
-    @if (subscription) {
-      <h2 style="text-align: center;">
-        {{subscription.name}}&nbsp;@if (subscription.paused) {
-        <ng-container i18n="Paused suffix">(Paused)</ng-container>
-      }
-      <button class="edit-button" (click)="editSubscription()" [disabled]="downloading" matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button><mat-icon class="save-icon">edit</mat-icon></button>
-    </h2>
-  }
-  @if (subscription && subscription.downloading) {
-    <mat-progress-bar style="width: 80%; margin: 0 auto; margin-top: 15px;" mode="indeterminate"></mat-progress-bar>
-  }
-</div>
-<mat-divider style="width: 80%; margin: 0 auto"></mat-divider>
-<br/>
 
-<!-- Extra margin added for floating buttons to have room -->
-@if (subscription) {
-  <div style="margin-bottom: 100px;">
-    <app-media-library #mediaLibrary [sub_id]="subscription.id"></app-media-library>
-  </div>
-}
-<div class="check-button">
-  @if (subscription.downloading) {
-    <button color="primary" (click)="cancelCheckSubscription()" [disabled]="cancel_clicked" matTooltip="Cancel subscription check" i18n-matTooltip="Cancel subscription check" mat-fab><mat-icon class="save-icon">cancel</mat-icon></button>
+  @if (subscription) {
+    <div class="subscription-header">
+      <h2 class="subscription-title">
+        {{subscription.name}}&nbsp;@if (subscription.paused) {
+          <ng-container i18n="Paused suffix">(Paused)</ng-container>
+        }
+      </h2>
+      <button class="edit-button" (click)="editSubscription()" [disabled]="subscription.downloading || downloading" matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button><mat-icon class="save-icon">edit</mat-icon></button>
+    </div>
+
+    <mat-divider class="subscription-divider"></mat-divider>
+
+    @if (shouldShowRefreshStatus()) {
+      <mat-card class="refresh-status-card" [class.refresh-status-card-active]="hasActiveRefresh()">
+        <div class="refresh-status-card-header">
+          <div>
+            <div class="refresh-status-label">
+              @if (hasActiveRefresh()) {
+                <ng-container i18n="Subscription refresh status label while active">Active refresh</ng-container>
+              }
+              @if (!hasActiveRefresh()) {
+                <ng-container i18n="Subscription refresh status label while inactive">Last refresh</ng-container>
+              }
+            </div>
+            <h3 class="refresh-status-title">{{getRefreshHeadline()}}</h3>
+          </div>
+
+          @if (canOpenDownloads()) {
+            <button class="refresh-status-action" (click)="openDownloads()" mat-stroked-button>
+              <ng-container i18n="Open downloads page from subscription refresh card">View downloads</ng-container>
+            </button>
+          }
+        </div>
+
+        <p class="refresh-status-description">{{getRefreshDescription()}}</p>
+
+        @if (shouldShowRefreshProgressBar()) {
+          <mat-progress-bar
+            class="refresh-status-progress"
+            [mode]="getRefreshProgressMode()"
+            [value]="getRefreshProgressValue()"></mat-progress-bar>
+        }
+
+        @if (getRefreshMetrics().length > 0) {
+          <mat-chip-set class="refresh-status-metrics" aria-label="Subscription refresh metrics">
+            @for (metric of getRefreshMetrics(); track metric) {
+              <mat-chip>{{metric}}</mat-chip>
+            }
+          </mat-chip-set>
+        }
+      </mat-card>
+    }
+
+    <div class="subscription-content">
+      <app-media-library #mediaLibrary [sub_id]="subscription.id"></app-media-library>
+    </div>
+
+    <div class="check-button">
+      @if (subscription.downloading) {
+        <button color="primary" (click)="cancelCheckSubscription()" [disabled]="cancel_clicked" matTooltip="Cancel subscription check" i18n-matTooltip="Cancel subscription check" mat-fab><mat-icon class="save-icon">cancel</mat-icon></button>
+      }
+      @if (!subscription.downloading) {
+        <button color="primary" (click)="checkSubscription()" [disabled]="check_clicked" matTooltip="Check subscription" i18n-matTooltip="Check subscription" mat-fab><mat-icon class="save-icon">youtube_searched_for</mat-icon></button>
+      }
+    </div>
+
+    <button class="watch-button" color="primary" (click)="watchSubscription()" matTooltip="Play all" i18n-matTooltip="Play all" mat-fab><mat-icon class="save-icon">video_library</mat-icon></button>
+    <button class="save-button" color="primary" (click)="downloadContent()" [disabled]="downloading" matTooltip="Download zip" i18n-matTooltip="Download zip" mat-fab><mat-icon class="save-icon">save</mat-icon>@if (downloading) {
+      <mat-spinner class="spinner" [diameter]="50"></mat-spinner>
+    }</button>
   }
-  @if (!subscription.downloading) {
-    <button color="primary" (click)="checkSubscription()" [disabled]="check_clicked" matTooltip="Check subscription" i18n-matTooltip="Check subscription" mat-fab><mat-icon class="save-icon">youtube_searched_for</mat-icon></button>
-  }
-</div>
-<button class="watch-button" color="primary" (click)="watchSubscription()" matTooltip="Play all" i18n-matTooltip="Play all" mat-fab><mat-icon class="save-icon">video_library</mat-icon></button>
-<button class="save-button" color="primary" (click)="downloadContent()" [disabled]="downloading" matTooltip="Download zip" i18n-matTooltip="Download zip" mat-fab><mat-icon class="save-icon">save</mat-icon>@if (downloading) {
-<mat-spinner class="spinner" [diameter]="50"></mat-spinner>
-}</button>
 </div>
