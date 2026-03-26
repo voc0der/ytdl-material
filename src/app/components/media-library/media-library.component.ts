@@ -320,12 +320,24 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       return false;
     }
 
-    const { snapshot, files, playlistLibraryItems, playlistLibraryReceived } = this.pendingNavigationRestoreState;
+    const {
+      snapshot,
+      files,
+      playlistLibraryItems,
+      playlistLibraryReceived,
+      filesInvalidated,
+      playlistsInvalidated
+    } = this.pendingNavigationRestoreState;
     this.pendingNavigationRestoreState = null;
     this.pendingScrollRestoreSnapshot = snapshot;
     this.pendingScrollRestoreAttempts = 0;
 
-    if (!Array.isArray(files) || files.length === 0) {
+    if (this.showLibraryTabs && playlistLibraryReceived && !playlistsInvalidated) {
+      this.playlistLibraryItems = playlistLibraryItems ?? [];
+      this.playlistLibraryReceived = true;
+    }
+
+    if (filesInvalidated || !Array.isArray(files) || files.length === 0) {
       return false;
     }
 
@@ -335,11 +347,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.autoPageLoadInProgress = false;
     this.loading_files = [];
     this.rebuildVideoRows();
-
-    if (this.showLibraryTabs && playlistLibraryReceived) {
-      this.playlistLibraryItems = playlistLibraryItems ?? [];
-      this.playlistLibraryReceived = true;
-    }
 
     this.scheduleVirtualVideoWindowUpdate(true);
     this.schedulePendingScrollRestore();

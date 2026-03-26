@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { filter } from 'rxjs/operators';
+import { PostsService } from './posts.services';
 import { DatabaseFile, Playlist } from 'api-types';
 
 export const PLAYER_NAVIGATOR_STORAGE_KEY = 'player_navigator';
@@ -27,6 +29,8 @@ export interface MediaLibraryRestoreState {
   files: DatabaseFile[];
   playlistLibraryItems: Playlist[];
   playlistLibraryReceived: boolean;
+  filesInvalidated?: boolean;
+  playlistsInvalidated?: boolean;
 }
 
 @Injectable({
@@ -35,8 +39,40 @@ export interface MediaLibraryRestoreState {
 export class MediaLibraryNavigationStateService {
   private pendingRestoreState: MediaLibraryRestoreState | null = null;
 
+  constructor(private postsService: PostsService) {
+    this.postsService.files_changed
+      .pipe(filter(Boolean))
+      .subscribe(() => {
+        if (!this.pendingRestoreState) {
+          return;
+        }
+
+        this.pendingRestoreState = {
+          ...this.pendingRestoreState,
+          filesInvalidated: true
+        };
+      });
+
+    this.postsService.playlists_changed
+      .pipe(filter(Boolean))
+      .subscribe(() => {
+        if (!this.pendingRestoreState) {
+          return;
+        }
+
+        this.pendingRestoreState = {
+          ...this.pendingRestoreState,
+          playlistsInvalidated: true
+        };
+      });
+  }
+
   savePendingRestoreState(state: MediaLibraryRestoreState): void {
-    this.pendingRestoreState = this.cloneState(state);
+    this.pendingRestoreState = {
+      ...this.cloneState(state),
+      filesInvalidated: false,
+      playlistsInvalidated: false
+    };
   }
 
   consumePendingRestoreState(routeKey: string, subId: string | null): MediaLibraryRestoreState | null {
@@ -68,7 +104,9 @@ export class MediaLibraryNavigationStateService {
       },
       files: this.cloneFiles(state.files),
       playlistLibraryItems: this.clonePlaylists(state.playlistLibraryItems),
-      playlistLibraryReceived: !!state.playlistLibraryReceived
+      playlistLibraryReceived: !!state.playlistLibraryReceived,
+      filesInvalidated: !!state.filesInvalidated,
+      playlistsInvalidated: !!state.playlistsInvalidated
     };
   }
 
