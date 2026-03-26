@@ -2,6 +2,83 @@
     max-width: 240px;
 }
 
+.subscription-page {
+    margin-top: 14px;
+}
+
+.subscription-header {
+    margin-bottom: 15px;
+}
+
+.subscription-title {
+    text-align: center;
+}
+
+.subscription-refresh-bar {
+    width: 80%;
+    margin: 0 auto 15px auto;
+}
+
+.subscription-divider {
+    width: 80%;
+    margin: 0 auto;
+}
+
+.refresh-status-card {
+    width: min(960px, calc(100% - 32px));
+    margin: 24px auto 0 auto;
+    padding: 20px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.refresh-status-card-active {
+    border-color: rgba(33, 150, 243, 0.45);
+    box-shadow: 0 8px 24px rgba(33, 150, 243, 0.08);
+}
+
+.refresh-status-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.refresh-status-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.refresh-status-title {
+    margin: 6px 0 0 0;
+    font-size: 24px;
+}
+
+.refresh-status-description {
+    margin: 16px 0 0 0;
+    line-height: 1.5;
+    opacity: 0.88;
+}
+
+.refresh-status-progress {
+    margin-top: 18px;
+}
+
+.refresh-status-metrics {
+    display: block;
+    margin-top: 18px;
+}
+
+.refresh-status-metrics mat-chip {
+    margin: 0 8px 8px 0;
+}
+
+.subscription-content {
+    margin-bottom: 100px;
+}
+
 .back-button {
     float: left;
     position: absolute;
@@ -82,4 +159,22 @@
     position: fixed;
     bottom: 25px;
     z-index: 99999;
+}
+
+@media (max-width: 720px) {
+    .refresh-status-card {
+        padding: 16px;
+    }
+
+    .refresh-status-card-header {
+        flex-direction: column;
+    }
+
+    .refresh-status-action {
+        width: 100%;
+    }
+
+    .refresh-status-title {
+        font-size: 20px;
+    }
 }
