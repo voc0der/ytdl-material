@@ -11,13 +11,6 @@
       <button class="edit-button" (click)="editSubscription()" [disabled]="subscription.downloading || downloading" matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button><mat-icon class="save-icon">edit</mat-icon></button>
     </div>
 
-    @if (subscription.downloading && shouldShowRefreshProgressBar()) {
-      <mat-progress-bar
-        class="subscription-refresh-bar"
-        [mode]="getRefreshProgressMode()"
-        [value]="getRefreshProgressValue()"></mat-progress-bar>
-    }
-
     <mat-divider class="subscription-divider"></mat-divider>
 
     @if (shouldShowRefreshStatus()) {
