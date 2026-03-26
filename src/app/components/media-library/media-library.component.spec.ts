@@ -262,6 +262,49 @@ describe('MediaLibraryComponent', () => {
     expect(component.normal_files_received).toBeTrue();
   });
 
+  it('should refetch files instead of restoring stale cached library data after background file changes', () => {
+    navigationStateService.savePendingRestoreState({
+      snapshot: {
+        routeKey: '/home',
+        activeLibraryTab: 0,
+        sortProperty: 'registered',
+        descendingMode: true,
+        selectedFilters: [],
+        searchText: '',
+        playlistSearchText: '',
+        autoPaginationEnabled: true,
+        pageSize: 10,
+        manualPageIndex: 0,
+        subId: null,
+        fileCount: 2,
+        loadedCount: 2,
+        anchorUid: 'file-2',
+        anchorOffset: 24,
+        scrollTop: 320
+      },
+      files: [
+        { uid: 'file-1', duration: 12 } as any,
+        { uid: 'file-2', duration: 18 } as any
+      ],
+      playlistLibraryItems: [],
+      playlistLibraryReceived: false
+    });
+    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.and.returnValue(of({
+      files: [
+        { uid: 'file-3', duration: 24 }
+      ],
+      file_count: 3
+    }));
+    postsServiceStub.files_changed.next(true);
+
+    fixture.detectChanges();
+
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalled();
+    expect(component.paged_data.map(file => file.uid)).toEqual(['file-3']);
+    expect((component as any).pendingScrollRestoreSnapshot?.anchorUid).toBe('file-2');
+  });
+
   it('should capture the visible anchor from rendered card positions', () => {
     const manualComponent = new MediaLibraryComponent(
       postsServiceStub,
