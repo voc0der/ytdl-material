@@ -31,7 +31,7 @@ export class UpdaterComponent implements OnInit {
   constructor(private postsService: PostsService, private dialog: MatDialog) { }
 
   ngOnInit(): void {
-    this.getAvailableVersions();
+    this.loadCurrentVersionAndAvailableVersions();
   }
 
   updateServer() {
@@ -46,28 +46,32 @@ export class UpdaterComponent implements OnInit {
     return !!this.latestStableRelease && this.availableVersionsFiltered.length > 0;
   }
 
+  get currentVersionTag(): string {
+    return this.postsService.version_info?.tag || this.CURRENT_VERSION;
+  }
+
   canUpdateSelectedVersion(): boolean {
-    return this.hasStableVersions && !!this.selectedVersion && this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) !== 0;
+    return this.hasStableVersions && !!this.selectedVersion && this.compareReleaseVersions(this.selectedVersion, this.currentVersionTag) !== 0;
   }
 
   isCurrentVersion(tagName: string): boolean {
-    return this.compareReleaseVersions(tagName, this.CURRENT_VERSION) === 0;
+    return this.compareReleaseVersions(tagName, this.currentVersionTag) === 0;
   }
 
   isSelectedVersionUpgrade(): boolean {
-    return this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) > 0;
+    return this.compareReleaseVersions(this.selectedVersion, this.currentVersionTag) > 0;
   }
 
   isSelectedVersionDowngrade(): boolean {
-    return this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) < 0;
+    return this.compareReleaseVersions(this.selectedVersion, this.currentVersionTag) < 0;
   }
 
   get showCurrentVersionOption(): boolean {
-    return !this.hasStableVersions || this.isNightlyVersion(this.CURRENT_VERSION);
+    return !this.hasStableVersions || this.isNightlyVersion(this.currentVersionTag);
   }
 
   get currentVersionOptionValue(): string {
-    return this.isNightlyVersion(this.CURRENT_VERSION) ? this.NIGHTLY_VERSION_LABEL : this.CURRENT_VERSION;
+    return this.isNightlyVersion(this.currentVersionTag) ? this.NIGHTLY_VERSION_LABEL : this.currentVersionTag;
   }
 
   get currentVersionOptionLabel(): string {
@@ -144,6 +148,23 @@ export class UpdaterComponent implements OnInit {
     this.selectedVersion = this.currentVersionOptionValue;
   }
 
+  loadCurrentVersionAndAvailableVersions(): void {
+    if (this.postsService.version_info?.tag) {
+      this.getAvailableVersions();
+      return;
+    }
+
+    this.postsService.getVersionInfo().subscribe({
+      next: res => {
+        this.postsService.version_info = res['version_info'] || this.postsService.version_info;
+        this.getAvailableVersions();
+      },
+      error: () => {
+        this.getAvailableVersions();
+      }
+    });
+  }
+
   getAvailableVersions() {
     this.versionsLoaded = false;
     this.latestStableRelease = null;
@@ -169,7 +190,7 @@ export class UpdaterComponent implements OnInit {
 
         if (!this.hasStableVersions) {
           this.setCurrentVersionFallback();
-        } else if (this.isNightlyVersion(this.CURRENT_VERSION)) {
+        } else if (this.isNightlyVersion(this.currentVersionTag)) {
           this.selectedVersion = this.NIGHTLY_VERSION_LABEL;
         }
 
