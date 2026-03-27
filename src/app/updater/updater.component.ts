@@ -47,22 +47,50 @@ export class UpdaterComponent implements OnInit {
   }
 
   canUpdateSelectedVersion(): boolean {
-    return this.hasStableVersions && !!this.selectedVersion && this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) !== 0;
+    return this.hasStableVersions && !!this.selectedVersion && this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) !== 0;
   }
 
   isCurrentVersion(tagName: string): boolean {
-    return this.compareReleaseVersions(tagName, CURRENT_VERSION) === 0;
+    return this.compareReleaseVersions(tagName, this.CURRENT_VERSION) === 0;
   }
 
   isSelectedVersionUpgrade(): boolean {
-    return this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) > 0;
+    return this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) > 0;
   }
 
   isSelectedVersionDowngrade(): boolean {
-    return this.compareReleaseVersions(this.selectedVersion, CURRENT_VERSION) < 0;
+    return this.compareReleaseVersions(this.selectedVersion, this.CURRENT_VERSION) < 0;
+  }
+
+  get showCurrentVersionOption(): boolean {
+    return !this.hasStableVersions || this.isNightlyVersion(this.CURRENT_VERSION);
+  }
+
+  get currentVersionOptionValue(): string {
+    return this.isNightlyVersion(this.CURRENT_VERSION) ? this.NIGHTLY_VERSION_LABEL : this.CURRENT_VERSION;
+  }
+
+  get currentVersionOptionLabel(): string {
+    return `${this.currentVersionOptionValue} - Current Version`;
+  }
+
+  isNightlyVersion(tag: string | null): boolean {
+    return String(tag || '').trim().toLowerCase() === this.NIGHTLY_VERSION_LABEL;
   }
 
   compareReleaseVersions(a: string | null, b: string | null): number {
+    if (this.isNightlyVersion(a) && this.isNightlyVersion(b)) {
+      return 0;
+    }
+
+    if (this.isNightlyVersion(a)) {
+      return 1;
+    }
+
+    if (this.isNightlyVersion(b)) {
+      return -1;
+    }
+
     const parsedA = this.parseReleaseVersion(a);
     const parsedB = this.parseReleaseVersion(b);
 
@@ -110,10 +138,10 @@ export class UpdaterComponent implements OnInit {
     };
   }
 
-  setNightlyFallback(): void {
+  setCurrentVersionFallback(): void {
     this.latestStableRelease = null;
     this.availableVersionsFiltered = [];
-    this.selectedVersion = this.NIGHTLY_VERSION_LABEL;
+    this.selectedVersion = this.currentVersionOptionValue;
   }
 
   getAvailableVersions() {
@@ -140,14 +168,16 @@ export class UpdaterComponent implements OnInit {
         }
 
         if (!this.hasStableVersions) {
-          this.setNightlyFallback();
+          this.setCurrentVersionFallback();
+        } else if (this.isNightlyVersion(this.CURRENT_VERSION)) {
+          this.selectedVersion = this.NIGHTLY_VERSION_LABEL;
         }
 
         this.versionsLoaded = true;
       },
       error: () => {
         this.availableVersions = [];
-        this.setNightlyFallback();
+        this.setCurrentVersionFallback();
         this.versionsLoaded = true;
       }
     });
