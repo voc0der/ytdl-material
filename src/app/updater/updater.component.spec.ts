@@ -9,7 +9,8 @@ describe('UpdaterComponent', () => {
   let dialog: jasmine.SpyObj<MatDialog>;
 
   beforeEach(() => {
-    postsService = jasmine.createSpyObj<PostsService>('PostsService', ['getAvailableRelease', 'updateServer']);
+    postsService = jasmine.createSpyObj<PostsService>('PostsService', ['getAvailableRelease', 'getVersionInfo', 'updateServer']);
+    postsService.getVersionInfo.and.returnValue(of({ version_info: { tag: 'v1.0.0' } } as any));
     dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     component = new UpdaterComponent(postsService, dialog);
   });
@@ -74,15 +75,16 @@ describe('UpdaterComponent', () => {
     expect(component.isCurrentVersion('1.0.0')).toBeTrue();
   });
 
-  it('shows nightly as the current option when the running build is nightly', () => {
-    component.CURRENT_VERSION = 'nightly';
+  it('loads the runtime nightly tag before selecting available versions', () => {
     postsService.getAvailableRelease.and.returnValue(of([
       { tag_name: 'v1.0.1' },
       { tag_name: 'v1.0.0' }
     ]));
+    postsService.getVersionInfo.and.returnValue(of({ version_info: { tag: 'nightly' } } as any));
 
-    component.getAvailableVersions();
+    component.ngOnInit();
 
+    expect(postsService.getVersionInfo).toHaveBeenCalled();
     expect(component.selectedVersion).toBe('nightly');
     expect(component.hasStableVersions).toBeTrue();
     expect(component.showCurrentVersionOption).toBeTrue();
@@ -93,6 +95,20 @@ describe('UpdaterComponent', () => {
 
     expect(component.canUpdateSelectedVersion()).toBeTrue();
     expect(component.isSelectedVersionDowngrade()).toBeTrue();
+  });
+
+  it('uses the cached runtime version tag when version info is already loaded', () => {
+    postsService.version_info = { tag: 'nightly' } as any;
+    postsService.getAvailableRelease.and.returnValue(of([
+      { tag_name: 'v1.0.1' },
+      { tag_name: 'v1.0.0' }
+    ]));
+
+    component.ngOnInit();
+
+    expect(postsService.getVersionInfo).not.toHaveBeenCalled();
+    expect(component.selectedVersion).toBe('nightly');
+    expect(component.currentVersionOptionValue).toBe('nightly');
   });
 
   it('falls back to the current version when the release request fails', () => {
