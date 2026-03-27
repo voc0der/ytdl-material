@@ -18,18 +18,20 @@ describe('UpdaterComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('falls back to nightly when no releases are available', () => {
+  it('falls back to the current version when no releases are available', () => {
     postsService.getAvailableRelease.and.returnValue(of([]));
 
     component.getAvailableVersions();
 
-    expect(component.selectedVersion).toBe('nightly');
+    expect(component.selectedVersion).toBe('v1.0.0');
     expect(component.hasStableVersions).toBeFalse();
+    expect(component.showCurrentVersionOption).toBeTrue();
+    expect(component.currentVersionOptionValue).toBe('v1.0.0');
     expect(component.canUpdateSelectedVersion()).toBeFalse();
     expect(component.versionsLoaded).toBeTrue();
   });
 
-  it('falls back to nightly when no stable release exists', () => {
+  it('falls back to the current version when no stable release exists', () => {
     postsService.getAvailableRelease.and.returnValue(of([
       { tag_name: 'v1.0.1-rc1' },
       { tag_name: 'v1.0.1-rc0' }
@@ -37,8 +39,9 @@ describe('UpdaterComponent', () => {
 
     component.getAvailableVersions();
 
-    expect(component.selectedVersion).toBe('nightly');
+    expect(component.selectedVersion).toBe('v1.0.0');
     expect(component.hasStableVersions).toBeFalse();
+    expect(component.showCurrentVersionOption).toBeTrue();
     expect(component.canUpdateSelectedVersion()).toBeFalse();
   });
 
@@ -52,6 +55,7 @@ describe('UpdaterComponent', () => {
 
     expect(component.selectedVersion).toBe('v1.0.1');
     expect(component.hasStableVersions).toBeTrue();
+    expect(component.showCurrentVersionOption).toBeFalse();
     expect(component.canUpdateSelectedVersion()).toBeTrue();
     expect(component.isSelectedVersionUpgrade()).toBeTrue();
   });
@@ -65,17 +69,40 @@ describe('UpdaterComponent', () => {
 
     expect(component.selectedVersion).toBe('1.0.0');
     expect(component.hasStableVersions).toBeTrue();
+    expect(component.showCurrentVersionOption).toBeFalse();
     expect(component.canUpdateSelectedVersion()).toBeFalse();
     expect(component.isCurrentVersion('1.0.0')).toBeTrue();
   });
 
-  it('falls back to nightly when the release request fails', () => {
-    postsService.getAvailableRelease.and.returnValue(throwError(() => new Error('request failed')));
+  it('shows nightly as the current option when the running build is nightly', () => {
+    component.CURRENT_VERSION = 'nightly';
+    postsService.getAvailableRelease.and.returnValue(of([
+      { tag_name: 'v1.0.1' },
+      { tag_name: 'v1.0.0' }
+    ]));
 
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe('nightly');
+    expect(component.hasStableVersions).toBeTrue();
+    expect(component.showCurrentVersionOption).toBeTrue();
+    expect(component.currentVersionOptionValue).toBe('nightly');
+    expect(component.canUpdateSelectedVersion()).toBeFalse();
+
+    component.selectedVersion = 'v1.0.1';
+
+    expect(component.canUpdateSelectedVersion()).toBeTrue();
+    expect(component.isSelectedVersionDowngrade()).toBeTrue();
+  });
+
+  it('falls back to the current version when the release request fails', () => {
+    postsService.getAvailableRelease.and.returnValue(throwError(() => new Error('request failed')));
+
+    component.getAvailableVersions();
+
+    expect(component.selectedVersion).toBe('v1.0.0');
     expect(component.hasStableVersions).toBeFalse();
+    expect(component.showCurrentVersionOption).toBeTrue();
     expect(component.versionsLoaded).toBeTrue();
   });
 });
