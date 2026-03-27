@@ -12,7 +12,7 @@
 [![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/main/LICENSE.md)
 [![Dependencies badge](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml)
 
-ytdl-material is a Material Design frontend for [youtube-dl](https://rg3.github.io/youtube-dl/) / yt-dlp workflows. It's coded using [Angular 21](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend.
+ytdl-material is a full suite UI for [yt-dlp](https://github.com/yt-dlp/yt-dlp). It's coded using [Angular 21](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend. See a list of features [here](https://github.com/voc0der/ytdl-material/wiki/Features).
 
 <hr>
 
