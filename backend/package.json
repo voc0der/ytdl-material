@@ -80,7 +80,7 @@
     "cross-spawn": "7.0.6",
     "diff": "8.0.3",
     "got": "11.8.6",
-    "serialize-javascript": "7.0.3",
+    "serialize-javascript": "7.0.5",
     "mocha": {
       "js-yaml": "4.1.1"
     },
