@@ -1003,21 +1003,45 @@ async function updateSubscriptionProperty(sub, assignment_obj) {
 }
 
 exports.writeSubscriptionMetadata = (sub) => {
-    let basePath = sub.user_uid ? path.join(config_api.getConfigItem('ytdl_users_base_path'), sub.user_uid, 'subscriptions')
-                                : config_api.getConfigItem('ytdl_subscriptions_base_path');
-    const appendedBasePath = getAppendedBasePath(sub, basePath);
-    const resolvedBasePath = path.resolve(basePath);
-    const resolvedSubscriptionPath = path.resolve(appendedBasePath);
-    const relativeSubscriptionPath = path.relative(resolvedBasePath, resolvedSubscriptionPath);
-    if (relativeSubscriptionPath.startsWith('..') || path.isAbsolute(relativeSubscriptionPath)) {
-        logger.error(`Refusing to write subscription metadata outside subscriptions directory for subscription '${sub && sub.name}'.`);
-        return;
-    }
+    try {
+        if (!sub || typeof sub !== 'object') {
+            logger.warn('Skipping subscription metadata write for invalid subscription object.');
+            return false;
+        }
 
-    const metadata_path = path.resolve(resolvedSubscriptionPath, CONSTS.SUBSCRIPTION_BACKUP_PATH);
-    
-    fs.ensureDirSync(resolvedSubscriptionPath);
-    fs.writeJSONSync(metadata_path, sub);
+        const subscription_name = typeof sub.name === 'string' ? sub.name.trim() : '';
+        if (!subscription_name) {
+            logger.warn(`Skipping subscription metadata write for subscription '${sub.id || 'unknown'}' because name is missing.`);
+            return false;
+        }
+
+        let basePath = sub.user_uid ? path.join(config_api.getConfigItem('ytdl_users_base_path'), sub.user_uid, 'subscriptions')
+                                    : config_api.getConfigItem('ytdl_subscriptions_base_path');
+        if (typeof basePath !== 'string' || basePath.trim() === '') {
+            logger.warn(`Skipping subscription metadata write for subscription '${subscription_name}' because the base path is missing.`);
+            return false;
+        }
+
+        basePath = basePath.trim();
+        const metadata_sub = Object.assign({}, sub, {name: subscription_name});
+        const appendedBasePath = getAppendedBasePath(metadata_sub, basePath);
+        const resolvedBasePath = path.resolve(basePath);
+        const resolvedSubscriptionPath = path.resolve(appendedBasePath);
+        const relativeSubscriptionPath = path.relative(resolvedBasePath, resolvedSubscriptionPath);
+        if (relativeSubscriptionPath.startsWith('..') || path.isAbsolute(relativeSubscriptionPath)) {
+            logger.error(`Refusing to write subscription metadata outside subscriptions directory for subscription '${subscription_name}'.`);
+            return false;
+        }
+
+        const metadata_path = path.resolve(resolvedSubscriptionPath, CONSTS.SUBSCRIPTION_BACKUP_PATH);
+
+        fs.ensureDirSync(resolvedSubscriptionPath);
+        fs.writeJSONSync(metadata_path, metadata_sub);
+        return true;
+    } catch (err) {
+        logger.warn(`Skipping subscription metadata write for subscription '${sub && sub.id ? sub.id : 'unknown'}': ${err.message}`);
+        return false;
+    }
 }
 
 async function setFreshUploads(sub) {
