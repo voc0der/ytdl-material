@@ -107,6 +107,16 @@ describe('Subscriptions', function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         assert(fs.existsSync(metadata_path));
     });
+    it('Skips writing metadata for subscriptions without a name', async function() {
+        const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});
+        const metadata_path = path.join('subscriptions', 'channels', 'null', 'subscription_backup.json');
+        if (fs.existsSync(metadata_path)) fs.unlinkSync(metadata_path);
+
+        const success = subscriptions_api.writeSubscriptionMetadata(nameless_sub);
+
+        assert.strictEqual(success, false);
+        assert.strictEqual(fs.existsSync(metadata_path), false);
+    });
     it('Fresh uploads', async function() {
 
     });
