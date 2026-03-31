@@ -26,6 +26,7 @@ If applicable, add screenshots to help explain your problem.
 **Environment**
 - ytdl-material version
 - Docker tag: <tag> (optional)
+- Docker compose config: <paste relevant `docker-compose.yml` / service config here>
 
 Ideally you'd copy the info as presented on the "About" dialogue
 in ytdl-material.
