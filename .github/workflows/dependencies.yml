@@ -33,8 +33,23 @@ jobs:
         working-directory: ./backend
 
       - name: Check frontend dependencies
+        id: frontend_outdated
+        continue-on-error: true
         run: npm outdated
 
       - name: Check backend dependencies
+        id: backend_outdated
+        continue-on-error: true
         run: npm outdated
         working-directory: ./backend
+
+      - name: Fail if dependencies are outdated
+        if: always()
+        run: |
+          echo "Frontend check outcome: ${{ steps.frontend_outdated.outcome }}"
+          echo "Backend check outcome: ${{ steps.backend_outdated.outcome }}"
+
+          if [ "${{ steps.frontend_outdated.outcome }}" = "failure" ] || [ "${{ steps.backend_outdated.outcome }}" = "failure" ]; then
+            echo "One or more dependency checks reported outdated packages."
+            exit 1
+          fi
