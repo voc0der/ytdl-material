@@ -473,4 +473,4 @@ exports.SUBSCRIPTION_BACKUP_PATH = 'subscription_backup.json'
 // we're using a Set here for performance
 exports.YTDL_ARGS_WITH_VALUES = new Set(YTDL_ARGS_WITH_VALUES);
 
-exports.CURRENT_VERSION = 'v1.0.0';
+exports.CURRENT_VERSION = 'v1.0.1';
