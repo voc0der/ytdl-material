@@ -88,4 +88,16 @@ describe('UnifiedFileCardComponent', () => {
 
     expect(thumbnail.nativeElement.classList).toContain('preview-image-hidden');
   });
+
+  it('should try to start playback when the preview can play', () => {
+    const preview = {
+      play: jasmine.createSpy().and.returnValue(Promise.resolve())
+    } as unknown as HTMLVideoElement;
+
+    component.hide_image = true;
+    component.elevated = true;
+    component.startPreview(preview);
+
+    expect(preview.play).toHaveBeenCalled();
+  });
 });

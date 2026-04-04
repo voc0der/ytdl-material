@@ -195,7 +195,20 @@ export class UnifiedFileCardComponent implements OnInit {
     this.toggleFavorite.emit(this.file_obj);
   }
 
-  onPreviewLoaded() {
+  startPreview(video: HTMLVideoElement) {
+    if (!video || !this.hide_image || !this.elevated) {
+      return;
+    }
+
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        this.previewReady = false;
+      });
+    }
+  }
+
+  onPreviewPlaying() {
     this.previewReady = true;
   }
 
