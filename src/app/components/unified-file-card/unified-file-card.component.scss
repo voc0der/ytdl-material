@@ -146,6 +146,7 @@
   overflow: hidden;
   display: block;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .audio-video-icon {
