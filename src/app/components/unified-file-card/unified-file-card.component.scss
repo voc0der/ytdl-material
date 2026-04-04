@@ -19,6 +19,19 @@
   cursor: pointer;
 }
 
+.file-card-shell img,
+.file-card-shell video {
+  -webkit-user-drag: none;
+}
+
+.download-time,
+.duration-time,
+.max-two-lines,
+.max-one-line {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .menuButton {
   right: 0px;
   width: 32px !important;

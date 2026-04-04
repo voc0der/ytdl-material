@@ -111,6 +111,14 @@ export class UnifiedFileCardComponent implements OnInit {
     });
   }
 
+  handleCardClick(event: MouseEvent) {
+    if (this.loading) {
+      return;
+    }
+
+    this.navigateToFile(event);
+  }
+
   navigateToFile(event) {
     this.goToFile.emit({file: this.file_obj, event: event});
   }
