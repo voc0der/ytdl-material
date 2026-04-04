@@ -77,9 +77,9 @@
       @if (!loading && file_obj.thumbnailURL) {
         <div class="img-div">
           <div [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" style="position: relative">
-            <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="file_obj.thumbnailPath ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
+            <img class="preview-image" [class.preview-image-hidden]="hide_image && previewReady && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)" [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="file_obj.thumbnailPath ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
             @if (hide_image && elevated && streamURL && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
-              <video class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
+              <video class="preview-video" (loadeddata)="onPreviewLoaded()" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
               </video>
             }
             <div class="duration-time">

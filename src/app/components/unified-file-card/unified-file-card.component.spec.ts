@@ -65,4 +65,27 @@ describe('UnifiedFileCardComponent', () => {
     expect(fixture.debugElement.query(By.css('img'))).not.toBeNull();
     expect(fixture.debugElement.query(By.css('video.preview-video'))).not.toBeNull();
   });
+
+  it('should hide the thumbnail once the hover preview is ready', () => {
+    component.loading = false;
+    component.locale = { ngID: 'en-GB' } as any;
+    component.file_obj = {
+      uid: 'example-uid',
+      duration: 90,
+      type: 'video',
+      isAudio: false,
+      title: 'Example title',
+      registered: Date.now(),
+      thumbnailURL: 'https://example.com/thumb.jpg'
+    } as any;
+    component.elevated = true;
+    component.hide_image = true;
+    component.streamURL = 'https://example.com/preview.mp4';
+    component.previewReady = true;
+    fixture.detectChanges();
+
+    const thumbnail = fixture.debugElement.query(By.css('img'));
+
+    expect(thumbnail.nativeElement.classList).toContain('preview-image-hidden');
+  });
 });

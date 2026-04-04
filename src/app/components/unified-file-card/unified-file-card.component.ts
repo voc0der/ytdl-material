@@ -38,6 +38,7 @@ export class UnifiedFileCardComponent implements OnInit {
 
   streamURL = null;
   hide_image = false;
+  previewReady = false;
   previewHoverTimeout: ReturnType<typeof setTimeout> = null;
 
   // input/output
@@ -171,6 +172,7 @@ export class UnifiedFileCardComponent implements OnInit {
     }
     this.previewHoverTimeout = setTimeout(() => {
       if (this.elevated) {
+        this.previewReady = false;
         if (!this.streamURL && this.file_obj && !this.is_playlist && !(this.file_obj.type === 'audio' || this.file_obj.isAudio)) {
           this.streamURL = this.generateStreamURL();
         }
@@ -186,10 +188,15 @@ export class UnifiedFileCardComponent implements OnInit {
     }
     this.elevated = false;
     this.hide_image = false;
+    this.previewReady = false;
   }
 
   emitToggleFavorite() {
     this.toggleFavorite.emit(this.file_obj);
+  }
+
+  onPreviewLoaded() {
+    this.previewReady = true;
   }
 
 }
