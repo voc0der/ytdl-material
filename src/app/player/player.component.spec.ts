@@ -181,6 +181,25 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.setPageTitle).toHaveBeenCalledWith();
   });
 
+  it('should unload the native media element on destroy', () => {
+    const pauseSpy = jasmine.createSpy('pause');
+    const removeAttributeSpy = jasmine.createSpy('removeAttribute');
+    const loadSpy = jasmine.createSpy('load');
+    component.mediaElement = {
+      nativeElement: {
+        pause: pauseSpy,
+        removeAttribute: removeAttributeSpy,
+        load: loadSpy
+      }
+    } as any;
+
+    component.ngOnDestroy();
+
+    expect(pauseSpy).toHaveBeenCalled();
+    expect(removeAttributeSpy).toHaveBeenCalledWith('src');
+    expect(loadSpy).toHaveBeenCalled();
+  });
+
   it('should sync current chapters and close chapter dropdown', () => {
     component.chapterDropdownOpen = true;
     component.currentItem = {

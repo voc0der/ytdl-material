@@ -118,6 +118,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   loadedSubtitleTrackSignature = '';
   subtitleToggleStateKey: string | null = null;
   subtitlesEnabled = false;
+  private destroyed = false;
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
@@ -156,6 +157,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.subtitleTrackRefreshToken += 1;
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
     if (this.subtitleTrackActivationTimer) {
@@ -167,6 +170,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.subtitleTrackAddListener = null;
       this.subtitleTrackList = null;
     }
+    this.unloadMediaElement();
     this.postsService.setPageTitle();
   }
 
@@ -889,6 +893,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.cdr.detectChanges();
     queueMicrotask(() => {
+      if (this.destroyed) {
+        return;
+      }
       this.attachSubtitleTrackListener();
       const should_reload_media = media_element.readyState > 0
         && subtitle_signature !== this.loadedSubtitleTrackSignature
@@ -936,6 +943,31 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       media_element.addEventListener('loadedmetadata', restore_media_state, { once: true });
       media_element.load();
     });
+  }
+
+  private unloadMediaElement(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element) {
+      return;
+    }
+
+    try {
+      media_element.pause?.();
+    } catch (e) {
+      // Non-fatal cleanup.
+    }
+
+    // Removing the source before reloading aborts any in-flight fetch so route changes
+    // do not trigger a fallback load against the current document.
+    if (typeof media_element.removeAttribute === 'function') {
+      media_element.removeAttribute('src');
+    }
+
+    try {
+      media_element.load?.();
+    } catch (e) {
+      // Non-fatal cleanup.
+    }
   }
 
   showDefaultSubtitleTrack(): void {
