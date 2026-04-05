@@ -212,7 +212,6 @@
 }
 
 .library-header {
-    --library-toolbar-width: 304px;
     padding-top: 8px;
 }
 
@@ -312,19 +311,19 @@
     text-align: center;
 }
 
-.library-filter-row {
-    margin-top: 2px;
-}
-
 .filter-list {
-    display: flex;
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
     margin: 6px 0 10px;
 }
 
-.filter-list mat-chip-option {
+.filter-list ::ng-deep .mdc-evolution-chip-set__chips {
+    min-width: auto;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.filter-list ::ng-deep .mdc-evolution-chip {
     margin: 0;
 }
 
@@ -345,7 +344,7 @@
     .library-header-sort app-sort-property,
     .library-header-search .search-bar,
     .filter-list {
-        width: min(100%, var(--library-toolbar-width));
+        width: min(100%, 304px);
     }
 
     .library-switcher {
