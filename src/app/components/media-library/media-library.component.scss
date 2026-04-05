@@ -13,7 +13,6 @@
 .search-bar {
     transition: all .5s ease;
     position: relative;
-    float: right;
 }
  
 .search-bar-unfocused {
@@ -205,17 +204,30 @@
 
 .my-videos-title {
     text-align: center;
-    position: relative;
-    top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    margin: 0;
 }
 
 .library-header {
     padding-top: 8px;
 }
 
+.library-header-row {
+    align-items: center;
+    row-gap: 12px;
+}
+
+.library-header-cell {
+    min-width: 0;
+}
+
 .library-switcher-shell {
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
 .library-switcher {
@@ -299,9 +311,40 @@
     text-align: center;
 }
 
+.filter-list {
+    justify-content: center;
+    margin: 6px 0 10px;
+}
+
+.filter-list ::ng-deep .mdc-evolution-chip-set__chips {
+    min-width: auto;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.filter-list ::ng-deep .mdc-evolution-chip {
+    margin: 0;
+}
+
 @media (max-width: 576px) {
-    .my-videos-title {
-        top: 0px;
+    .library-header {
+        padding-top: 4px;
+    }
+
+    .library-header-row {
+        row-gap: 8px;
+    }
+
+    .library-header-cell {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .library-header-sort app-sort-property,
+    .library-header-search .search-bar,
+    .filter-list {
+        width: min(100%, 304px);
     }
 
     .library-switcher {
@@ -321,19 +364,19 @@
         width: 12px;
     }
 
-    .search-bar {
-        float: none;
-    }
-
     .search-bar-unfocused,
     .search-bar-focused {
-        width: min(100%, 280px);
+        width: 100%;
     }
 
     .paginator-shell {
         justify-content: center;
         gap: 10px;
         padding: 8px;
+    }
+
+    .filter-list {
+        margin: 2px auto 8px;
     }
 
     .auto-pagination-status {
@@ -396,10 +439,6 @@
 .downloading-spinner {
     align-self: center;
     position: absolute;
-}
-
-.filter-list {
-    margin-bottom: 10px;
 }
 
 .hide {

@@ -22,11 +22,11 @@
 
 <ng-template #playlistLibraryContent>
   <div class="container-fluid library-header" style="max-width: 941px;">
-    <div class="row">
-      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center">
+    <div class="row library-header-row">
+      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center justify-content-sm-start library-header-cell library-header-sort">
         <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
       </div>
-      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
+      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center library-header-cell library-header-title">
         @if (showLibraryTabs) {
           <div class="my-videos-title library-switcher-shell">
             <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
@@ -35,7 +35,7 @@
           <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
         }
       </div>
-      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center">
+      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center justify-content-sm-end library-header-cell library-header-search">
         <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
           <mat-label i18n="Search playlists">Search playlists</mat-label>
           <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
@@ -79,11 +79,11 @@
 
 <ng-template #videoLibraryContent>
   <div class="container-fluid library-header" style="max-width: 941px;">
-    <div class="row">
-      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center">
+    <div class="row library-header-row">
+      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center justify-content-sm-start library-header-cell library-header-sort">
         <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
       </div>
-      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center">
+      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center library-header-cell library-header-title">
         @if (showLibraryTabs) {
           <div class="my-videos-title library-switcher-shell">
             <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
@@ -94,7 +94,7 @@
           <h4 class="my-videos-title">{{customHeader}}</h4>
         }
       </div>
-      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center">
+      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center justify-content-sm-end library-header-cell library-header-search">
         <mat-form-field appearance="outline" [ngClass]="searchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
           <mat-label i18n="Search">Search</mat-label>
           <input (focus)="searchIsFocused = true" (blur)="searchIsFocused = false" class="search-input" type="text" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" matInput>
@@ -102,7 +102,7 @@
         </mat-form-field>
       </div>
     </div>
-    <div class="row justify-content-center">
+    <div class="row justify-content-center library-filter-row">
       <mat-chip-listbox class="filter-list" [value]="selectedFilters" [multiple]="true" (change)="selectedFiltersChanged($event)">
         @for (filter of fileFilters | keyvalue: originalOrder; track filter.key) {
           <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.value.label}}</mat-chip-option>
