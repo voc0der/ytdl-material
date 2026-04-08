@@ -62,8 +62,8 @@
     "@types/file-saver": "^2.0.1",
     "@types/jasmine": "^6.0.0",
     "@types/node": "^25.5.2",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
     "ajv": "^8.18.0",
     "eslint": "^10.2.0",
     "globals": "^17.4.0",
@@ -114,6 +114,7 @@
     "serialize-javascript": "7.0.5",
     "tar": "7.5.11",
     "tmp": "0.2.5",
-    "undici": "7.24.2"
+    "undici": "7.24.2",
+    "vite": "7.3.2"
   }
 }
