@@ -26,9 +26,11 @@ ENV npm_config_cache=/app/.npm
 ENV NODE_VERSION=24
 RUN (groupadd -g $GID $USER || groupadd $USER) && \
     (useradd --system -m -g $USER --uid $UID $USER || useradd --system -m -g $USER $USER) && \
-    apt update && \
-    apt install -y --no-install-recommends curl ca-certificates tzdata libicu74 libatomic1 && \
-    apt clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates tzdata libatomic1 && \
+    ICU_PKG=$(apt-cache search '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1) && \
+    apt-get install -y --no-install-recommends "${ICU_PKG}" && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /usr/local/nvm
