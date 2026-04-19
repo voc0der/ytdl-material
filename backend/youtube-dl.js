@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const fetch = globalThis.fetch;
 const path = require('path');
+const { spawn } = require('child_process');
 const execa_module = require('execa');
 const execa = typeof execa_module === 'function' ? execa_module : execa_module.execa;
 const kill = require('tree-kill');
@@ -11,6 +12,7 @@ const CONSTS = require('./consts');
 const config_api = require('./config.js');
 
 const is_windows = process.platform === 'win32';
+const STREAMING_ERROR_BUFFER_LIMIT = 20000;
 
 exports.youtubedl_forks = {
     'youtube-dl': {
@@ -39,6 +41,67 @@ function ensureJavascriptRuntimeArgs(args = [], youtubedl_fork = config_api.getC
     return ['--js-runtimes', 'node', ...args];
 }
 
+function getYoutubeDLEnv() {
+    return {
+        ...process.env,
+        DENO_NO_PROMPT: '1',
+        DENO_DIR: '/tmp/deno',
+        XDG_CACHE_HOME: '/tmp/cache',
+        HOME: '/tmp'
+    };
+}
+
+function appendStreamChunk(existing_output = '', chunk = null, limit = STREAMING_ERROR_BUFFER_LIMIT) {
+    const chunk_text = chunk === null || chunk === undefined ? '' : chunk.toString();
+    if (!chunk_text) return existing_output;
+
+    const combined_output = `${existing_output}${chunk_text}`;
+    if (combined_output.length <= limit) return combined_output;
+    return combined_output.slice(combined_output.length - limit);
+}
+
+function createLineStreamHandler(stream = null, line_handler = null) {
+    if (!stream || typeof stream.on !== 'function' || typeof line_handler !== 'function') {
+        return () => {};
+    }
+
+    let stream_buffer = '';
+    const emit_line = (line = '') => {
+        try {
+            line_handler(line);
+        } catch (e) {
+            logger.warn('A yt-dlp line handler failed while processing streamed output.');
+            logger.debug(e);
+        }
+    };
+
+    const on_data = (chunk) => {
+        stream_buffer += chunk.toString();
+        const lines = stream_buffer.split(/\r?\n|\r/g);
+        stream_buffer = lines.pop() || '';
+        for (const line of lines) emit_line(line);
+    };
+
+    const on_end = () => {
+        if (!stream_buffer) return;
+        emit_line(stream_buffer);
+        stream_buffer = '';
+    };
+
+    stream.on('data', on_data);
+    stream.on('end', on_end);
+
+    return () => {
+        if (typeof stream.off === 'function') {
+            stream.off('data', on_data);
+            stream.off('end', on_end);
+        } else if (typeof stream.removeListener === 'function') {
+            stream.removeListener('data', on_data);
+            stream.removeListener('end', on_end);
+        }
+    };
+}
+
 exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLPath(selected_fork);
@@ -50,6 +113,71 @@ exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl
     } else {
         ({callback, child_process} = await runYoutubeDLProcess(url, args, selected_fork));
     }
+
+    return {child_process, callback};
+}
+
+exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl_fork = null) => {
+    const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
+    const output_file_path = getYoutubeDLPath(selected_fork);
+    if (!fs.existsSync(output_file_path)) await exports.checkForYoutubeDLUpdate(selected_fork);
+
+    const runtime_args = ensureJavascriptRuntimeArgs(args, selected_fork);
+    logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
+    const child_process = spawn(output_file_path, [url, ...runtime_args], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: getYoutubeDLEnv()
+    });
+
+    let recent_stdout = '';
+    let recent_stderr = '';
+    if (child_process.stdout) {
+        child_process.stdout.on('data', (chunk) => {
+            recent_stdout = appendStreamChunk(recent_stdout, chunk);
+        });
+    }
+    if (child_process.stderr) {
+        child_process.stderr.on('data', (chunk) => {
+            recent_stderr = appendStreamChunk(recent_stderr, chunk);
+        });
+    }
+
+    const detach_stdout_handler = createLineStreamHandler(child_process.stdout, line_handlers.onStdoutLine || line_handlers.onLine);
+    const detach_stderr_handler = createLineStreamHandler(child_process.stderr, line_handlers.onStderrLine || line_handlers.onLine);
+
+    const callback = new Promise(resolve => {
+        let settled = false;
+        const finalize = (payload) => {
+            if (settled) return;
+            settled = true;
+            detach_stdout_handler();
+            detach_stderr_handler();
+            resolve(payload);
+        };
+
+        child_process.once('error', (error) => {
+            logger.debug(`yt-dlp streaming process failed to start for URL: ${url} - Error: ${error.message}`);
+            error.stdout = recent_stdout;
+            error.stderr = recent_stderr;
+            finalize({err: error});
+        });
+
+        child_process.once('close', (code, signal) => {
+            if (code === 0) {
+                logger.debug(`yt-dlp streaming process completed for URL: ${url}`);
+                finalize({err: null});
+                return;
+            }
+
+            const error = new Error(`yt-dlp process exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+            error.code = code;
+            error.signal = signal;
+            error.stdout = recent_stdout;
+            error.stderr = recent_stderr;
+            logger.debug(`yt-dlp streaming process failed for URL: ${url} - Error: ${error.message}`);
+            finalize({err: error});
+        });
+    });
 
     return {child_process, callback};
 }
@@ -82,13 +210,7 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         buffer: true,
         cleanup: true,    // Kill all child processes when parent exits
         killSignal: 'SIGKILL',  // Force kill instead of graceful SIGTERM
-        env: {
-            ...process.env,
-            DENO_NO_PROMPT: '1',
-            DENO_DIR: '/tmp/deno',
-            XDG_CACHE_HOME: '/tmp/cache',
-            HOME: '/tmp'
-        }
+        env: getYoutubeDLEnv()
     });
 
     // Log when process exits

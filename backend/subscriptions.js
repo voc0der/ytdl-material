@@ -207,82 +207,69 @@ async function maybePersistSubscriptionRefreshStatus(tracker, force = false) {
     return true;
 }
 
-function attachSubscriptionRefreshOutputListeners(tracker, child_process = null) {
-    if (!tracker || !child_process || typeof child_process !== 'object') {
-        return () => {};
+function getSubscriptionRefreshTotalCountCandidate(playlist_state = null, output_json = null) {
+    let total_count = null;
+    if (playlist_state && playlist_state.total_items > 0) {
+        total_count = playlist_state.total_items;
     }
 
-    const listeners = [];
-    const attach_listener = (stream) => {
-        if (!stream || typeof stream.on !== 'function') return;
+    if (!output_json || typeof output_json !== 'object') {
+        return total_count;
+    }
 
-        let stream_buffer = '';
-        const ingest_line = (line = '') => {
-            const {playlist_state, output_json} = parseSubscriptionRefreshOutputLine(line);
+    const total_count_candidates = [
+        output_json.playlist_count,
+        output_json.n_entries,
+        output_json.__last_playlist_index,
+        output_json.playlist_index
+    ];
 
-            if (playlist_state && playlist_state.total_items > 0 && playlist_state.total_items !== tracker.refresh_status.total_count) {
-                tracker.refresh_status.total_count = playlist_state.total_items;
-                maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
-            }
+    for (const candidate of total_count_candidates) {
+        const normalized_candidate = normalizeNullableCount(candidate);
+        if (normalized_candidate === null) continue;
+        total_count = total_count === null ? normalized_candidate : Math.max(total_count, normalized_candidate);
+    }
 
-            if (!output_json) return;
-            const output_key = getSubscriptionOutputKey(output_json);
-            if (output_key && tracker.seen_output_keys.has(output_key)) return;
-            if (output_key) tracker.seen_output_keys.add(output_key);
-
-            tracker.refresh_status.discovered_count += 1;
-            tracker.refresh_status.latest_item_title = normalizeNullableString(output_json.title) || tracker.refresh_status.latest_item_title;
-            maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
-        };
-
-        const on_data = (chunk) => {
-            stream_buffer += chunk.toString();
-            const lines = stream_buffer.split(/\r?\n|\r/g);
-            stream_buffer = lines.pop() || '';
-            for (const line of lines) ingest_line(line);
-        };
-
-        const on_end = () => {
-            if (!stream_buffer) return;
-            ingest_line(stream_buffer);
-            stream_buffer = '';
-        };
-
-        stream.on('data', on_data);
-        stream.on('end', on_end);
-        listeners.push({stream: stream, data_handler: on_data, end_handler: on_end});
-    };
-
-    attach_listener(child_process.stdout);
-    attach_listener(child_process.stderr);
-
-    return () => {
-        for (const listener of listeners) {
-            if (!listener.stream) continue;
-            if (typeof listener.stream.off === 'function') {
-                listener.stream.off('data', listener.data_handler);
-                listener.stream.off('end', listener.end_handler);
-            } else if (typeof listener.stream.removeListener === 'function') {
-                listener.stream.removeListener('data', listener.data_handler);
-                listener.stream.removeListener('end', listener.end_handler);
-            }
-        }
-    };
+    return total_count;
 }
 
-function getUniqueSubscriptionOutputItems(output_jsons = []) {
-    const unique_output_items = [];
-    const seen_output_keys = new Set();
+function updateSubscriptionRefreshTrackerFromLine(tracker, output_line = '') {
+    if (!tracker || !tracker.refresh_status) return null;
 
-    for (const output_json of output_jsons) {
-        if (!output_json || typeof output_json !== 'object') continue;
-        const output_key = getSubscriptionOutputKey(output_json);
-        if (output_key && seen_output_keys.has(output_key)) continue;
-        if (output_key) seen_output_keys.add(output_key);
-        unique_output_items.push(output_json);
+    const {playlist_state, output_json} = parseSubscriptionRefreshOutputLine(output_line);
+    const total_count_candidate = getSubscriptionRefreshTotalCountCandidate(playlist_state, output_json);
+    let refresh_status_updated = false;
+
+    if (total_count_candidate !== null) {
+        const next_total_count = tracker.refresh_status.total_count === null
+            ? total_count_candidate
+            : Math.max(tracker.refresh_status.total_count, total_count_candidate);
+        if (next_total_count !== tracker.refresh_status.total_count) {
+            tracker.refresh_status.total_count = next_total_count;
+            refresh_status_updated = true;
+        }
     }
 
-    return unique_output_items;
+    if (!output_json) {
+        if (refresh_status_updated) maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
+        return null;
+    }
+
+    const output_key = getSubscriptionOutputKey(output_json);
+    if (output_key && tracker.seen_output_keys.has(output_key)) {
+        if (refresh_status_updated) maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
+        return null;
+    }
+    if (output_key) tracker.seen_output_keys.add(output_key);
+
+    tracker.refresh_status.discovered_count += 1;
+    tracker.refresh_status.latest_item_title = normalizeNullableString(output_json.title) || tracker.refresh_status.latest_item_title;
+    maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
+    return output_json;
+}
+
+function isSubscriptionRefreshCancelled(tracker) {
+    return !!(tracker && tracker.refresh_status && tracker.refresh_status.phase === SUBSCRIPTION_REFRESH_PHASES.CANCELLED);
 }
 
 async function finalizeSubscriptionRefreshWithError(sub_id, tracker, error_message = null) {
@@ -309,6 +296,148 @@ async function finalizeSubscriptionRefreshAsCancelled(sub_id, tracker) {
     });
     active_subscription_refresh_trackers.delete(sub_id);
     return await maybePersistSubscriptionRefreshStatus(tracker, true);
+}
+
+async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_tracker = null, queue_context = null) {
+    if (queue_context) return queue_context;
+
+    if (config_api.getConfigItem('ytdl_subscriptions_redownload_fresh_uploads')) {
+        await setFreshUploads(sub, user_uid);
+        checkVideosForFreshUploads(sub, user_uid);
+    }
+
+    const created_queue_context = {
+        download_context: await createSubscriptionDownloadContext(sub),
+        base_download_options: exports.generateOptionsForSubscriptionDownload(sub, user_uid),
+        queued_count: 0
+    };
+
+    if (refresh_tracker) {
+        refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
+            ...refresh_tracker.refresh_status,
+            active: true,
+            phase: SUBSCRIPTION_REFRESH_PHASES.QUEUEING,
+            total_count: refresh_tracker.refresh_status.total_count === null
+                ? refresh_tracker.refresh_status.discovered_count
+                : Math.max(refresh_tracker.refresh_status.total_count, refresh_tracker.refresh_status.discovered_count),
+            new_items_count: created_queue_context.queued_count,
+            queued_count: created_queue_context.queued_count,
+            error: null
+        });
+        await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
+    }
+
+    return created_queue_context;
+}
+
+async function finalizeSubscriptionRefreshSuccess(sub, tracker, queue_context = null) {
+    if (!tracker) return 0;
+
+    const queued_count = queue_context ? queue_context.queued_count : 0;
+    const discovered_count = tracker.refresh_status.discovered_count;
+    tracker.refresh_status = normalizeSubscriptionRefreshStatus({
+        ...tracker.refresh_status,
+        active: false,
+        phase: queued_count > 0 ? SUBSCRIPTION_REFRESH_PHASES.QUEUED : SUBSCRIPTION_REFRESH_PHASES.COMPLETE,
+        total_count: tracker.refresh_status.total_count === null
+            ? discovered_count
+            : Math.max(tracker.refresh_status.total_count, discovered_count),
+        new_items_count: queued_count,
+        queued_count: queued_count,
+        latest_item_title: null,
+        completed_at: Date.now(),
+        error: null
+    });
+
+    active_subscription_refresh_trackers.delete(sub.id);
+    await maybePersistSubscriptionRefreshStatus(tracker, true);
+    return queued_count;
+}
+
+function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker) {
+    const stream_state = {
+        pending_output_batch: [],
+        queue_context: null,
+        flush_promise: Promise.resolve(),
+        flush_error: null
+    };
+
+    const flushOutputBatch = async (output_batch = []) => {
+        if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return stream_state.queue_context;
+        stream_state.queue_context = await handleOutputJSON(output_batch, sub, user_uid, refresh_tracker, stream_state.queue_context);
+        return stream_state.queue_context;
+    };
+
+    const scheduleBatchFlush = (force = false) => {
+        if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) {
+            if (isSubscriptionRefreshCancelled(refresh_tracker)) {
+                stream_state.pending_output_batch = [];
+            }
+            return stream_state.flush_promise;
+        }
+
+        while (stream_state.pending_output_batch.length >= SUBSCRIPTION_QUEUE_BATCH_SIZE || (force && stream_state.pending_output_batch.length > 0)) {
+            const batch_size = force ? stream_state.pending_output_batch.length : SUBSCRIPTION_QUEUE_BATCH_SIZE;
+            const output_batch = stream_state.pending_output_batch.splice(0, batch_size);
+
+            stream_state.flush_promise = stream_state.flush_promise
+                .then(async () => {
+                    if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return;
+                    await flushOutputBatch(output_batch);
+                })
+                .catch(error => {
+                    stream_state.flush_error = error;
+                });
+
+            if (!force) break;
+        }
+
+        return stream_state.flush_promise;
+    };
+
+    return {
+        ingestLine(output_line = '') {
+            if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return;
+            const output_json = updateSubscriptionRefreshTrackerFromLine(refresh_tracker, output_line);
+            if (!output_json) return;
+
+            stream_state.pending_output_batch.push(output_json);
+            if (stream_state.pending_output_batch.length >= SUBSCRIPTION_QUEUE_BATCH_SIZE) {
+                scheduleBatchFlush();
+            }
+        },
+        async finalize(process_error = null) {
+            if (isSubscriptionRefreshCancelled(refresh_tracker)) {
+                stream_state.pending_output_batch = [];
+                await stream_state.flush_promise;
+                return stream_state.queue_context ? stream_state.queue_context.queued_count : 0;
+            }
+
+            await scheduleBatchFlush(true);
+            await stream_state.flush_promise;
+            if (stream_state.flush_error) throw stream_state.flush_error;
+
+            const queued_count = stream_state.queue_context ? stream_state.queue_context.queued_count : 0;
+            const discovered_count = refresh_tracker && refresh_tracker.refresh_status
+                ? refresh_tracker.refresh_status.discovered_count
+                : 0;
+            const has_streamed_results = discovered_count > 0 || queued_count > 0;
+
+            if (process_error && !has_streamed_results) {
+                logger.error('Subscription check failed!');
+                logger.error(process_error);
+                await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, process_error ? process_error.toString() : 'Subscription check failed.');
+                return null;
+            }
+
+            if (process_error) {
+                logger.warn(`Subscription discovery for '${sub.name}' exited early after streaming ${discovered_count} entries. Queueing the streamed results.`);
+                logger.debug(process_error);
+            }
+
+            return await finalizeSubscriptionRefreshSuccess(sub, refresh_tracker, stream_state.queue_context);
+        }
+    };
 }
 
 exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
@@ -606,134 +735,62 @@ async function _getVideosForSub(sub) {
     // get videos
     logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(downloadConfig).join(',')}`);
 
-    let {child_process, callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
-    await updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
-    const detach_refresh_output_listeners = attachSubscriptionRefreshOutputListeners(refresh_tracker, child_process);
-    const {parsed_output, err} = await callback;
-    detach_refresh_output_listeners();
-    if (!parsed_output) {
-        logger.error('Subscription check failed!');
-        if (err) logger.error(err);
-        await Promise.all([
-            updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid),
-            finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, err ? err.toString() : 'Subscription check failed.')
-        ]);
-        return null;
-    }
-
-    const unique_output_items = getUniqueSubscriptionOutputItems(parsed_output);
-    refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
-        ...refresh_tracker.refresh_status,
-        discovered_count: Math.max(refresh_tracker.refresh_status.discovered_count, unique_output_items.length),
-        total_count: refresh_tracker.refresh_status.total_count === null
-            ? unique_output_items.length
-            : Math.max(refresh_tracker.refresh_status.total_count, unique_output_items.length),
-        latest_item_title: unique_output_items.length > 0
-            ? normalizeNullableString(unique_output_items[unique_output_items.length - 1]['title']) || refresh_tracker.refresh_status.latest_item_title
-            : refresh_tracker.refresh_status.latest_item_title
+    const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker);
+    let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, downloadConfig, {
+        onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
+        onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
     });
-    await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
-
-    // remove temporary archive file if it exists
-    const archive_path = path.join(appendedBasePath, 'archive.txt');
-    const archive_exists = await fs.pathExists(archive_path);
-    if (archive_exists) {
-        await fs.unlink(archive_path);
-    }
-
-    logger.verbose('Subscription: finished check for ' + sub.name);
+    await updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
     try {
-        const files_to_download = await handleOutputJSON(parsed_output, sub, user_uid, refresh_tracker);
-        return files_to_download;
+        const {err} = await callback;
+        const queued_count = await refresh_stream_processor.finalize(err);
+        logger.verbose('Subscription: finished check for ' + sub.name);
+        return queued_count;
     } catch (e) {
-        logger.error(`Failed to queue downloads for subscription '${sub.name}'.`);
-        logger.error(e);
-        await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, e ? e.toString() : 'Failed to queue subscription downloads.');
+        if (!isSubscriptionRefreshCancelled(refresh_tracker)) {
+            logger.error(`Failed to queue downloads for subscription '${sub.name}'.`);
+            logger.error(e);
+            await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, e ? e.toString() : 'Failed to queue subscription downloads.');
+        }
         return null;
     } finally {
+        // remove temporary archive file if it exists
+        const archive_path = path.join(appendedBasePath, 'archive.txt');
+        const archive_exists = await fs.pathExists(archive_path);
+        if (archive_exists) {
+            await fs.unlink(archive_path);
+        }
+
         await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
     }
 }
 
-async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = null) {
-    if (config_api.getConfigItem('ytdl_subscriptions_redownload_fresh_uploads')) {
-        await setFreshUploads(sub, user_uid);
-        checkVideosForFreshUploads(sub, user_uid);
+async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = null, queue_context = null) {
+    const filtered_output_jsons = Array.isArray(output_jsons)
+        ? output_jsons.filter(output_json => !!output_json && typeof output_json === 'object')
+        : [];
+    if (filtered_output_jsons.length === 0) {
+        return queue_context;
     }
 
-    if (output_jsons.length === 0 || (output_jsons.length === 1 && output_jsons[0] === '')) {
-        logger.verbose('No additional videos to download for ' + sub.name);
+    const effective_queue_context = await ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_tracker, queue_context);
+    const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context);
+
+    for (const file_to_download of files_to_download) {
+        if (Array.isArray(file_to_download['formats'])) {
+            // Keep subscription queue payloads small when full info is available.
+            file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);
+        }
+        await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', effective_queue_context.base_download_options, user_uid, sub.id, sub.name, [file_to_download]);
+        effective_queue_context.queued_count += 1;
         if (refresh_tracker) {
-            refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
-                ...refresh_tracker.refresh_status,
-                active: false,
-                phase: SUBSCRIPTION_REFRESH_PHASES.COMPLETE,
-                total_count: refresh_tracker.refresh_status.total_count === null ? 0 : refresh_tracker.refresh_status.total_count,
-                new_items_count: 0,
-                queued_count: 0,
-                latest_item_title: null,
-                completed_at: Date.now(),
-                error: null
-            });
-            active_subscription_refresh_trackers.delete(sub.id);
-            await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
-        }
-        return [];
-    }
-
-    const download_context = await createSubscriptionDownloadContext(sub);
-    if (refresh_tracker) {
-        refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
-            ...refresh_tracker.refresh_status,
-            active: true,
-            phase: SUBSCRIPTION_REFRESH_PHASES.QUEUEING,
-            total_count: refresh_tracker.refresh_status.total_count === null
-                ? getUniqueSubscriptionOutputItems(output_jsons).length
-                : refresh_tracker.refresh_status.total_count,
-            new_items_count: 0,
-            queued_count: 0,
-            error: null
-        });
-        await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
-    }
-    const base_download_options = exports.generateOptionsForSubscriptionDownload(sub, user_uid);
-    let queued_count = 0;
-
-    for (let i = 0; i < output_jsons.length; i += SUBSCRIPTION_QUEUE_BATCH_SIZE) {
-        const output_batch = output_jsons.slice(i, i + SUBSCRIPTION_QUEUE_BATCH_SIZE);
-        const files_to_download = await getFilesToDownload(sub, output_batch, download_context);
-
-        for (const file_to_download of files_to_download) {
-            if (Array.isArray(file_to_download['formats'])) {
-                // Keep subscription queue payloads small when full info is available.
-                file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);
-            }
-            await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', base_download_options, user_uid, sub.id, sub.name, [file_to_download]);
-            queued_count += 1;
-            if (refresh_tracker) {
-                refresh_tracker.refresh_status.queued_count = queued_count;
-                refresh_tracker.refresh_status.new_items_count = queued_count;
-                await maybePersistSubscriptionRefreshStatus(refresh_tracker);
-            }
+            refresh_tracker.refresh_status.queued_count = effective_queue_context.queued_count;
+            refresh_tracker.refresh_status.new_items_count = effective_queue_context.queued_count;
+            await maybePersistSubscriptionRefreshStatus(refresh_tracker);
         }
     }
 
-    if (refresh_tracker) {
-        refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
-            ...refresh_tracker.refresh_status,
-            active: false,
-            phase: queued_count > 0 ? SUBSCRIPTION_REFRESH_PHASES.QUEUED : SUBSCRIPTION_REFRESH_PHASES.COMPLETE,
-            new_items_count: queued_count,
-            queued_count: queued_count,
-            completed_at: Date.now(),
-            latest_item_title: null,
-            error: null
-        });
-        active_subscription_refresh_trackers.delete(sub.id);
-        await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
-    }
-
-    return queued_count;
+    return effective_queue_context;
 }
 
 exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {

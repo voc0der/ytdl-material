@@ -117,24 +117,38 @@ describe('Subscriptions', function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         assert(fs.existsSync(metadata_path));
     });
-    it('Discovers subscription videos with flat playlist metadata and queues them in batches', async function() {
-        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+    it('Streams subscription videos with flat playlist metadata and queues them in batches before discovery completes', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const sub = Object.assign({}, new_sub, {id: uuid(), name: 'batched_sub'});
         const fake_outputs = Array.from({length: 65}, (_, index) => ({
             webpage_url: `https://www.youtube.com/watch?v=video-${index}`,
             title: `Video ${index}`,
             extractor: 'youtube',
-            id: `video-${index}`
+            id: `video-${index}`,
+            playlist_count: 65,
+            playlist_index: index + 1
         }));
         let captured_args = null;
+        let resolve_stream = null;
+        let callback_resolved = false;
 
-        youtubedl_api.runYoutubeDL = async (requested_url, args) => {
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers = {}) => {
             captured_args = args;
             return {
-                child_process: {pid: 4321, stdout: null, stderr: null},
-                callback: Promise.resolve({
-                    parsed_output: fake_outputs,
-                    err: null
+                child_process: {pid: 4321},
+                callback: new Promise(resolve => {
+                    resolve_stream = () => {
+                        callback_resolved = true;
+                        resolve({err: null});
+                    };
+
+                    setTimeout(() => {
+                        for (const output_json of fake_outputs) {
+                            if (typeof line_handlers.onStdoutLine === 'function') {
+                                line_handlers.onStdoutLine(JSON.stringify(output_json));
+                            }
+                        }
+                    }, 0);
                 })
             };
         };
@@ -143,6 +157,30 @@ describe('Subscriptions', function() {
             await subscriptions_api.subscribe(sub, null, true);
             const started = await subscriptions_api.getVideosForSub(sub.id);
             assert.strictEqual(started, true);
+
+            const queued_before_completion = await waitForCondition(async () => {
+                if (callback_resolved) return false;
+                const in_progress_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(in_progress_sub
+                    && in_progress_sub.refresh_status.phase === 'queueing'
+                    && in_progress_sub.refresh_status.queued_count > 0
+                    && in_progress_sub.refresh_status.queued_count < fake_outputs.length
+                    && in_progress_sub.refresh_status.discovered_count === fake_outputs.length);
+            });
+            assert.strictEqual(queued_before_completion, true);
+            assert.strictEqual(callback_resolved, false);
+
+            const in_progress_sub = await subscriptions_api.getSubscription(sub.id);
+            const queued_before_completion_count = in_progress_sub.refresh_status.queued_count;
+            assert(in_progress_sub);
+            assert(queued_before_completion_count > 0);
+            assert(queued_before_completion_count < fake_outputs.length);
+
+            const queued_downloads_before_completion = await db_api.getRecords('download_queue', {sub_id: sub.id});
+            assert(queued_downloads_before_completion.length > 0);
+            assert(queued_downloads_before_completion.length < fake_outputs.length);
+
+            resolve_stream();
 
             const completed = await waitForCondition(async () => {
                 const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
@@ -164,7 +202,7 @@ describe('Subscriptions', function() {
             assert.strictEqual(refreshed_sub.refresh_status.phase, 'queued');
             assert.strictEqual(refreshed_sub.refresh_status.queued_count, fake_outputs.length);
         } finally {
-            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
         }
     });
     it('Skips writing metadata for subscriptions without a name', async function() {
