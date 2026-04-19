@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, path, fs, uuid, db_api, subscriptions_api } = require('./test-shared');
+const { assert, path, fs, uuid, db_api, subscriptions_api, youtubedl_api, config_api } = require('./test-shared');
 
 describe('Subscriptions', function() {
     const new_sub = {
@@ -14,7 +14,17 @@ describe('Subscriptions', function() {
     beforeEach(async function() {
         await db_api.removeAllRecords('subscriptions');
         await db_api.removeAllRecords('download_queue');
+        config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
     });
+
+    async function waitForCondition(predicate, timeout_ms = 2000) {
+        const start = Date.now();
+        while ((Date.now() - start) < timeout_ms) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+    }
     it('Subscribe', async function () {
         const success = await subscriptions_api.subscribe(new_sub, null, true);
         assert(success);
@@ -106,6 +116,56 @@ describe('Subscriptions', function() {
         if (fs.existsSync(metadata_path)) fs.unlinkSync(metadata_path);
         await subscriptions_api.subscribe(new_sub, null, true);
         assert(fs.existsSync(metadata_path));
+    });
+    it('Discovers subscription videos with flat playlist metadata and queues them in batches', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'batched_sub'});
+        const fake_outputs = Array.from({length: 65}, (_, index) => ({
+            webpage_url: `https://www.youtube.com/watch?v=video-${index}`,
+            title: `Video ${index}`,
+            extractor: 'youtube',
+            id: `video-${index}`
+        }));
+        let captured_args = null;
+
+        youtubedl_api.runYoutubeDL = async (requested_url, args) => {
+            captured_args = args;
+            return {
+                child_process: {pid: 4321, stdout: null, stderr: null},
+                callback: Promise.resolve({
+                    parsed_output: fake_outputs,
+                    err: null
+                })
+            };
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+
+            assert(captured_args.includes('--flat-playlist'));
+            assert(captured_args.includes('--dump-json'));
+            assert(!captured_args.includes('-o'));
+            assert(!captured_args.includes('--write-info-json'));
+            assert(!captured_args.includes('--print-json'));
+
+            const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+            assert.strictEqual(queued_downloads.length, fake_outputs.length);
+
+            const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+            assert(refreshed_sub);
+            assert.strictEqual(refreshed_sub.refresh_status.phase, 'queued');
+            assert.strictEqual(refreshed_sub.refresh_status.queued_count, fake_outputs.length);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
     });
     it('Skips writing metadata for subscriptions without a name', async function() {
         const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});

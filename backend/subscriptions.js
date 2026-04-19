@@ -23,6 +23,7 @@ const SUBSCRIPTION_REFRESH_PHASES = Object.freeze({
     ERROR: 'error'
 });
 const SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL = 5;
+const SUBSCRIPTION_QUEUE_BATCH_SIZE = 50;
 const active_subscription_refresh_trackers = new Map();
 
 function shouldRestrictToUser(user_uid) {
@@ -600,7 +601,7 @@ async function _getVideosForSub(sub) {
     let appendedBasePath = getAppendedBasePath(sub, basePath);
     fs.ensureDirSync(appendedBasePath);
 
-    const downloadConfig = await generateArgsForSubscription(sub, user_uid);
+    const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
 
     // get videos
     logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(downloadConfig).join(',')}`);
@@ -680,7 +681,7 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
         return [];
     }
 
-    const files_to_download = await getFilesToDownload(sub, output_jsons);
+    const download_context = await createSubscriptionDownloadContext(sub);
     if (refresh_tracker) {
         refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
             ...refresh_tracker.refresh_status,
@@ -689,21 +690,31 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
             total_count: refresh_tracker.refresh_status.total_count === null
                 ? getUniqueSubscriptionOutputItems(output_jsons).length
                 : refresh_tracker.refresh_status.total_count,
-            new_items_count: files_to_download.length,
+            new_items_count: 0,
             queued_count: 0,
             error: null
         });
         await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
     }
     const base_download_options = exports.generateOptionsForSubscriptionDownload(sub, user_uid);
+    let queued_count = 0;
 
-    for (let j = 0; j < files_to_download.length; j++) {
-        const file_to_download = files_to_download[j];
-        file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);  // prevent download object from blowing up in size
-        await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', base_download_options, user_uid, sub.id, sub.name, [file_to_download]);
-        if (refresh_tracker) {
-            refresh_tracker.refresh_status.queued_count += 1;
-            await maybePersistSubscriptionRefreshStatus(refresh_tracker);
+    for (let i = 0; i < output_jsons.length; i += SUBSCRIPTION_QUEUE_BATCH_SIZE) {
+        const output_batch = output_jsons.slice(i, i + SUBSCRIPTION_QUEUE_BATCH_SIZE);
+        const files_to_download = await getFilesToDownload(sub, output_batch, download_context);
+
+        for (const file_to_download of files_to_download) {
+            if (Array.isArray(file_to_download['formats'])) {
+                // Keep subscription queue payloads small when full info is available.
+                file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);
+            }
+            await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', base_download_options, user_uid, sub.id, sub.name, [file_to_download]);
+            queued_count += 1;
+            if (refresh_tracker) {
+                refresh_tracker.refresh_status.queued_count = queued_count;
+                refresh_tracker.refresh_status.new_items_count = queued_count;
+                await maybePersistSubscriptionRefreshStatus(refresh_tracker);
+            }
         }
     }
 
@@ -711,8 +722,9 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
         refresh_tracker.refresh_status = normalizeSubscriptionRefreshStatus({
             ...refresh_tracker.refresh_status,
             active: false,
-            phase: files_to_download.length > 0 ? SUBSCRIPTION_REFRESH_PHASES.QUEUED : SUBSCRIPTION_REFRESH_PHASES.COMPLETE,
-            queued_count: files_to_download.length,
+            phase: queued_count > 0 ? SUBSCRIPTION_REFRESH_PHASES.QUEUED : SUBSCRIPTION_REFRESH_PHASES.COMPLETE,
+            new_items_count: queued_count,
+            queued_count: queued_count,
             completed_at: Date.now(),
             latest_item_title: null,
             error: null
@@ -721,7 +733,7 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
         await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
     }
 
-    return files_to_download;
+    return queued_count;
 }
 
 exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {
@@ -833,17 +845,84 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     return downloadConfig;
 }
 
-async function getFilesToDownload(sub, output_jsons) {
-    const files_to_download = [];
+function filterSubscriptionDiscoveryArgs(args = []) {
+    if (!Array.isArray(args)) return [];
 
+    const args_without_discovery_side_effects = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (!arg) continue;
+
+        if (arg === '-o' || arg === '-f' || arg === '-S' || arg === '--audio-format' || arg === '--audio-quality' || arg === '--merge-output-format') {
+            i += 1;
+            continue;
+        }
+
+        if (arg === '--replace-in-metadata') {
+            i += 3;
+            continue;
+        }
+
+        if ([
+            '--dump-json',
+            '--print-json',
+            '--write-info-json',
+            '--write-thumbnail',
+            '--write-all-thumbnails',
+            '--write-description',
+            '--write-comments',
+            '--write-annotations',
+            '--write-subs',
+            '--write-auto-subs',
+            '--all-subs',
+            '--embed-subs',
+            '--embed-thumbnail',
+            '--add-metadata',
+            '--xattrs',
+            '--no-clean-info-json',
+            '-x',
+            '--windows-filenames',
+            '--restrict-filenames'
+        ].includes(arg)) {
+            continue;
+        }
+
+        args_without_discovery_side_effects.push(arg);
+    }
+
+    return args_without_discovery_side_effects;
+}
+
+async function generateArgsForSubscriptionDiscovery(sub, user_uid) {
+    const download_args = await generateArgsForSubscription(sub, user_uid);
+    return [
+        ...filterSubscriptionDiscoveryArgs(download_args),
+        '--flat-playlist',
+        '--dump-json'
+    ];
+}
+
+async function createSubscriptionDownloadContext(sub) {
     const [existing_sub_files, pending_sub_downloads] = await Promise.all([
         db_api.getRecords('files', {sub_id: sub.id}),
         db_api.getRecords('download_queue', {sub_id: sub.id, error: null, finished: false})
     ]);
 
-    const urls_with_existing_files = new Set(existing_sub_files.map(file => file.url));
-    const paths_with_existing_files = new Set(existing_sub_files.map(file => file.path));
-    const urls_with_pending_downloads = new Set(pending_sub_downloads.map(download => download.url));
+    return {
+        urls_with_existing_files: new Set(existing_sub_files.map(file => file.url)),
+        paths_with_existing_files: new Set(existing_sub_files.map(file => file.path)),
+        urls_with_pending_downloads: new Set(pending_sub_downloads.map(download => download.url))
+    };
+}
+
+async function getFilesToDownload(sub, output_jsons, download_context = null) {
+    const files_to_download = [];
+    const effective_download_context = download_context || await createSubscriptionDownloadContext(sub);
+    const {
+        urls_with_existing_files,
+        paths_with_existing_files,
+        urls_with_pending_downloads
+    } = effective_download_context;
 
     for (let i = 0; i < output_jsons.length; i++) {
         const output_json = output_jsons[i];

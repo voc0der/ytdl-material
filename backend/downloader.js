@@ -27,6 +27,7 @@ const DEFAULT_PLAYLIST_CHUNK_SIZE = 20;
 const MAX_AUTOMATIC_PLAYLIST_CHUNKS = Math.max(1, Number(process.env.ytdl_max_playlist_chunks || process.env.YTDL_MAX_PLAYLIST_CHUNKS) || 20);
 const MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP = 5;
 const PLAYLIST_RANGE_ARG_KEYS = ['--playlist-items', '--playlist-start', '--playlist-end', '--max-downloads'];
+const YOUTUBE_CHANNEL_TAB_SEGMENTS = new Set(['featured', 'videos', 'shorts', 'streams', 'live', 'playlists', 'community', 'about']);
 const DEFAULT_PROGRESS_CHECK_INTERVAL_MS = 1000;
 const FAST_PROGRESS_CHECK_INTERVAL_MS = 250;
 const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -354,6 +355,50 @@ function isLikelyPlaylistURL(url = '') {
     }
 }
 
+function getYouTubeChannelDetails(url = '') {
+    if (typeof url !== 'string' || url.trim() === '') return null;
+
+    let parsed_url = null;
+    try {
+        parsed_url = new URL(url);
+    } catch (e) {
+        try {
+            parsed_url = new URL(`https://${url}`);
+        } catch (secondary_error) {
+            return null;
+        }
+    }
+
+    const host = parsed_url.hostname.replace(/^www\./, '').toLowerCase();
+    const is_youtube_host = host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com';
+    if (!is_youtube_host) return null;
+
+    const path_segments = parsed_url.pathname.split('/').filter(Boolean);
+    if (path_segments.length === 0) return null;
+
+    const [first_segment, second_segment, third_segment] = path_segments;
+
+    if (first_segment.startsWith('@')) {
+        if (second_segment && !YOUTUBE_CHANNEL_TAB_SEGMENTS.has(second_segment)) return null;
+        return {
+            identifier: decodeURIComponent(first_segment).trim(),
+            tab: second_segment || null
+        };
+    }
+
+    if (!['channel', 'c', 'user'].includes(first_segment) || !second_segment) return null;
+    if (third_segment && !YOUTUBE_CHANNEL_TAB_SEGMENTS.has(third_segment)) return null;
+
+    return {
+        identifier: decodeURIComponent(second_segment).trim(),
+        tab: third_segment || null
+    };
+}
+
+function isLikelyYouTubeChannelURL(url = '') {
+    return !!getYouTubeChannelDetails(url);
+}
+
 function getYouTubeChannelSearchDetails(url = '') {
     if (typeof url !== 'string' || url.trim() === '') return null;
 
@@ -398,7 +443,7 @@ function isChannelSearchPlaylistDownload(url = '', options = {}) {
 }
 
 function isPlaylistLikeDownload(url = '', options = {}) {
-    return isLikelyPlaylistURL(url) || isChannelSearchPlaylistDownload(url, options);
+    return isLikelyPlaylistURL(url) || isLikelyYouTubeChannelURL(url) || isChannelSearchPlaylistDownload(url, options);
 }
 
 function getChannelSearchPlaylistTitle(url = '', raw_title = 'Playlist', info_obj = null) {
