@@ -196,6 +196,7 @@ describe('Subscriptions', function() {
 
             const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
             assert.strictEqual(queued_downloads.length, fake_outputs.length);
+            assert(queued_downloads.every(download => download.prefetched_info === null));
 
             const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
             assert(refreshed_sub);

@@ -1388,6 +1388,11 @@ function killActiveDownload(download) {
     }
 }
 
+function getDownloadableInfoItems(info = []) {
+    if (!Array.isArray(info)) return [];
+    return info.filter(info_obj => info_obj && info_obj['_filename']);
+}
+
 exports.collectInfo = async (download_uid) => {
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     if (download['paused']) {
@@ -1409,14 +1414,26 @@ exports.collectInfo = async (download_uid) => {
     let args = await exports.generateArgs(url, type, options, download['user_uid']);
 
     // get video info prior to download
-    let info = download['prefetched_info'] ? download['prefetched_info'] : await exports.getVideoInfoByURL(url, args, download_uid, options);
+    const has_prefetched_info = Array.isArray(download['prefetched_info']) && download['prefetched_info'].length > 0;
+    let info = has_prefetched_info ? download['prefetched_info'] : await exports.getVideoInfoByURL(url, args, download_uid, options);
 
     if (!info || info.length === 0) {
         // info failed, error presumably already recorded
         return;
     }
 
-    info = info.filter(info_obj => info_obj && info_obj['_filename']);
+    let downloadable_info = getDownloadableInfoItems(info);
+    if (downloadable_info.length === 0 && has_prefetched_info) {
+        // Flat-playlist subscription discovery queues minimal metadata. Fall back
+        // to a normal info lookup when the prefetched payload is not downloadable.
+        info = await exports.getVideoInfoByURL(url, args, download_uid, options);
+        if (!info || info.length === 0) {
+            return;
+        }
+        downloadable_info = getDownloadableInfoItems(info);
+    }
+
+    info = downloadable_info;
     if (info.length === 0) {
         const error_message = `No downloadable items were found while retrieving info for URL ${url}`;
         logger.error(error_message);

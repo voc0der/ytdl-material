@@ -440,6 +440,12 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
     };
 }
 
+function getSubscriptionPrefetchedInfoForDownload(file_to_download = null) {
+    if (!file_to_download || typeof file_to_download !== 'object') return null;
+    if (!file_to_download['_filename']) return null;
+    return [file_to_download];
+}
+
 exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
     const result_obj = {
         success: false,
@@ -777,11 +783,12 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
     const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context);
 
     for (const file_to_download of files_to_download) {
-        if (Array.isArray(file_to_download['formats'])) {
+        const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
+        if (prefetched_info && Array.isArray(file_to_download['formats'])) {
             // Keep subscription queue payloads small when full info is available.
             file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);
         }
-        await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', effective_queue_context.base_download_options, user_uid, sub.id, sub.name, [file_to_download]);
+        await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', effective_queue_context.base_download_options, user_uid, sub.id, sub.name, prefetched_info);
         effective_queue_context.queued_count += 1;
         if (refresh_tracker) {
             refresh_tracker.refresh_status.queued_count = effective_queue_context.queued_count;

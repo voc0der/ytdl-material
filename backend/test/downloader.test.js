@@ -316,6 +316,37 @@ describe('Downloader', function() {
         }
     });
 
+    it('Collect info falls back to live info retrieval when prefetched metadata is not downloadable', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        let get_video_info_calls = 0;
+
+        try {
+            downloader_api.getVideoInfoByURL = async () => {
+                get_video_info_calls += 1;
+                return fixture_single;
+            };
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()}, null, null, null, [{
+                webpage_url: url,
+                extractor: 'youtube',
+                id: 'flat-playlist-only',
+                title: 'Flat Playlist Entry'
+            }]);
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(get_video_info_calls, 1);
+            assert.strictEqual(updated_download.error, null);
+            assert.strictEqual(updated_download.finished, false);
+            assert.strictEqual(updated_download.running, false);
+            assert.strictEqual(updated_download.finished_step, true);
+            assert(Array.isArray(updated_download.files_to_check_for_progress));
+            assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
     it('Collect info skips duplicate single downloads without starting yt-dlp', async function() {
         const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
         const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
