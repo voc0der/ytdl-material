@@ -122,6 +122,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private pendingScrollRestoreAttempts = 0;
   private pendingNavigationRestoreState: MediaLibraryRestoreState = null;
   private pendingScrollRestoreSnapshot: MediaLibraryRestoreSnapshot = null;
+  private fullFileRefreshInProgress = false;
+  private queuedFullFileRefresh = false;
+  private queuedFullFileRefreshCacheMode = false;
   private readonly destroy$ = new Subject<void>();
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
 
@@ -698,9 +701,16 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!append && this.fullFileRefreshInProgress) {
+      this.queueFullFileRefresh(cache_mode);
+      return;
+    }
+
+    const had_loaded_files = this.normal_files_received;
     if (!append) {
-      this.normal_files_received = cache_mode;
-      if (!cache_mode) {
+      this.fullFileRefreshInProgress = true;
+      this.normal_files_received = cache_mode || had_loaded_files;
+      if (!cache_mode && !had_loaded_files) {
         this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
       }
     } else {
@@ -732,6 +742,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
       this.normal_files_received = true;
       this.autoPageLoadInProgress = false;
+      if (!append) {
+        this.fullFileRefreshInProgress = false;
+        this.flushQueuedFullFileRefresh();
+      }
       this.scheduleVirtualVideoWindowUpdate(true);
       this.schedulePendingScrollRestore();
     }, err => {
@@ -740,7 +754,34 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       }
       console.error(err);
       this.autoPageLoadInProgress = false;
+      if (!append) {
+        this.normal_files_received = had_loaded_files;
+        this.fullFileRefreshInProgress = false;
+        this.flushQueuedFullFileRefresh();
+      }
     });
+  }
+
+  private queueFullFileRefresh(cache_mode = false): void {
+    if (!this.queuedFullFileRefresh) {
+      this.queuedFullFileRefresh = true;
+      this.queuedFullFileRefreshCacheMode = cache_mode;
+      return;
+    }
+
+    // Prefer a normal refresh whenever any queued request needs one.
+    this.queuedFullFileRefreshCacheMode = this.queuedFullFileRefreshCacheMode && cache_mode;
+  }
+
+  private flushQueuedFullFileRefresh(): void {
+    if (!this.queuedFullFileRefresh) {
+      return;
+    }
+
+    const queued_cache_mode = this.queuedFullFileRefreshCacheMode;
+    this.queuedFullFileRefresh = false;
+    this.queuedFullFileRefreshCacheMode = false;
+    this.getAllFiles(queued_cache_mode);
   }
 
   // navigation

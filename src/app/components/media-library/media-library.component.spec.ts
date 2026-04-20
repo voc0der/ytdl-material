@@ -1,7 +1,7 @@
 import { NO_ERRORS_SCHEMA, NgZone } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import {
@@ -154,6 +154,68 @@ describe('MediaLibraryComponent', () => {
       null
     );
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2', 'file-3']);
+  });
+
+  it('should keep the current library visible when a background refresh fails', () => {
+    spyOn(console, 'error');
+    component.normal_files_received = true;
+    component.paged_data = [
+      { uid: 'file-1', duration: 12 } as any
+    ];
+    postsServiceStub.getAllFiles.and.returnValue(throwError(() => new Error('refresh failed')));
+
+    try {
+      component.getAllFiles();
+
+      expect(component.normal_files_received).toBeTrue();
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-1']);
+    } finally {
+      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+  });
+
+  it('should queue one follow-up full refresh instead of overlapping concurrent refreshes', () => {
+    const first_response = new Subject<any>();
+    const second_response = new Subject<any>();
+    let request_count = 0;
+    postsServiceStub.getAllFiles.and.callFake(() => {
+      request_count += 1;
+      return request_count === 1 ? first_response.asObservable() : second_response.asObservable();
+    });
+    component.normal_files_received = true;
+    component.paged_data = [];
+    component.file_count = 0;
+
+    try {
+      component.getAllFiles();
+      component.getAllFiles();
+
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+
+      first_response.next({
+        files: [
+          { uid: 'file-1', duration: 12 }
+        ],
+        file_count: 1
+      });
+      first_response.complete();
+
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(2);
+
+      second_response.next({
+        files: [
+          { uid: 'file-1', duration: 12 },
+          { uid: 'file-2', duration: 18 }
+        ],
+        file_count: 2
+      });
+      second_response.complete();
+
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
+      expect(component.file_count).toBe(2);
+    } finally {
+      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
   });
 
   it('should persist auto page size selection and reset paging', () => {
