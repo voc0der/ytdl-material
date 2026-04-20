@@ -308,7 +308,11 @@ async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_trac
 
     const created_queue_context = {
         download_context: await createSubscriptionDownloadContext(sub),
-        base_download_options: exports.generateOptionsForSubscriptionDownload(sub, user_uid),
+        base_download_options: {
+            ...exports.generateOptionsForSubscriptionDownload(sub, user_uid),
+            concurrentQueueGroupKey: 'subscription-downloads',
+            concurrentQueueGroupLimit: downloader_api.getExclusivePlaylistConcurrencyLimit()
+        },
         queued_count: 0
     };
 

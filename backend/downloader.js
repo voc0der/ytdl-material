@@ -583,6 +583,23 @@ function getExclusivePlaylistGroupKey(download = null) {
 }
 exports.getExclusivePlaylistGroupKey = getExclusivePlaylistGroupKey;
 
+function getCappedQueueGroup(download = null) {
+    if (!download || typeof download !== 'object') return null;
+    const options = download.options && typeof download.options === 'object' ? download.options : {};
+
+    const group_key = typeof options.concurrentQueueGroupKey === 'string'
+        ? options.concurrentQueueGroupKey.trim()
+        : '';
+    const group_limit = Math.max(0, asFiniteNumber(options.concurrentQueueGroupLimit, 0));
+    if (!group_key || group_limit <= 0) return null;
+
+    return {
+        key: `queue-group:${group_key}`,
+        limit: group_limit
+    };
+}
+exports.getCappedQueueGroup = getCappedQueueGroup;
+
 function getPlaylistBatchBaseTitle(download = null) {
     if (!download || typeof download !== 'object') return 'Playlist';
     const options = download.options && typeof download.options === 'object' ? download.options : {};
@@ -1277,7 +1294,7 @@ exports.setupDownloads = async () => {
 async function fixDownloadState() {
     const downloads = await db_api.getRecords('download_queue');
     downloads.sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
-    const running_downloads = downloads.filter(download => !download['finished'] && !download['error']);
+    const running_downloads = downloads.filter(download => download['running'] && !download['finished'] && !download['error']);
     for (let i = 0; i < running_downloads.length; i++) {
         const running_download = running_downloads[i];
         const update_obj = {finished_step: true, paused: true, running: false};
@@ -1287,6 +1304,7 @@ async function fixDownloadState() {
         await db_api.updateRecord('download_queue', {uid: running_download['uid']}, update_obj);
     }
 }
+exports.fixDownloadState = fixDownloadState;
 
 async function checkDownloads() {
     if (!should_check_downloads) return;
@@ -1307,6 +1325,15 @@ async function checkDownloads() {
     let running_downloads_count = downloads.filter(download => download['running']).length;
     const waiting_downloads = downloads.filter(download => !download['paused'] && download['finished_step'] && !download['finished']);
     const running_downloads = downloads.filter(download => download['running']);
+    const running_capped_queue_group_counts = new Map();
+
+    for (const running_download of running_downloads) {
+        const capped_queue_group = getCappedQueueGroup(running_download);
+        if (!capped_queue_group) continue;
+
+        const existing_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
+        running_capped_queue_group_counts.set(capped_queue_group.key, existing_group_count + 1);
+    }
 
     const running_exclusive_downloads = running_downloads
         .filter(download => isExclusivePlaylistDownload(download))
@@ -1353,6 +1380,14 @@ async function checkDownloads() {
             if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
         }
 
+        const capped_queue_group = getCappedQueueGroup(waiting_download);
+        if (capped_queue_group) {
+            const running_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
+            if (running_group_count >= capped_queue_group.limit) {
+                continue;
+            }
+        }
+
         if (waiting_download['finished_step'] && !waiting_download['finished']) {
             if (waiting_download['sub_id']) {
                 const sub_missing = !(await db_api.getRecord('subscriptions', {id: waiting_download['sub_id']}));
@@ -1367,6 +1402,11 @@ async function checkDownloads() {
                 exports.collectInfo(waiting_download['uid']);
             } else if (waiting_download['step_index'] === 1) {
                 exports.downloadQueuedFile(waiting_download['uid']);
+            }
+
+            if (capped_queue_group) {
+                const updated_group_count = (running_capped_queue_group_counts.get(capped_queue_group.key) || 0) + 1;
+                running_capped_queue_group_counts.set(capped_queue_group.key, updated_group_count);
             }
 
             if (exclusive_playlist_group_key && waiting_download_group_key === exclusive_playlist_group_key) {

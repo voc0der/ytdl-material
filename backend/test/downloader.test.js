@@ -229,6 +229,32 @@ describe('Downloader', function() {
         assert(success);
     });
 
+    it('fixDownloadState only pauses downloads that were actively running', async function() {
+        const running_download = await downloader_api.createDownload(`${url}&running_recovery=1`, 'video', {ui_uid: uuid()});
+        const waiting_download = await downloader_api.createDownload(`${url}&waiting_recovery=1`, 'video', {ui_uid: uuid()});
+
+        await db_api.updateRecord('download_queue', {uid: running_download['uid']}, {
+            step_index: 1,
+            finished_step: false,
+            running: true
+        });
+
+        await downloader_api.fixDownloadState();
+
+        const recovered_running_download = await db_api.getRecord('download_queue', {uid: running_download['uid']});
+        const recovered_waiting_download = await db_api.getRecord('download_queue', {uid: waiting_download['uid']});
+
+        assert.strictEqual(recovered_running_download.paused, true);
+        assert.strictEqual(recovered_running_download.running, false);
+        assert.strictEqual(recovered_running_download.finished_step, true);
+        assert.strictEqual(recovered_running_download.step_index, 0);
+
+        assert.strictEqual(recovered_waiting_download.paused, false);
+        assert.strictEqual(recovered_waiting_download.running, false);
+        assert.strictEqual(recovered_waiting_download.finished_step, true);
+        assert.strictEqual(recovered_waiting_download.step_index, 0);
+    });
+
     it('Downloader - categorize', async function() {
         this.timeout(300000);
         await createCategory(url);
@@ -939,6 +965,47 @@ describe('Downloader', function() {
             assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 1, true), 1);
             assert.strictEqual(downloader_api.getEffectivePlaylistChunkSize(10, 20, false), 20);
         } finally {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+    });
+
+    it('Capped queue groups limit subscription-style bursts when the global cap is unbounded', async function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_collect_info = downloader_api.collectInfo;
+
+        const started_download_uids = [];
+        downloader_api.collectInfo = async (download_uid) => {
+            started_download_uids.push(download_uid);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {step_index: 1, finished_step: false, running: true});
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+
+            const grouped_downloads = [];
+            for (let i = 0; i < 6; i++) {
+                grouped_downloads.push(await downloader_api.createDownload(`${url}&subscription_group=${i}`, 'video', {
+                    ui_uid: uuid(),
+                    concurrentQueueGroupKey: 'subscription-downloads',
+                    concurrentQueueGroupLimit: 5
+                }));
+            }
+
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_download_uids, grouped_downloads.slice(0, 5).map(download => download.uid));
+            assert(!started_download_uids.includes(grouped_downloads[5].uid));
+
+            await db_api.updateRecord('download_queue', {uid: grouped_downloads[0].uid}, {
+                finished: true,
+                running: false,
+                finished_step: true,
+                step_index: 3
+            });
+
+            await downloader_api.checkDownloads();
+            assert(started_download_uids.includes(grouped_downloads[5].uid));
+        } finally {
+            downloader_api.collectInfo = original_collect_info;
             config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
         }
     });

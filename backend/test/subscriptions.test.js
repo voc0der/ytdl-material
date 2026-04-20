@@ -2,6 +2,7 @@
 const { assert, path, fs, uuid, db_api, subscriptions_api, youtubedl_api, config_api } = require('./test-shared');
 
 describe('Subscriptions', function() {
+    const downloader_api = require('../downloader');
     const new_sub = {
         name: 'test_sub',
         url: 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g',
@@ -197,6 +198,8 @@ describe('Subscriptions', function() {
             const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
             assert.strictEqual(queued_downloads.length, fake_outputs.length);
             assert(queued_downloads.every(download => download.prefetched_info === null));
+            assert(queued_downloads.every(download => download.options.concurrentQueueGroupKey === 'subscription-downloads'));
+            assert(queued_downloads.every(download => download.options.concurrentQueueGroupLimit === downloader_api.getExclusivePlaylistConcurrencyLimit()));
 
             const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
             assert(refreshed_sub);
