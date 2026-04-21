@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, Input, EventEmitter, HostListe
 import { PostsService } from 'app/posts.services';
 import { trigger, transition, animateChild, stagger, query, style, animate } from '@angular/animations';
 import { Router } from '@angular/router';
-import { MatPaginator } from '@angular/material/paginator';
+import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
@@ -36,6 +36,10 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   paused_download_exists = false;
   running_download_exists = false;
+  failed_download_exists = false;
+  readonly pageSizeStorageKey = 'downloads_page_size';
+  readonly pageSizeOptions = [5, 10, 20];
+  pageSize = 10;
 
   STEP_INDEX_TO_LABEL = {
       0: $localize`Creating download`,
@@ -118,7 +122,12 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     return result;
   }
 
-  constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private clipboard: Clipboard) { }
+  constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private clipboard: Clipboard) {
+    const saved_page_size = Number(localStorage.getItem(this.pageSizeStorageKey));
+    if (this.pageSizeOptions.includes(saved_page_size)) {
+      this.pageSize = saved_page_size;
+    }
+  }
 
   ngOnInit(): void {
     // Remove sub name as it's not necessary for one-off downloads
@@ -165,6 +174,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
         this.refreshOpenPlaylistProgressDialog();
         this.paused_download_exists = !!this.raw_downloads.find(download => download['paused'] && !download['error']);
         this.running_download_exists = !!this.raw_downloads.find(download => !download['paused'] && !download['finished']);
+        this.failed_download_exists = this.raw_downloads.some(download => this.isFailedDownload(download));
       }
       this.downloads_retrieved = true;
     });
@@ -250,6 +260,16 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   restartDownload(download: Download): void {
     const target_downloads = this.getActionTargetDownloads(download)
       .filter(target_download => target_download.finished);
+    this.restartDownloads(target_downloads);
+  }
+
+  retryFailedDownloads(): void {
+    const target_downloads = this.raw_downloads.filter(download => this.isFailedDownload(download));
+    this.restartDownloads(target_downloads);
+  }
+
+  private restartDownloads(downloads: Download[]): void {
+    const target_downloads = downloads.filter(download => !!download);
     const target_uids = target_downloads.map(target_download => target_download.uid).filter(uid => !!uid);
     if (target_uids.length === 0) return;
 
@@ -273,6 +293,15 @@ export class DownloadsComponent implements OnInit, OnDestroy {
           .forEach(new_download_uid => this.uids.push(new_download_uid));
       }
     });
+  }
+
+  private isFailedDownload(download: Download): boolean {
+    return !!download && !!download.error && !download.cancelled && download.error_type !== 'cancelled';
+  }
+
+  pageChangeEvent(event: PageEvent): void {
+    this.pageSize = event.pageSize;
+    localStorage.setItem(this.pageSizeStorageKey, `${this.pageSize}`);
   }
 
   cancelDownload(download: Download): void {

@@ -104,7 +104,7 @@
       <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
     </mat-table>
 
-    <mat-paginator [ngClass]="uids ? 'rounded-bottom' : null" [pageSizeOptions]="[5, 10, 20]"
+    <mat-paginator [ngClass]="uids ? 'rounded-bottom' : null" [pageSizeOptions]="pageSizeOptions" [pageSize]="pageSize" (page)="pageChangeEvent($event)"
       showFirstLastButtons
       aria-label="Select page of downloads">
     </mat-paginator>
@@ -113,6 +113,7 @@
     <div class="downloads-action-button-div">
       <button class="downloads-action-button" [disabled]="!running_download_exists" mat-stroked-button (click)="pauseAllDownloads()"><ng-container i18n="Pause all downloads">Pause all downloads</ng-container></button>
       <button class="downloads-action-button" [disabled]="!paused_download_exists" mat-stroked-button (click)="resumeAllDownloads()"><ng-container i18n="Resume all downloads">Resume all downloads</ng-container></button>
+      <button class="downloads-action-button" [disabled]="!failed_download_exists" mat-stroked-button (click)="retryFailedDownloads()"><ng-container i18n="Retry all failed downloads">Retry all failed</ng-container></button>
       <button class="downloads-action-button" color="warn" mat-stroked-button (click)="clearDownloadsByType()"><ng-container i18n="Clear downloads">Clear downloads</ng-container></button>
     </div>
   }
