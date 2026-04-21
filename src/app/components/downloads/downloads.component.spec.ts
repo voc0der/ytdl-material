@@ -4,18 +4,25 @@ import { of } from 'rxjs';
 
 describe('DownloadsComponent', () => {
   let component: DownloadsComponent;
+  let posts_service_mock: any;
+  let router_mock: any;
+  let dialog_mock: any;
+  let clipboard_mock: any;
 
   beforeEach(() => {
-    const posts_service_mock: any = {
+    localStorage.removeItem('downloads_page_size');
+
+    posts_service_mock = {
       config: { Extra: { enable_downloads_manager: true } },
       initialized: true,
       service_initialized: of(true),
-      getCurrentDownloads: () => of({downloads: []}),
-      openSnackBar: () => {}
+      getCurrentDownloads: jasmine.createSpy('getCurrentDownloads').and.returnValue(of({downloads: []})),
+      restartDownload: jasmine.createSpy('restartDownload').and.returnValue(of({success: true})),
+      openSnackBar: jasmine.createSpy('openSnackBar')
     };
-    const router_mock: any = { navigate: () => {} };
-    const dialog_mock: any = { open: () => ({}), openDialogs: [] };
-    const clipboard_mock: any = { copy: () => true };
+    router_mock = { navigate: () => {} };
+    dialog_mock = { open: () => ({}), openDialogs: [] };
+    clipboard_mock = { copy: () => true };
 
     component = new DownloadsComponent(posts_service_mock, router_mock, dialog_mock, clipboard_mock);
   });
@@ -73,6 +80,51 @@ describe('DownloadsComponent', () => {
     } as unknown as Download;
 
     expect(component.getNormalizedPercent(download)).toBe('100.00');
+  });
+
+  it('tracks whether failed downloads can be retried', () => {
+    posts_service_mock.getCurrentDownloads.and.returnValue(of({
+      downloads: [
+        {uid: 'download-1', error: 'Network error', cancelled: false},
+        {uid: 'download-2', error: null, cancelled: false}
+      ]
+    }));
+
+    component.getCurrentDownloads();
+
+    expect(component.failed_download_exists).toBeTrue();
+  });
+
+  it('retries failed downloads only', () => {
+    component.raw_downloads = [
+      {uid: 'failed-1', error: 'Network error', finished: true, cancelled: false},
+      {uid: 'complete-1', error: null, finished: true, cancelled: false},
+      {uid: 'cancelled-1', error: 'Cancelled', error_type: 'cancelled', finished: true, cancelled: true}
+    ] as unknown as Download[];
+
+    component.retryFailedDownloads();
+
+    expect(posts_service_mock.restartDownload).toHaveBeenCalledOnceWith('failed-1');
+  });
+
+  it('shows a failure message when retrying failed downloads fails', () => {
+    component.raw_downloads = [
+      {uid: 'failed-1', error: 'Network error', finished: true, cancelled: false}
+    ] as unknown as Download[];
+    posts_service_mock.restartDownload.and.returnValue(of({success: false}));
+
+    component.retryFailedDownloads();
+
+    expect(posts_service_mock.openSnackBar).toHaveBeenCalled();
+  });
+
+  it('persists the downloads page size', () => {
+    component.pageChangeEvent({pageSize: 20} as any);
+
+    const restored_component = new DownloadsComponent(posts_service_mock, router_mock, dialog_mock, clipboard_mock);
+
+    expect(localStorage.getItem(component.pageSizeStorageKey)).toBe('20');
+    expect(restored_component.pageSize).toBe(20);
   });
 
   it('merges chunked playlist progress with global sequential indices', () => {
