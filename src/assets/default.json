@@ -17,6 +17,7 @@
       "invalid_filename_chars": "\\/:*?\"<>|",
       "invalid_filename_replacement": "_",
       "max_concurrent_downloads": 5,
+      "min_sleep_between_downloads": 0,
       "playlist_chunk_size": 20,
       "download_rate_limit": ""
     },

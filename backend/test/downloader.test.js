@@ -98,7 +98,9 @@ describe('Downloader', function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('download_queue');
         config_api.setConfigItem('ytdl_allow_playlist_categorization', true);
+        config_api.setConfigItem('ytdl_min_sleep_between_downloads', 0);
         config_api.setConfigItem('ytdl_playlist_chunk_size', 100);
+        downloader_api.resetDownloadQueueStartThrottle();
     });
 
     it('Get file info', async function() {
@@ -1007,6 +1009,63 @@ describe('Downloader', function() {
         } finally {
             downloader_api.collectInfo = original_collect_info;
             config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+    });
+
+    it('Minimum sleep between downloads throttles queued step starts', async function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_min_sleep_between_downloads = config_api.getConfigItem('ytdl_min_sleep_between_downloads');
+        const original_collect_info = downloader_api.collectInfo;
+        const original_download_queued_file = downloader_api.downloadQueuedFile;
+        const original_date_now = Date.now;
+
+        let now = 100000;
+        const started_steps = [];
+
+        downloader_api.collectInfo = async (download_uid) => {
+            started_steps.push(`info:${download_uid}`);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {
+                step_index: 1,
+                finished_step: true,
+                running: false
+            });
+        };
+        downloader_api.downloadQueuedFile = async (download_uid) => {
+            started_steps.push(`download:${download_uid}`);
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {
+                step_index: 2,
+                finished_step: false,
+                running: true
+            });
+        };
+        Date.now = () => now;
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', -1);
+            config_api.setConfigItem('ytdl_min_sleep_between_downloads', 5);
+            downloader_api.resetDownloadQueueStartThrottle();
+
+            const first_download = await downloader_api.createDownload(`${url}&sleep_queue=1`, 'video', {ui_uid: uuid()});
+            await downloader_api.createDownload(`${url}&sleep_queue=2`, 'video', {ui_uid: uuid()});
+
+            await downloader_api.checkDownloads();
+            await utils.wait(10);
+            assert.deepStrictEqual(started_steps, [`info:${first_download.uid}`]);
+
+            now += 4999;
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_steps, [`info:${first_download.uid}`]);
+
+            now += 1;
+            await downloader_api.checkDownloads();
+            assert.deepStrictEqual(started_steps, [`info:${first_download.uid}`, `download:${first_download.uid}`]);
+        } finally {
+            Date.now = original_date_now;
+            downloader_api.collectInfo = original_collect_info;
+            downloader_api.downloadQueuedFile = original_download_queued_file;
+            downloader_api.resetDownloadQueueStartThrottle();
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+            config_api.setConfigItem('ytdl_min_sleep_between_downloads', original_min_sleep_between_downloads);
         }
     });
 

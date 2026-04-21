@@ -40,6 +40,7 @@ services:
 
       # Download and playlist behavior (optional)
       # ytdl_playlist_chunk_size: '20'
+      # ytdl_min_sleep_between_downloads: '0'
       # ytdl_warn_on_duplicate: 'false'
       # Caps the number of automatic playlist chunks that may be created.
       # ytdl_max_playlist_chunks: '20'
