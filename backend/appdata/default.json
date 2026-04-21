@@ -17,6 +17,7 @@
       "include_thumbnail": true,
       "include_metadata": true,
       "max_concurrent_downloads": 0,
+      "min_sleep_between_downloads": 0,
       "download_rate_limit": "",
       "playlist_chunk_size": 100
     },

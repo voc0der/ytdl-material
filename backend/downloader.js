@@ -35,6 +35,7 @@ const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
 let filename_sanitization_non_ytdlp_warned = false;
+let last_download_queue_start_at = 0;
 
 function asFiniteNumber(value, defaultValue = 0) {
     const numeric_value = Number(value);
@@ -1078,6 +1079,29 @@ function hasReachedConcurrentDownloadLimit(maxConcurrentDownloads, runningDownlo
 }
 exports.hasReachedConcurrentDownloadLimit = hasReachedConcurrentDownloadLimit;
 
+function getMinimumSleepBetweenDownloadsMs() {
+    const minimum_sleep_seconds = asFiniteNumber(config_api.getConfigItem('ytdl_min_sleep_between_downloads'), 0);
+    if (minimum_sleep_seconds <= 0) return 0;
+    return Math.floor(minimum_sleep_seconds * 1000);
+}
+exports.getMinimumSleepBetweenDownloadsMs = getMinimumSleepBetweenDownloadsMs;
+
+function getRemainingSleepBeforeNextDownloadStartMs(minimum_sleep_ms = getMinimumSleepBetweenDownloadsMs(), now = Date.now()) {
+    if (!Number.isFinite(minimum_sleep_ms) || minimum_sleep_ms <= 0 || last_download_queue_start_at <= 0) return 0;
+    return Math.max(0, (last_download_queue_start_at + minimum_sleep_ms) - now);
+}
+exports.getRemainingSleepBeforeNextDownloadStartMs = getRemainingSleepBeforeNextDownloadStartMs;
+
+function markDownloadQueueStart(minimum_sleep_ms = getMinimumSleepBetweenDownloadsMs(), now = Date.now()) {
+    if (!Number.isFinite(minimum_sleep_ms) || minimum_sleep_ms <= 0) return;
+    last_download_queue_start_at = now;
+}
+
+function resetDownloadQueueStartThrottle() {
+    last_download_queue_start_at = 0;
+}
+exports.resetDownloadQueueStartThrottle = resetDownloadQueueStartThrottle;
+
 function getExclusivePlaylistConcurrencyLimit() {
     const max_concurrent_downloads = Number(config_api.getConfigItem('ytdl_max_concurrent_downloads'));
     if (Number.isFinite(max_concurrent_downloads) && max_concurrent_downloads >= 0 && max_concurrent_downloads < MAX_EXCLUSIVE_PLAYLIST_CONCURRENCY_CAP) {
@@ -1352,6 +1376,7 @@ async function checkDownloads() {
         ? running_exclusive_downloads.filter(download => getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key).length
         : 0;
     const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
+    const minimum_sleep_between_downloads_ms = getMinimumSleepBetweenDownloadsMs();
 
     for (let i = 0; i < waiting_downloads.length; i++) {
         const waiting_download = waiting_downloads[i];
@@ -1389,6 +1414,10 @@ async function checkDownloads() {
         }
 
         if (waiting_download['finished_step'] && !waiting_download['finished']) {
+            if (getRemainingSleepBeforeNextDownloadStartMs(minimum_sleep_between_downloads_ms) > 0) {
+                break;
+            }
+
             if (waiting_download['sub_id']) {
                 const sub_missing = !(await db_api.getRecord('subscriptions', {id: waiting_download['sub_id']}));
                 if (sub_missing) {
@@ -1398,6 +1427,7 @@ async function checkDownloads() {
             }
             // move to next step
             running_downloads_count++;
+            markDownloadQueueStart(minimum_sleep_between_downloads_ms);
             if (waiting_download['step_index'] === 0) {
                 exports.collectInfo(waiting_download['uid']);
             } else if (waiting_download['step_index'] === 1) {
@@ -1414,6 +1444,10 @@ async function checkDownloads() {
                 if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
                     break;
                 }
+            }
+
+            if (minimum_sleep_between_downloads_ms > 0) {
+                break;
             }
         }
     }

@@ -66,6 +66,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_max_concurrent_downloads',
         'path': 'YtdlMaterial.Downloader.max_concurrent_downloads'
     },
+    'ytdl_min_sleep_between_downloads': {
+        'key': 'ytdl_min_sleep_between_downloads',
+        'path': 'YtdlMaterial.Downloader.min_sleep_between_downloads'
+    },
     'ytdl_playlist_chunk_size': {
         'key': 'ytdl_playlist_chunk_size',
         'path': 'YtdlMaterial.Downloader.playlist_chunk_size'

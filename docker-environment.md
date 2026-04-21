@@ -89,6 +89,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 ## Download and Playlist Variables
 
 * `ytdl_playlist_chunk_size`: playlist batch size for automatic playlist chunking (default `20`, min `1`)
+* `ytdl_min_sleep_between_downloads`: minimum seconds to wait before starting the next queued download step (default `0`, disabled)
 * `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads and reuse existing files in playlists instead of downloading them again (default `'false'`)
 * `ytdl_max_playlist_chunks`: cap automatic playlist chunk creation (default `20`, min `1`)
 
