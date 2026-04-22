@@ -1,6 +1,6 @@
 <div class="sort-property">
   <mat-form-field appearance="outline" class="sort-property-field">
-    <mat-select [(ngModel)]="this.sortProperty" (selectionChange)="emitSortOptionChanged()">
+    <mat-select [(ngModel)]="this.sortProperty" (selectionChange)="emitSortOptionChanged($event.value)">
       @for (sortOption of sortProperties | keyvalue; track sortOption) {
         <mat-option [value]="sortOption.key">
           {{sortOption['value']['label']}}

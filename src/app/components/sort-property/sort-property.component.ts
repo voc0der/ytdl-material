@@ -43,10 +43,13 @@ export class SortPropertyComponent {
     this.emitSortOptionChanged();
   }
 
-  emitSortOptionChanged(): void {
+  emitSortOptionChanged(sortProperty = this.sortProperty): void {
+    this.sortProperty = sortProperty;
     if (!this.sortProperty || !this.sortProperties[this.sortProperty]) {
       return;
     }
+    this.sortPropertyChange.emit(this.sortProperty);
+    this.descendingModeChange.emit(this.descendingMode);
     this.sortOptionChanged.emit({
       by: this.sortProperty,
       order: this.descendingMode ? -1 : 1
