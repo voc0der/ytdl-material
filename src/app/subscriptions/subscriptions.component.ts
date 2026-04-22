@@ -6,6 +6,8 @@ import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
 import { SubscriptionInfoDialogComponent } from 'app/dialogs/subscription-info-dialog/subscription-info-dialog.component';
 import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
+import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { Subscription } from 'api-types';
 
 @Component({
     selector: 'app-subscriptions',
@@ -15,9 +17,10 @@ import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-d
 })
 export class SubscriptionsComponent implements OnInit {
 
-  playlist_subscriptions = [];
-  channel_subscriptions = [];
-  subscriptions = null;
+  playlist_subscriptions: Subscription[] = [];
+  channel_subscriptions: Subscription[] = [];
+  subscriptions: Subscription[] = null;
+  redownloading_subscriptions: {[sub_id: string]: boolean} = {};
 
   subscriptions_loading = false;
 
@@ -112,6 +115,48 @@ export class SubscriptionsComponent implements OnInit {
     });
     dialogRef.afterClosed().subscribe(() => {
       this.getSubscriptions(false);
+    });
+  }
+
+  isRedownloadDisabled(sub: Subscription): boolean {
+    return !sub?.name || !!this.redownloading_subscriptions[sub.id];
+  }
+
+  confirmRedownloadSubscription(sub: Subscription): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        dialogTitle: $localize`Delete and redownload ${sub.name}:subscription name:`,
+        dialogText: $localize`This will delete every downloaded video in ${sub.name}:subscription name: and queue that subscription again using its current settings. Other videos are not affected.`,
+        submitText: $localize`Delete and redownload`,
+        warnSubmitColor: true
+      }
+    });
+    dialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        this.redownloadSubscription(sub);
+      }
+    });
+  }
+
+  redownloadSubscription(sub: Subscription): void {
+    if (this.isRedownloadDisabled(sub)) return;
+
+    this.redownloading_subscriptions[sub.id] = true;
+    this.postsService.redownloadSubscription(sub.id).subscribe(res => {
+      this.redownloading_subscriptions[sub.id] = false;
+      if (res['success']) {
+        this.openSnackBar($localize`Redownload started for ${sub.name}:subscription name:`);
+        this.getSubscriptions(false);
+        this.postsService.reloadSubscriptions();
+        this.postsService.files_changed.next(true);
+      } else {
+        const error = res['error'] ? ` ${res['error']}` : '';
+        this.openSnackBar($localize`ERROR: Failed to start redownload for ${sub.name}:subscription name:.` + error, 'OK.');
+      }
+    }, err => {
+      console.error(err);
+      this.redownloading_subscriptions[sub.id] = false;
+      this.openSnackBar($localize`ERROR: Failed to start redownload for ${sub.name}:subscription name:.`, 'OK.');
     });
   }
 

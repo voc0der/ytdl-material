@@ -22,6 +22,9 @@
         }
       </a>
       <div style="pointer-events: auto; color: unset" matListItemMeta>
+        <button matTooltip="Delete and redownload" i18n-matTooltip="Delete and redownload subscription files" mat-icon-button [disabled]="isRedownloadDisabled(sub)" (click)="confirmRedownloadSubscription(sub)">
+          <mat-icon>restore</mat-icon>
+        </button>
         <button matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button (click)="editSubscription(sub)">
           <mat-icon>edit</mat-icon>
         </button>
@@ -56,6 +59,9 @@
         }
       </a>
       <div style="pointer-events: auto; color: unset" matListItemMeta>
+        <button matTooltip="Delete and redownload" i18n-matTooltip="Delete and redownload subscription files" mat-icon-button [disabled]="isRedownloadDisabled(sub)" (click)="confirmRedownloadSubscription(sub)">
+          <mat-icon>restore</mat-icon>
+        </button>
         <button matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button (click)="editSubscription(sub)">
           <mat-icon>edit</mat-icon>
         </button>

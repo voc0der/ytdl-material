@@ -654,6 +654,11 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'checkSubscription', body, this.httpOptions);
     }
 
+    redownloadSubscription(sub_id: string) {
+        const body: CheckSubscriptionRequest = {sub_id: sub_id};
+        return this.http.post<SuccessObject>(this.path + 'redownloadSubscription', body, this.httpOptions);
+    }
+
     cancelCheckSubscription(sub_id: string) {
         const body: CheckSubscriptionRequest = {sub_id: sub_id};
         return this.http.post<SuccessObject>(this.path + 'cancelCheckSubscription', body, this.httpOptions);

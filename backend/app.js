@@ -1877,6 +1877,14 @@ app.post('/api/checkSubscription', optionalJwt, async (req, res) => {
     });
 });
 
+app.post('/api/redownloadSubscription', optionalJwt, async (req, res) => {
+    let sub_id = req.body.sub_id;
+    let user_uid = req.isAuthenticated() ? req.user.uid : null;
+
+    const result = await subscriptions_api.redownloadSubscription(sub_id, user_uid);
+    res.send(result);
+});
+
 app.post('/api/cancelCheckSubscription', optionalJwt, async (req, res) => {
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;

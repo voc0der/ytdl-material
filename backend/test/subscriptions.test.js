@@ -3,6 +3,7 @@ const { assert, path, fs, uuid, db_api, subscriptions_api, youtubedl_api, config
 
 describe('Subscriptions', function() {
     const downloader_api = require('../downloader');
+    const files_api = require('../files');
     const new_sub = {
         name: 'test_sub',
         url: 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g',
@@ -15,6 +16,7 @@ describe('Subscriptions', function() {
     beforeEach(async function() {
         await db_api.removeAllRecords('subscriptions');
         await db_api.removeAllRecords('download_queue');
+        await db_api.removeAllRecords('files');
         config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
         config_api.setConfigItem('ytdl_custom_args', '');
     });
@@ -79,6 +81,128 @@ describe('Subscriptions', function() {
     });
     it('Delete subscription file', async function () {
         
+    });
+    it('Deletes subscription files and starts a fresh redownload', async function () {
+        const original_deleteFile = files_api.deleteFile;
+        const original_getVideosForSub = subscriptions_api.getVideosForSub;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'redownload_sub'});
+        const file_one = {uid: uuid(), sub_id: sub.id, url: 'https://example.com/video-1', path: 'subscriptions/video-1.mp4'};
+        const file_two = {uid: uuid(), sub_id: sub.id, url: 'https://example.com/video-2', path: 'subscriptions/video-2.mp4'};
+        const queued_download = {
+            uid: uuid(),
+            sub_id: sub.id,
+            url: 'https://example.com/video-queued',
+            running: false,
+            finished: false,
+            error: null
+        };
+        const deleted_files = [];
+        let refresh_sub_id = null;
+
+        files_api.deleteFile = async (uid, blacklistMode, user_uid) => {
+            deleted_files.push({uid, blacklistMode, user_uid});
+            return true;
+        };
+        subscriptions_api.getVideosForSub = async (sub_id, user_uid) => {
+            refresh_sub_id = sub_id;
+            assert.strictEqual(user_uid, null);
+            return true;
+        };
+
+        try {
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await db_api.insertRecordIntoTable('files', file_one);
+            await db_api.insertRecordIntoTable('files', file_two);
+            await db_api.insertRecordIntoTable('download_queue', queued_download);
+
+            const result = await subscriptions_api.redownloadSubscription(sub.id);
+
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(result.deleted_count, 2);
+            assert.strictEqual(result.failed_count, 0);
+            assert.strictEqual(result.refresh_started, true);
+            assert.strictEqual(refresh_sub_id, sub.id);
+            assert.deepStrictEqual(deleted_files.map(file => file.uid).sort(), [file_one.uid, file_two.uid].sort());
+            assert(deleted_files.every(file => file.blacklistMode === false));
+
+            const remaining_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+            assert.strictEqual(remaining_downloads.length, 0);
+        } finally {
+            files_api.deleteFile = original_deleteFile;
+            subscriptions_api.getVideosForSub = original_getVideosForSub;
+        }
+    });
+    it('Does not start redownload refresh when deleting a subscription file fails', async function () {
+        const original_deleteFile = files_api.deleteFile;
+        const original_getVideosForSub = subscriptions_api.getVideosForSub;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'redownload_failure_sub'});
+        const file_one = {uid: uuid(), sub_id: sub.id, url: 'https://example.com/video-1', path: 'subscriptions/video-1.mp4'};
+        const file_two = {uid: uuid(), sub_id: sub.id, url: 'https://example.com/video-2', path: 'subscriptions/video-2.mp4'};
+        let refresh_started = false;
+
+        files_api.deleteFile = async (uid) => uid === file_one.uid;
+        subscriptions_api.getVideosForSub = async () => {
+            refresh_started = true;
+            return true;
+        };
+
+        try {
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await db_api.insertRecordIntoTable('files', file_one);
+            await db_api.insertRecordIntoTable('files', file_two);
+
+            const result = await subscriptions_api.redownloadSubscription(sub.id);
+
+            assert.strictEqual(result.success, false);
+            assert.strictEqual(result.deleted_count, 1);
+            assert.strictEqual(result.failed_count, 1);
+            assert.strictEqual(result.refresh_started, false);
+            assert.strictEqual(refresh_started, false);
+        } finally {
+            files_api.deleteFile = original_deleteFile;
+            subscriptions_api.getVideosForSub = original_getVideosForSub;
+        }
+    });
+    it('Does not redownload a missing subscription', async function () {
+        const result = await subscriptions_api.redownloadSubscription(uuid());
+
+        assert.strictEqual(result.success, false);
+        assert(result.error.includes('Subscription not found'));
+    });
+    it('Cancels active subscription work before redownloading', async function () {
+        const original_cancelCheckSubscription = subscriptions_api.cancelCheckSubscription;
+        const original_getVideosForSub = subscriptions_api.getVideosForSub;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'active_redownload_sub',
+            downloading: true
+        });
+        let cancelled_sub_id = null;
+        let refresh_sub_id = null;
+
+        subscriptions_api.cancelCheckSubscription = async (sub_id, user_uid) => {
+            cancelled_sub_id = sub_id;
+            assert.strictEqual(user_uid, null);
+            return true;
+        };
+        subscriptions_api.getVideosForSub = async (sub_id, user_uid) => {
+            refresh_sub_id = sub_id;
+            assert.strictEqual(user_uid, null);
+            return true;
+        };
+
+        try {
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+
+            const result = await subscriptions_api.redownloadSubscription(sub.id);
+
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(cancelled_sub_id, sub.id);
+            assert.strictEqual(refresh_sub_id, sub.id);
+        } finally {
+            subscriptions_api.cancelCheckSubscription = original_cancelCheckSubscription;
+            subscriptions_api.getVideosForSub = original_getVideosForSub;
+        }
     });
     it('Get subscription by name', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);

@@ -314,6 +314,27 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - Auth query parameter: []
+  /api/redownloadSubscription:
+    post:
+      tags:
+        - subscriptions
+      summary: Delete and redownload all videos for a subscription
+      description: Deletes files associated with the selected subscription and queues that subscription again using its current settings
+      operationId: post-api-redownloadSubscription
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckSubscriptionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+      security:
+        - Auth query parameter: []
   /api/cancelCheckSubscription:
     post:
       tags:

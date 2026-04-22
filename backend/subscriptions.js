@@ -4,6 +4,7 @@ const path = require('path');
 const youtubedl_api = require('./youtube-dl');
 const config_api = require('./config');
 const archive_api = require('./archive');
+const files_api = require('./files');
 const utils = require('./utils');
 const logger = require('./logger');
 const CONSTS = require('./consts');
@@ -681,6 +682,62 @@ exports.deleteSubscriptionFile = async (sub, file, deleteForever, file_uid = nul
     }
 }
 
+exports.redownloadSubscription = async (sub_id, user_uid = null) => {
+    const sub = await exports.getSubscription(sub_id, user_uid);
+    if (!sub) {
+        return {
+            success: false,
+            error: 'Subscription not found or not owned by the current user.'
+        };
+    }
+
+    if (sub['downloading'] || sub['child_process'] || sub['refresh_status']?.active) {
+        await exports.cancelCheckSubscription(sub.id, user_uid);
+    }
+    await killSubDownloads(sub.id, true);
+
+    const sub_files_filter = {sub_id: sub.id};
+    if (shouldRestrictToUser(user_uid)) sub_files_filter['user_uid'] = user_uid;
+    const sub_files = await db_api.getRecords('files', sub_files_filter);
+
+    let deleted_count = 0;
+    let failed_count = 0;
+    for (const sub_file of sub_files) {
+        try {
+            const deleted = await files_api.deleteFile(sub_file.uid, false, user_uid);
+            if (deleted) {
+                deleted_count += 1;
+            } else {
+                failed_count += 1;
+            }
+        } catch (e) {
+            failed_count += 1;
+            logger.error(`Failed to delete subscription file '${sub_file.uid}' before redownload.`);
+            logger.error(e);
+        }
+    }
+
+    if (failed_count > 0) {
+        return {
+            success: false,
+            deleted_count: deleted_count,
+            failed_count: failed_count,
+            refresh_started: false,
+            error: `Failed to delete ${failed_count} subscription file${failed_count === 1 ? '' : 's'} before redownload.`
+        };
+    }
+
+    const refresh_started = await exports.getVideosForSub(sub.id, user_uid);
+    const result = {
+        success: refresh_started,
+        deleted_count: deleted_count,
+        failed_count: failed_count,
+        refresh_started: refresh_started
+    };
+    if (!refresh_started) result.error = 'Failed to start subscription refresh.';
+    return result;
+}
+
 let current_sub_index = 0; // To keep track of the current subscription
 exports.watchSubscriptionsInterval = async () => {
     const subscriptions_check_interval = config_api.getConfigItem('ytdl_subscriptions_check_interval');
@@ -798,7 +855,10 @@ async function _getVideosForSub(sub) {
             await fs.unlink(archive_path);
         }
 
-        await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+        const current_refresh_tracker = active_subscription_refresh_trackers.get(sub.id);
+        if (!current_refresh_tracker || current_refresh_tracker === refresh_tracker) {
+            await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+        }
     }
 }
 
