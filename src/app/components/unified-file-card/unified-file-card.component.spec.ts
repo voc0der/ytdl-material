@@ -45,6 +45,30 @@ describe('UnifiedFileCardComponent', () => {
     expect(component.generateStreamURL()).toBe('/api/stream?uid=uid%20with%20spaces&type=video&apiKey=public-token&t=,10');
   });
 
+  it('should use the upload date as the displayed date when requested', () => {
+    component.displayDateProperty = 'upload_date';
+    component.locale = { ngID: 'en-US' } as any;
+    component.file_obj = {
+      upload_date: '2020-01-02',
+      registered: 1713715200000
+    } as any;
+
+    expect(component.displayedDateValue).toBe('2020-01-02');
+    expect(component.displayedDateTimezone).toBe('UTC');
+    expect(component.displayedDateLocale).toBe('en-US');
+  });
+
+  it('should fall back to the registered date when the upload date is unavailable', () => {
+    component.displayDateProperty = 'upload_date';
+    component.file_obj = {
+      upload_date: 'N/A',
+      registered: 1713715200000
+    } as any;
+
+    expect(component.displayedDateValue).toBe(1713715200000);
+    expect(component.displayedDateTimezone).toBeUndefined();
+  });
+
   it('should keep the thumbnail rendered while the hover preview is active', () => {
     component.loading = false;
     component.locale = { ngID: 'en-GB' } as any;
