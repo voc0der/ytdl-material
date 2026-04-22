@@ -16,6 +16,7 @@ describe('Subscriptions', function() {
         await db_api.removeAllRecords('subscriptions');
         await db_api.removeAllRecords('download_queue');
         config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
+        config_api.setConfigItem('ytdl_custom_args', '');
     });
 
     async function waitForCondition(predicate, timeout_ms = 2000) {
@@ -208,6 +209,43 @@ describe('Subscriptions', function() {
         } finally {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
         }
+    });
+    it('Applies global custom args when discovering subscription videos', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'global_args_sub',
+            custom_args: '--sleep-interval,,2'
+        });
+        let captured_args = null;
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args) => {
+            captured_args = args;
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '--resize-buffer');
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const sleep_interval_index = captured_args.indexOf('--sleep-interval');
+        assert(captured_args.includes('--resize-buffer'));
+        assert(sleep_interval_index !== -1);
+        assert.strictEqual(captured_args[sleep_interval_index + 1], '2');
     });
     it('Skips writing metadata for subscriptions without a name', async function() {
         const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});

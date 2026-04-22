@@ -2085,6 +2085,28 @@ function filterInfoLookupArgs(args = []) {
     return filtered_args;
 }
 
+function describeInfoLookupError(err, downloader_fork = 'downloader') {
+    const details = [];
+    const addDetail = (detail) => {
+        if (detail === null || detail === undefined) return;
+        const detail_text = String(detail).trim();
+        if (detail_text && !details.includes(detail_text)) details.push(detail_text);
+    };
+
+    if (typeof err === 'string') {
+        addDetail(err);
+    } else if (err && typeof err === 'object') {
+        addDetail(err.message);
+        addDetail(err.stderr);
+        addDetail(err.stdout ? `stdout: ${err.stdout}` : null);
+    } else {
+        addDetail(err);
+    }
+
+    if (details.length > 0) return details.join('\n\n');
+    return `${downloader_fork} returned no JSON output and did not provide stderr.`;
+}
+
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options = {}) => {
     logger.debug('getVideoInfoByURL called');
     const downloader_fork = getPreferredDownloaderFork(options);
@@ -2111,8 +2133,8 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options 
     const {parsed_output, err} = await callback;
     logger.debug(`Callback resolved. parsed_output length: ${parsed_output ? parsed_output.length : 'null'}`);
     if (!parsed_output || parsed_output.length === 0) {
-        let error_message = `Error while retrieving info on video with URL ${url} with the following message: ${err}`;
-        if (err.stderr) error_message += `\n\n${err.stderr}`;
+        const error_details = describeInfoLookupError(err, downloader_fork);
+        const error_message = `Error while retrieving info on video with URL ${url} with the following message: ${error_details}`;
         logger.error(error_message);
         if (download_uid) {
             await handleDownloadError(download_uid, error_message, 'info_retrieve_failed');

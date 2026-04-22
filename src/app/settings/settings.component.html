@@ -142,7 +142,7 @@
               <mat-form-field class="text-field" style="margin-right: 12px;" color="accent">
                 <mat-label i18n="Global custom args">Global custom args</mat-label>
                 <textarea matInput [(ngModel)]="new_config['Downloader']['custom_args']"></textarea>
-                <mat-hint><ng-container i18n="Custom args setting input hint">Global custom args for downloads on the home page. (Set args for subscriptions for each subscriptions separately!) Args are delimited using two commas like so: ,,</ng-container></mat-hint>
+                <mat-hint><ng-container i18n="Custom args setting input hint">Global custom args for home page and subscription downloads. Args are delimited using two commas like so: ,,</ng-container></mat-hint>
                 <button class="args-edit-button" (click)="openArgsModifierDialog()" mat-icon-button><mat-icon>edit</mat-icon></button>
               </mat-form-field>
             </div>

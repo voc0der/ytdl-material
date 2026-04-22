@@ -144,6 +144,26 @@ describe('Downloader', function() {
         assert(!captured_args.includes('--no-simulate'));
     });
 
+    it('Get file info records a useful error when the downloader returns no output', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const returned_download = await downloader_api.createDownload(url, 'video', options);
+
+        youtubedl_api.runYoutubeDL = async () => ({
+            callback: Promise.resolve({parsed_output: null, err: ''})
+        });
+
+        try {
+            const info = await _originalGetVideoInfoByURL(url, [], returned_download.uid);
+            assert.strictEqual(info, null);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+
+        const failed_download = await db_api.getRecord('download_queue', {uid: returned_download.uid});
+        assert(failed_download.error.includes('returned no JSON output and did not provide stderr.'));
+        assert.strictEqual(failed_download.error_type, 'info_retrieve_failed');
+    });
+
     it('Get file info uses yt-dlp when an audio language is requested', async function() {
         let captured_fork = null;
         const original_runYoutubeDL = youtubedl_api.runYoutubeDL;

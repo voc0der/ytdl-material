@@ -48,6 +48,17 @@ function normalizeNullableString(value) {
     return normalized_value !== '' ? normalized_value : null;
 }
 
+function parseDelimitedArgs(args_string = '') {
+    if (typeof args_string !== 'string' || args_string.trim() === '') return [];
+    return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
+}
+
+function applyCustomArgs(downloadConfig = [], args_string = '') {
+    const custom_args = parseDelimitedArgs(args_string);
+    if (custom_args.length === 0) return downloadConfig;
+    return utils.injectArgs(downloadConfig, custom_args);
+}
+
 function normalizeSubscriptionRefreshStatus(refresh_status = null) {
     const normalized_refresh_status = {
         active: false,
@@ -867,15 +878,8 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
         downloadConfig.push('--download-archive', archive_path);
     }
 
-    if (sub.custom_args) {
-        const customArgsArray = sub.custom_args.split(',,');
-        if (customArgsArray.indexOf('-f') !== -1) {
-            // if custom args has a custom quality, replce the original quality with that of custom args
-            const original_output_index = downloadConfig.indexOf('-f');
-            downloadConfig.splice(original_output_index, 2);
-        }
-        downloadConfig.push(...customArgsArray);
-    }
+    downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
+    downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
 
     const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
     downloadConfig = downloader_api.appendFilenameSanitizationArgs(downloadConfig, default_downloader);

@@ -446,12 +446,17 @@ function tryBuildAggregateQuery(tables, tableName, pipeline = []) {
     return { queryText, params };
 }
 
+function stringifyJSONForQuery(value) {
+    const json_value = JSON.stringify(value);
+    return json_value === undefined ? 'null' : json_value;
+}
+
 function buildUpdatedDocExpression(tableMeta, updateObj = {}, params = [], docRef = 'doc') {
     let currentExpr = docRef;
     for (const [fieldPath, value] of Object.entries(updateObj)) {
         if (fieldPath === '_id') continue;
         const pathPlaceholder = `${addParam(params, getFieldPathParts(fieldPath))}::text[]`;
-        const valuePlaceholder = addParam(params, JSON.stringify(value));
+        const valuePlaceholder = addParam(params, stringifyJSONForQuery(value));
         currentExpr = `jsonb_set(${currentExpr}, ${pathPlaceholder}, ${valuePlaceholder}::jsonb, true)`;
     }
     return currentExpr;

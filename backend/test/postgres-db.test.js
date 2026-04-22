@@ -233,6 +233,31 @@ describe('PostgreSQL backend integration points', function() {
         assert.deepStrictEqual(capturedParams, [['finished'], 'false']);
     });
 
+    it('serializes undefined update values as JSON null for PostgreSQL updates', async function() {
+        let capturedQuery = null;
+        let capturedParams = null;
+        const fakePool = {
+            query: async (queryText, params) => {
+                capturedQuery = queryText;
+                capturedParams = params;
+                return { rowCount: 1 };
+            }
+        };
+
+        await postgres_store.updateRecord(fakePool, {
+            tasks: {
+                primary_key: 'key',
+                field_types: {
+                    key: 'text'
+                }
+            }
+        }, 'tasks', {key: 'missing_files_check'}, {data: undefined, running: false});
+
+        assert(capturedQuery.includes('jsonb_set'));
+        assert(!capturedParams.includes(undefined));
+        assert(capturedParams.includes('null'));
+    });
+
     it('uses hashed text predicates for string equality filters', async function() {
         let capturedQuery = null;
         let capturedParams = null;
