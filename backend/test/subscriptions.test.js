@@ -285,6 +285,45 @@ describe('Subscriptions', function() {
         assert(sleep_interval_index !== -1);
         assert.strictEqual(captured_args[sleep_interval_index + 1], '2');
     });
+    it('Uses full metadata discovery for timeranged subscriptions so date filters are honored', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'timeranged_sub',
+            timerange: 'now-7days'
+        });
+        let captured_args = null;
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args) => {
+            captured_args = args;
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const dateafter_index = captured_args.indexOf('--dateafter');
+        assert(dateafter_index !== -1);
+        assert.strictEqual(captured_args[dateafter_index + 1], 'now-7days');
+        assert(!captured_args.includes('--flat-playlist'));
+        assert(captured_args.includes('--dump-json'));
+        assert(captured_args.includes('-o'));
+        assert(captured_args.includes('-f'));
+    });
     it('Skips writing metadata for subscriptions without a name', async function() {
         const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});
         const metadata_path = path.join('subscriptions', 'channels', 'null', 'subscription_backup.json');

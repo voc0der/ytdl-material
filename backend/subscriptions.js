@@ -933,25 +933,49 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     return downloadConfig;
 }
 
-function filterSubscriptionDiscoveryArgs(args = []) {
+function hasSubscriptionDiscoveryDateFilter(args = []) {
+    if (!Array.isArray(args)) return false;
+    return args.some(arg => typeof arg === 'string'
+        && (arg === '--date'
+            || arg.startsWith('--date=')
+            || arg === '--dateafter'
+            || arg.startsWith('--dateafter=')
+            || arg === '--datebefore'
+            || arg.startsWith('--datebefore=')));
+}
+
+function filterSubscriptionDiscoveryArgs(args = [], options = {}) {
     if (!Array.isArray(args)) return [];
 
     const args_without_discovery_side_effects = [];
+    const preserve_download_shaping_args = !!options.preserve_download_shaping_args;
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
         if (!arg) continue;
 
         if (arg === '-o' || arg === '-f' || arg === '-S' || arg === '--audio-format' || arg === '--audio-quality' || arg === '--merge-output-format') {
-            i += 1;
+            if (preserve_download_shaping_args) {
+                args_without_discovery_side_effects.push(arg);
+                if (i + 1 < args.length) args_without_discovery_side_effects.push(args[++i]);
+            } else {
+                i += 1;
+            }
             continue;
         }
 
         if (arg === '--replace-in-metadata') {
-            i += 3;
+            if (preserve_download_shaping_args) {
+                args_without_discovery_side_effects.push(arg);
+                for (let j = 0; j < 3 && i + 1 < args.length; j++) {
+                    args_without_discovery_side_effects.push(args[++i]);
+                }
+            } else {
+                i += 3;
+            }
             continue;
         }
 
-        if ([
+        const stripped_flag_args = [
             '--dump-json',
             '--print-json',
             '--write-info-json',
@@ -968,10 +992,9 @@ function filterSubscriptionDiscoveryArgs(args = []) {
             '--add-metadata',
             '--xattrs',
             '--no-clean-info-json',
-            '-x',
-            '--windows-filenames',
-            '--restrict-filenames'
-        ].includes(arg)) {
+            ...(preserve_download_shaping_args ? [] : ['-x', '--windows-filenames', '--restrict-filenames'])
+        ];
+        if (stripped_flag_args.includes(arg)) {
             continue;
         }
 
@@ -983,9 +1006,16 @@ function filterSubscriptionDiscoveryArgs(args = []) {
 
 async function generateArgsForSubscriptionDiscovery(sub, user_uid) {
     const download_args = await generateArgsForSubscription(sub, user_uid);
+    // Flat playlist entries often lack upload dates, so yt-dlp cannot reliably
+    // apply date filters until it fetches full entry metadata.
+    const should_use_full_metadata = hasSubscriptionDiscoveryDateFilter(download_args);
+    const discovery_args = filterSubscriptionDiscoveryArgs(download_args, {
+        preserve_download_shaping_args: should_use_full_metadata
+    });
+
     return [
-        ...filterSubscriptionDiscoveryArgs(download_args),
-        '--flat-playlist',
+        ...discovery_args,
+        ...(should_use_full_metadata ? [] : ['--flat-playlist']),
         '--dump-json'
     ];
 }
