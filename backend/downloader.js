@@ -1275,7 +1275,17 @@ exports.resumeDownload = async (download_uid) => {
 exports.restartDownload = async (download_uid) => {
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     await exports.clearDownload(download_uid);
-    const new_download = await exports.createDownload(download['url'], download['type'], download['options'], download['user_uid']);
+    const new_download = await exports.createDownload(
+        download['url'],
+        download['type'],
+        download['options'],
+        download['user_uid'],
+        download['sub_id'],
+        download['sub_name'],
+        download['prefetched_info'],
+        false,
+        download['title']
+    );
     
     should_check_downloads = true;
     return new_download;
@@ -1521,7 +1531,7 @@ exports.collectInfo = async (download_uid) => {
     const useYoutubeDLArchive = config_api.getConfigItem('ytdl_use_youtubedl_archive');
     if (useYoutubeDLArchive && !options.ignoreArchive && info.length === 1) {
         const info_obj = info[0];
-        const exists_in_archive = await archive_api.existsInArchive(info['extractor'], info_obj['id'], type, download['user_uid'], download['sub_id']);
+        const exists_in_archive = await archive_api.existsInArchive(info_obj['extractor'], info_obj['id'], type, download['user_uid'], download['sub_id']);
         if (exists_in_archive) {
             const error = `File '${info_obj['title']}' already exists in archive! Disable the archive or override to continue downloading.`;
             logger.warn(error);
@@ -1655,6 +1665,7 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         } finally {
             clearInterval(download_checker);
             detach_output_progress_listeners();
+            delete download_to_child_process[download['uid']];
         }
         let end_time = Date.now();
         let difference = (end_time - start_time)/1000;

@@ -33,6 +33,44 @@ describe('Subscriptions', function() {
         const sub_exists = await db_api.getRecord('subscriptions', {id: new_sub['id']});
         assert(sub_exists);
     });
+    it('Applies custom args when retrieving subscription metadata', async function () {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: null,
+            custom_args: '--sleep-interval,,2,,--playlist-end,,250'
+        });
+        let captured_args = null;
+
+        youtubedl_api.runYoutubeDL = async (requested_url, args) => {
+            captured_args = args;
+            return {
+                callback: Promise.resolve({
+                    parsed_output: [{
+                        uploader: 'metadata_args_sub',
+                        playlist_title: 'metadata_args_sub'
+                    }],
+                    err: null
+                })
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '--resize-buffer');
+            const result = await subscriptions_api.subscribe(sub, null, false);
+            assert.strictEqual(result.success, true);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+
+        const sleep_interval_index = captured_args.indexOf('--sleep-interval');
+        const playlist_end_index = captured_args.indexOf('--playlist-end');
+        assert(captured_args.includes('--resize-buffer'));
+        assert(sleep_interval_index !== -1);
+        assert.strictEqual(captured_args[sleep_interval_index + 1], '2');
+        assert(playlist_end_index !== -1);
+        assert.strictEqual(captured_args[playlist_end_index + 1], '1');
+    });
     it('Unsubscribe', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
         await subscriptions_api.unsubscribe(new_sub);

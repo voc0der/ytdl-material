@@ -59,6 +59,15 @@ function applyCustomArgs(downloadConfig = [], args_string = '') {
     return utils.injectArgs(downloadConfig, custom_args);
 }
 
+function describeSubscriptionInfoError(err) {
+    const fallback_error = 'downloader returned no JSON output and did not provide stderr.';
+    if (!err) return fallback_error;
+    if (typeof err === 'string') return err.trim() || fallback_error;
+    if (err.stderr) return String(err.stderr).trim();
+    if (err.message) return String(err.message).trim();
+    return String(err).trim() || fallback_error;
+}
+
 function normalizeSubscriptionRefreshStatus(refresh_status = null) {
     const normalized_refresh_status = {
         active: false,
@@ -501,7 +510,10 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
 
 async function getSubscriptionInfo(sub) {
     // get videos
-    let downloadConfig = ['--dump-json', '--playlist-end', '1'];
+    let downloadConfig = ['--dump-json'];
+    downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
+    downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
+    downloadConfig = utils.injectArgs(downloadConfig, ['--playlist-end', '1']);
     let useCookies = config_api.getConfigItem('ytdl_use_cookies');
     if (useCookies) {
         if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
@@ -517,7 +529,11 @@ async function getSubscriptionInfo(sub) {
     let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
     const {parsed_output, err} = await callback;
     if (err) {
-        logger.error(err.stderr);
+        logger.error(`Subscribe: failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
+        return false;
+    }
+    if (!Array.isArray(parsed_output) || parsed_output.length === 0) {
+        logger.error(`Subscribe: failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
         return false;
     }
     logger.verbose('Subscribe: got info for subscription ' + sub.id);

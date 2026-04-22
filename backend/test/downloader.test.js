@@ -12,6 +12,7 @@ const {
     utils,
     subscriptions_api,
     files_api,
+    archive_api,
     youtubedl_api,
     config_api,
     generateEmptyVideoFile,
@@ -97,6 +98,7 @@ describe('Downloader', function() {
     beforeEach(async function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('download_queue');
+        await db_api.removeAllRecords('archives');
         config_api.setConfigItem('ytdl_allow_playlist_categorization', true);
         config_api.setConfigItem('ytdl_min_sleep_between_downloads', 0);
         config_api.setConfigItem('ytdl_playlist_chunk_size', 100);
@@ -277,6 +279,46 @@ describe('Downloader', function() {
         assert.strictEqual(recovered_waiting_download.step_index, 0);
     });
 
+    it('Restart download preserves subscription metadata', async function() {
+        const prefetched_info = [{
+            webpage_url: url,
+            extractor: 'youtube',
+            id: 'prefetched-video',
+            title: 'Prefetched subscription video'
+        }];
+        const sub_name = 'test_sub';
+        const user_uid = 'test-user';
+        const original_download = await downloader_api.createDownload(
+            url,
+            'video',
+            {...options, customFileFolderPath: 'subscriptions/channels/test_sub/'},
+            user_uid,
+            sub_id,
+            sub_name,
+            prefetched_info,
+            false,
+            'Subscription retry title'
+        );
+
+        await db_api.updateRecord('download_queue', {uid: original_download['uid']}, {
+            error: 'Previous failure',
+            finished: true,
+            error_type: 'info_retrieve_failed'
+        });
+
+        const restarted_download = await downloader_api.restartDownload(original_download['uid']);
+        const cleared_download = await db_api.getRecord('download_queue', {uid: original_download['uid']});
+        const stored_restarted_download = await db_api.getRecord('download_queue', {uid: restarted_download['uid']});
+
+        assert(!cleared_download);
+        assert.strictEqual(stored_restarted_download['sub_id'], sub_id);
+        assert.strictEqual(stored_restarted_download['sub_name'], sub_name);
+        assert.strictEqual(stored_restarted_download['user_uid'], user_uid);
+        assert.deepStrictEqual(stored_restarted_download['prefetched_info'], prefetched_info);
+        assert.strictEqual(stored_restarted_download['title'], 'Subscription retry title');
+        assert.strictEqual(stored_restarted_download['error'], null);
+    });
+
     it('Downloader - categorize', async function() {
         this.timeout(300000);
         await createCategory(url);
@@ -392,6 +434,31 @@ describe('Downloader', function() {
             assert.strictEqual(updated_download.files_to_check_for_progress.length, 1);
         } finally {
             downloader_api.getVideoInfoByURL = original_get_video_info;
+        }
+    });
+
+    it('Collect info rejects archived single downloads using the info extractor', async function() {
+        const original_use_archive = config_api.getConfigItem('ytdl_use_youtubedl_archive');
+
+        try {
+            config_api.setConfigItem('ytdl_use_youtubedl_archive', true);
+            await archive_api.addToArchive(
+                fixture_single[0].extractor,
+                fixture_single[0].id,
+                'video',
+                fixture_single[0].title
+            );
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+            assert.strictEqual(updated_download['finished'], true);
+            assert.strictEqual(updated_download['running'], false);
+            assert.strictEqual(updated_download['error_type'], 'exists_in_archive');
+            assert(updated_download['error'].includes('already exists in archive'));
+        } finally {
+            config_api.setConfigItem('ytdl_use_youtubedl_archive', original_use_archive);
         }
     });
 
