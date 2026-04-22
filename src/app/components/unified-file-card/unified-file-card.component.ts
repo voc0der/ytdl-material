@@ -49,6 +49,7 @@ export class UnifiedFileCardComponent implements OnInit {
   @Input() is_playlist = false;
   @Input() index: number;
   @Input() locale = null;
+  @Input() displayDateProperty = 'registered';
   @Input() baseStreamPath = null;
   @Input() jwtString = null;
   @Input() apiKeyString = null;
@@ -77,6 +78,33 @@ export class UnifiedFileCardComponent implements OnInit {
     return this.baseStreamPath?.endsWith('/')
       ? this.baseStreamPath.slice(0, -1)
       : this.baseStreamPath;
+  }
+
+  get displayedDateValue(): string | number | Date | null {
+    if (!this.file_obj) {
+      return null;
+    }
+
+    if (this.displayDateProperty === 'upload_date' && this.hasDisplayableUploadDate()) {
+      return this.file_obj.upload_date;
+    }
+
+    return this.file_obj.registered ?? null;
+  }
+
+  get displayedDateTimezone(): string | undefined {
+    return this.displayDateProperty === 'upload_date' && this.hasDisplayableUploadDate()
+      ? 'UTC'
+      : undefined;
+  }
+
+  get displayedDateLocale(): string | undefined {
+    return this.locale?.ngID;
+  }
+
+  private hasDisplayableUploadDate(): boolean {
+    return typeof this.file_obj?.upload_date === 'string'
+      && /^\d{4}-\d{2}-\d{2}$/.test(this.file_obj.upload_date);
   }
 
   ngOnInit(): void {
