@@ -222,4 +222,25 @@ describe('Files', function() {
             db_api.isUsingMongoDB = original_is_using_mongo_db;
         }
     });
+
+    it('passes upload date sort options through to the database layer', async function() {
+        const original_get_records = db_api.getRecords;
+        const captured_sorts = [];
+
+        try {
+            db_api.getRecords = async (table, filter_obj, return_count, sort) => {
+                captured_sorts.push({return_count, sort});
+                return return_count ? 0 : [];
+            };
+
+            await files_api.getAllFiles({by: 'upload_date', order: -1}, [0, 20], null, 'both', false, null, null);
+
+            assert.deepStrictEqual(captured_sorts, [
+                {return_count: false, sort: {by: 'upload_date', order: -1}},
+                {return_count: true, sort: undefined}
+            ]);
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
+    });
 });

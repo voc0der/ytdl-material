@@ -214,6 +214,33 @@ describe('Database', async function() {
                     assert(stats);
                 });
 
+                it('Sorts upload dates in chronological order', async function() {
+                    const test_records = [
+                        {uid: 'upload-date-sort-1', upload_date: '6/26/17'},
+                        {uid: 'upload-date-sort-2', upload_date: '2021-07-06'},
+                        {uid: 'upload-date-sort-3', upload_date: '20200423'},
+                        {uid: 'upload-date-sort-4', upload_date: 'N/A'}
+                    ];
+                    const success = await db_api.bulkInsertRecordsIntoTable('test', test_records);
+                    assert(success);
+
+                    const descending_records = await db_api.getRecords('test', null, false, {by: 'upload_date', order: -1});
+                    assert.deepStrictEqual(descending_records.map(record => record.uid), [
+                        'upload-date-sort-2',
+                        'upload-date-sort-3',
+                        'upload-date-sort-1',
+                        'upload-date-sort-4'
+                    ]);
+
+                    const ascending_records = await db_api.getRecords('test', null, false, {by: 'upload_date', order: 1});
+                    assert.deepStrictEqual(ascending_records.map(record => record.uid), [
+                        'upload-date-sort-1',
+                        'upload-date-sort-3',
+                        'upload-date-sort-2',
+                        'upload-date-sort-4'
+                    ]);
+                });
+
                 it.skip('Query speed', async function() {
                     this.timeout(120000); 
                     const NUM_RECORDS_TO_ADD = 300004; // max batch ops is 1000

@@ -34,6 +34,7 @@ const tables = {
         field_types: {
             uid: 'text',
             registered: 'numeric',
+            upload_date: 'text',
             user_uid: 'text',
             sub_id: 'text',
             isAudio: 'boolean',
@@ -50,8 +51,10 @@ const tables = {
         },
         indexes: [
             { keys: { registered: -1 } },
+            { keys: { upload_date: -1 } },
             { keys: { user_uid: 1, registered: -1 } },
             { keys: { sub_id: 1, registered: -1 } },
+            { keys: { sub_id: 1, upload_date: -1 } },
             { keys: { isAudio: 1, registered: -1 } },
             { keys: { duplicate_key: 1, registered: 1 } },
             { keys: { user_uid: 1, duplicate_key: 1, registered: 1 } },
@@ -765,12 +768,65 @@ exports.getRecord = async (table, filter_obj) => {
     return await mongo_database.collection(table).findOne(filter_obj);
 }
 
+function normalizeUploadDateSortValue(value) {
+    if (value === null || value === undefined) return null;
+
+    const normalized = String(value).trim();
+    if (!normalized || normalized.toUpperCase() === 'N/A') return null;
+
+    const iso_date_match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso_date_match) return `${iso_date_match[1]}-${iso_date_match[2]}-${iso_date_match[3]}`;
+
+    const compact_date_match = normalized.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (compact_date_match) return `${compact_date_match[1]}-${compact_date_match[2]}-${compact_date_match[3]}`;
+
+    const slash_date_match = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (slash_date_match) {
+        const month = slash_date_match[1].padStart(2, '0');
+        const day = slash_date_match[2].padStart(2, '0');
+        const raw_year = slash_date_match[3];
+        const year_number = raw_year.length === 2
+            ? Number(raw_year) + (Number(raw_year) >= 70 ? 1900 : 2000)
+            : Number(raw_year);
+        return `${year_number}-${month}-${day}`;
+    }
+
+    const parsed_timestamp = Date.parse(normalized);
+    if (!Number.isNaN(parsed_timestamp)) {
+        return new Date(parsed_timestamp).toISOString().slice(0, 10);
+    }
+
+    return normalized;
+}
+
+function normalizeLocalSortValue(sort_by, value) {
+    if (sort_by === 'upload_date') {
+        return normalizeUploadDateSortValue(value);
+    }
+
+    return value === undefined ? null : value;
+}
+
+function compareLocalSortValues(sort, record_a, record_b) {
+    const sort_by = sort['by'];
+    const sort_order = sort['order'] === -1 ? -1 : 1;
+    const value_a = normalizeLocalSortValue(sort_by, record_a[sort_by]);
+    const value_b = normalizeLocalSortValue(sort_by, record_b[sort_by]);
+
+    if (value_a === null && value_b === null) return 0;
+    if (value_a === null) return 1;
+    if (value_b === null) return -1;
+    if (value_a < value_b) return -sort_order;
+    if (value_a > value_b) return sort_order;
+    return 0;
+}
+
 exports.getRecords = async (table, filter_obj = null, return_count = false, sort = null, range = null) => {
     // local db override
     if (using_local_db) {
         let cursor = filter_obj ? exports.applyFilterLocalDB(local_db.get(table), filter_obj, 'filter').value() : local_db.get(table).value();
         if (sort) {
-            cursor = cursor.sort((a, b) => (a[sort['by']] > b[sort['by']] ? sort['order'] : sort['order']*-1));
+            cursor = cursor.sort((a, b) => compareLocalSortValues(sort, a, b));
         }
         if (range) {
             cursor = cursor.slice(range[0], range[1]);
