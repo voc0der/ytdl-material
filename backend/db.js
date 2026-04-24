@@ -656,9 +656,10 @@ exports.getFileDirectoriesAndDBs = async () => {
             // TODO: Remove subscription as it'll never complete
             continue;
         }
+        const subscription_path_name = utils.getSubscriptionPathName(subscription_to_check);
         dirs_to_check.push({
-            basePath: subscription_to_check.user_uid ? path.join(usersFileFolder, subscription_to_check.user_uid, 'subscriptions', subscription_to_check.isPlaylist ? 'playlists/' : 'channels/', subscription_to_check.name)
-                                      : path.join(subscriptions_base_path, subscription_to_check.isPlaylist ? 'playlists/' : 'channels/', subscription_to_check.name),
+            basePath: subscription_to_check.user_uid ? path.join(usersFileFolder, subscription_to_check.user_uid, 'subscriptions', subscription_to_check.isPlaylist ? 'playlists' : 'channels', subscription_path_name)
+                                      : path.join(subscriptions_base_path, subscription_to_check.isPlaylist ? 'playlists' : 'channels', subscription_path_name),
             user_uid: subscription_to_check.user_uid,
             type: subscription_to_check.type,
             sub_id: subscription_to_check['id'],

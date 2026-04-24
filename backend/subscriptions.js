@@ -904,7 +904,7 @@ exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {
         maxHeight: sub.maxQuality && sub.maxQuality !== 'best' ? sub.maxQuality : null,
         customFileFolderPath: getAppendedBasePath(sub, basePath),
         customOutput: sub.custom_output ? `${sub.custom_output}` : `${default_output}`,
-        customArchivePath: path.join(basePath, 'archives', sub.name),
+        customArchivePath: path.join(basePath, 'archives', utils.getSubscriptionPathName(sub)),
         additionalArgs: sub.custom_args
     }
 
@@ -1351,5 +1351,5 @@ async function checkVideoIfBetterExists(file_obj, sub, user_uid) {
 // helper functions
 
 function getAppendedBasePath(sub, base_path) {
-    return path.join(base_path, (sub.isPlaylist ? 'playlists/' : 'channels/'), sub.name);
+    return path.join(base_path, sub.isPlaylist ? 'playlists' : 'channels', utils.getSubscriptionPathName(sub));
 }

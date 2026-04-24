@@ -11,6 +11,49 @@ const logger = require('./logger');
 const CONSTS = require('./consts');
 
 const is_windows = process.platform === 'win32';
+const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
+
+function getSafeFilenameReplacement() {
+    const configured_replacement = config_api.getConfigItem('ytdl_invalid_filename_replacement');
+    const replacement = configured_replacement === undefined || configured_replacement === null ? '_' : String(configured_replacement);
+    return replacement.replace(/[\\/\0]/g, '');
+}
+
+function getUniqueChars(chars = '') {
+    const unique_chars = [];
+    for (const char of chars) {
+        if (!unique_chars.includes(char)) unique_chars.push(char);
+    }
+    return unique_chars;
+}
+
+exports.sanitizePathSegment = (segment, fallback = 'file') => {
+    const replacement = getSafeFilenameReplacement();
+    const configured_invalid_chars = config_api.getConfigItem('ytdl_invalid_filename_chars');
+    const invalid_chars = ['\\', '/', '\0'];
+
+    if (config_api.getConfigItem('ytdl_replace_invalid_filename_chars')) {
+        invalid_chars.push(...(typeof configured_invalid_chars === 'string' && configured_invalid_chars.length > 0 ? configured_invalid_chars : DEFAULT_INVALID_FILENAME_CHARS));
+    }
+
+    let sanitized_segment = segment === undefined || segment === null ? '' : String(segment);
+    sanitized_segment = sanitized_segment.trim();
+
+    for (const char of getUniqueChars(invalid_chars.join(''))) {
+        sanitized_segment = sanitized_segment.split(char).join(replacement);
+    }
+
+    sanitized_segment = sanitized_segment.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!sanitized_segment || sanitized_segment === '.' || sanitized_segment === '..') {
+        return fallback || 'file';
+    }
+    return sanitized_segment;
+}
+
+exports.getSubscriptionPathName = (sub = {}) => {
+    const fallback = sub && sub.id ? String(sub.id) : 'subscription';
+    return exports.sanitizePathSegment(sub && sub.name, fallback);
+}
 
 // replaces .webm with appropriate extension
 exports.getTrueFileName = (unfixed_path, type, force_ext = null) => {
@@ -618,13 +661,13 @@ exports.getArchiveFolder = (type, user_uid = null, sub = null) => {
 
     if (user_uid) {
         if (sub) {
-            return path.join(usersFolderPath, user_uid, 'subscriptions', 'archives', sub.name);
+            return path.join(usersFolderPath, user_uid, 'subscriptions', 'archives', exports.getSubscriptionPathName(sub));
         } else {
             return path.join(usersFolderPath, user_uid, type, 'archives');
         }
     } else {
         if (sub) {
-            return path.join(subsFolderPath, 'archives', sub.name);
+            return path.join(subsFolderPath, 'archives', exports.getSubscriptionPathName(sub));
         } else {
             return path.join('appdata', 'archives');
         }

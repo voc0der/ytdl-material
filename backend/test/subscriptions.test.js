@@ -19,6 +19,9 @@ describe('Subscriptions', function() {
         await db_api.removeAllRecords('files');
         config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
         config_api.setConfigItem('ytdl_custom_args', '');
+        config_api.setConfigItem('ytdl_replace_invalid_filename_chars', false);
+        config_api.setConfigItem('ytdl_invalid_filename_chars', '\\/:*?"<>|');
+        config_api.setConfigItem('ytdl_invalid_filename_replacement', '_');
     });
 
     async function waitForCondition(predicate, timeout_ms = 2000) {
@@ -280,6 +283,65 @@ describe('Subscriptions', function() {
         if (fs.existsSync(metadata_path)) fs.unlinkSync(metadata_path);
         await subscriptions_api.subscribe(new_sub, null, true);
         assert(fs.existsSync(metadata_path));
+    });
+    it('Writes subscription metadata into the sanitized folder used for downloads', async function() {
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'Full Documentaries | FRONTLINE',
+            isPlaylist: true
+        });
+        const expected_subscription_path = path.join('subscriptions', 'playlists', 'Full Documentaries - FRONTLINE');
+        const raw_subscription_path = path.join('subscriptions', 'playlists', 'Full Documentaries | FRONTLINE');
+        const metadata_path = path.join(expected_subscription_path, 'subscription_backup.json');
+
+        config_api.setConfigItem('ytdl_replace_invalid_filename_chars', true);
+        config_api.setConfigItem('ytdl_invalid_filename_replacement', '-');
+
+        try {
+            await fs.remove(expected_subscription_path);
+            await fs.remove(raw_subscription_path);
+
+            const success = subscriptions_api.writeSubscriptionMetadata(sub);
+            const download_options = subscriptions_api.generateOptionsForSubscriptionDownload(sub, null);
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            const subscription_dir = (await db_api.getFileDirectoriesAndDBs()).find(dir => dir.sub_id === sub.id);
+
+            assert.strictEqual(success, true);
+            assert.strictEqual(fs.existsSync(metadata_path), true);
+            assert.strictEqual(fs.existsSync(path.join(raw_subscription_path, 'subscription_backup.json')), false);
+            assert.strictEqual(download_options.customFileFolderPath, expected_subscription_path);
+            assert.strictEqual(download_options.customArchivePath, path.join('subscriptions', 'archives', 'Full Documentaries - FRONTLINE'));
+            assert(subscription_dir);
+            assert.strictEqual(subscription_dir.basePath, expected_subscription_path);
+            assert.strictEqual(subscription_dir.archive_path, path.join('subscriptions', 'archives', 'Full Documentaries - FRONTLINE'));
+        } finally {
+            await fs.remove(expected_subscription_path);
+            await fs.remove(raw_subscription_path);
+        }
+    });
+    it('Does not let path separators split subscription metadata folders', async function() {
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'Folder/Playlist',
+            isPlaylist: true
+        });
+        const expected_subscription_path = path.join('subscriptions', 'playlists', 'Folder_Playlist');
+        const nested_subscription_path = path.join('subscriptions', 'playlists', 'Folder');
+        const metadata_path = path.join(expected_subscription_path, 'subscription_backup.json');
+
+        try {
+            await fs.remove(expected_subscription_path);
+            await fs.remove(nested_subscription_path);
+
+            const success = subscriptions_api.writeSubscriptionMetadata(sub);
+
+            assert.strictEqual(success, true);
+            assert.strictEqual(fs.existsSync(metadata_path), true);
+            assert.strictEqual(fs.existsSync(path.join(nested_subscription_path, 'Playlist', 'subscription_backup.json')), false);
+        } finally {
+            await fs.remove(expected_subscription_path);
+            await fs.remove(nested_subscription_path);
+        }
     });
     it('Streams subscription videos with flat playlist metadata and queues them in batches before discovery completes', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
