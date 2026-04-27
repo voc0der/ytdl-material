@@ -64,7 +64,7 @@
     "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "eslint": "^10.2.1",
     "globals": "^17.5.0",
     "jasmine-core": "~6.2.0",
