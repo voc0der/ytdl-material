@@ -41,9 +41,9 @@
               <button
                 mat-icon-button
                 [disabled]="removing_duplicate_key === element.duplicate_key"
-                matTooltip="Remove newest duplicates"
-                i18n-matTooltip="Remove newest duplicates tooltip"
-                (click)="removeNewestDuplicates(element)">
+                matTooltip="Remove duplicates"
+                i18n-matTooltip="Remove duplicates tooltip"
+                (click)="openRemoveDuplicatesDialog(element)">
                 <mat-icon>cleaning_services</mat-icon>
               </button>
             </span>

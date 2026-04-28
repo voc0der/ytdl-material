@@ -545,11 +545,16 @@ async function ensureArchiveExistsForFile(file_obj = null) {
     }
 }
 
-exports.removeNewestDuplicates = async (duplicate_key, user_uid = null) => {
+function normalizeDuplicateRemovalMode(removal_mode = 'newest') {
+    return removal_mode === 'oldest' ? 'oldest' : 'newest';
+}
+
+exports.removeDuplicates = async (duplicate_key, removal_mode = 'newest', user_uid = null) => {
     const normalized_duplicate_key = normalizeSourceValue(duplicate_key);
     if (!normalized_duplicate_key) {
         return {success: false, removed_uids: []};
     }
+    const normalized_removal_mode = normalizeDuplicateRemovalMode(removal_mode);
 
     const filter_obj = {duplicate_key: normalized_duplicate_key};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
@@ -559,8 +564,8 @@ exports.removeNewestDuplicates = async (duplicate_key, user_uid = null) => {
         return {success: true, removed_uids: []};
     }
 
-    const kept_file = duplicate_files[0];
-    const files_to_remove = duplicate_files.slice(1);
+    const kept_file = normalized_removal_mode === 'oldest' ? duplicate_files[duplicate_files.length - 1] : duplicate_files[0];
+    const files_to_remove = normalized_removal_mode === 'oldest' ? duplicate_files.slice(0, duplicate_files.length - 1) : duplicate_files.slice(1);
     const removed_uids = [];
 
     for (const file_obj of files_to_remove) {
@@ -573,6 +578,14 @@ exports.removeNewestDuplicates = async (duplicate_key, user_uid = null) => {
         success: removed_uids.length === files_to_remove.length,
         removed_uids: removed_uids
     };
+}
+
+exports.removeNewestDuplicates = async (duplicate_key, user_uid = null) => {
+    return exports.removeDuplicates(duplicate_key, 'newest', user_uid);
+}
+
+exports.removeOldestDuplicates = async (duplicate_key, user_uid = null) => {
+    return exports.removeDuplicates(duplicate_key, 'oldest', user_uid);
 }
 
 exports.findExistingDuplicateByInfo = async (info_obj = null, type = 'video', user_uid = null) => {

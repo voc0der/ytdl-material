@@ -1,6 +1,12 @@
 import { Component, OnInit, Inject, EventEmitter } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
+interface ConfirmDialogAction {
+  text: string;
+  value: boolean | string;
+  warnSubmitColor?: boolean;
+}
+
 @Component({
     selector: 'app-confirm-dialog',
     templateUrl: './confirm-dialog.component.html',
@@ -14,12 +20,13 @@ export class ConfirmDialogComponent implements OnInit {
   dialogText = 'Would you like to confirm?';
   submitText = 'Yes'
   cancelText = $localize`Cancel`;
+  submitActions: ConfirmDialogAction[] = [];
   list: { key: string, title: string }[] = [];
   selected_items = [];
   submitClicked = false;
   closeOnSubmit = true;
 
-  doneEmitter: EventEmitter<boolean> = null;
+  doneEmitter: EventEmitter<boolean | string> = null;
   onlyEmitOnDone = false;
 
   warnSubmitColor = false;
@@ -30,6 +37,7 @@ export class ConfirmDialogComponent implements OnInit {
     if (this.data.dialogText      !== undefined) { this.dialogText      = this.data.dialogText }
     if (this.data.list            !== undefined) { this.list            = this.data.list }
     if (this.data.submitText      !== undefined) { this.submitText      = this.data.submitText }
+    if (this.data.submitActions   !== undefined) { this.submitActions   = this.data.submitActions }
     if (this.data.cancelText      !== undefined) { this.cancelText      = this.data.cancelText }
     if (this.data.warnSubmitColor !== undefined) { this.warnSubmitColor = this.data.warnSubmitColor }
     if (this.data.warnSubmitColor !== undefined) { this.warnSubmitColor = this.data.warnSubmitColor }
@@ -42,12 +50,12 @@ export class ConfirmDialogComponent implements OnInit {
     }
   }
 
-  confirmClicked(): void {
+  confirmClicked(value: boolean | string = true): void {
     if (this.onlyEmitOnDone) {
-      this.doneEmitter.emit(true);
+      this.doneEmitter.emit(value);
       if (this.closeOnSubmit) this.submitClicked = true;
     } else {
-      if (this.closeOnSubmit) this.dialogRef.close(true);
+      if (this.closeOnSubmit) this.dialogRef.close(value);
     }
   }
 

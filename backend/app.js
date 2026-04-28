@@ -1497,6 +1497,14 @@ app.post('/api/removeNewestDuplicates', optionalJwt, async function (req, res) {
     res.send(result);
 });
 
+app.post('/api/removeDuplicates', optionalJwt, async function (req, res) {
+    const duplicate_key = req.body.duplicate_key;
+    const removal_mode = req.body.removal_mode;
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const result = await files_api.removeDuplicates(duplicate_key, removal_mode, user_uid);
+    res.send(result);
+});
+
 app.post('/api/updateFile', optionalJwt, async function (req, res) {
     const uid = req.body.uid;
     const change_obj = req.body.change_obj;

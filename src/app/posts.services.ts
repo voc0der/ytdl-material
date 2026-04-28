@@ -142,7 +142,9 @@ export interface GetDuplicatesResponse {
     duplicates: DuplicateGroup[];
 }
 
-export interface RemoveNewestDuplicatesResponse {
+export type DuplicateRemovalMode = 'newest' | 'oldest';
+
+export interface RemoveDuplicatesResponse {
     success: boolean;
     removed_uids: string[];
 }
@@ -459,8 +461,12 @@ export class PostsService {
         return this.http.post<GetDuplicatesResponse>(this.path + 'getDuplicates', {}, this.httpOptions);
     }
 
+    removeDuplicates(duplicate_key: string, removal_mode: DuplicateRemovalMode) {
+        return this.http.post<RemoveDuplicatesResponse>(this.path + 'removeDuplicates', {duplicate_key: duplicate_key, removal_mode: removal_mode}, this.httpOptions);
+    }
+
     removeNewestDuplicates(duplicate_key: string) {
-        return this.http.post<RemoveNewestDuplicatesResponse>(this.path + 'removeNewestDuplicates', {duplicate_key: duplicate_key}, this.httpOptions);
+        return this.removeDuplicates(duplicate_key, 'newest');
     }
 
     updateFile(uid: string, change_obj: object) {
