@@ -149,51 +149,27 @@ describe('AppComponent', () => {
     jasmine.clock().uninstall();
   });
 
-  it('emits file refresh when a successful completion is detected after reload polling', () => {
+  it('emits file refresh when a download disappears from the unfinished queue', () => {
     const files_changed_spy = spyOn(files_changed_subject, 'next').and.callThrough();
     (component as any).active_downloads_initialized = true;
-    (component as any).previous_download_states = new Map<string, {finished: boolean, errored: boolean}>([
-      ['download-1', {finished: false, errored: false}]
+    (component as any).previous_download_states = new Map([
+      ['download-1', {finished: false, errored: false, is_playlist: false}]
     ]);
-    posts_service_mock.getCurrentDownloads = () => of({
-      downloads: [
-        createDownload({
-          uid: 'download-1',
-          running: false,
-          finished: true,
-          finished_step: true,
-          percent_complete: 100,
-          file_uids: ['file-1'],
-          container: {uid: 'file-1'}
-        } as any)
-      ]
-    });
+    posts_service_mock.getCurrentDownloads = () => of({downloads: []});
 
     (component as any).refreshActiveDownloads();
 
     expect(files_changed_spy).toHaveBeenCalledWith(true);
   });
 
-  it('emits playlist refresh when a playlist completion is detected after reload polling', () => {
+  it('emits playlist refresh when a playlist download disappears from the unfinished queue', () => {
     const files_changed_spy = spyOn(files_changed_subject, 'next').and.callThrough();
     const playlists_changed_spy = spyOn(playlists_changed_subject, 'next').and.callThrough();
     (component as any).active_downloads_initialized = true;
-    (component as any).previous_download_states = new Map<string, {finished: boolean, errored: boolean}>([
-      ['download-2', {finished: false, errored: false}]
+    (component as any).previous_download_states = new Map([
+      ['download-2', {finished: false, errored: false, is_playlist: true}]
     ]);
-    posts_service_mock.getCurrentDownloads = () => of({
-      downloads: [
-        createDownload({
-          uid: 'download-2',
-          running: false,
-          finished: true,
-          finished_step: true,
-          percent_complete: 100,
-          file_uids: ['file-1', 'file-2'],
-          container: {id: 'playlist-1'}
-        } as any)
-      ]
-    });
+    posts_service_mock.getCurrentDownloads = () => of({downloads: []});
 
     (component as any).refreshActiveDownloads();
 
