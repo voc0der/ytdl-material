@@ -2145,16 +2145,32 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options 
     logger.debug(`Callback resolved. parsed_output length: ${parsed_output ? parsed_output.length : 'null'}`);
     if (!parsed_output || parsed_output.length === 0) {
         const error_details = describeInfoLookupError(err, downloader_fork);
+        const is_join_only = error_details.includes('Join this channel to get access to members-only content');
+        const error_type = is_join_only ? 'join_only' : 'info_retrieve_failed';
         const error_message = `Error while retrieving info on video with URL ${url} with the following message: ${error_details}`;
         logger.error(error_message);
         if (download_uid) {
-            await handleDownloadError(download_uid, error_message, 'info_retrieve_failed');
+            await handleDownloadError(download_uid, error_message, error_type);
+            if (is_join_only && config_api.getConfigItem('ytdl_skip_join_only_videos')) {
+                await archiveJoinOnlyVideo(download_uid, error_details);
+            }
         }
         return null;
     }
 
     logger.debug(`getVideoInfoByURL returning successfully for URL: ${url}`);
     return parsed_output;
+}
+
+async function archiveJoinOnlyVideo(download_uid, error_details) {
+    const download = await db_api.getRecord('download_queue', {uid: download_uid});
+    if (!download || !download['sub_id']) return;
+    const match = error_details.match(/\[([^\]]+)\]\s+([a-zA-Z0-9_-]+):\s+Join this channel/);
+    if (!match) return;
+    const extractor = match[1];
+    const video_id = match[2];
+    await archive_api.addToArchive(extractor, video_id, download['type'], null, download['user_uid'], download['sub_id']);
+    logger.info(`Archived join-only video ${extractor}:${video_id} for subscription ${download['sub_id']}.`);
 }
 
 function filterArgs(args, isAudio) {

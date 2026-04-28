@@ -231,7 +231,8 @@ const DEFAULT_CONFIG = {
         "max_concurrent_downloads": 5,
         "min_sleep_between_downloads": 0,
         "playlist_chunk_size": 20,
-        "download_rate_limit": ""
+        "download_rate_limit": "",
+        "skip_join_only_videos": false
       },
       "Extra": {
         "title_top": "ytdl-material",
