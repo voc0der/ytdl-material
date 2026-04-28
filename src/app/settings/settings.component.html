@@ -187,8 +187,11 @@
             <div class="col-12 mt-2">
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['include_thumbnail']"><ng-container i18n="Include thumbnail setting">Include thumbnail</ng-container></mat-checkbox>
             </div>
-            <div class="col-12 mt-2 mb-2">
+            <div class="col-12 mt-2">
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['include_metadata']"><ng-container i18n="Include metadata setting">Include metadata</ng-container></mat-checkbox>
+            </div>
+            <div class="col-12 mt-2 mb-2">
+              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['skip_join_only_videos']"><ng-container i18n="Skip join-only videos setting">Skip join-only videos</ng-container></mat-checkbox>
             </div>
           </div>
         </div>

@@ -78,6 +78,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_download_rate_limit',
         'path': 'YtdlMaterial.Downloader.download_rate_limit'
     },
+    'ytdl_skip_join_only_videos': {
+        'key': 'ytdl_skip_join_only_videos',
+        'path': 'YtdlMaterial.Downloader.skip_join_only_videos'
+    },
 
     // Extra
     'ytdl_title_top': {
