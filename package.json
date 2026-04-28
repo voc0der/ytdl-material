@@ -111,6 +111,7 @@
     },
     "flatted": "3.4.2",
     "immutable": "5.1.5",
+    "postcss": "8.5.12",
     "serialize-javascript": "7.0.5",
     "tar": "7.5.11",
     "tmp": "0.2.5",
