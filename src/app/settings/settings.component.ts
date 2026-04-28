@@ -342,6 +342,30 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  deleteOrphanFiles(): void {
+    const done = new EventEmitter<boolean>();
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        dialogTitle: 'Delete orphan videos',
+        dialogText: 'Are you sure you want to delete all orphan videos? These are videos that exist in your download directories but are not tracked in the database. This cannot be undone.',
+        submitText: 'Delete orphans',
+        doneEmitter: done,
+        warnSubmitColor: true
+      }
+    });
+    done.subscribe(confirmed => {
+      if (confirmed) {
+        this.postsService.deleteOrphanFiles().subscribe(res => {
+          dialogRef.close();
+          this.postsService.openSnackBar($localize`Deleted ${res.deleted_count} orphan(s)${res.failed_count ? ', ' + res.failed_count + ' failed' : ''}.`);
+        }, () => {
+          dialogRef.close();
+          this.postsService.openSnackBar($localize`Failed to delete orphan videos! Check logs for details.`);
+        });
+      }
+    });
+  }
+
   restartServer(): void {
     this.postsService.restartServer().subscribe(() => {
       this.postsService.openSnackBar($localize`Restarting!`);

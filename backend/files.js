@@ -991,6 +991,22 @@ exports.deleteFilesInBatches = async (uids = [], blacklistMode = false, user_uid
     return {deleted_count, failed_count};
 }
 
+exports.deleteOrphanFiles = async (user_uid = null) => {
+    const filter_obj = {};
+    if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
+    const all_files = await db_api.getRecords('files', filter_obj);
+
+    const orphan_uids = [];
+    for (const file_obj of all_files) {
+        if (!file_obj.path) continue;
+        const exists = await fs.pathExists(path.join(__dirname, file_obj.path));
+        if (!exists) orphan_uids.push(file_obj.uid);
+    }
+
+    if (orphan_uids.length === 0) return {deleted_count: 0, failed_count: 0};
+    return exports.deleteFilesInBatches(orphan_uids, false, user_uid);
+}
+
 // Video ID is basically just the file name without the base path and file extension - this method helps us get away from that
 exports.getVideoUIDByID = async (file_id, uuid = null) => {
     const filter_obj = {id: file_id};

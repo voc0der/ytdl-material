@@ -405,6 +405,10 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'killAllDownloads', {}, this.httpOptions);
     }
 
+    deleteOrphanFiles() {
+        return this.http.post<{deleted_count: number, failed_count: number}>(this.path + 'deleteOrphanFiles', {}, this.httpOptions);
+    }
+
     restartServer() {
         return this.http.post<SuccessObject>(this.path + 'restartServer', {}, this.httpOptions);
     }

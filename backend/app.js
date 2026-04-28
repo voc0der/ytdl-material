@@ -1361,6 +1361,12 @@ app.post('/api/killAllDownloads', optionalJwt, async function(req, res) {
     res.send(result_obj);
 });
 
+app.post('/api/deleteOrphanFiles', optionalJwt, async function(req, res) {
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const result = await files_api.deleteOrphanFiles(user_uid);
+    res.send(result);
+});
+
 app.post('/api/generateArgs', optionalJwt, async function(req, res) {
     const url = req.body.url;
     const type = req.body.type;
