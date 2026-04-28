@@ -6,7 +6,7 @@ import { MatSort } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { filter, take } from 'rxjs/operators';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { DuplicateGroup, PostsService } from 'app/posts.services';
+import { DuplicateGroup, DuplicateRemovalMode, PostsService } from 'app/posts.services';
 
 @Component({
     selector: 'app-duplicates',
@@ -119,34 +119,40 @@ export class DuplicatesComponent implements OnInit, OnDestroy {
     return group && group.isAudio ? $localize`Audio` : $localize`Video`;
   }
 
-  removeNewestDuplicates(group: DuplicateGroup): void {
+  private isRemovalMode(value: string): value is DuplicateRemovalMode {
+    return value === 'newest' || value === 'oldest';
+  }
+
+  openRemoveDuplicatesDialog(group: DuplicateGroup): void {
     if (!group || !group.duplicate_key || this.removing_duplicate_key) return;
 
     const dialog_ref = this.dialog.open(ConfirmDialogComponent, {
       data: {
-        dialogTitle: $localize`Remove newest duplicates`,
-        dialogText: $localize`This will remove ${group.duplicate_count}:duplicate count: duplicate download(s) for ${this.getGroupTitle(group)}:duplicate title:.`,
-        submitText: $localize`Remove`,
-        warnSubmitColor: true
+        dialogTitle: $localize`Remove duplicates`,
+        dialogText: $localize`This will keep one copy and remove ${group.duplicate_count}:duplicate count: matching download(s) for ${this.getGroupTitle(group)}:duplicate title:. Choose whether to remove the newest downloads or the oldest downloads.`,
+        submitActions: [
+          {text: $localize`Remove Newest`, value: 'newest', warnSubmitColor: true},
+          {text: $localize`Remove Oldest`, value: 'oldest', warnSubmitColor: true}
+        ]
       }
     });
 
-    dialog_ref.afterClosed().subscribe(confirmed => {
-      if (!confirmed) return;
+    dialog_ref.afterClosed().subscribe(removal_mode => {
+      if (!this.isRemovalMode(removal_mode)) return;
 
       this.removing_duplicate_key = group.duplicate_key;
-      this.postsService.removeNewestDuplicates(group.duplicate_key).subscribe(res => {
+      this.postsService.removeDuplicates(group.duplicate_key, removal_mode).subscribe(res => {
         this.removing_duplicate_key = null;
         if (res && res.success) {
-          this.postsService.openSnackBar($localize`Newest duplicates removed.`);
+          this.postsService.openSnackBar(removal_mode === 'oldest' ? $localize`Oldest duplicates removed.` : $localize`Newest duplicates removed.`);
           this.postsService.files_changed.next(true);
           this.getDuplicates();
         } else {
-          this.postsService.openSnackBar($localize`Failed to remove newest duplicates.`);
+          this.postsService.openSnackBar(removal_mode === 'oldest' ? $localize`Failed to remove oldest duplicates.` : $localize`Failed to remove newest duplicates.`);
         }
       }, () => {
         this.removing_duplicate_key = null;
-        this.postsService.openSnackBar($localize`Failed to remove newest duplicates.`);
+        this.postsService.openSnackBar(removal_mode === 'oldest' ? $localize`Failed to remove oldest duplicates.` : $localize`Failed to remove newest duplicates.`);
       });
     });
   }

@@ -191,6 +191,50 @@ describe('Files', function() {
         }
     });
 
+    it('removeDuplicates removes newest or oldest duplicate files based on mode', async function() {
+        const original_get_records = db_api.getRecords;
+        const original_delete_file = files_api.deleteFile;
+        const duplicate_files = [
+            {uid: 'oldest', duplicate_key: 'duplicate-key', registered: 100, isAudio: false},
+            {uid: 'middle', duplicate_key: 'duplicate-key', registered: 200, isAudio: false},
+            {uid: 'newest', duplicate_key: 'duplicate-key', registered: 300, isAudio: false}
+        ];
+        const get_records_calls = [];
+        let deleted_uids = [];
+
+        try {
+            db_api.getRecords = async (table, filter_obj, return_count, sort) => {
+                get_records_calls.push({table, filter_obj, return_count, sort});
+                return duplicate_files.slice();
+            };
+            files_api.deleteFile = async (uid, blacklistMode, user_uid) => {
+                assert.strictEqual(blacklistMode, false);
+                assert.strictEqual(user_uid, 'user-1');
+                deleted_uids.push(uid);
+                return true;
+            };
+
+            const newest_output = await files_api.removeDuplicates('duplicate-key', 'newest', 'user-1');
+
+            assert.deepStrictEqual(newest_output, {success: true, removed_uids: ['middle', 'newest']});
+            assert.deepStrictEqual(deleted_uids, ['middle', 'newest']);
+
+            deleted_uids = [];
+            const oldest_output = await files_api.removeDuplicates('duplicate-key', 'oldest', 'user-1');
+
+            assert.deepStrictEqual(oldest_output, {success: true, removed_uids: ['oldest', 'middle']});
+            assert.deepStrictEqual(deleted_uids, ['oldest', 'middle']);
+            assert.strictEqual(get_records_calls.length, 2);
+            assert.strictEqual(get_records_calls[0].table, 'files');
+            assert.strictEqual(get_records_calls[0].filter_obj.duplicate_key, 'duplicate-key');
+            assert.strictEqual(get_records_calls[0].return_count, false);
+            assert.deepStrictEqual(get_records_calls[0].sort, {by: 'registered', order: 1});
+        } finally {
+            db_api.getRecords = original_get_records;
+            files_api.deleteFile = original_delete_file;
+        }
+    });
+
     it('uses regex title filtering for PostgreSQL-style text search', async function() {
         const original_get_records = db_api.getRecords;
         const original_is_using_local_db = db_api.isUsingLocalDB;

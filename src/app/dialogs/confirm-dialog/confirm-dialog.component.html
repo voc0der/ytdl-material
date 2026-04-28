@@ -18,7 +18,13 @@
 </mat-dialog-content>
 <mat-dialog-actions>
   <!-- The mat-dialog-close directive optionally accepts a value as a result for the dialog. -->
-  <button [disabled]="dialogType === 'selection_list' && selected_items.length === 0" [color]="warnSubmitColor ? 'warn' : 'primary'" mat-flat-button type="submit" (click)="confirmClicked()">{{submitText}}</button>
+  @if (submitActions && submitActions.length > 0) {
+    @for (submitAction of submitActions; track submitAction.value) {
+      <button [disabled]="dialogType === 'selection_list' && selected_items.length === 0" [color]="submitAction.warnSubmitColor ? 'warn' : 'primary'" mat-flat-button type="submit" (click)="confirmClicked(submitAction.value)">{{submitAction.text}}</button>
+    }
+  } @else {
+    <button [disabled]="dialogType === 'selection_list' && selected_items.length === 0" [color]="warnSubmitColor ? 'warn' : 'primary'" mat-flat-button type="submit" (click)="confirmClicked()">{{submitText}}</button>
+  }
   @if (submitClicked) {
     <div class="mat-spinner">
       <mat-spinner [diameter]="25"></mat-spinner>
