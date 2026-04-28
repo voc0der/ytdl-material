@@ -2672,6 +2672,8 @@ app.post('/api/downloads', optionalJwt, async (req, res) => {
             return;
         }
         filter_obj['uid'] = {$in: uids};
+    } else {
+        filter_obj['finished'] = false;
     }
     const downloads = await db_api.getRecords('download_queue', filter_obj);
 

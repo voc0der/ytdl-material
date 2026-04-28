@@ -71,7 +71,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private active_downloads_auto_close_timeout_id: number = null;
   private active_downloads_completion_badge_timeout_id: number = null;
   private active_download_uids = new Set<string>();
-  private previous_download_states = new Map<string, {finished: boolean, errored: boolean}>();
+  private previous_download_states = new Map<string, {finished: boolean, errored: boolean, is_playlist: boolean}>();
   private active_downloads_initialized = false;
   private active_downloads_auto_opened = false;
   private active_downloads_opened_manually = false;
@@ -442,7 +442,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         .filter(download => this.isActiveDownload(download))
         .sort((download1, download2) => Number(download2.timestamp_start) - Number(download1.timestamp_start));
 
-      this.handleCompletedDownloads(completion_summary.completed_downloads);
+      this.handleCompletedDownloads(completion_summary.completed_downloads, completion_summary.playlist_completion_detected);
       this.setActiveDownloads(active_downloads, completion_summary.successful_completion_detected);
       const next_poll_delay = active_downloads.length > 0
         ? this.ACTIVE_DOWNLOADS_POLL_INTERVAL_MS
@@ -572,11 +572,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private handleCompletedDownloads(completed_downloads: Download[]): void {
+  private handleCompletedDownloads(completed_downloads: Download[], playlist_completed = false): void {
     if (!Array.isArray(completed_downloads) || completed_downloads.length === 0) return;
 
     this.postsService.files_changed.next(true);
-    if (completed_downloads.some(download => this.isPlaylistCompletion(download))) {
+    if (playlist_completed) {
       this.postsService.playlists_changed.next(true);
     }
   }
@@ -589,30 +589,35 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return !!(container && typeof container === 'object' && container['id']);
   }
 
-  private detectSuccessfulCompletion(downloads: Download[]): {successful_completion_detected: boolean, completed_downloads: Download[]} {
-    const current_download_states = new Map<string, {finished: boolean, errored: boolean}>();
+  private detectSuccessfulCompletion(downloads: Download[]): {successful_completion_detected: boolean, completed_downloads: Download[], playlist_completion_detected: boolean} {
+    const current_download_states = new Map<string, {finished: boolean, errored: boolean, is_playlist: boolean}>();
     const completed_downloads: Download[] = [];
     let successful_completion_detected = false;
+    let playlist_completion_detected = false;
 
+    const current_uids = new Set<string>();
     for (const download of downloads) {
       if (!download || !download.uid) continue;
+      current_uids.add(download.uid);
+      current_download_states.set(download.uid, {
+        finished: !!download.finished,
+        errored: !!download.error,
+        is_playlist: this.isPlaylistCompletion(download)
+      });
+    }
 
-      const finished = !!download.finished;
-      const errored = !!download.error;
-      const previous_state = this.previous_download_states.get(download.uid);
-      if (this.active_downloads_initialized && finished && !errored && previous_state && !previous_state.finished) {
-        successful_completion_detected = true;
-        completed_downloads.push(download);
+    if (this.active_downloads_initialized) {
+      for (const [uid, prev_state] of this.previous_download_states) {
+        if (!prev_state.finished && !current_uids.has(uid)) {
+          successful_completion_detected = true;
+          if (prev_state.is_playlist) playlist_completion_detected = true;
+          completed_downloads.push({uid} as unknown as Download);
+        }
       }
-
-      current_download_states.set(download.uid, {finished: finished, errored: errored});
     }
 
     this.previous_download_states = current_download_states;
-    return {
-      successful_completion_detected: successful_completion_detected,
-      completed_downloads: completed_downloads
-    };
+    return {successful_completion_detected, completed_downloads, playlist_completion_detected};
   }
 
   private refreshOpenPlaylistProgressDialog(): void {
