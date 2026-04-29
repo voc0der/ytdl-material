@@ -10,6 +10,10 @@ const utils = require('./utils')
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
 const PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX = '.player-subtitles';
+const MEDIA_EXTENSIONS_BY_TYPE = {
+    audio: ['mp3'],
+    video: ['mp4']
+};
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -17,6 +21,137 @@ function shouldRestrictToUser(user_uid) {
 
 function escapeRegex(text = '') {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getExpectedMediaExtension(type = 'video') {
+    return type === 'audio' ? '.mp3' : '.mp4';
+}
+
+function getMediaExtensions(type = 'video') {
+    return MEDIA_EXTENSIONS_BY_TYPE[type] || MEDIA_EXTENSIONS_BY_TYPE.video;
+}
+
+function normalizePathForComparison(file_path = '') {
+    return path.resolve(file_path);
+}
+
+function getExistingMediaPath(file_path, type) {
+    const candidate_paths = [file_path, utils.getTrueFileName(file_path, type)]
+        .filter((candidate_path, index, all_paths) => candidate_path && all_paths.indexOf(candidate_path) === index);
+
+    for (const candidate_path of candidate_paths) {
+        if (fs.existsSync(candidate_path)) return candidate_path;
+    }
+
+    return file_path;
+}
+
+async function getDownloadedMediaPathsByType(basePath, type) {
+    const media_paths = [];
+    for (const extension of getMediaExtensions(type)) {
+        media_paths.push(...await utils.recFindByExt(basePath, extension));
+    }
+
+    const seen_paths = new Set();
+    return media_paths.filter(media_path => {
+        const normalized_path = normalizePathForComparison(media_path);
+        if (seen_paths.has(normalized_path)) return false;
+        seen_paths.add(normalized_path);
+        return true;
+    });
+}
+
+async function getFileDirectoriesToCheck(user_uid = null) {
+    const dirs_to_check = await db_api.getFileDirectoriesAndDBs();
+    if (!shouldRestrictToUser(user_uid)) return dirs_to_check;
+    return dirs_to_check.filter(dir_to_check => dir_to_check.user_uid === user_uid);
+}
+
+async function getRegisteredFilePathSet(user_uid = null) {
+    const filter_obj = {};
+    if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
+
+    const all_files = await db_api.getRecords('files', filter_obj);
+    return new Set(
+        all_files
+            .filter(file_obj => file_obj && file_obj.path)
+            .map(file_obj => normalizePathForComparison(file_obj.path))
+    );
+}
+
+function getSidecarCandidatePaths(file_path, type) {
+    const file_path_no_extension = utils.removeFileExtension(file_path);
+    const expected_extension = getExpectedMediaExtension(type);
+    const actual_extension = path.extname(file_path);
+    const info_json_paths = [
+        `${file_path}.info.json`,
+        `${file_path_no_extension}.info.json`,
+        `${file_path_no_extension}${expected_extension}.info.json`
+    ];
+
+    if (actual_extension && actual_extension !== expected_extension) {
+        info_json_paths.push(`${file_path_no_extension}${actual_extension}.info.json`);
+    }
+
+    return [
+        ...info_json_paths,
+        `${file_path_no_extension}.webp`,
+        `${file_path_no_extension}.jpg`,
+        `${file_path_no_extension}.png`,
+        `${file_path_no_extension}.nfo`
+    ].map(sidecar_path => path.resolve(sidecar_path));
+}
+
+async function getSubtitleSidecarPaths(file_path) {
+    const subtitle_sidecar_paths = [];
+    const subtitle_sidecar_directory = path.dirname(file_path);
+    const subtitle_sidecar_basename = path.basename(utils.removeFileExtension(file_path));
+
+    try {
+        const subtitle_sidecar_files = await fs.readdir(subtitle_sidecar_directory);
+        const subtitle_sidecar_regex = new RegExp(`^${escapeRegex(subtitle_sidecar_basename)}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
+        subtitle_sidecar_files
+            .filter(file_name => subtitle_sidecar_regex.test(file_name))
+            .forEach(file_name => subtitle_sidecar_paths.push(path.resolve(path.join(subtitle_sidecar_directory, file_name))));
+    } catch (e) {
+        // Ignore directory read failures here; media deletion can continue.
+    }
+
+    return subtitle_sidecar_paths;
+}
+
+async function getExistingSidecarPaths(file_path, type) {
+    const candidate_paths = [
+        ...getSidecarCandidatePaths(file_path, type),
+        ...await getSubtitleSidecarPaths(file_path)
+    ];
+    const unique_paths = [...new Set(candidate_paths)];
+    const existing_paths = [];
+
+    for (const candidate_path of unique_paths) {
+        if (await fs.pathExists(candidate_path)) existing_paths.push(candidate_path);
+    }
+
+    return existing_paths;
+}
+
+async function deleteMediaAndSidecars(file_path, type) {
+    const sidecar_paths = await getExistingSidecarPaths(file_path, type);
+
+    for (const sidecar_path of sidecar_paths) {
+        await fs.unlink(sidecar_path);
+    }
+
+    if (await fs.pathExists(file_path)) {
+        await fs.unlink(file_path);
+    }
+
+    if (await fs.pathExists(file_path)) return false;
+    for (const sidecar_path of sidecar_paths) {
+        if (await fs.pathExists(sidecar_path)) return false;
+    }
+
+    return true;
 }
 
 function normalizeChapter(raw_chapter) {
@@ -613,8 +748,9 @@ exports.findExistingDuplicateByInfo = async (info_obj = null, type = 'video', us
     return hydrateFileSourceMetadata(url_matches[0], true);
 }
 
-exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null) => {
+exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null, allow_missing_metadata = false) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
+    if (!file_object && allow_missing_metadata) file_object = generateFallbackFileObject(file_path, type);
     if (!file_object) {
         logger.error(`Could not find associated JSON file for ${type} file ${file_path}`);
         return false;
@@ -671,7 +807,7 @@ function generateFileObject(file_path, type) {
     // Use file_path directly rather than jsonobj['_filename']: _filename is set at download
     // time and can be stale (wrong container path, files moved, post-processing renamed the
     // file, etc.). file_path is the path we just confirmed exists on disk.
-    const true_file_path = utils.getTrueFileName(file_path, type);
+    const true_file_path = getExistingMediaPath(file_path, type);
     let stats;
     try {
         stats = fs.statSync(true_file_path);
@@ -698,34 +834,52 @@ function generateFileObject(file_path, type) {
     return file_obj;
 }
 
+function generateFallbackFileObject(file_path, type) {
+    const true_file_path = getExistingMediaPath(file_path, type);
+    let stats;
+    try {
+        stats = fs.statSync(true_file_path);
+    } catch (e) {
+        logger.error(`Could not stat ${true_file_path}: ${e.message}`);
+        return null;
+    }
+
+    const file_id = utils.removeFileExtension(path.basename(true_file_path));
+    const isaudio = type === 'audio';
+    const file_obj = new utils.File(file_id, file_id, '', isaudio, 0, '', '', stats.size, true_file_path, 'N/A', '', 0, null, null);
+    file_obj.source_metadata_checked = true;
+    file_obj.imported_without_metadata = true;
+    return file_obj;
+}
+
 exports.importUnregisteredFiles = async () => {
     const imported_files = [];
-    const dirs_to_check = await db_api.getFileDirectoriesAndDBs();
+    const dirs_to_check = await getFileDirectoriesToCheck();
+    const registered_file_paths = await getRegisteredFilePathSet();
 
     // run through check list and check each file to see if it's missing from the db
     for (let i = 0; i < dirs_to_check.length; i++) {
         const dir_to_check = dirs_to_check[i];
         // recursively get all files in dir's path
-        const files = await utils.getDownloadedFilesByType(dir_to_check.basePath, dir_to_check.type);
+        const files = await getDownloadedMediaPathsByType(dir_to_check.basePath, dir_to_check.type);
 
         for (let j = 0; j < files.length; j++) {
-            const file = files[j];
+            const file_path = files[j];
 
             try {
-                // check if file exists in db, if not add it
-                const files_with_same_url = await db_api.getRecords('files', {url: file.url, sub_id: dir_to_check.sub_id});
-                const file_is_registered = !!(files_with_same_url.find(file_with_same_url => path.resolve(file_with_same_url.path) === path.resolve(file.path)));
-                if (!file_is_registered) {
-                    const file_obj = await exports.registerFileDB(file['path'], dir_to_check.type, dir_to_check.user_uid, null, dir_to_check.sub_id, null);
+                const normalized_file_path = normalizePathForComparison(file_path);
+                if (!registered_file_paths.has(normalized_file_path)) {
+                    const file_obj = await exports.registerFileDB(file_path, dir_to_check.type, dir_to_check.user_uid, null, dir_to_check.sub_id, null, null, true);
                     if (file_obj) {
                         imported_files.push(file_obj['uid']);
-                        logger.verbose(`Added discovered file to the database: ${file.id}`);
+                        registered_file_paths.add(normalizePathForComparison(file_obj.path || file_path));
+                        logger.verbose(`Added discovered file to the database: ${file_obj.id}`);
                     } else {
-                        logger.error(`Failed to import ${file['path']} automatically.`);
+                        logger.error(`Failed to import ${file_path} automatically.`);
                     }
                 }
             } catch (e) {
-                logger.error(`Unexpected error importing ${file['path']}: ${e.message}`);
+                logger.error(`Unexpected error importing ${file_path}: ${e.message}`);
             }
         }
     }
@@ -856,47 +1010,7 @@ exports.calculatePlaylistDuration = async (playlist, playlist_file_objs = null) 
 exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     if (!file_obj) return false;
     const type = file_obj.isAudio ? 'audio' : 'video';
-    const folderPath = path.dirname(file_obj.path);
-    const name = file_obj.id;
-    const filePathNoExtension = utils.removeFileExtension(file_obj.path);
-
-    var jsonPath = `${file_obj.path}.info.json`;
-    var altJSONPath = `${filePathNoExtension}.info.json`;
-    var thumbnailPath = `${filePathNoExtension}.webp`;
-    var altThumbnailPath = `${filePathNoExtension}.jpg`;
-    const subtitleSidecarDirectory = path.dirname(file_obj.path);
-    const subtitleSidecarBasename = path.basename(filePathNoExtension);
-
-    jsonPath = path.resolve(jsonPath);
-    altJSONPath = path.resolve(altJSONPath);
-
-    let jsonExists = await fs.pathExists(jsonPath);
-    let thumbnailExists = await fs.pathExists(thumbnailPath);
-    const subtitleSidecarPaths = [];
-    try {
-        const subtitleSidecarFiles = await fs.readdir(subtitleSidecarDirectory);
-        const subtitleSidecarRegex = new RegExp(`^${escapeRegex(subtitleSidecarBasename)}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
-        subtitleSidecarFiles
-            .filter(file_name => subtitleSidecarRegex.test(file_name))
-            .forEach(file_name => subtitleSidecarPaths.push(path.join(subtitleSidecarDirectory, file_name)));
-    } catch (e) {
-        // Ignore directory read failures here; file deletion can continue.
-    }
-
-    if (!jsonExists) {
-        if (await fs.pathExists(altJSONPath)) {
-            jsonExists = true;
-            jsonPath = altJSONPath;
-        }
-    }
-
-    if (!thumbnailExists) {
-        if (await fs.pathExists(altThumbnailPath)) {
-            thumbnailExists = true;
-            thumbnailPath = altThumbnailPath;
-        }
-    }
-
+    const sidecarPaths = await getExistingSidecarPaths(file_obj.path, type);
     let fileExists = await fs.pathExists(file_obj.path);
 
     if (config_api.descriptors[file_obj.uid]) {
@@ -913,7 +1027,7 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     if (useYoutubeDLArchive || file_obj.sub_id) {
         // get id/extractor from JSON
 
-        const info_json = await (type === 'audio' ? utils.getJSONMp3(name, folderPath) : utils.getJSONMp4(name, folderPath));
+        const info_json = utils.getJSON(file_obj.path, type);
         let retrievedID = null;
         let retrievedExtractor = null;
         if (info_json) {
@@ -934,17 +1048,18 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
         }
     }
 
-    if (jsonExists) await fs.unlink(jsonPath);
-    if (thumbnailExists) await fs.unlink(thumbnailPath);
-    for (const subtitleSidecarPath of subtitleSidecarPaths) {
-        await fs.unlink(subtitleSidecarPath);
+    for (const sidecarPath of sidecarPaths) {
+        await fs.unlink(sidecarPath);
     }
 
-    await db_api.removeRecord('files', {uid: file_obj.uid});
+    if (file_obj.uid) {
+        await db_api.removeRecord('files', {uid: file_obj.uid});
+    }
 
     if (fileExists) {
         await fs.unlink(file_obj.path);
-        if (await fs.pathExists(jsonPath) || await fs.pathExists(file_obj.path)) {
+        const sidecarsStillExist = (await Promise.all(sidecarPaths.map(sidecarPath => fs.pathExists(sidecarPath)))).some(Boolean);
+        if (sidecarsStillExist || await fs.pathExists(file_obj.path)) {
             return false;
         } else {
             return true;
@@ -1000,19 +1115,42 @@ exports.deleteFilesInBatches = async (uids = [], blacklistMode = false, user_uid
 }
 
 exports.deleteOrphanFiles = async (user_uid = null) => {
-    const filter_obj = {};
-    if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
-    const all_files = await db_api.getRecords('files', filter_obj);
+    const dirs_to_check = await getFileDirectoriesToCheck(user_uid);
+    const registered_file_paths = await getRegisteredFilePathSet(user_uid);
+    const orphan_files = [];
 
-    const orphan_uids = [];
-    for (const file_obj of all_files) {
-        if (!file_obj.path) continue;
-        const exists = await fs.pathExists(path.resolve(file_obj.path));
-        if (!exists) orphan_uids.push(file_obj.uid);
+    for (const dir_to_check of dirs_to_check) {
+        const files = await getDownloadedMediaPathsByType(dir_to_check.basePath, dir_to_check.type);
+        for (const file_path of files) {
+            if (!registered_file_paths.has(normalizePathForComparison(file_path))) {
+                orphan_files.push({
+                    path: file_path,
+                    type: dir_to_check.type
+                });
+            }
+        }
     }
 
-    if (orphan_uids.length === 0) return {deleted_count: 0, failed_count: 0};
-    return exports.deleteFilesInBatches(orphan_uids, false, user_uid);
+    if (orphan_files.length === 0) return {deleted_count: 0, failed_count: 0};
+
+    let deleted_count = 0;
+    let failed_count = 0;
+    for (let i = 0; i < orphan_files.length; i += PLAYLIST_FILE_DELETE_BATCH_SIZE) {
+        const batch_orphan_files = orphan_files.slice(i, i + PLAYLIST_FILE_DELETE_BATCH_SIZE);
+        const batch_results = await Promise.allSettled(
+            batch_orphan_files.map(orphan_file => deleteMediaAndSidecars(orphan_file.path, orphan_file.type))
+        );
+
+        for (const result of batch_results) {
+            if (result.status === 'fulfilled' && result.value) {
+                deleted_count += 1;
+            } else {
+                failed_count += 1;
+            }
+        }
+    }
+
+    return {deleted_count, failed_count};
 }
 
 // Video ID is basically just the file name without the base path and file extension - this method helps us get away from that

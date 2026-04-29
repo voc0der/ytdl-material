@@ -191,6 +191,70 @@ describe('Files', function() {
         }
     });
 
+    it('deleteOrphanFiles removes unregistered media files and sidecars from disk', async function() {
+        const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
+        const original_get_records = db_api.getRecords;
+        const orphan_file_path = path.join(fixture_dir, 'orphan-video.mp4');
+        const registered_file_path = path.join(fixture_dir, 'registered-video.mp4');
+        const orphan_info_path = path.join(fixture_dir, 'orphan-video.info.json');
+        const orphan_thumbnail_path = path.join(fixture_dir, 'orphan-video.jpg');
+        const orphan_subtitle_path = files_api.getSubtitleSidecarPath(orphan_file_path);
+
+        try {
+            await fs.writeFile(orphan_file_path, 'orphan media');
+            await fs.writeFile(orphan_info_path, '{}');
+            await fs.writeFile(orphan_thumbnail_path, 'thumbnail');
+            await fs.writeFile(orphan_subtitle_path, 'WEBVTT');
+            await fs.writeFile(registered_file_path, 'registered media');
+
+            db_api.getFileDirectoriesAndDBs = async () => [{
+                basePath: fixture_dir,
+                type: 'video'
+            }];
+            db_api.getRecords = async (table) => {
+                assert.strictEqual(table, 'files');
+                return [{uid: 'registered-file', path: registered_file_path}];
+            };
+
+            const output = await files_api.deleteOrphanFiles();
+
+            assert.deepStrictEqual(output, {deleted_count: 1, failed_count: 0});
+            assert.strictEqual(await fs.pathExists(orphan_file_path), false);
+            assert.strictEqual(await fs.pathExists(orphan_info_path), false);
+            assert.strictEqual(await fs.pathExists(orphan_thumbnail_path), false);
+            assert.strictEqual(await fs.pathExists(orphan_subtitle_path), false);
+            assert.strictEqual(await fs.pathExists(registered_file_path), true);
+        } finally {
+            db_api.getFileDirectoriesAndDBs = original_get_file_directories;
+            db_api.getRecords = original_get_records;
+        }
+    });
+
+    it('importUnregisteredFiles imports loose media files without info JSON', async function() {
+        const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
+        const loose_file_path = path.join(fixture_dir, 'loose-import.mp4');
+
+        try {
+            await fs.writeFile(loose_file_path, 'loose media');
+            await db_api.removeAllRecords('files', {path: loose_file_path});
+            db_api.getFileDirectoriesAndDBs = async () => [{
+                basePath: fixture_dir,
+                type: 'video'
+            }];
+
+            const imported_uids = await files_api.importUnregisteredFiles();
+            const imported_file = await db_api.getRecord('files', {path: loose_file_path});
+
+            assert(imported_file);
+            assert(imported_uids.includes(imported_file.uid));
+            assert.strictEqual(imported_file.title, 'loose-import');
+            assert.strictEqual(imported_file.imported_without_metadata, true);
+        } finally {
+            db_api.getFileDirectoriesAndDBs = original_get_file_directories;
+            await db_api.removeAllRecords('files', {path: loose_file_path});
+        }
+    });
+
     it('removeDuplicates removes newest or oldest duplicate files based on mode', async function() {
         const original_get_records = db_api.getRecords;
         const original_delete_file = files_api.deleteFile;
