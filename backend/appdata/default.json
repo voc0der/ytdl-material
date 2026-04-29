@@ -19,7 +19,8 @@
       "max_concurrent_downloads": 0,
       "min_sleep_between_downloads": 0,
       "download_rate_limit": "",
-      "playlist_chunk_size": 100
+      "playlist_chunk_size": 100,
+      "skip_join_only_videos": false
     },
     "Extra": {
       "title_top": "ytdl-material",

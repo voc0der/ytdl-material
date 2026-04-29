@@ -2702,8 +2702,18 @@ app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
     const clear_errors = req.body.clear_errors;
     let success = true;
     if (clear_finished) success &= await db_api.removeAllRecords('download_queue', {finished: true, ...scoped_filter, error: null});
-    if (clear_paused)   success &= await db_api.removeAllRecords('download_queue', {paused: true, ...scoped_filter});
-    if (clear_errors)   success &= await db_api.removeAllRecords('download_queue', {error: {$ne: null}, ...scoped_filter});
+    if (clear_paused) {
+        const paused_downloads = await db_api.getRecords('download_queue', {paused: true, ...scoped_filter});
+        for (const paused_download of paused_downloads) {
+            success &= await downloader_api.clearDownload(paused_download['uid']);
+        }
+    }
+    if (clear_errors) {
+        const errored_downloads = await db_api.getRecords('download_queue', {error: {$ne: null}, ...scoped_filter});
+        for (const errored_download of errored_downloads) {
+            success &= await downloader_api.clearDownload(errored_download['uid']);
+        }
+    }
     res.send({success: success});
 });
 

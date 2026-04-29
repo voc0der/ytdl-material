@@ -475,6 +475,7 @@ describe('Subscriptions', function() {
     });
     it('Skips join-only flat playlist entries before queueing subscription downloads', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_skip_join_only = config_api.getConfigItem('ytdl_skip_join_only_videos');
         const sub = Object.assign({}, new_sub, {id: uuid(), name: 'skip_join_only_sub'});
         const public_output = {
             _type: 'url',
@@ -523,6 +524,7 @@ describe('Subscriptions', function() {
             assert.strictEqual(completed, true);
         } finally {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            config_api.setConfigItem('ytdl_skip_join_only_videos', original_skip_join_only);
         }
 
         const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});

@@ -34,6 +34,19 @@ const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
+const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TYPES = new Set(['join_only', 'no_output', 'no_downloadable_items']);
+const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
+    'join this channel',
+    'members-only',
+    'member-only',
+    'private video',
+    'this video is unavailable',
+    'video unavailable',
+    'has been removed',
+    'premieres in',
+    'this live event will begin',
+    'no output received for video download'
+];
 let filename_sanitization_non_ytdlp_warned = false;
 let last_download_queue_start_at = 0;
 
@@ -60,6 +73,100 @@ function hasArg(args = [], target_arg = '') {
         if (arg === target_arg || arg.startsWith(`${target_arg}=`)) return true;
     }
     return false;
+}
+
+function normalizeArchiveExtractor(value = null) {
+    if (typeof value !== 'string') return null;
+    const normalized_value = value.trim().toLowerCase();
+    if (!normalized_value) return null;
+    return normalized_value.split(':')[0];
+}
+
+function normalizeArchiveId(value = null) {
+    if (value === null || value === undefined) return null;
+    const normalized_value = String(value).trim();
+    return normalized_value || null;
+}
+
+function extractYouTubeVideoId(url = '') {
+    if (typeof url !== 'string' || url.trim() === '') return null;
+
+    try {
+        const parsed_url = new URL(url);
+        const host = parsed_url.hostname.toLowerCase();
+        if (host === 'youtu.be') {
+            return normalizeArchiveId(parsed_url.pathname.split('/').filter(Boolean)[0]);
+        }
+        if (host.includes('youtube.com')) {
+            const watch_id = normalizeArchiveId(parsed_url.searchParams.get('v'));
+            if (watch_id) return watch_id;
+
+            const path_match = parsed_url.pathname.match(/\/(?:embed|shorts|live)\/([^/?#]+)/);
+            if (path_match) return normalizeArchiveId(path_match[1]);
+        }
+    } catch (e) {
+        const watch_match = url.match(/[?&]v=([^&#]+)/);
+        if (watch_match) return normalizeArchiveId(watch_match[1]);
+
+        const short_match = url.match(/youtu\.be\/([^/?#]+)/i);
+        if (short_match) return normalizeArchiveId(short_match[1]);
+    }
+
+    return null;
+}
+
+function isYouTubeLikeValue(value = null) {
+    return typeof value === 'string' && /youtu(?:be\.com|\.be)|youtube/i.test(value);
+}
+
+function getArchiveIdentityFromDownload(download = null) {
+    if (!download || typeof download !== 'object') return null;
+
+    const prefetched_info_items = Array.isArray(download['prefetched_info'])
+        ? download['prefetched_info'].filter(info_item => !!info_item && typeof info_item === 'object')
+        : [];
+    const candidates = [
+        ...prefetched_info_items,
+        {
+            webpage_url: download['url'],
+            url: download['url'],
+            title: download['title']
+        }
+    ];
+
+    for (const candidate of candidates) {
+        const candidate_url = candidate['webpage_url'] || candidate['original_url'] || candidate['url'] || download['url'];
+        let extractor = normalizeArchiveExtractor(candidate['source_extractor'])
+            || normalizeArchiveExtractor(candidate['extractor'])
+            || normalizeArchiveExtractor(candidate['extractor_key'])
+            || normalizeArchiveExtractor(candidate['ie_key']);
+
+        if (!extractor && isYouTubeLikeValue(candidate_url)) extractor = 'youtube';
+
+        let id = normalizeArchiveId(candidate['source_id'])
+            || normalizeArchiveId(candidate['id'])
+            || normalizeArchiveId(candidate['display_id']);
+
+        if (!id && extractor === 'youtube') id = extractYouTubeVideoId(candidate_url);
+
+        if (extractor && id) {
+            return {
+                extractor: extractor,
+                id: id,
+                title: candidate['title'] || download['title'] || null
+            };
+        }
+    }
+
+    return null;
+}
+
+function isSkippableSubscriptionDownloadError(error_message = '', error_type = null) {
+    if (SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TYPES.has(error_type)) return true;
+    if (typeof error_message !== 'string') return false;
+
+    const normalized_message = error_message.toLowerCase();
+    return SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT.some(error_text => normalized_message.includes(error_text));
 }
 
 function escapeRegexCharacterClassChar(char = '') {
@@ -1309,6 +1416,13 @@ exports.cancelDownload = async (download_uid) => {
 }
 
 exports.clearDownload = async (download_uid) => {
+    const download = await db_api.getRecord('download_queue', {uid: download_uid});
+    const should_archive_subscription_skip = download && download['sub_id']
+        && ((download['paused'] && !download['finished'])
+            || (download['error'] && isSkippableSubscriptionDownloadError(download['error'], download['error_type'])));
+    if (should_archive_subscription_skip) {
+        await archiveSubscriptionDownloadBySource(download, 'after being cleared from the download queue');
+    }
     return await db_api.removeRecord('download_queue', {uid: download_uid});
 }
 
@@ -1316,8 +1430,57 @@ async function handleDownloadError(download_uid, error_message, error_type = nul
     if (!download_uid) return;
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     if (!download || download['error']) return;
+    await archiveSkippedSubscriptionDownload(download, error_message, error_type);
     notifications_api.sendDownloadErrorNotification(download, download['user_uid'], error_message, error_type);
     await db_api.updateRecord('download_queue', {uid: download['uid']}, {error: error_message, finished: true, running: false, error_type: error_type});
+}
+
+async function archiveSkippedSubscriptionDownload(download = null, error_message = '', error_type = null) {
+    if (!download || !download['sub_id']) return false;
+    if (!isSkippableSubscriptionDownloadError(error_message, error_type)) return false;
+    return await archiveSubscriptionDownloadBySource(download, `after ${error_type || 'download failure'}`);
+}
+
+async function archiveSubscriptionDownloadBySource(download = null, reason = 'after being skipped') {
+    if (!download || !download['sub_id']) return false;
+    const archive_identity = getArchiveIdentityFromDownload(download);
+    if (!archive_identity) {
+        logger.warn(`Could not archive failed subscription download '${download['uid']}' because no source id was available.`);
+        return false;
+    }
+
+    try {
+        await archive_api.addToArchive(
+            archive_identity.extractor,
+            archive_identity.id,
+            download['type'],
+            archive_identity.title,
+            download['user_uid'],
+            download['sub_id']
+        );
+        logger.info(`Archived skipped subscription video ${archive_identity.extractor}:${archive_identity.id} ${reason} for subscription ${download['sub_id']}.`);
+        return true;
+    } catch (e) {
+        logger.warn(`Failed to archive skipped subscription video ${archive_identity.extractor}:${archive_identity.id} for subscription ${download['sub_id']}.`);
+        logger.warn(e);
+        return false;
+    }
+}
+
+function describeDownloadStepError(err = null) {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    return String(err);
+}
+
+function runDownloadQueueStep(download_uid, step_description, step_runner, error_type) {
+    Promise.resolve().then(() => step_runner(download_uid)).catch(async err => {
+        const error_message = `Unexpected error while ${step_description}: ${describeDownloadStepError(err)}`;
+        logger.error(error_message);
+        if (err && err.stack) logger.debug(err.stack);
+        await handleDownloadError(download_uid, error_message, error_type);
+    });
 }
 
 exports.setupDownloads = async () => {
@@ -1439,9 +1602,9 @@ async function checkDownloads() {
             running_downloads_count++;
             markDownloadQueueStart(minimum_sleep_between_downloads_ms);
             if (waiting_download['step_index'] === 0) {
-                exports.collectInfo(waiting_download['uid']);
+                runDownloadQueueStep(waiting_download['uid'], 'getting download info', exports.collectInfo, 'info_retrieve_failed');
             } else if (waiting_download['step_index'] === 1) {
-                exports.downloadQueuedFile(waiting_download['uid']);
+                runDownloadQueueStep(waiting_download['uid'], 'downloading file', exports.downloadQueuedFile, 'unknown_error');
             }
 
             if (capped_queue_group) {
@@ -1522,7 +1685,7 @@ exports.collectInfo = async (download_uid) => {
         const error_message = `No downloadable items were found while retrieving info for URL ${url}`;
         logger.error(error_message);
         if (download_uid) {
-            await handleDownloadError(download_uid, error_message, 'info_retrieve_failed');
+            await handleDownloadError(download_uid, error_message, 'no_downloadable_items');
         }
         return;
     }
