@@ -867,8 +867,8 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     const subtitleSidecarDirectory = path.dirname(file_obj.path);
     const subtitleSidecarBasename = path.basename(filePathNoExtension);
 
-    jsonPath = path.join(__dirname, jsonPath);
-    altJSONPath = path.join(__dirname, altJSONPath);
+    jsonPath = path.resolve(jsonPath);
+    altJSONPath = path.resolve(altJSONPath);
 
     let jsonExists = await fs.pathExists(jsonPath);
     let thumbnailExists = await fs.pathExists(thumbnailPath);
@@ -1007,7 +1007,7 @@ exports.deleteOrphanFiles = async (user_uid = null) => {
     const orphan_uids = [];
     for (const file_obj of all_files) {
         if (!file_obj.path) continue;
-        const exists = await fs.pathExists(path.join(__dirname, file_obj.path));
+        const exists = await fs.pathExists(path.resolve(file_obj.path));
         if (!exists) orphan_uids.push(file_obj.uid);
     }
 
