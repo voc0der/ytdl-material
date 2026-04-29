@@ -25,6 +25,10 @@ const SUBSCRIPTION_REFRESH_PHASES = Object.freeze({
 });
 const SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL = 5;
 const SUBSCRIPTION_QUEUE_BATCH_SIZE = 50;
+const MATCH_FILTER_ARGS = new Set(['--match-filter', '--match-filters']);
+const BREAK_MATCH_FILTER_ARGS = new Set(['--break-match-filter', '--break-match-filters']);
+const NO_MATCH_FILTER_ARGS = new Set(['--no-match-filter', '--no-match-filters']);
+const JOIN_ONLY_AVAILABILITY_VALUES = new Set(['subscriber_only']);
 const active_subscription_refresh_trackers = new Map();
 
 function shouldRestrictToUser(user_uid) {
@@ -49,6 +53,13 @@ function normalizeNullableString(value) {
     return normalized_value !== '' ? normalized_value : null;
 }
 
+function normalizeStringForComparison(value) {
+    if (value === null || value === undefined) return null;
+    const normalized_value = String(value).trim();
+    if (normalized_value === '') return null;
+    return normalized_value.replace(/^['"]|['"]$/g, '').trim().toLowerCase();
+}
+
 function parseDelimitedArgs(args_string = '') {
     if (typeof args_string !== 'string' || args_string.trim() === '') return [];
     return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
@@ -58,6 +69,236 @@ function applyCustomArgs(downloadConfig = [], args_string = '') {
     const custom_args = parseDelimitedArgs(args_string);
     if (custom_args.length === 0) return downloadConfig;
     return utils.injectArgs(downloadConfig, custom_args);
+}
+
+function collectMatchFiltersFromArgs(args = []) {
+    const match_filters = [];
+    if (!Array.isArray(args)) return match_filters;
+
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (typeof arg !== 'string') continue;
+
+        if (NO_MATCH_FILTER_ARGS.has(arg)) {
+            match_filters.length = 0;
+            continue;
+        }
+
+        const inline_match_filter_arg = [...MATCH_FILTER_ARGS].find(match_filter_arg => arg.startsWith(`${match_filter_arg}=`));
+        if (inline_match_filter_arg) {
+            const inline_filter = arg.slice(inline_match_filter_arg.length + 1).trim();
+            if (inline_filter && inline_filter !== '-') match_filters.push(inline_filter);
+            continue;
+        }
+
+        if (!MATCH_FILTER_ARGS.has(arg)) continue;
+        if (i + 1 >= args.length) continue;
+
+        const filter_value = typeof args[i + 1] === 'string' ? args[i + 1].trim() : '';
+        if (filter_value && filter_value !== '-') match_filters.push(filter_value);
+        i += 1;
+    }
+
+    return match_filters;
+}
+
+function isYouTubeSubscriptionOutput(output_json = null) {
+    if (!output_json || typeof output_json !== 'object') return false;
+    const candidates = [
+        output_json.extractor,
+        output_json.extractor_key,
+        output_json.ie_key,
+        output_json.webpage_url,
+        output_json.url
+    ].map(candidate => typeof candidate === 'string' ? candidate.toLowerCase() : '');
+
+    return candidates.some(candidate => candidate.includes('youtube') || candidate.includes('youtu.be'));
+}
+
+function getSubscriptionOutputAvailability(output_json = null) {
+    if (!output_json || typeof output_json !== 'object') return null;
+
+    const normalized_availability = normalizeStringForComparison(output_json.availability);
+    if (normalized_availability) return normalized_availability;
+
+    // yt-dlp flat YouTube playlist entries usually report public videos as
+    // availability: null, while restricted entries carry explicit values.
+    if (isYouTubeSubscriptionOutput(output_json) && output_json._type === 'url') {
+        return 'public';
+    }
+
+    return null;
+}
+
+function getSubscriptionOutputArchiveExtractor(output_json = null) {
+    if (!output_json || typeof output_json !== 'object') return null;
+
+    const extractor = normalizeStringForComparison(output_json.extractor);
+    if (extractor) return extractor.split(':')[0];
+
+    const extractor_key = normalizeStringForComparison(output_json.extractor_key || output_json.ie_key);
+    if (extractor_key) return extractor_key;
+
+    if (isYouTubeSubscriptionOutput(output_json)) return 'youtube';
+    return null;
+}
+
+function parseAvailabilityMatchCondition(condition = '') {
+    if (typeof condition !== 'string' || condition.trim() === '') return null;
+
+    const match = condition.trim().match(/^availability\s*(=|==|!=)\s*(.+)$/i);
+    if (!match) return null;
+
+    const expected_availability = normalizeStringForComparison(match[2]);
+    if (!expected_availability) return null;
+    return {
+        operator: match[1],
+        expected_availability: expected_availability
+    };
+}
+
+function evaluateAvailabilityMatchCondition(output_json = null, condition = '') {
+    const parsed_condition = parseAvailabilityMatchCondition(condition);
+    if (!parsed_condition) return null;
+
+    const actual_availability = getSubscriptionOutputAvailability(output_json);
+    if (!actual_availability) return null;
+
+    return parsed_condition.operator === '!='
+        ? actual_availability !== parsed_condition.expected_availability
+        : actual_availability === parsed_condition.expected_availability;
+}
+
+function isAvailabilityMatchFilter(match_filter = '') {
+    if (typeof match_filter !== 'string' || match_filter.trim() === '') return false;
+    return match_filter.split(/\s*&\s*/).some(condition => parseAvailabilityMatchCondition(condition) !== null);
+}
+
+function evaluateAvailabilityMatchFilter(output_json = null, match_filter = '') {
+    if (typeof match_filter !== 'string' || match_filter.trim() === '') return null;
+
+    const conditions = match_filter.split(/\s*&\s*/).map(condition => condition.trim()).filter(condition => condition !== '');
+    if (conditions.length === 0) return null;
+
+    let found_evaluable_condition = false;
+    let found_unknown_condition = false;
+    for (const condition of conditions) {
+        const condition_result = evaluateAvailabilityMatchCondition(output_json, condition);
+        if (condition_result === false) return false;
+        if (condition_result === true) {
+            found_evaluable_condition = true;
+        } else {
+            found_unknown_condition = true;
+        }
+    }
+
+    if (found_unknown_condition) return null;
+    return found_evaluable_condition ? true : null;
+}
+
+function filterSubscriptionDiscoveryAvailabilityMatchFilters(args = []) {
+    if (!Array.isArray(args)) return [];
+
+    const filtered_args = [];
+    const match_filter_args_with_values = new Set([...MATCH_FILTER_ARGS, ...BREAK_MATCH_FILTER_ARGS]);
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (typeof arg !== 'string') {
+            filtered_args.push(arg);
+            continue;
+        }
+
+        const inline_match_filter_arg = [...match_filter_args_with_values].find(match_filter_arg => arg.startsWith(`${match_filter_arg}=`));
+        if (inline_match_filter_arg) {
+            const inline_filter = arg.slice(inline_match_filter_arg.length + 1).trim();
+            if (isAvailabilityMatchFilter(inline_filter)) continue;
+            filtered_args.push(arg);
+            continue;
+        }
+
+        if (match_filter_args_with_values.has(arg)) {
+            const filter_value = i + 1 < args.length && typeof args[i + 1] === 'string' ? args[i + 1].trim() : '';
+            if (isAvailabilityMatchFilter(filter_value)) {
+                i += 1;
+                continue;
+            }
+        }
+
+        filtered_args.push(arg);
+    }
+
+    return filtered_args;
+}
+
+function matchesSubscriptionAvailabilityFilters(output_json = null, match_filters = []) {
+    if (!Array.isArray(match_filters) || match_filters.length === 0) return true;
+
+    let found_evaluable_filter = false;
+    for (const match_filter of match_filters) {
+        const filter_result = evaluateAvailabilityMatchFilter(output_json, match_filter);
+        if (filter_result === true) return true;
+        if (filter_result === false) found_evaluable_filter = true;
+    }
+
+    return found_evaluable_filter ? false : true;
+}
+
+function isJoinOnlySubscriptionOutput(output_json = null) {
+    const availability = getSubscriptionOutputAvailability(output_json);
+    if (availability && JOIN_ONLY_AVAILABILITY_VALUES.has(availability)) return true;
+
+    if (!output_json || typeof output_json !== 'object') return false;
+    const searchable_text = [
+        output_json.title,
+        output_json.description,
+        output_json.reason,
+        output_json.message
+    ].map(candidate => typeof candidate === 'string' ? candidate.toLowerCase() : '').join(' ');
+
+    return searchable_text.includes('join this channel')
+        || searchable_text.includes('members-only')
+        || searchable_text.includes('member-only')
+        || searchable_text.includes('member exclusive')
+        || searchable_text.includes('member, supporter')
+        || searchable_text.includes('patron-exclusive');
+}
+
+async function archiveSkippedJoinOnlySubscriptionOutput(output_json = null, sub = null) {
+    if (!output_json || !sub || !output_json.id) return false;
+
+    const extractor = getSubscriptionOutputArchiveExtractor(output_json);
+    if (!extractor) return false;
+
+    await archive_api.addToArchive(
+        extractor,
+        output_json.id,
+        sub.type,
+        output_json.title || null,
+        sub.user_uid,
+        sub.id
+    );
+    logger.info(`Archived join-only video ${extractor}:${output_json.id} for subscription ${sub.id}.`);
+    return true;
+}
+
+async function shouldSkipSubscriptionOutput(output_json = null, sub = null, discovery_filter_context = null) {
+    if (!output_json || typeof output_json !== 'object') return true;
+
+    if (config_api.getConfigItem('ytdl_skip_join_only_videos') && isJoinOnlySubscriptionOutput(output_json)) {
+        await archiveSkippedJoinOnlySubscriptionOutput(output_json, sub);
+        logger.info(`Skipping join-only subscription video '${output_json.webpage_url || output_json.url || output_json.id}'.`);
+        return true;
+    }
+
+    const match_filters = discovery_filter_context && Array.isArray(discovery_filter_context.match_filters)
+        ? discovery_filter_context.match_filters
+        : [];
+    if (!matchesSubscriptionAvailabilityFilters(output_json, match_filters)) {
+        logger.info(`Skipping subscription video '${output_json.webpage_url || output_json.url || output_json.id}' because it did not match configured availability filters.`);
+        return true;
+    }
+
+    return false;
 }
 
 function describeSubscriptionInfoError(err) {
@@ -379,7 +620,7 @@ async function finalizeSubscriptionRefreshSuccess(sub, tracker, queue_context = 
     return queued_count;
 }
 
-function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker) {
+function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context = null) {
     const stream_state = {
         pending_output_batch: [],
         queue_context: null,
@@ -389,7 +630,7 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
 
     const flushOutputBatch = async (output_batch = []) => {
         if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return stream_state.queue_context;
-        stream_state.queue_context = await handleOutputJSON(output_batch, sub, user_uid, refresh_tracker, stream_state.queue_context);
+        stream_state.queue_context = await handleOutputJSON(output_batch, sub, user_uid, refresh_tracker, stream_state.queue_context, discovery_filter_context);
         return stream_state.queue_context;
     };
 
@@ -825,12 +1066,16 @@ async function _getVideosForSub(sub) {
     fs.ensureDirSync(appendedBasePath);
 
     const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
+    const discovery_filter_context = {
+        match_filters: collectMatchFiltersFromArgs(downloadConfig)
+    };
+    const discoveryDownloadConfig = filterSubscriptionDiscoveryAvailabilityMatchFilters(downloadConfig);
 
     // get videos
-    logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(downloadConfig).join(',')}`);
+    logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(discoveryDownloadConfig).join(',')}`);
 
-    const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker);
-    let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, downloadConfig, {
+    const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context);
+    let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, discoveryDownloadConfig, {
         onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
         onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
     });
@@ -862,7 +1107,7 @@ async function _getVideosForSub(sub) {
     }
 }
 
-async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = null, queue_context = null) {
+async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = null, queue_context = null, discovery_filter_context = null) {
     const filtered_output_jsons = Array.isArray(output_jsons)
         ? output_jsons.filter(output_json => !!output_json && typeof output_json === 'object')
         : [];
@@ -871,7 +1116,7 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
     }
 
     const effective_queue_context = await ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_tracker, queue_context);
-    const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context);
+    const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context, discovery_filter_context);
 
     for (const file_to_download of files_to_download) {
         const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
@@ -1093,7 +1338,7 @@ async function createSubscriptionDownloadContext(sub) {
     };
 }
 
-async function getFilesToDownload(sub, output_jsons, download_context = null) {
+async function getFilesToDownload(sub, output_jsons, download_context = null, discovery_filter_context = null) {
     const files_to_download = [];
     const effective_download_context = download_context || await createSubscriptionDownloadContext(sub);
     const {
@@ -1105,6 +1350,8 @@ async function getFilesToDownload(sub, output_jsons, download_context = null) {
     for (let i = 0; i < output_jsons.length; i++) {
         const output_json = output_jsons[i];
         if (!output_json || !output_json['webpage_url']) continue;
+
+        if (await shouldSkipSubscriptionOutput(output_json, sub, discovery_filter_context)) continue;
 
         const output_url = output_json['webpage_url'];
         const output_path = output_json['_filename'];
@@ -1118,8 +1365,11 @@ async function getFilesToDownload(sub, output_jsons, download_context = null) {
             continue;
         }
 
-        const exists_in_archive = await archive_api.existsInArchive(output_json['extractor'], output_json['id'], sub.type, sub.user_uid, sub.id);
-        if (exists_in_archive) continue;
+        const archive_extractor = getSubscriptionOutputArchiveExtractor(output_json);
+        if (archive_extractor && output_json['id']) {
+            const exists_in_archive = await archive_api.existsInArchive(archive_extractor, output_json['id'], sub.type, sub.user_uid, sub.id);
+            if (exists_in_archive) continue;
+        }
 
         files_to_download.push(output_json);
         urls_with_pending_downloads.add(output_url);

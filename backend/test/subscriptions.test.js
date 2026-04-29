@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, path, fs, uuid, db_api, subscriptions_api, youtubedl_api, config_api } = require('./test-shared');
+const { assert, path, fs, uuid, db_api, subscriptions_api, archive_api, youtubedl_api, config_api } = require('./test-shared');
 
 describe('Subscriptions', function() {
     const downloader_api = require('../downloader');
@@ -17,8 +17,10 @@ describe('Subscriptions', function() {
         await db_api.removeAllRecords('subscriptions');
         await db_api.removeAllRecords('download_queue');
         await db_api.removeAllRecords('files');
+        await db_api.removeAllRecords('archives');
         config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
         config_api.setConfigItem('ytdl_custom_args', '');
+        config_api.setConfigItem('ytdl_skip_join_only_videos', false);
         config_api.setConfigItem('ytdl_replace_invalid_filename_chars', false);
         config_api.setConfigItem('ytdl_invalid_filename_chars', '\\/:*?"<>|');
         config_api.setConfigItem('ytdl_invalid_filename_replacement', '_');
@@ -470,6 +472,141 @@ describe('Subscriptions', function() {
         assert(captured_args.includes('--resize-buffer'));
         assert(sleep_interval_index !== -1);
         assert.strictEqual(captured_args[sleep_interval_index + 1], '2');
+    });
+    it('Skips join-only flat playlist entries before queueing subscription downloads', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'skip_join_only_sub'});
+        const public_output = {
+            _type: 'url',
+            ie_key: 'Youtube',
+            extractor: 'youtube',
+            extractor_key: 'Youtube',
+            id: 'public-video',
+            url: 'https://www.youtube.com/watch?v=public-video',
+            webpage_url: 'https://www.youtube.com/watch?v=public-video',
+            title: 'Public video',
+            availability: null
+        };
+        const join_only_output = {
+            _type: 'url',
+            ie_key: 'Youtube',
+            extractor: 'youtube',
+            extractor_key: 'Youtube',
+            id: 'join-only-video',
+            url: 'https://www.youtube.com/watch?v=join-only-video',
+            webpage_url: 'https://www.youtube.com/watch?v=join-only-video',
+            title: 'Members-only video',
+            availability: 'subscriber_only'
+        };
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers = {}) => {
+            if (typeof line_handlers.onStdoutLine === 'function') {
+                line_handlers.onStdoutLine(JSON.stringify(public_output));
+                line_handlers.onStdoutLine(JSON.stringify(join_only_output));
+            }
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_skip_join_only_videos', true);
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.strictEqual(queued_downloads.length, 1);
+        assert.strictEqual(queued_downloads[0].url, public_output.webpage_url);
+        assert.strictEqual(await archive_api.existsInArchive('youtube', join_only_output.id, sub.type, sub.user_uid, sub.id), true);
+    });
+    it('Applies availability match filters while queueing flat subscription entries', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'availability_filter_sub'});
+        const fake_outputs = [
+            {
+                _type: 'url',
+                ie_key: 'Youtube',
+                extractor: 'youtube',
+                extractor_key: 'Youtube',
+                id: 'public-video',
+                url: 'https://www.youtube.com/watch?v=public-video',
+                webpage_url: 'https://www.youtube.com/watch?v=public-video',
+                title: 'Public video',
+                availability: null
+            },
+            {
+                _type: 'url',
+                ie_key: 'Youtube',
+                extractor: 'youtube',
+                extractor_key: 'Youtube',
+                id: 'join-only-video',
+                url: 'https://www.youtube.com/watch?v=join-only-video',
+                webpage_url: 'https://www.youtube.com/watch?v=join-only-video',
+                title: 'Members-only video',
+                availability: 'subscriber_only'
+            },
+            {
+                _type: 'url',
+                ie_key: 'Youtube',
+                extractor: 'youtube',
+                extractor_key: 'Youtube',
+                id: 'private-video',
+                url: 'https://www.youtube.com/watch?v=private-video',
+                webpage_url: 'https://www.youtube.com/watch?v=private-video',
+                title: 'Private video',
+                availability: 'private'
+            }
+        ];
+        let captured_args = null;
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers = {}) => {
+            captured_args = args;
+            if (typeof line_handlers.onStdoutLine === 'function') {
+                for (const output_json of fake_outputs) {
+                    line_handlers.onStdoutLine(JSON.stringify(output_json));
+                }
+            }
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '--match-filters,,availability=public');
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        assert(!captured_args.includes('--match-filters'));
+        assert(!captured_args.includes('availability=public'));
+
+        const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.strictEqual(queued_downloads.length, 1);
+        assert.strictEqual(queued_downloads[0].url, fake_outputs[0].webpage_url);
+
+        const archived_items = await db_api.getRecords('archives', {sub_id: sub.id});
+        assert.strictEqual(archived_items.length, 0);
     });
     it('Uses full metadata discovery for timeranged subscriptions so date filters are honored', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
