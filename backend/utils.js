@@ -174,15 +174,21 @@ exports.getJSONMp3 = (name, customPath, openReadPerms = false) => {
 exports.getJSON = (file_path, type) => {
     const ext = type === 'audio' ? '.mp3' : '.mp4';
     let obj = null;
-    var jsonPath = exports.removeFileExtension(file_path) + '.info.json';
-    var alternateJsonPath = exports.removeFileExtension(file_path) + `${ext}.info.json`;
-    if (fs.existsSync(jsonPath))
-    {
-        obj = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    } else if (fs.existsSync(alternateJsonPath)) {
-        obj = JSON.parse(fs.readFileSync(alternateJsonPath, 'utf8'));
+    const file_path_no_extension = exports.removeFileExtension(file_path);
+    const actual_ext = path.extname(file_path);
+    const json_paths = [
+        file_path_no_extension + '.info.json',
+        file_path_no_extension + `${ext}.info.json`
+    ];
+
+    if (actual_ext && actual_ext !== ext) {
+        json_paths.push(file_path_no_extension + `${actual_ext}.info.json`);
     }
-    else obj = 0;
+
+    const json_path = json_paths.find(candidate_path => fs.existsSync(candidate_path));
+    if (json_path) {
+        obj = JSON.parse(fs.readFileSync(json_path, 'utf8'));
+    } else obj = 0;
     return obj;
 }
 
