@@ -54,10 +54,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   }
 
   getSubscription(low_cost = false) {
-    this.postsService.getSubscription(this.id).subscribe(res => {
+    this.postsService.getSubscription(this.id, null, false).subscribe(res => {
       const next_subscription = res['subscription'] as Subscription;
-      const current_video_count = this.subscription?.videos?.length || 0;
-      const next_video_count = next_subscription?.videos?.length || 0;
+      const current_video_count = this.getSubscriptionFileCount(this.subscription);
+      const next_video_count = this.getSubscriptionFileCount(next_subscription);
 
       if (low_cost && this.subscription && next_video_count === current_video_count) {
         this.subscription = {
@@ -72,6 +72,12 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       }
       this.subscription = next_subscription;
     });
+  }
+
+  private getSubscriptionFileCount(subscription: Subscription | null): number {
+    const file_count = Number((subscription as any)?.file_count);
+    if (Number.isFinite(file_count)) return Math.max(0, Math.floor(file_count));
+    return subscription?.videos?.length || 0;
   }
 
   getConfig(): void {

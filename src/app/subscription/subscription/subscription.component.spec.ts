@@ -48,6 +48,7 @@ describe('SubscriptionComponent', () => {
     component.subscription = {
       id: 'sub-1',
       name: 'Test subscription',
+      file_count: 1,
       downloading: true,
       refresh_status: {
         phase: 'collecting',
@@ -69,16 +70,40 @@ describe('SubscriptionComponent', () => {
           pending_download_count: 3,
           running_download_count: 1
         },
-        videos: [{ id: 'replacement-video' }]
+        file_count: 1
       }
     }));
 
     component.getSubscription(true);
 
+    expect(postsService.getSubscription).toHaveBeenCalledWith('sub-1', null, false);
     expect(component.subscription.videos).toBe(existing_videos);
     expect(component.subscription.downloading).toBeFalse();
     expect(component.subscription.refresh_status.phase).toBe('queued');
     expect(postsService.files_changed.next).not.toHaveBeenCalled();
+  });
+  it('should notify the media library when lightweight subscription file count increases', () => {
+    component.subscription = {
+      id: 'sub-1',
+      name: 'Test subscription',
+      file_count: 1,
+      downloading: true,
+      videos: [{ id: 'video-1' }]
+    } as any;
+    spyOn(postsService.files_changed, 'next');
+    postsService.getSubscription.and.returnValue(of({
+      subscription: {
+        id: 'sub-1',
+        name: 'Test subscription',
+        file_count: 2,
+        downloading: false
+      }
+    }));
+
+    component.getSubscription(true);
+
+    expect(component.subscription.file_count).toBe(2);
+    expect(postsService.files_changed.next).toHaveBeenCalledWith(true);
   });
 
   it('should describe collecting progress when totals are known', () => {

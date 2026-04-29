@@ -60,6 +60,19 @@ function normalizeStringForComparison(value) {
     return normalized_value.replace(/^['"]|['"]$/g, '').trim().toLowerCase();
 }
 
+function normalizeArchiveSourceValue(value) {
+    if (value === null || value === undefined) return null;
+    const normalized_value = String(value).trim();
+    return normalized_value === '' ? null : normalized_value;
+}
+
+function getArchiveKey(extractor = null, id = null) {
+    const normalized_extractor = normalizeStringForComparison(extractor);
+    const normalized_id = normalizeArchiveSourceValue(id);
+    if (!normalized_extractor || !normalized_id) return null;
+    return `${normalized_extractor}:${normalized_id}`;
+}
+
 function parseDelimitedArgs(args_string = '') {
     if (typeof args_string !== 'string' || args_string.trim() === '') return [];
     return args_string.split(',,').map(arg => arg.trim()).filter(arg => arg !== '');
@@ -141,6 +154,75 @@ function getSubscriptionOutputArchiveExtractor(output_json = null) {
 
     if (isYouTubeSubscriptionOutput(output_json)) return 'youtube';
     return null;
+}
+
+function getSubscriptionOutputArchiveIdentity(output_json = null, type = 'video') {
+    if (!output_json || typeof output_json !== 'object') return null;
+
+    const source_metadata = files_api.extractSourceMetadataFromInfo(output_json, type)
+        || files_api.extractSourceMetadataFromUrl(output_json.webpage_url || output_json.original_url || output_json.url, type);
+    const extractor = getSubscriptionOutputArchiveExtractor(output_json)
+        || (source_metadata && source_metadata.source_extractor);
+    const id = normalizeArchiveSourceValue(output_json.source_id)
+        || normalizeArchiveSourceValue(output_json.id)
+        || normalizeArchiveSourceValue(output_json.display_id)
+        || normalizeArchiveSourceValue(source_metadata && source_metadata.source_id);
+
+    if (!extractor || !id) return null;
+    return {
+        extractor: extractor,
+        id: id,
+        title: output_json.title || null
+    };
+}
+
+function getSubscriptionOutputArchiveKey(output_json = null, type = 'video') {
+    const archive_identity = getSubscriptionOutputArchiveIdentity(output_json, type);
+    return archive_identity ? getArchiveKey(archive_identity.extractor, archive_identity.id) : null;
+}
+
+function getSubscriptionFileArchiveKey(file_obj = null, type = 'video') {
+    if (!file_obj || typeof file_obj !== 'object') return null;
+
+    const source_extractor = normalizeArchiveSourceValue(file_obj.source_extractor);
+    const source_id = normalizeArchiveSourceValue(file_obj.source_id);
+    const key_from_source_metadata = getArchiveKey(source_extractor, source_id);
+    if (key_from_source_metadata) return key_from_source_metadata;
+
+    const source_metadata = files_api.extractSourceMetadataFromUrl(file_obj.url, type);
+    return source_metadata ? getArchiveKey(source_metadata.source_extractor, source_metadata.source_id) : null;
+}
+
+function getSubscriptionDownloadArchiveKey(download = null, type = 'video') {
+    if (!download || typeof download !== 'object') return null;
+
+    const prefetched_info_items = Array.isArray(download.prefetched_info)
+        ? download.prefetched_info.filter(info_item => !!info_item && typeof info_item === 'object')
+        : [];
+    const candidates = [
+        ...prefetched_info_items,
+        {
+            webpage_url: download.url,
+            url: download.url,
+            title: download.title
+        }
+    ];
+
+    for (const candidate of candidates) {
+        const archive_key = getSubscriptionOutputArchiveKey(candidate, type);
+        if (archive_key) return archive_key;
+    }
+
+    return null;
+}
+
+function getSubscriptionArchiveFilter(sub = null) {
+    const filter = {sub_id: sub && sub.id};
+    if (sub && sub.type) filter.type = sub.type;
+    if (config_api.getConfigItem('ytdl_multi_user_mode')) {
+        filter.user_uid = sub ? sub.user_uid : null;
+    }
+    return filter;
 }
 
 function parseAvailabilityMatchCondition(condition = '') {
@@ -264,20 +346,20 @@ function isJoinOnlySubscriptionOutput(output_json = null) {
 }
 
 async function archiveSkippedJoinOnlySubscriptionOutput(output_json = null, sub = null) {
-    if (!output_json || !sub || !output_json.id) return false;
+    if (!output_json || !sub) return false;
 
-    const extractor = getSubscriptionOutputArchiveExtractor(output_json);
-    if (!extractor) return false;
+    const archive_identity = getSubscriptionOutputArchiveIdentity(output_json, sub.type);
+    if (!archive_identity) return false;
 
     await archive_api.addToArchive(
-        extractor,
-        output_json.id,
+        archive_identity.extractor,
+        archive_identity.id,
         sub.type,
-        output_json.title || null,
+        archive_identity.title,
         sub.user_uid,
         sub.id
     );
-    logger.info(`Archived join-only video ${extractor}:${output_json.id} for subscription ${sub.id}.`);
+    logger.info(`Archived join-only video ${archive_identity.extractor}:${archive_identity.id} for subscription ${sub.id}.`);
     return true;
 }
 
@@ -594,6 +676,66 @@ async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_trac
     }
 
     return created_queue_context;
+}
+
+async function removeArchivedPendingSubscriptionDownloads(sub, pending_downloads = null) {
+    if (!sub || !sub.id) return 0;
+
+    const effective_pending_downloads = Array.isArray(pending_downloads)
+        ? pending_downloads
+        : await db_api.getRecords('download_queue', {sub_id: sub.id, finished: false});
+    if (effective_pending_downloads.length === 0) return 0;
+
+    const archive_items = await db_api.getRecords('archives', getSubscriptionArchiveFilter(sub));
+    const archived_output_keys = new Set(
+        archive_items
+            .map(archive_item => getArchiveKey(archive_item.extractor, archive_item.id))
+            .filter(Boolean)
+    );
+    if (archived_output_keys.size === 0) return 0;
+
+    let removed_count = 0;
+
+    for (const pending_download of effective_pending_downloads) {
+        if (!pending_download || pending_download.finished) continue;
+
+        const pending_archive_key = getSubscriptionDownloadArchiveKey(pending_download, pending_download.type || sub.type);
+        if (!pending_archive_key || !archived_output_keys.has(pending_archive_key)) continue;
+
+        if (pending_download.running) {
+            await downloader_api.cancelDownload(pending_download.uid).catch(error => {
+                logger.warn(`Failed to cancel archived pending subscription download '${pending_download.uid}' before cleanup.`);
+                logger.warn(error);
+            });
+        }
+
+        await db_api.removeRecord('download_queue', {uid: pending_download.uid});
+        removed_count += 1;
+        logger.info(`Removed archived pending subscription download ${pending_archive_key} from subscription ${sub.id}.`);
+    }
+
+    return removed_count;
+}
+
+function adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_pending_count = 0, pending_download_count = 0, running_download_count = 0) {
+    const normalized_refresh_status = normalizeSubscriptionRefreshStatus(refresh_status);
+    if (removed_pending_count <= 0) return normalized_refresh_status;
+
+    const adjusted_queued_count = Math.max(0, normalized_refresh_status.queued_count - removed_pending_count);
+    const adjusted_new_items_count = normalized_refresh_status.new_items_count === null
+        ? null
+        : Math.max(0, normalized_refresh_status.new_items_count - removed_pending_count);
+    const should_mark_complete = normalized_refresh_status.phase === SUBSCRIPTION_REFRESH_PHASES.QUEUED
+        && adjusted_queued_count === 0
+        && pending_download_count === 0
+        && running_download_count === 0;
+
+    return normalizeSubscriptionRefreshStatus({
+        ...normalized_refresh_status,
+        phase: should_mark_complete ? SUBSCRIPTION_REFRESH_PHASES.COMPLETE : normalized_refresh_status.phase,
+        new_items_count: adjusted_new_items_count,
+        queued_count: adjusted_queued_count
+    });
 }
 
 async function finalizeSubscriptionRefreshSuccess(sub, tracker, queue_context = null) {
@@ -1326,15 +1468,42 @@ async function generateArgsForSubscriptionDiscovery(sub, user_uid) {
 }
 
 async function createSubscriptionDownloadContext(sub) {
-    const [existing_sub_files, pending_sub_downloads] = await Promise.all([
+    const [existing_sub_files, pending_sub_downloads, archive_items] = await Promise.all([
         db_api.getRecords('files', {sub_id: sub.id}),
-        db_api.getRecords('download_queue', {sub_id: sub.id, error: null, finished: false})
+        db_api.getRecords('download_queue', {sub_id: sub.id, error: null, finished: false}),
+        db_api.getRecords('archives', getSubscriptionArchiveFilter(sub))
     ]);
+    const archived_output_keys = new Set(
+        archive_items
+            .map(archive_item => getArchiveKey(archive_item.extractor, archive_item.id))
+            .filter(Boolean)
+    );
+    const active_pending_sub_downloads = [];
+
+    for (const pending_download of pending_sub_downloads) {
+        const pending_archive_key = getSubscriptionDownloadArchiveKey(pending_download, pending_download.type || sub.type);
+        if (pending_archive_key && archived_output_keys.has(pending_archive_key)) {
+            if (pending_download.running) {
+                await downloader_api.cancelDownload(pending_download.uid).catch(error => {
+                    logger.warn(`Failed to cancel archived pending subscription download '${pending_download.uid}' before cleanup.`);
+                    logger.warn(error);
+                });
+            }
+            await db_api.removeRecord('download_queue', {uid: pending_download.uid});
+            logger.info(`Removed archived pending subscription download ${pending_archive_key} from subscription ${sub.id}.`);
+            continue;
+        }
+
+        active_pending_sub_downloads.push(pending_download);
+    }
 
     return {
         urls_with_existing_files: new Set(existing_sub_files.map(file => file.url)),
         paths_with_existing_files: new Set(existing_sub_files.map(file => file.path)),
-        urls_with_pending_downloads: new Set(pending_sub_downloads.map(download => download.url))
+        source_keys_with_existing_files: new Set(existing_sub_files.map(file => getSubscriptionFileArchiveKey(file, sub.type)).filter(Boolean)),
+        urls_with_pending_downloads: new Set(active_pending_sub_downloads.map(download => download.url)),
+        source_keys_with_pending_downloads: new Set(active_pending_sub_downloads.map(download => getSubscriptionDownloadArchiveKey(download, download.type || sub.type)).filter(Boolean)),
+        archived_output_keys: archived_output_keys
     };
 }
 
@@ -1342,9 +1511,12 @@ async function getFilesToDownload(sub, output_jsons, download_context = null, di
     const files_to_download = [];
     const effective_download_context = download_context || await createSubscriptionDownloadContext(sub);
     const {
-        urls_with_existing_files,
-        paths_with_existing_files,
-        urls_with_pending_downloads
+        urls_with_existing_files = new Set(),
+        paths_with_existing_files = new Set(),
+        source_keys_with_existing_files = new Set(),
+        urls_with_pending_downloads = new Set(),
+        source_keys_with_pending_downloads = new Set(),
+        archived_output_keys = new Set()
     } = effective_download_context;
 
     for (let i = 0; i < output_jsons.length; i++) {
@@ -1355,8 +1527,14 @@ async function getFilesToDownload(sub, output_jsons, download_context = null, di
 
         const output_url = output_json['webpage_url'];
         const output_path = output_json['_filename'];
+        const output_archive_key = getSubscriptionOutputArchiveKey(output_json, sub.type);
 
-        const file_missing = !urls_with_existing_files.has(output_url) && !urls_with_pending_downloads.has(output_url);
+        if (output_archive_key && archived_output_keys.has(output_archive_key)) continue;
+
+        const file_missing = !urls_with_existing_files.has(output_url)
+            && !urls_with_pending_downloads.has(output_url)
+            && (!output_archive_key || !source_keys_with_existing_files.has(output_archive_key))
+            && (!output_archive_key || !source_keys_with_pending_downloads.has(output_archive_key));
         if (!file_missing) continue;
 
         if (output_path && paths_with_existing_files.has(output_path)) {
@@ -1365,14 +1543,9 @@ async function getFilesToDownload(sub, output_jsons, download_context = null, di
             continue;
         }
 
-        const archive_extractor = getSubscriptionOutputArchiveExtractor(output_json);
-        if (archive_extractor && output_json['id']) {
-            const exists_in_archive = await archive_api.existsInArchive(archive_extractor, output_json['id'], sub.type, sub.user_uid, sub.id);
-            if (exists_in_archive) continue;
-        }
-
         files_to_download.push(output_json);
         urls_with_pending_downloads.add(output_url);
+        if (output_archive_key) source_keys_with_pending_downloads.add(output_archive_key);
     }
     return files_to_download;
 }
@@ -1448,6 +1621,7 @@ exports.getSubscription = async (subID, user_uid = null) => {
     const raw_sub = await db_api.getRecord('subscriptions', filter_obj);
     if (!raw_sub) return null;
     const sub = JSON.parse(JSON.stringify(raw_sub));
+    const removed_archived_pending_count = await removeArchivedPendingSubscriptionDownloads(sub);
     // now with the download_queue, we may need to override 'downloading'
     const [
         current_downloads,
@@ -1464,6 +1638,7 @@ exports.getSubscription = async (subID, user_uid = null) => {
     if (!sub['downloading'] && refresh_status.active) {
         refresh_status = buildInterruptedSubscriptionRefreshStatus(refresh_status);
     }
+    refresh_status = adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_archived_pending_count, pending_download_count, running_download_count);
 
     if (refresh_status.phase === SUBSCRIPTION_REFRESH_PHASES.IDLE && pending_download_count > 0) {
         refresh_status = normalizeSubscriptionRefreshStatus({
@@ -1471,6 +1646,9 @@ exports.getSubscription = async (subID, user_uid = null) => {
             phase: SUBSCRIPTION_REFRESH_PHASES.QUEUED,
             queued_count: refresh_status.queued_count || pending_download_count
         });
+    }
+    if (removed_archived_pending_count > 0) {
+        await persistSubscriptionRefreshStatus(subID, refresh_status);
     }
 
     sub['refresh_status'] = {

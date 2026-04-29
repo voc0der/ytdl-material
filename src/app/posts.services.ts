@@ -684,8 +684,8 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'deleteSubscriptionFile', body, this.httpOptions)
     }
 
-    getSubscription(id: string, name: string = null) {
-        const body: GetSubscriptionRequest = {id: id, name: name};
+    getSubscription(id: string, name: string = null, include_videos = true) {
+        const body: GetSubscriptionRequest = {id: id, name: name, include_videos: include_videos};
         return this.http.post<GetSubscriptionResponse>(this.path + 'getSubscription', body, this.httpOptions);
     }
 

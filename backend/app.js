@@ -1817,6 +1817,7 @@ app.post('/api/deleteSubscriptionFile', optionalJwt, async (req, res) => {
 app.post('/api/getSubscription', optionalJwt, async (req, res) => {
     let subID = req.body.id;
     let subName = req.body.name; // if included, subID is optional
+    const include_videos = req.body.include_videos !== false;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
     // get sub from db
@@ -1838,18 +1839,29 @@ app.post('/api/getSubscription', optionalJwt, async (req, res) => {
     // get sub videos
     if (subscription.name) {
         const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
-        var parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
-        subscription['videos'] = parsed_files;
-        // loop through files for extra processing
-        for (let i = 0; i < parsed_files.length; i++) {
-            const file = parsed_files[i];
-            // check if chat exists for twitch videos
-            if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
+        const file_count = await db_api.getRecords('files', sub_files_filter, true);
+        subscription['file_count'] = file_count;
+
+        if (include_videos) {
+            var parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
+            subscription['videos'] = parsed_files;
+            // loop through files for extra processing
+            for (let i = 0; i < parsed_files.length; i++) {
+                const file = parsed_files[i];
+                // check if chat exists for twitch videos
+                if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
+            }
+
+            res.send({
+                subscription: subscription,
+                files: parsed_files
+            });
+            return;
         }
 
         res.send({
             subscription: subscription,
-            files: parsed_files
+            files: []
         });
     } else {
         res.sendStatus(500);

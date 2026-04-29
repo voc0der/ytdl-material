@@ -266,6 +266,50 @@ describe('Subscriptions', function() {
         assert.strictEqual(refreshed_sub['refresh_status']['pending_download_count'], 2);
         assert.strictEqual(refreshed_sub['refresh_status']['running_download_count'], 1);
     });
+    it('Removes archived pending subscription downloads before reporting refresh status', async function() {
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'archived_pending_sub'});
+        const archived_download = {
+            uid: uuid(),
+            url: 'https://www.youtube.com/watch?v=join-only-video',
+            type: 'video',
+            title: 'Members-only video',
+            options: {},
+            sub_id: sub.id,
+            user_uid: null,
+            running: false,
+            paused: false,
+            finished_step: true,
+            finished: false,
+            error: null,
+            timestamp_start: Date.now()
+        };
+
+        await db_api.insertRecordIntoTable('subscriptions', {
+            ...sub,
+            refresh_status: {
+                active: false,
+                phase: 'queued',
+                discovered_count: 1,
+                total_count: 1,
+                new_items_count: 1,
+                queued_count: 1
+            }
+        });
+        await archive_api.addToArchive('youtube', 'join-only-video', 'video', 'Members-only video', null, sub.id);
+        await db_api.insertRecordIntoTable('download_queue', archived_download);
+
+        const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+
+        assert(refreshed_sub);
+        assert.strictEqual(refreshed_sub['refresh_status']['pending_download_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['running_download_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['queued_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['new_items_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['phase'], 'complete');
+
+        const remaining_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.strictEqual(remaining_downloads.length, 0);
+    });
     it('Update subscription', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
         const sub_update = Object.assign({}, new_sub, {name: 'updated_name'});
@@ -531,6 +575,68 @@ describe('Subscriptions', function() {
         assert.strictEqual(queued_downloads.length, 1);
         assert.strictEqual(queued_downloads[0].url, public_output.webpage_url);
         assert.strictEqual(await archive_api.existsInArchive('youtube', join_only_output.id, sub.type, sub.user_uid, sub.id), true);
+    });
+    it('Filters archived flat playlist entries from cached subscription archive state', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_existsInArchive = archive_api.existsInArchive;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'cached_archive_sub'});
+        const archived_output = {
+            _type: 'url',
+            ie_key: 'Youtube',
+            extractor: 'youtube',
+            extractor_key: 'Youtube',
+            id: 'archived-video',
+            url: 'https://www.youtube.com/watch?v=archived-video',
+            webpage_url: 'https://www.youtube.com/watch?v=archived-video',
+            title: 'Archived video',
+            availability: null
+        };
+        const public_output = {
+            _type: 'url',
+            ie_key: 'Youtube',
+            extractor: 'youtube',
+            extractor_key: 'Youtube',
+            id: 'public-video',
+            url: 'https://www.youtube.com/watch?v=public-video',
+            webpage_url: 'https://www.youtube.com/watch?v=public-video',
+            title: 'Public video',
+            availability: null
+        };
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers = {}) => {
+            if (typeof line_handlers.onStdoutLine === 'function') {
+                line_handlers.onStdoutLine(JSON.stringify(archived_output));
+                line_handlers.onStdoutLine(JSON.stringify(public_output));
+            }
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await archive_api.addToArchive('youtube', archived_output.id, sub.type, archived_output.title, sub.user_uid, sub.id);
+            archive_api.existsInArchive = async () => {
+                throw new Error('archive lookups should be served from the subscription context');
+            };
+
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            archive_api.existsInArchive = original_existsInArchive;
+        }
+
+        const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.strictEqual(queued_downloads.length, 1);
+        assert.strictEqual(queued_downloads[0].url, public_output.webpage_url);
     });
     it('Applies availability match filters while queueing flat subscription entries', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;

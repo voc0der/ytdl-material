@@ -20,5 +20,6 @@ export type Subscription = {
     downloading?: boolean;
     paused?: boolean;
     refresh_status?: SubscriptionRefreshStatus;
-    videos: Array<any>;
+    file_count?: number;
+    videos?: Array<any>;
 };

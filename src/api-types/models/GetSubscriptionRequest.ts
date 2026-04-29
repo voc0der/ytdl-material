@@ -11,4 +11,8 @@ export type GetSubscriptionRequest = {
      * Subscription name
      */
     name?: string;
+    /**
+     * Include completed subscription files in the response
+     */
+    include_videos?: boolean;
 };

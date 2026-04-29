@@ -2107,6 +2107,9 @@ components:
         name:
           type: string
           description: Subscription name
+        include_videos:
+          type: boolean
+          description: Include completed subscription files in the response
     GetSubscriptionResponse:
       required:
         - files
@@ -2914,7 +2917,6 @@ components:
         - type
         - user_uid
         - isPlaylist
-        - videos
       type: object
       properties:
         name:
@@ -2946,6 +2948,8 @@ components:
           type: boolean
         refresh_status:
           $ref: '#/components/schemas/SubscriptionRefreshStatus'
+        file_count:
+          type: number
         videos:
           type: array
           items:

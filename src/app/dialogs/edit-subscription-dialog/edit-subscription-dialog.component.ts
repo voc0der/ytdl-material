@@ -110,7 +110,7 @@ export class EditSubscriptionDialogComponent implements OnInit {
   }
 
   getSubscription() {
-    this.postsService.getSubscription(this.sub.id).subscribe(res => {
+    this.postsService.getSubscription(this.sub.id, null, false).subscribe(res => {
       this.sub = res['subscription'];
       this.new_sub = JSON.parse(JSON.stringify(this.sub));
     });
