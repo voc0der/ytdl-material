@@ -88,6 +88,10 @@ function normalizeArchiveId(value = null) {
     return normalized_value || null;
 }
 
+function isYouTubeHostname(host = '') {
+    return host === 'youtube.com' || host.endsWith('.youtube.com');
+}
+
 function extractYouTubeVideoId(url = '') {
     if (typeof url !== 'string' || url.trim() === '') return null;
 
@@ -97,7 +101,7 @@ function extractYouTubeVideoId(url = '') {
         if (host === 'youtu.be') {
             return normalizeArchiveId(parsed_url.pathname.split('/').filter(Boolean)[0]);
         }
-        if (host.includes('youtube.com')) {
+        if (isYouTubeHostname(host)) {
             const watch_id = normalizeArchiveId(parsed_url.searchParams.get('v'));
             if (watch_id) return watch_id;
 
@@ -116,7 +120,14 @@ function extractYouTubeVideoId(url = '') {
 }
 
 function isYouTubeLikeValue(value = null) {
-    return typeof value === 'string' && /youtu(?:be\.com|\.be)|youtube/i.test(value);
+    if (typeof value !== 'string' || value.trim() === '') return false;
+    try {
+        const parsed_url = new URL(value);
+        const host = parsed_url.hostname.toLowerCase();
+        return host === 'youtu.be' || isYouTubeHostname(host);
+    } catch (e) {
+        return false;
+    }
 }
 
 function getArchiveIdentityFromDownload(download = null) {

@@ -330,6 +330,25 @@ describe('Downloader', function() {
         );
     });
 
+    it('Does not archive subscription downloads from YouTube lookalike hostnames', async function() {
+        const returned_download = await downloader_api.createDownload(
+            'https://youtube.com.attacker.test/watch?v=lookalike-video',
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            null,
+            true
+        );
+
+        const success = await downloader_api.clearDownload(returned_download['uid']);
+        const archived_items = await db_api.getRecords('archives', {sub_id: sub_id});
+
+        assert.strictEqual(success, true);
+        assert.strictEqual(archived_items.length, 0);
+    });
+
     it('Archives skippable errored subscription downloads when clearing them from the queue', async function() {
         const prefetched_info = [{
             _type: 'url',
