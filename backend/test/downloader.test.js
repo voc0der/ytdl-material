@@ -55,6 +55,15 @@ describe('Downloader', function() {
         ui_uid: uuid()
     }
 
+    async function waitForCondition(predicate, timeout_ms = 2000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout_ms) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+    }
+
     async function createCategory(url) {
         // get info
         const args = await downloader_api.generateArgs(url, 'video', options, null, true);
@@ -251,6 +260,155 @@ describe('Downloader', function() {
         }
         const success = await downloader_api.downloadQueuedFile(returned_download['uid'], custom_download_method);
         assert(success);
+    });
+
+    it('Archives no-output subscription downloads so future refreshes skip them', async function() {
+        const prefetched_info = [{
+            _type: 'url',
+            ie_key: 'Youtube',
+            extractor_key: 'Youtube',
+            id: 'bad-subscription-video',
+            webpage_url: 'https://www.youtube.com/watch?v=bad-subscription-video',
+            title: 'Bad subscription video'
+        }];
+        const returned_download = await downloader_api.createDownload(
+            prefetched_info[0].webpage_url,
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            prefetched_info
+        );
+        await db_api.updateRecord('download_queue', {uid: returned_download['uid']}, {
+            args: [],
+            finished_step: true,
+            step_index: 1
+        });
+
+        const empty_output_download_method = async (download_url, args, method_options, callback) => {
+            return await callback(null, []);
+        };
+        const success = await downloader_api.downloadQueuedFile(returned_download['uid'], empty_output_download_method);
+        const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+        assert.strictEqual(success, false);
+        assert.strictEqual(updated_download.error_type, 'no_output');
+        assert.strictEqual(
+            await archive_api.existsInArchive('youtube', prefetched_info[0].id, 'video', 'test_user', sub_id),
+            true
+        );
+    });
+
+    it('Archives paused subscription downloads when clearing them from the queue', async function() {
+        const prefetched_info = [{
+            _type: 'url',
+            extractor: 'youtube',
+            id: 'cleared-subscription-video',
+            webpage_url: 'https://www.youtube.com/watch?v=cleared-subscription-video',
+            title: 'Cleared subscription video'
+        }];
+        const returned_download = await downloader_api.createDownload(
+            prefetched_info[0].webpage_url,
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            prefetched_info,
+            true
+        );
+
+        const success = await downloader_api.clearDownload(returned_download['uid']);
+        const cleared_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+
+        assert.strictEqual(success, true);
+        assert.strictEqual(cleared_download, undefined);
+        assert.strictEqual(
+            await archive_api.existsInArchive('youtube', prefetched_info[0].id, 'video', 'test_user', sub_id),
+            true
+        );
+    });
+
+    it('Does not archive subscription downloads from YouTube lookalike hostnames', async function() {
+        const returned_download = await downloader_api.createDownload(
+            'https://youtube.com.attacker.test/watch?v=lookalike-video',
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            null,
+            true
+        );
+
+        const success = await downloader_api.clearDownload(returned_download['uid']);
+        const archived_items = await db_api.getRecords('archives', {sub_id: sub_id});
+
+        assert.strictEqual(success, true);
+        assert.strictEqual(archived_items.length, 0);
+    });
+
+    it('Archives skippable errored subscription downloads when clearing them from the queue', async function() {
+        const prefetched_info = [{
+            _type: 'url',
+            extractor: 'youtube',
+            id: 'cleared-error-subscription-video',
+            webpage_url: 'https://www.youtube.com/watch?v=cleared-error-subscription-video',
+            title: 'Cleared errored subscription video'
+        }];
+        const returned_download = await downloader_api.createDownload(
+            prefetched_info[0].webpage_url,
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            prefetched_info
+        );
+        await db_api.updateRecord('download_queue', {uid: returned_download['uid']}, {
+            error: 'No output received for video download, check if it exists in your archive.',
+            error_type: 'no_output',
+            finished: true,
+            running: false
+        });
+
+        const success = await downloader_api.clearDownload(returned_download['uid']);
+
+        assert.strictEqual(success, true);
+        assert.strictEqual(
+            await archive_api.existsInArchive('youtube', prefetched_info[0].id, 'video', 'test_user', sub_id),
+            true
+        );
+    });
+
+    it('Marks queue-step exceptions as failed downloads instead of leaving them running', async function() {
+        const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+        const original_collect_info = downloader_api.collectInfo;
+        const returned_download = await downloader_api.createDownload(`${url}&throwing_collect_info=1`, 'video', {ui_uid: uuid()});
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 1);
+            downloader_api.collectInfo = () => {
+                throw new Error('synthetic collectInfo failure');
+            };
+
+            await downloader_api.checkDownloads();
+            const failed = await waitForCondition(async () => {
+                const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+                return !!(updated_download && updated_download.finished && updated_download.error);
+            });
+            assert.strictEqual(failed, true);
+        } finally {
+            downloader_api.collectInfo = original_collect_info;
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_max_concurrent_downloads);
+        }
+
+        const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+        assert.strictEqual(updated_download.finished, true);
+        assert.strictEqual(updated_download.running, false);
+        assert.strictEqual(updated_download.error_type, 'info_retrieve_failed');
+        assert(updated_download.error.includes('synthetic collectInfo failure'));
     });
 
     it('fixDownloadState only pauses downloads that were actively running', async function() {
