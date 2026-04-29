@@ -667,13 +667,18 @@ function generateFileObject(file_path, type) {
     const jsonobj = utils.getJSON(file_path, type);
     if (!jsonobj) {
         return null;
-    } else if (!jsonobj['_filename']) {
-        logger.error(`Failed to get filename from info JSON! File ${jsonobj['title']} could not be added.`);
+    }
+    // Use file_path directly rather than jsonobj['_filename']: _filename is set at download
+    // time and can be stale (wrong container path, files moved, post-processing renamed the
+    // file, etc.). file_path is the path we just confirmed exists on disk.
+    const true_file_path = utils.getTrueFileName(file_path, type);
+    let stats;
+    try {
+        stats = fs.statSync(true_file_path);
+    } catch (e) {
+        logger.error(`Could not stat ${true_file_path}: ${e.message}`);
         return null;
     }
-    const true_file_path = utils.getTrueFileName(jsonobj['_filename'], type);
-    // console.
-    const stats = fs.statSync(true_file_path);
 
     const file_id = utils.removeFileExtension(path.basename(file_path));
     const title = jsonobj.title;
@@ -706,18 +711,21 @@ exports.importUnregisteredFiles = async () => {
         for (let j = 0; j < files.length; j++) {
             const file = files[j];
 
-            // check if file exists in db, if not add it
-            const files_with_same_url = await db_api.getRecords('files', {url: file.url, sub_id: dir_to_check.sub_id});
-            const file_is_registered = !!(files_with_same_url.find(file_with_same_url => path.resolve(file_with_same_url.path) === path.resolve(file.path)));
-            if (!file_is_registered) {
-                // add additional info
-                const file_obj = await exports.registerFileDB(file['path'], dir_to_check.type, dir_to_check.user_uid, null, dir_to_check.sub_id, null);
-                if (file_obj) {
-                    imported_files.push(file_obj['uid']);
-                    logger.verbose(`Added discovered file to the database: ${file.id}`);
-                } else {
-                    logger.error(`Failed to import ${file['path']} automatically.`);
+            try {
+                // check if file exists in db, if not add it
+                const files_with_same_url = await db_api.getRecords('files', {url: file.url, sub_id: dir_to_check.sub_id});
+                const file_is_registered = !!(files_with_same_url.find(file_with_same_url => path.resolve(file_with_same_url.path) === path.resolve(file.path)));
+                if (!file_is_registered) {
+                    const file_obj = await exports.registerFileDB(file['path'], dir_to_check.type, dir_to_check.user_uid, null, dir_to_check.sub_id, null);
+                    if (file_obj) {
+                        imported_files.push(file_obj['uid']);
+                        logger.verbose(`Added discovered file to the database: ${file.id}`);
+                    } else {
+                        logger.error(`Failed to import ${file['path']} automatically.`);
+                    }
                 }
+            } catch (e) {
+                logger.error(`Unexpected error importing ${file['path']}: ${e.message}`);
             }
         }
     }
