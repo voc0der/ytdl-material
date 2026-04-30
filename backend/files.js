@@ -74,9 +74,59 @@ async function getDownloadedMediaPathsByType(basePath, type) {
 }
 
 async function getFileDirectoriesToCheck(user_uid = null) {
-    const dirs_to_check = await db_api.getFileDirectoriesAndDBs();
+    return await getFileDirectoriesToCheckWithOptions(user_uid);
+}
+
+function getLegacySingleUserDirectories() {
+    return [
+        {
+            basePath: config_api.getConfigItem('ytdl_audio_folder_path'),
+            type: 'audio',
+            legacy_single_user: true
+        },
+        {
+            basePath: config_api.getConfigItem('ytdl_video_folder_path'),
+            type: 'video',
+            legacy_single_user: true
+        }
+    ];
+}
+
+function isUnassignedDirectory(dir_to_check = null) {
+    return !!dir_to_check && (dir_to_check.user_uid === null || dir_to_check.user_uid === undefined);
+}
+
+function getDirectoryDeduplicationKey(dir_to_check = {}) {
+    return [
+        normalizePathForComparison(dir_to_check.basePath || ''),
+        dir_to_check.type || ''
+    ].join('\u0000');
+}
+
+function deduplicateDirectories(dirs_to_check = []) {
+    const seen_directories = new Set();
+    return dirs_to_check.filter(dir_to_check => {
+        if (!dir_to_check || !dir_to_check.basePath || !dir_to_check.type) return false;
+        const directory_key = getDirectoryDeduplicationKey(dir_to_check);
+        if (seen_directories.has(directory_key)) return false;
+        seen_directories.add(directory_key);
+        return true;
+    });
+}
+
+async function getFileDirectoriesToCheckWithOptions(user_uid = null, options = {}) {
+    let dirs_to_check = await db_api.getFileDirectoriesAndDBs();
+    if (options.include_legacy_single_user_dirs && config_api.getConfigItem('ytdl_multi_user_mode')) {
+        dirs_to_check = dirs_to_check.concat(getLegacySingleUserDirectories());
+    }
+
+    dirs_to_check = deduplicateDirectories(dirs_to_check);
     if (!shouldRestrictToUser(user_uid)) return dirs_to_check;
-    return dirs_to_check.filter(dir_to_check => dir_to_check.user_uid === user_uid);
+
+    return dirs_to_check.filter(dir_to_check => {
+        if (dir_to_check.user_uid === user_uid) return true;
+        return options.include_unassigned_dirs && isUnassignedDirectory(dir_to_check);
+    });
 }
 
 async function getRegisteredFilePathSummary(user_uid = null) {
@@ -1250,7 +1300,10 @@ exports.deleteFilesInBatches = async (uids = [], blacklistMode = false, user_uid
 }
 
 exports.deleteOrphanFiles = async (user_uid = null) => {
-    const dirs_to_check = await getFileDirectoriesToCheck(user_uid);
+    const dirs_to_check = await getFileDirectoriesToCheckWithOptions(user_uid, {
+        include_legacy_single_user_dirs: true,
+        include_unassigned_dirs: true
+    });
     const registered_file_path_summary = await getRegisteredFilePathSummary(user_uid);
     const registered_file_paths = registered_file_path_summary.paths;
     const registered_file_base_paths = registered_file_path_summary.base_paths;

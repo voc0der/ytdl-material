@@ -305,6 +305,74 @@ describe('Files', function() {
         }
     });
 
+    it('deleteOrphanFiles scans legacy single-user and unassigned subscription dirs in multi-user mode', async function() {
+        const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
+        const original_get_records = db_api.getRecords;
+        const original_multi_user_mode = config_api.getConfigItem('ytdl_multi_user_mode');
+        const original_audio_folder_path = config_api.getConfigItem('ytdl_audio_folder_path');
+        const original_video_folder_path = config_api.getConfigItem('ytdl_video_folder_path');
+        const legacy_audio_dir = path.join(fixture_dir, 'legacy-audio');
+        const legacy_video_dir = path.join(fixture_dir, 'legacy-video');
+        const user_video_dir = path.join(fixture_dir, 'users', 'user-1', 'video');
+        const other_user_video_dir = path.join(fixture_dir, 'users', 'user-2', 'video');
+        const unassigned_subscription_dir = path.join(fixture_dir, 'subscriptions', 'playlists', 'deleted-playlist');
+        const legacy_orphan_path = path.join(legacy_video_dir, 'legacy-orphan.mp4');
+        const legacy_info_path = path.join(legacy_video_dir, 'legacy-orphan.info.json');
+        const subscription_orphan_path = path.join(unassigned_subscription_dir, 'subscription-orphan.mp4');
+        const registered_user_path = path.join(user_video_dir, 'registered-user-video.mp4');
+        const other_user_path = path.join(other_user_video_dir, 'other-user-video.mp4');
+
+        try {
+            config_api.setConfigItem('ytdl_multi_user_mode', true);
+            config_api.setConfigItem('ytdl_audio_folder_path', legacy_audio_dir);
+            config_api.setConfigItem('ytdl_video_folder_path', legacy_video_dir);
+            await fs.outputFile(legacy_orphan_path, 'legacy orphan media');
+            await fs.outputFile(legacy_info_path, '{}');
+            await fs.outputFile(subscription_orphan_path, 'subscription orphan media');
+            await fs.outputFile(registered_user_path, 'registered user media');
+            await fs.outputFile(other_user_path, 'other user media');
+
+            db_api.getFileDirectoriesAndDBs = async () => [
+                {
+                    basePath: user_video_dir,
+                    user_uid: 'user-1',
+                    type: 'video'
+                },
+                {
+                    basePath: other_user_video_dir,
+                    user_uid: 'user-2',
+                    type: 'video'
+                },
+                {
+                    basePath: unassigned_subscription_dir,
+                    user_uid: undefined,
+                    type: 'video',
+                    sub_id: 'deleted-playlist'
+                }
+            ];
+            db_api.getRecords = async (table, filter_obj) => {
+                assert.strictEqual(table, 'files');
+                assert.deepStrictEqual(filter_obj, {user_uid: 'user-1'});
+                return [{uid: 'registered-user-video', path: registered_user_path, user_uid: 'user-1'}];
+            };
+
+            const output = await files_api.deleteOrphanFiles('user-1');
+
+            assert.deepStrictEqual(output, {deleted_count: 2, failed_count: 0});
+            assert.strictEqual(await fs.pathExists(legacy_orphan_path), false);
+            assert.strictEqual(await fs.pathExists(legacy_info_path), false);
+            assert.strictEqual(await fs.pathExists(subscription_orphan_path), false);
+            assert.strictEqual(await fs.pathExists(registered_user_path), true);
+            assert.strictEqual(await fs.pathExists(other_user_path), true);
+        } finally {
+            config_api.setConfigItem('ytdl_multi_user_mode', original_multi_user_mode);
+            config_api.setConfigItem('ytdl_audio_folder_path', original_audio_folder_path);
+            config_api.setConfigItem('ytdl_video_folder_path', original_video_folder_path);
+            db_api.getFileDirectoriesAndDBs = original_get_file_directories;
+            db_api.getRecords = original_get_records;
+        }
+    });
+
     it('importUnregisteredFiles imports loose media files without info JSON', async function() {
         const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
         const loose_file_path = path.join(fixture_dir, 'loose-import.mp4');
