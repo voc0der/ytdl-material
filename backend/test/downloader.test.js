@@ -703,6 +703,49 @@ describe('Downloader', function() {
         }
     });
 
+    it('Collect info keeps category custom output relative to the download folder', async function() {
+        const original_get_video_info = downloader_api.getVideoInfoByURL;
+        const custom_output = path.join('categorized', '%(title)s');
+        const expected_output_template = `${path.join(config_api.getConfigItem('ytdl_video_folder_path'), custom_output)}.%(ext)s`;
+
+        try {
+            await db_api.removeAllRecords('categories');
+            await db_api.insertRecordIntoTable('categories', {
+                name: 'categorized',
+                uid: uuid(),
+                rules: [{
+                    preceding_operator: null,
+                    comparator: 'includes',
+                    property: 'title',
+                    value: fixture_single[0].title
+                }],
+                custom_output: custom_output
+            });
+
+            downloader_api.getVideoInfoByURL = async (requestedUrl, requested_args = []) => {
+                const output_arg_index = requested_args.indexOf('-o');
+                const output_template = output_arg_index >= 0 ? requested_args[output_arg_index + 1] : fixture_single[0]._filename;
+                return [{
+                    ...fixture_single[0],
+                    _filename: output_template
+                        .replace('%(title)s', fixture_single[0].title)
+                        .replace('%(ext)s', 'mp4')
+                }];
+            };
+
+            const returned_download = await downloader_api.createDownload(url, 'video', {ui_uid: uuid()});
+            await downloader_api.collectInfo(returned_download['uid']);
+            const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            const output_arg_index = updated_download.args.indexOf('-o');
+
+            assert(output_arg_index >= 0);
+            assert.strictEqual(updated_download.args[output_arg_index + 1], expected_output_template);
+        } finally {
+            downloader_api.getVideoInfoByURL = original_get_video_info;
+            await db_api.removeAllRecords('categories');
+        }
+    });
+
     it('Collect info filters duplicate playlist items down to remaining playlist indices', async function() {
         const original_get_video_info = downloader_api.getVideoInfoByURL;
         const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
