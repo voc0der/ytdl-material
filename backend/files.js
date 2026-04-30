@@ -14,6 +14,8 @@ const MEDIA_EXTENSIONS_BY_TYPE = {
     audio: ['mp3'],
     video: ['mp4']
 };
+const SIDECAR_SCAN_EXTENSIONS = ['json', 'webp', 'jpg', 'png', 'nfo', 'vtt'];
+const MANAGED_SIDECAR_EXTENSIONS = ['.webp', '.jpg', '.png', '.nfo'];
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -35,6 +37,22 @@ function normalizePathForComparison(file_path = '') {
     return path.resolve(file_path);
 }
 
+function normalizeMediaBasePath(file_path = '') {
+    if (typeof file_path !== 'string' || file_path.trim() === '') return null;
+    return normalizePathForComparison(utils.removeFileExtension(file_path));
+}
+
+function uniqueNormalizedPaths(paths = []) {
+    const seen_paths = new Set();
+    return paths.filter(candidate_path => {
+        if (!candidate_path) return false;
+        const normalized_path = normalizePathForComparison(candidate_path);
+        if (seen_paths.has(normalized_path)) return false;
+        seen_paths.add(normalized_path);
+        return true;
+    });
+}
+
 function getExistingMediaPath(file_path, type) {
     const candidate_paths = [file_path, utils.getTrueFileName(file_path, type)]
         .filter((candidate_path, index, all_paths) => candidate_path && all_paths.indexOf(candidate_path) === index);
@@ -52,13 +70,7 @@ async function getDownloadedMediaPathsByType(basePath, type) {
         media_paths.push(...await utils.recFindByExt(basePath, extension));
     }
 
-    const seen_paths = new Set();
-    return media_paths.filter(media_path => {
-        const normalized_path = normalizePathForComparison(media_path);
-        if (seen_paths.has(normalized_path)) return false;
-        seen_paths.add(normalized_path);
-        return true;
-    });
+    return uniqueNormalizedPaths(media_paths);
 }
 
 async function getFileDirectoriesToCheck(user_uid = null) {
@@ -67,16 +79,67 @@ async function getFileDirectoriesToCheck(user_uid = null) {
     return dirs_to_check.filter(dir_to_check => dir_to_check.user_uid === user_uid);
 }
 
-async function getRegisteredFilePathSet(user_uid = null) {
+async function getRegisteredFilePathSummary(user_uid = null) {
     const filter_obj = {};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
 
     const all_files = await db_api.getRecords('files', filter_obj);
-    return new Set(
-        all_files
-            .filter(file_obj => file_obj && file_obj.path)
-            .map(file_obj => normalizePathForComparison(file_obj.path))
-    );
+    const registered_paths = new Set();
+    const registered_base_paths = new Set();
+
+    all_files
+        .filter(file_obj => file_obj && file_obj.path)
+        .forEach(file_obj => {
+            registered_paths.add(normalizePathForComparison(file_obj.path));
+            const normalized_base_path = normalizeMediaBasePath(file_obj.path);
+            if (normalized_base_path) registered_base_paths.add(normalized_base_path);
+        });
+
+    return {
+        paths: registered_paths,
+        base_paths: registered_base_paths
+    };
+}
+
+async function getRegisteredFilePathSet(user_uid = null) {
+    return (await getRegisteredFilePathSummary(user_uid)).paths;
+}
+
+function getSidecarMediaBasePath(sidecar_path, type) {
+    if (typeof sidecar_path !== 'string' || sidecar_path.trim() === '') return null;
+
+    const normalized_sidecar_path = normalizePathForComparison(sidecar_path);
+    const lower_sidecar_path = normalized_sidecar_path.toLowerCase();
+    const managed_media_extensions = getMediaExtensions(type).map(extension => `.${extension}`);
+
+    if (lower_sidecar_path.endsWith('.info.json')) {
+        const path_before_info_suffix = normalized_sidecar_path.substring(0, normalized_sidecar_path.length - '.info.json'.length);
+        const path_before_info_extension = path.extname(path_before_info_suffix).toLowerCase();
+        return managed_media_extensions.includes(path_before_info_extension)
+            ? normalizeMediaBasePath(path_before_info_suffix)
+            : normalizePathForComparison(path_before_info_suffix);
+    }
+
+    const subtitle_sidecar_match = normalized_sidecar_path.match(/\.player-subtitles(?:\.\d+)?\.vtt$/i);
+    if (subtitle_sidecar_match) {
+        return normalizePathForComparison(normalized_sidecar_path.substring(0, normalized_sidecar_path.length - subtitle_sidecar_match[0].length));
+    }
+
+    if (MANAGED_SIDECAR_EXTENSIONS.includes(path.extname(normalized_sidecar_path).toLowerCase())) {
+        return normalizeMediaBasePath(normalized_sidecar_path);
+    }
+
+    return null;
+}
+
+async function getDownloadedSidecarPathsByType(basePath, type) {
+    const sidecar_paths = [];
+    for (const extension of SIDECAR_SCAN_EXTENSIONS) {
+        sidecar_paths.push(...await utils.recFindByExt(basePath, extension));
+    }
+
+    return uniqueNormalizedPaths(sidecar_paths)
+        .filter(sidecar_path => getSidecarMediaBasePath(sidecar_path, type));
 }
 
 function getSidecarCandidatePaths(file_path, type) {
@@ -135,23 +198,103 @@ async function getExistingSidecarPaths(file_path, type) {
     return existing_paths;
 }
 
-async function deleteMediaAndSidecars(file_path, type) {
-    const sidecar_paths = await getExistingSidecarPaths(file_path, type);
+async function deleteSidecarPaths(sidecar_paths = []) {
+    const unique_sidecar_paths = uniqueNormalizedPaths(sidecar_paths);
 
-    for (const sidecar_path of sidecar_paths) {
-        await fs.unlink(sidecar_path);
+    for (const sidecar_path of unique_sidecar_paths) {
+        await fs.remove(sidecar_path);
     }
 
-    if (await fs.pathExists(file_path)) {
-        await fs.unlink(file_path);
-    }
-
-    if (await fs.pathExists(file_path)) return false;
-    for (const sidecar_path of sidecar_paths) {
+    for (const sidecar_path of unique_sidecar_paths) {
         if (await fs.pathExists(sidecar_path)) return false;
     }
 
     return true;
+}
+
+async function deleteMediaAndSidecars(file_path, type, additional_sidecar_paths = []) {
+    const sidecar_paths = uniqueNormalizedPaths([
+        ...await getExistingSidecarPaths(file_path, type),
+        ...additional_sidecar_paths
+    ]);
+
+    const sidecars_deleted = await deleteSidecarPaths(sidecar_paths);
+
+    if (await fs.pathExists(file_path)) {
+        await fs.remove(file_path);
+    }
+
+    if (await fs.pathExists(file_path)) return false;
+    return sidecars_deleted;
+}
+
+async function getCandidateMediaPathsForFileObject(file_obj = null, type = 'video') {
+    if (!file_obj || !file_obj.path) return [];
+
+    const expected_extension = getExpectedMediaExtension(type);
+    const basename_candidates = new Set();
+    const relative_path_candidates = new Set();
+    const direct_candidates = uniqueNormalizedPaths([
+        file_obj.path,
+        utils.getTrueFileName(file_obj.path, type)
+    ]);
+
+    for (const direct_candidate of direct_candidates) {
+        basename_candidates.add(path.basename(direct_candidate));
+    }
+
+    if (file_obj.id) {
+        basename_candidates.add(`${path.basename(file_obj.id)}${expected_extension}`);
+        const id_relative_path = path.normalize(`${file_obj.id}${expected_extension}`);
+        if (!path.isAbsolute(id_relative_path) && !id_relative_path.startsWith('..')) {
+            relative_path_candidates.add(id_relative_path);
+        }
+    }
+
+    const directory_candidates = [];
+    const dirs_to_check = await getFileDirectoriesToCheck(file_obj.user_uid);
+    for (const dir_to_check of dirs_to_check) {
+        if (dir_to_check.type !== type) continue;
+        if (file_obj.sub_id && dir_to_check.sub_id !== file_obj.sub_id) continue;
+        if (!file_obj.sub_id && dir_to_check.sub_id) continue;
+
+        for (const basename_candidate of basename_candidates) {
+            directory_candidates.push(path.join(dir_to_check.basePath, basename_candidate));
+        }
+        for (const relative_path_candidate of relative_path_candidates) {
+            directory_candidates.push(path.join(dir_to_check.basePath, relative_path_candidate));
+        }
+    }
+
+    return uniqueNormalizedPaths([
+        ...direct_candidates,
+        ...directory_candidates
+    ]);
+}
+
+async function resolveExistingMediaPathForFileObject(file_obj = null, type = 'video') {
+    const candidate_paths = await getCandidateMediaPathsForFileObject(file_obj, type);
+    const existing_paths = [];
+
+    for (const candidate_path of candidate_paths) {
+        if (await fs.pathExists(candidate_path)) {
+            existing_paths.push(normalizePathForComparison(candidate_path));
+        }
+    }
+
+    if (existing_paths.length === 0) return file_obj && file_obj.path ? file_obj.path : null;
+
+    const normalized_original_path = normalizePathForComparison(file_obj.path);
+    if (existing_paths.includes(normalized_original_path)) return file_obj.path;
+
+    const unique_existing_paths = [...new Set(existing_paths)];
+    if (unique_existing_paths.length === 1) {
+        logger.warn(`Resolved stale DB path '${file_obj.path}' to existing media file '${unique_existing_paths[0]}' before deletion.`);
+        return unique_existing_paths[0];
+    }
+
+    logger.warn(`Could not safely resolve stale DB path '${file_obj.path}' because multiple matching files exist.`);
+    return file_obj.path;
 }
 
 function normalizeChapter(raw_chapter) {
@@ -1010,8 +1153,12 @@ exports.calculatePlaylistDuration = async (playlist, playlist_file_objs = null) 
 exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     if (!file_obj) return false;
     const type = file_obj.isAudio ? 'audio' : 'video';
-    const sidecarPaths = await getExistingSidecarPaths(file_obj.path, type);
-    let fileExists = await fs.pathExists(file_obj.path);
+    const media_path_to_delete = await resolveExistingMediaPathForFileObject(file_obj, type);
+    if (!media_path_to_delete) return false;
+    const sidecarPaths = uniqueNormalizedPaths([
+        ...await getExistingSidecarPaths(media_path_to_delete, type),
+        ...(media_path_to_delete !== file_obj.path ? await getExistingSidecarPaths(file_obj.path, type) : [])
+    ]);
 
     if (config_api.descriptors[file_obj.uid]) {
         try {
@@ -1027,7 +1174,7 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
     if (useYoutubeDLArchive || file_obj.sub_id) {
         // get id/extractor from JSON
 
-        const info_json = utils.getJSON(file_obj.path, type);
+        const info_json = utils.getJSON(media_path_to_delete, type) || utils.getJSON(file_obj.path, type);
         let retrievedID = null;
         let retrievedExtractor = null;
         if (info_json) {
@@ -1048,26 +1195,14 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
         }
     }
 
-    for (const sidecarPath of sidecarPaths) {
-        await fs.unlink(sidecarPath);
-    }
+    const deleted = await deleteMediaAndSidecars(media_path_to_delete, type, sidecarPaths);
+    if (!deleted) return false;
 
     if (file_obj.uid) {
         await db_api.removeRecord('files', {uid: file_obj.uid});
     }
 
-    if (fileExists) {
-        await fs.unlink(file_obj.path);
-        const sidecarsStillExist = (await Promise.all(sidecarPaths.map(sidecarPath => fs.pathExists(sidecarPath)))).some(Boolean);
-        if (sidecarsStillExist || await fs.pathExists(file_obj.path)) {
-            return false;
-        } else {
-            return true;
-        }
-    } else {
-        // TODO: tell user that the file didn't exist
-        return true;
-    }
+    return true;
 }
 
 exports.deleteFile = async (uid, blacklistMode = false, user_uid = null) => {
@@ -1116,22 +1251,42 @@ exports.deleteFilesInBatches = async (uids = [], blacklistMode = false, user_uid
 
 exports.deleteOrphanFiles = async (user_uid = null) => {
     const dirs_to_check = await getFileDirectoriesToCheck(user_uid);
-    const registered_file_paths = await getRegisteredFilePathSet(user_uid);
+    const registered_file_path_summary = await getRegisteredFilePathSummary(user_uid);
+    const registered_file_paths = registered_file_path_summary.paths;
+    const registered_file_base_paths = registered_file_path_summary.base_paths;
     const orphan_files = [];
+    const orphan_media_base_paths = new Set();
+    const orphan_sidecar_groups = new Map();
 
     for (const dir_to_check of dirs_to_check) {
         const files = await getDownloadedMediaPathsByType(dir_to_check.basePath, dir_to_check.type);
         for (const file_path of files) {
             if (!registered_file_paths.has(normalizePathForComparison(file_path))) {
+                const media_base_path = normalizeMediaBasePath(file_path);
+                if (media_base_path) orphan_media_base_paths.add(media_base_path);
                 orphan_files.push({
                     path: file_path,
                     type: dir_to_check.type
                 });
             }
         }
+
+        const sidecar_paths = await getDownloadedSidecarPathsByType(dir_to_check.basePath, dir_to_check.type);
+        for (const sidecar_path of sidecar_paths) {
+            const media_base_path = getSidecarMediaBasePath(sidecar_path, dir_to_check.type);
+            if (!media_base_path) continue;
+            if (orphan_media_base_paths.has(media_base_path)) continue;
+            if (registered_file_base_paths.has(media_base_path)) continue;
+
+            if (!orphan_sidecar_groups.has(media_base_path)) {
+                orphan_sidecar_groups.set(media_base_path, []);
+            }
+            orphan_sidecar_groups.get(media_base_path).push(sidecar_path);
+        }
     }
 
-    if (orphan_files.length === 0) return {deleted_count: 0, failed_count: 0};
+    const orphan_sidecar_group_paths = [...orphan_sidecar_groups.values()];
+    if (orphan_files.length === 0 && orphan_sidecar_group_paths.length === 0) return {deleted_count: 0, failed_count: 0};
 
     let deleted_count = 0;
     let failed_count = 0;
@@ -1139,6 +1294,21 @@ exports.deleteOrphanFiles = async (user_uid = null) => {
         const batch_orphan_files = orphan_files.slice(i, i + PLAYLIST_FILE_DELETE_BATCH_SIZE);
         const batch_results = await Promise.allSettled(
             batch_orphan_files.map(orphan_file => deleteMediaAndSidecars(orphan_file.path, orphan_file.type))
+        );
+
+        for (const result of batch_results) {
+            if (result.status === 'fulfilled' && result.value) {
+                deleted_count += 1;
+            } else {
+                failed_count += 1;
+            }
+        }
+    }
+
+    for (let i = 0; i < orphan_sidecar_group_paths.length; i += PLAYLIST_FILE_DELETE_BATCH_SIZE) {
+        const batch_orphan_sidecar_groups = orphan_sidecar_group_paths.slice(i, i + PLAYLIST_FILE_DELETE_BATCH_SIZE);
+        const batch_results = await Promise.allSettled(
+            batch_orphan_sidecar_groups.map(sidecar_paths => deleteSidecarPaths(sidecar_paths))
         );
 
         for (const result of batch_results) {

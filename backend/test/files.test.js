@@ -125,6 +125,48 @@ describe('Files', function() {
         }
     });
 
+    it('deleteFileObject removes media from disk when the DB path is stale', async function() {
+        const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
+        const original_remove_record = db_api.removeRecord;
+        const actual_file_path = path.join(fixture_dir, 'stale-video.mp4');
+        const stale_file_path = path.join(fixture_dir, 'old-location', 'stale-video.mp4');
+        const actual_info_path = path.join(fixture_dir, 'stale-video.info.json');
+        const actual_thumbnail_path = path.join(fixture_dir, 'stale-video.webp');
+        let removed_filter = null;
+
+        try {
+            await fs.writeFile(actual_file_path, 'fixture');
+            await fs.writeFile(actual_info_path, '{}');
+            await fs.writeFile(actual_thumbnail_path, 'thumbnail');
+            db_api.getFileDirectoriesAndDBs = async () => [{
+                basePath: fixture_dir,
+                type: 'video'
+            }];
+            db_api.removeRecord = async (table, filter_obj) => {
+                assert.strictEqual(table, 'files');
+                removed_filter = filter_obj;
+                return true;
+            };
+
+            const output = await files_api.deleteFileObject({
+                uid: 'stale-file',
+                id: 'stale-video',
+                path: stale_file_path,
+                isAudio: false,
+                title: 'Stale video'
+            });
+
+            assert.strictEqual(output, true);
+            assert.deepStrictEqual(removed_filter, {uid: 'stale-file'});
+            assert.strictEqual(await fs.pathExists(actual_file_path), false);
+            assert.strictEqual(await fs.pathExists(actual_info_path), false);
+            assert.strictEqual(await fs.pathExists(actual_thumbnail_path), false);
+        } finally {
+            db_api.getFileDirectoriesAndDBs = original_get_file_directories;
+            db_api.removeRecord = original_remove_record;
+        }
+    });
+
     it('deleteFilesInBatches deduplicates playlist files and caps batch concurrency', async function() {
         const original_get_videos_by_uids = files_api.getVideosByUIDs;
         const original_delete_file_object = files_api.deleteFileObject;
@@ -224,6 +266,39 @@ describe('Files', function() {
             assert.strictEqual(await fs.pathExists(orphan_thumbnail_path), false);
             assert.strictEqual(await fs.pathExists(orphan_subtitle_path), false);
             assert.strictEqual(await fs.pathExists(registered_file_path), true);
+        } finally {
+            db_api.getFileDirectoriesAndDBs = original_get_file_directories;
+            db_api.getRecords = original_get_records;
+        }
+    });
+
+    it('deleteOrphanFiles removes sidecar-only orphan groups from disk', async function() {
+        const original_get_file_directories = db_api.getFileDirectoriesAndDBs;
+        const original_get_records = db_api.getRecords;
+        const sidecar_info_path = path.join(fixture_dir, 'sidecar-only.info.json');
+        const sidecar_thumbnail_path = path.join(fixture_dir, 'sidecar-only.webp');
+        const sidecar_subtitle_path = files_api.getSubtitleSidecarPath(path.join(fixture_dir, 'sidecar-only.mp4'));
+
+        try {
+            await fs.writeFile(sidecar_info_path, '{}');
+            await fs.writeFile(sidecar_thumbnail_path, 'thumbnail');
+            await fs.writeFile(sidecar_subtitle_path, 'WEBVTT');
+
+            db_api.getFileDirectoriesAndDBs = async () => [{
+                basePath: fixture_dir,
+                type: 'video'
+            }];
+            db_api.getRecords = async (table) => {
+                assert.strictEqual(table, 'files');
+                return [];
+            };
+
+            const output = await files_api.deleteOrphanFiles();
+
+            assert.deepStrictEqual(output, {deleted_count: 1, failed_count: 0});
+            assert.strictEqual(await fs.pathExists(sidecar_info_path), false);
+            assert.strictEqual(await fs.pathExists(sidecar_thumbnail_path), false);
+            assert.strictEqual(await fs.pathExists(sidecar_subtitle_path), false);
         } finally {
             db_api.getFileDirectoriesAndDBs = original_get_file_directories;
             db_api.getRecords = original_get_records;

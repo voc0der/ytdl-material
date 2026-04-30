@@ -1724,7 +1724,6 @@ exports.collectInfo = async (download_uid) => {
     // set custom output if the category has one and re-retrieve info so the download manager has the right file name
     if (category && category['custom_output']) {
         options.customOutput = category['custom_output'];
-        options.noRelativePath = true;
         args = await exports.generateArgs(url, type, options, download['user_uid']);
         info = await exports.getVideoInfoByURL(url, args, download_uid, options);
     }
