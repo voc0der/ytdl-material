@@ -17,6 +17,8 @@ describe('DownloadsComponent', () => {
       initialized: true,
       service_initialized: of(true),
       getCurrentDownloads: jasmine.createSpy('getCurrentDownloads').and.returnValue(of({downloads: []})),
+      pauseDownload: jasmine.createSpy('pauseDownload').and.returnValue(of({success: true})),
+      resumeDownload: jasmine.createSpy('resumeDownload').and.returnValue(of({success: true})),
       restartDownload: jasmine.createSpy('restartDownload').and.returnValue(of({success: true})),
       openSnackBar: jasmine.createSpy('openSnackBar')
     };
@@ -116,6 +118,34 @@ describe('DownloadsComponent', () => {
     component.retryFailedDownloads();
 
     expect(posts_service_mock.openSnackBar).toHaveBeenCalled();
+  });
+
+  it('shows resume instead of pause for paused downloads interrupted mid-step', () => {
+    const pause_action = component.downloadActions.find(action => action.icon === 'pause')!;
+    const resume_action = component.downloadActions.find(action => action.icon === 'play_arrow')!;
+    const interrupted_download = {
+      uid: 'paused-mid-step',
+      finished: false,
+      paused: true,
+      finished_step: false
+    } as unknown as Download;
+
+    expect(pause_action.show(interrupted_download)).toBeFalse();
+    expect(resume_action.show(interrupted_download)).toBeTrue();
+  });
+
+  it('resumes paused downloads even when their queue step needs retrying', () => {
+    const interrupted_download = {
+      uid: 'paused-mid-step',
+      finished: false,
+      paused: true,
+      finished_step: false
+    } as unknown as Download;
+
+    component.resumeDownload(interrupted_download);
+
+    expect(posts_service_mock.resumeDownload).toHaveBeenCalledOnceWith('paused-mid-step');
+    expect(posts_service_mock.pauseDownload).not.toHaveBeenCalled();
   });
 
   it('persists the downloads page size', () => {

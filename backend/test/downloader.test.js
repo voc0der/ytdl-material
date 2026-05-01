@@ -1695,6 +1695,41 @@ describe('Downloader', function() {
         assert(updated_download['paused'] && !updated_download['running']);
     });
 
+    it('Pausing an active queue step makes it resumable from the previous step', async function() {
+        const returned_download = await downloader_api.createDownload(`${url}&pause_mid_step=1`, 'video', options);
+        await db_api.updateRecord('download_queue', {uid: returned_download['uid']}, {
+            step_index: 2,
+            finished_step: false,
+            running: true
+        });
+
+        await downloader_api.pauseDownload(returned_download['uid']);
+
+        const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+        assert.strictEqual(updated_download['paused'], true);
+        assert.strictEqual(updated_download['running'], false);
+        assert.strictEqual(updated_download['finished_step'], true);
+        assert.strictEqual(updated_download['step_index'], 1);
+    });
+
+    it('Resume repairs legacy paused downloads interrupted mid-step', async function() {
+        const returned_download = await downloader_api.createDownload(`${url}&legacy_paused_mid_step=1`, 'video', options);
+        await db_api.updateRecord('download_queue', {uid: returned_download['uid']}, {
+            paused: true,
+            step_index: 2,
+            finished_step: false,
+            running: false
+        });
+
+        await downloader_api.resumeDownload(returned_download['uid']);
+
+        const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+        assert.strictEqual(updated_download['paused'], false);
+        assert.strictEqual(updated_download['running'], false);
+        assert.strictEqual(updated_download['finished_step'], true);
+        assert.strictEqual(updated_download['step_index'], 1);
+    });
+
     it('Generate args', async function() {
         const args = await downloader_api.generateArgs(url, 'video', options);
         assert(args.length > 0);

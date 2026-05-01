@@ -1373,7 +1373,7 @@ exports.pauseDownload = async (download_uid) => {
     }
 
     killActiveDownload(download);
-    return await db_api.updateRecord('download_queue', {uid: download_uid}, {paused: true, running: false});
+    return await db_api.updateRecord('download_queue', {uid: download_uid}, getPausedDownloadUpdate(download));
 }
 
 exports.resumeDownload = async (download_uid) => {
@@ -1384,7 +1384,7 @@ exports.resumeDownload = async (download_uid) => {
             return false;
         }
 
-        const success = db_api.updateRecord('download_queue', {uid: download_uid}, {paused: false});
+        const success = await db_api.updateRecord('download_queue', {uid: download_uid}, getResumedDownloadUpdate(download));
         should_check_downloads = true;
         return success;
     })
@@ -1504,15 +1504,34 @@ async function fixDownloadState() {
     downloads.sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
     const running_downloads = downloads.filter(download => download['running'] && !download['finished'] && !download['error']);
     for (let i = 0; i < running_downloads.length; i++) {
-        const running_download = running_downloads[i];
-        const update_obj = {finished_step: true, paused: true, running: false};
-        if (running_download['step_index'] > 0) {
-            update_obj['step_index'] = running_download['step_index'] - 1;
-        }
-        await db_api.updateRecord('download_queue', {uid: running_download['uid']}, update_obj);
+        await db_api.updateRecord('download_queue', {uid: running_downloads[i]['uid']}, getPausedDownloadUpdate(running_downloads[i]));
     }
 }
 exports.fixDownloadState = fixDownloadState;
+
+function getRetryableDownloadStepUpdate(download) {
+    const update_obj = {finished_step: true, running: false};
+    if (download['step_index'] > 0) {
+        update_obj['step_index'] = download['step_index'] - 1;
+    }
+    return update_obj;
+}
+
+function getPausedDownloadUpdate(download) {
+    const update_obj = {paused: true, running: false};
+    if (download['running'] || !download['finished_step']) {
+        Object.assign(update_obj, getRetryableDownloadStepUpdate(download));
+    }
+    return update_obj;
+}
+
+function getResumedDownloadUpdate(download) {
+    const update_obj = {paused: false};
+    if (download['running'] || !download['finished_step']) {
+        Object.assign(update_obj, getRetryableDownloadStepUpdate(download));
+    }
+    return update_obj;
+}
 
 async function checkDownloads() {
     if (!should_check_downloads) return;

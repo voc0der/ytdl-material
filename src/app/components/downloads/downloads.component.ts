@@ -81,13 +81,13 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     {
       tooltip: $localize`Pause`,
       action: (download: Download) => this.pauseDownload(download),
-      show: (download: Download) => !download.finished && (!download.paused || !download.finished_step),
+      show: (download: Download) => !download.finished && !download.paused,
       icon: 'pause'
     },
     {
       tooltip: $localize`Resume`,
       action: (download: Download) => this.resumeDownload(download),
-      show: (download: Download) => !download.finished && download.paused && download.finished_step,
+      show: (download: Download) => !download.finished && download.paused,
       icon: 'play_arrow'
     },
     {
@@ -223,7 +223,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   pauseDownload(download: Download): void {
     const target_downloads = this.getActionTargetDownloads(download)
-      .filter(target_download => !target_download.finished && (!target_download.paused || !target_download.finished_step));
+      .filter(target_download => !target_download.finished && !target_download.paused);
     this.runSuccessActionForDownloads(
       target_downloads,
       (download_uid: string) => this.postsService.pauseDownload(download_uid),
@@ -241,7 +241,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   resumeDownload(download: Download): void {
     const target_downloads = this.getActionTargetDownloads(download)
-      .filter(target_download => !target_download.finished && target_download.paused && target_download.finished_step);
+      .filter(target_download => !target_download.finished && target_download.paused);
     this.runSuccessActionForDownloads(
       target_downloads,
       (download_uid: string) => this.postsService.resumeDownload(download_uid),
