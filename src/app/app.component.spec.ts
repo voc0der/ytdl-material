@@ -93,6 +93,14 @@ describe('AppComponent', () => {
     expect(component.active_downloads.map(download => download.uid)).toEqual(['active-2', 'active-1']);
   });
 
+  it('requests only unfinished downloads for active download polling', () => {
+    posts_service_mock.getCurrentDownloads = jasmine.createSpy('getCurrentDownloads').and.returnValue(of({downloads: []}));
+
+    (component as any).refreshActiveDownloads();
+
+    expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledWith(null, true);
+  });
+
   it('does not auto-open on initial active download load', () => {
     const show_spy = spyOn<any>(component, 'showActiveDownloadsMenuTemporarily');
     (component as any).active_downloads_initialized = false;

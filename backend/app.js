@@ -2677,6 +2677,7 @@ app.get('/api/thumbnail/:path', optionalJwt, async (req, res) => {
 app.post('/api/downloads', optionalJwt, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const uids = req.body.uids;
+    const only_unfinished = req.body.only_unfinished === true;
     const filter_obj = getScopedFilterByUser(user_uid);
     if (Array.isArray(uids)) {
         if (uids.length === 0) {
@@ -2684,7 +2685,7 @@ app.post('/api/downloads', optionalJwt, async (req, res) => {
             return;
         }
         filter_obj['uid'] = {$in: uids};
-    } else {
+    } else if (only_unfinished) {
         filter_obj['finished'] = false;
     }
     const downloads = await db_api.getRecords('download_queue', filter_obj);
@@ -3183,9 +3184,14 @@ app.post('/api/setNotificationsToRead', optionalJwt, async (req, res) => {
 });
 
 app.post('/api/deleteNotification', optionalJwt, async (req, res) => {
-    const uid = req.isAuthenticated() ? req.user.uid : null;
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const notification_uid = req.body.uid;
+    if (!notification_uid) {
+        res.send({success: false});
+        return;
+    }
 
-    const success = await db_api.removeRecord('notifications', {uid: uid});
+    const success = await db_api.removeRecord('notifications', {uid: notification_uid, user_uid: user_uid});
 
     res.send({success: success});
 });

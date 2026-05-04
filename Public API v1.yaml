@@ -1810,6 +1810,9 @@ components:
             type: string
           description: Filters downloads with the array
           nullable: true
+        only_unfinished:
+          type: boolean
+          description: Filters downloads to unfinished queue items
     GetAllDownloadsResponse:
       type: object
       properties:
