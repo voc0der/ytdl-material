@@ -435,7 +435,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.postsService.getCurrentDownloads().subscribe(res => {
+    this.postsService.getCurrentDownloads(null, true).subscribe(res => {
       const downloads = Array.isArray(res && res['downloads']) ? res['downloads'] : [];
       const completion_summary = this.detectSuccessfulCompletion(downloads);
       const active_downloads = downloads

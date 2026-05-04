@@ -693,8 +693,8 @@ export class PostsService {
         return this.http.post<GetAllSubscriptionsResponse>(this.path + 'getSubscriptions', {}, this.httpOptions);
     }
 
-    getCurrentDownloads(uids: Array<string> = null) {
-        const body: GetAllDownloadsRequest = {uids: uids};
+    getCurrentDownloads(uids: Array<string> = null, only_unfinished = false) {
+        const body: GetAllDownloadsRequest = {uids: uids, only_unfinished: only_unfinished};
         return this.http.post<GetAllDownloadsResponse>(this.path + 'downloads', body, this.httpOptions);
     }
 
