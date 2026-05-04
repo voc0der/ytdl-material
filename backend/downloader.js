@@ -47,6 +47,8 @@ const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
     'this live event will begin',
     'no output received for video download'
 ];
+const SUBSCRIPTION_REFRESH_QUEUED_PHASE = 'queued';
+const SUBSCRIPTION_REFRESH_COMPLETE_PHASE = 'complete';
 let filename_sanitization_non_ytdlp_warned = false;
 let last_download_queue_start_at = 0;
 
@@ -178,6 +180,13 @@ function isSkippableSubscriptionDownloadError(error_message = '', error_type = n
 
     const normalized_message = error_message.toLowerCase();
     return SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT.some(error_text => normalized_message.includes(error_text));
+}
+exports.isSkippableSubscriptionDownloadError = isSkippableSubscriptionDownloadError;
+
+function asNonNegativeInteger(value, default_value = 0) {
+    const numeric_value = Number(value);
+    if (!Number.isFinite(numeric_value)) return default_value;
+    return Math.max(0, Math.floor(numeric_value));
 }
 
 function escapeRegexCharacterClassChar(char = '') {
@@ -1444,12 +1453,48 @@ async function handleDownloadError(download_uid, error_message, error_type = nul
     await archiveSkippedSubscriptionDownload(download, error_message, error_type);
     notifications_api.sendDownloadErrorNotification(download, download['user_uid'], error_message, error_type);
     await db_api.updateRecord('download_queue', {uid: download['uid']}, {error: error_message, finished: true, running: false, error_type: error_type});
+    await updateSubscriptionRefreshStatusForSkippedDownload(download, error_message, error_type);
 }
 
 async function archiveSkippedSubscriptionDownload(download = null, error_message = '', error_type = null) {
     if (!download || !download['sub_id']) return false;
     if (!isSkippableSubscriptionDownloadError(error_message, error_type)) return false;
     return await archiveSubscriptionDownloadBySource(download, `after ${error_type || 'download failure'}`);
+}
+
+async function updateSubscriptionRefreshStatusForSkippedDownload(download = null, error_message = '', error_type = null) {
+    if (!download || !download['sub_id']) return false;
+    if (!isSkippableSubscriptionDownloadError(error_message, error_type)) return false;
+
+    const sub = await db_api.getRecord('subscriptions', {id: download['sub_id']});
+    if (!sub) return false;
+
+    const refresh_status = sub['refresh_status'] && typeof sub['refresh_status'] === 'object'
+        ? {...sub['refresh_status']}
+        : {};
+    const skipped_count = asNonNegativeInteger(refresh_status['skipped_count']) + 1;
+    const queued_count = asNonNegativeInteger(refresh_status['queued_count']);
+    const [pending_download_count, running_download_count] = await Promise.all([
+        db_api.getRecords('download_queue', {sub_id: download['sub_id'], finished: false}, true),
+        db_api.getRecords('download_queue', {sub_id: download['sub_id'], running: true, finished: false}, true)
+    ]);
+    const should_mark_complete = refresh_status['phase'] === SUBSCRIPTION_REFRESH_QUEUED_PHASE
+        && queued_count > 0
+        && skipped_count >= queued_count
+        && pending_download_count === 0
+        && running_download_count === 0;
+
+    const updated_refresh_status = {
+        ...refresh_status,
+        skipped_count: skipped_count,
+        updated_at: Date.now()
+    };
+    if (should_mark_complete) {
+        updated_refresh_status['phase'] = SUBSCRIPTION_REFRESH_COMPLETE_PHASE;
+        updated_refresh_status['completed_at'] = updated_refresh_status['completed_at'] || Date.now();
+    }
+
+    return await db_api.updateRecord('subscriptions', {id: download['sub_id']}, {refresh_status: updated_refresh_status});
 }
 
 async function archiveSubscriptionDownloadBySource(download = null, reason = 'after being skipped') {

@@ -152,4 +152,29 @@ describe('SubscriptionComponent', () => {
 
     expect(router.navigate).toHaveBeenCalledWith(['/downloads']);
   });
+
+  it('should describe skipped downloads instead of leaving queued wording behind', () => {
+    component.subscription = {
+      id: 'sub-1',
+      name: 'Test subscription',
+      downloading: false,
+      refresh_status: {
+        phase: 'complete',
+        active: false,
+        new_items_count: 2,
+        queued_count: 2,
+        skipped_count: 2,
+        pending_download_count: 0,
+        running_download_count: 0
+      },
+      videos: []
+    } as any;
+
+    expect(component.shouldShowRefreshStatus()).toBeTrue();
+    expect(component.getRefreshHeadline()).toBe('Downloads skipped');
+    expect(component.getRefreshDescription()).toContain('were skipped');
+    expect(component.getRefreshMetrics()).toContain('2 skipped');
+    expect(component.getRefreshMetrics()).not.toContain('2 queued');
+    expect(component.canOpenDownloads()).toBeFalse();
+  });
 });

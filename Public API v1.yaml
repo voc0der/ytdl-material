@@ -2982,6 +2982,8 @@ components:
           nullable: true
         queued_count:
           type: number
+        skipped_count:
+          type: number
         latest_item_title:
           type: string
           nullable: true

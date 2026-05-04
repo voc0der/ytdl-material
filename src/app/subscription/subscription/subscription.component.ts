@@ -149,6 +149,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       || refresh_status.active
       || refresh_status.pending_download_count > 0
       || refresh_status.running_download_count > 0
+      || refresh_status.skipped_count > 0
       || refresh_status.started_at
       || refresh_status.completed_at
     ));
@@ -161,6 +162,12 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
 
   getRefreshHeadline(): string {
     const refresh_status = this.getRefreshStatus();
+    if (this.hasSkippedDownloads(refresh_status) && !this.hasUnfinishedDownloads(refresh_status)) {
+      return this.getQueuedAfterSkippedCount(refresh_status) > 0
+        ? $localize`Refresh completed with skips`
+        : $localize`Downloads skipped`;
+    }
+
     switch (refresh_status?.phase) {
     case 'collecting':
       return $localize`Checking channel metadata`;
@@ -186,6 +193,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   getRefreshDescription(): string {
     const refresh_status = this.getRefreshStatus();
     const latest_item_title = refresh_status?.latest_item_title ? ` "${refresh_status.latest_item_title}"` : '';
+    if (this.hasSkippedDownloads(refresh_status) && !this.hasUnfinishedDownloads(refresh_status) && !refresh_status?.active) {
+      return this.getSkippedRefreshDescription(refresh_status);
+    }
+
     switch (refresh_status?.phase) {
     case 'collecting':
       return $localize`The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.` + latest_item_title;
@@ -195,10 +206,19 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         : $localize`The metadata scan finished. The app is preparing download jobs now.`;
     case 'queued':
       if (refresh_status?.pending_download_count > 0) {
+        if (this.hasSkippedDownloads(refresh_status)) {
+          return $localize`Download jobs are queued, and ${this.getSkippedCount(refresh_status)}:skipped count: were skipped because they are unavailable or members-only. New files will appear here as each download completes.`;
+        }
         return $localize`Download jobs are queued. New files will appear here as each download completes.`;
+      }
+      if (this.hasSkippedDownloads(refresh_status)) {
+        return this.getSkippedRefreshDescription(refresh_status);
       }
       return $localize`The refresh queued download jobs successfully.`;
     case 'complete':
+      if (this.hasSkippedDownloads(refresh_status)) {
+        return this.getSkippedRefreshDescription(refresh_status);
+      }
       return refresh_status?.new_items_count > 0
         ? $localize`The refresh finished successfully.`
         : $localize`The last refresh did not find any new videos to download.`;
@@ -253,6 +273,8 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     if (!refresh_status) return [];
 
     const metrics: string[] = [];
+    const skipped_count = this.getSkippedCount(refresh_status);
+    const queued_count = this.getQueuedAfterSkippedCount(refresh_status);
     if (refresh_status.phase === 'collecting') {
       if (refresh_status.total_count > 0) {
         metrics.push($localize`${refresh_status.discovered_count}:discovered count: / ${refresh_status.total_count}:total count: items scanned`);
@@ -265,8 +287,12 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       metrics.push($localize`${refresh_status.new_items_count}:new items count: new downloads found`);
     }
 
-    if (refresh_status.queued_count > 0) {
-      metrics.push($localize`${refresh_status.queued_count}:queued count: queued`);
+    if (queued_count > 0) {
+      metrics.push($localize`${queued_count}:queued count: queued`);
+    }
+
+    if (skipped_count > 0) {
+      metrics.push($localize`${skipped_count}:skipped count: skipped`);
     }
 
     if (refresh_status.running_download_count > 0) {
@@ -278,6 +304,39 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     }
 
     return metrics;
+  }
+
+  private getSkippedCount(refresh_status: SubscriptionRefreshStatus | null = this.getRefreshStatus()): number {
+    return Math.max(0, Math.floor(Number(refresh_status?.skipped_count) || 0));
+  }
+
+  private hasSkippedDownloads(refresh_status: SubscriptionRefreshStatus | null = this.getRefreshStatus()): boolean {
+    return this.getSkippedCount(refresh_status) > 0;
+  }
+
+  private hasUnfinishedDownloads(refresh_status: SubscriptionRefreshStatus | null = this.getRefreshStatus()): boolean {
+    return !!(refresh_status && (refresh_status.pending_download_count > 0 || refresh_status.running_download_count > 0));
+  }
+
+  private getQueuedAfterSkippedCount(refresh_status: SubscriptionRefreshStatus | null = this.getRefreshStatus()): number {
+    const queued_count = Math.max(0, Math.floor(Number(refresh_status?.queued_count) || 0));
+    if (this.hasUnfinishedDownloads(refresh_status)) {
+      const unfinished_count = Math.max(
+        Number(refresh_status?.pending_download_count) || 0,
+        Number(refresh_status?.running_download_count) || 0
+      );
+      return Math.max(unfinished_count, queued_count - this.getSkippedCount(refresh_status));
+    }
+    return Math.max(0, queued_count - this.getSkippedCount(refresh_status));
+  }
+
+  private getSkippedRefreshDescription(refresh_status: SubscriptionRefreshStatus | null): string {
+    const skipped_count = this.getSkippedCount(refresh_status);
+    const found_count = Math.max(0, Math.floor(Number(refresh_status?.new_items_count) || 0));
+    if (found_count > skipped_count) {
+      return $localize`The refresh found ${found_count}:new item count: new item(s), but ${skipped_count}:skipped count: were skipped because they are unavailable or members-only.`;
+    }
+    return $localize`The refresh found ${skipped_count}:skipped count: new item(s), but they were skipped because they are unavailable or members-only.`;
   }
 
   canOpenDownloads(): boolean {

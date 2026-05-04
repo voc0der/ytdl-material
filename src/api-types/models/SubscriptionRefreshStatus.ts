@@ -9,6 +9,7 @@ export type SubscriptionRefreshStatus = {
     total_count?: number | null;
     new_items_count?: number | null;
     queued_count?: number;
+    skipped_count?: number;
     latest_item_title?: string | null;
     started_at?: number | null;
     updated_at?: number | null;

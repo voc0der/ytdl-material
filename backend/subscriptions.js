@@ -363,11 +363,12 @@ async function archiveSkippedJoinOnlySubscriptionOutput(output_json = null, sub 
     return true;
 }
 
-async function shouldSkipSubscriptionOutput(output_json = null, sub = null, discovery_filter_context = null) {
+async function shouldSkipSubscriptionOutput(output_json = null, sub = null, discovery_filter_context = null, skip_context = null) {
     if (!output_json || typeof output_json !== 'object') return true;
 
     if (config_api.getConfigItem('ytdl_skip_join_only_videos') && isJoinOnlySubscriptionOutput(output_json)) {
         await archiveSkippedJoinOnlySubscriptionOutput(output_json, sub);
+        if (skip_context) skip_context.skipped_count = asFiniteCount(skip_context.skipped_count, 0) + 1;
         logger.info(`Skipping join-only subscription video '${output_json.webpage_url || output_json.url || output_json.id}'.`);
         return true;
     }
@@ -400,6 +401,7 @@ function normalizeSubscriptionRefreshStatus(refresh_status = null) {
         total_count: null,
         new_items_count: null,
         queued_count: 0,
+        skipped_count: 0,
         latest_item_title: null,
         started_at: null,
         updated_at: null,
@@ -419,6 +421,7 @@ function normalizeSubscriptionRefreshStatus(refresh_status = null) {
     normalized_refresh_status.total_count = normalizeNullableCount(refresh_status.total_count);
     normalized_refresh_status.new_items_count = normalizeNullableCount(refresh_status.new_items_count);
     normalized_refresh_status.queued_count = asFiniteCount(refresh_status.queued_count, 0);
+    normalized_refresh_status.skipped_count = asFiniteCount(refresh_status.skipped_count, 0);
     normalized_refresh_status.latest_item_title = normalizeNullableString(refresh_status.latest_item_title);
     normalized_refresh_status.started_at = normalizeNullableCount(refresh_status.started_at);
     normalized_refresh_status.updated_at = normalizeNullableCount(refresh_status.updated_at);
@@ -438,6 +441,7 @@ function createInitialSubscriptionRefreshStatus() {
         total_count: null,
         new_items_count: null,
         queued_count: 0,
+        skipped_count: 0,
         latest_item_title: null,
         started_at: now,
         updated_at: now,
@@ -476,6 +480,7 @@ function createSubscriptionRefreshTracker(sub) {
         last_persisted_discovered_count: 0,
         last_persisted_total_count: null,
         last_persisted_queued_count: 0,
+        last_persisted_skipped_count: 0,
         last_persisted_phase: refresh_status.phase
     };
 
@@ -536,17 +541,21 @@ async function maybePersistSubscriptionRefreshStatus(tracker, force = false) {
         || (tracker.refresh_status.discovered_count - tracker.last_persisted_discovered_count) >= SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL;
     const should_persist_queued_count = tracker.refresh_status.queued_count === 1
         || (tracker.refresh_status.queued_count - tracker.last_persisted_queued_count) >= SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL;
+    const should_persist_skipped_count = tracker.refresh_status.skipped_count === 1
+        || (tracker.refresh_status.skipped_count - tracker.last_persisted_skipped_count) >= SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL;
     const should_persist = force
         || tracker.refresh_status.phase !== tracker.last_persisted_phase
         || tracker.refresh_status.total_count !== tracker.last_persisted_total_count
         || should_persist_discovered_count
-        || should_persist_queued_count;
+        || should_persist_queued_count
+        || should_persist_skipped_count;
     if (!should_persist) return false;
 
     await persistSubscriptionRefreshStatus(tracker.sub_id, tracker.refresh_status);
     tracker.last_persisted_discovered_count = tracker.refresh_status.discovered_count;
     tracker.last_persisted_total_count = tracker.refresh_status.total_count;
     tracker.last_persisted_queued_count = tracker.refresh_status.queued_count;
+    tracker.last_persisted_skipped_count = tracker.refresh_status.skipped_count;
     tracker.last_persisted_phase = tracker.refresh_status.phase;
     return true;
 }
@@ -657,7 +666,8 @@ async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_trac
             concurrentQueueGroupKey: 'subscription-downloads',
             concurrentQueueGroupLimit: downloader_api.getExclusivePlaylistConcurrencyLimit()
         },
-        queued_count: 0
+        queued_count: 0,
+        skipped_count: 0
     };
 
     if (refresh_tracker) {
@@ -668,14 +678,34 @@ async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_trac
             total_count: refresh_tracker.refresh_status.total_count === null
                 ? refresh_tracker.refresh_status.discovered_count
                 : Math.max(refresh_tracker.refresh_status.total_count, refresh_tracker.refresh_status.discovered_count),
-            new_items_count: created_queue_context.queued_count,
+            new_items_count: created_queue_context.queued_count + created_queue_context.skipped_count,
             queued_count: created_queue_context.queued_count,
+            skipped_count: created_queue_context.skipped_count,
             error: null
         });
         await maybePersistSubscriptionRefreshStatus(refresh_tracker, true);
     }
 
     return created_queue_context;
+}
+
+async function updateSubscriptionRefreshTrackerQueueCounts(refresh_tracker, queue_context = null, force = false) {
+    if (!refresh_tracker || !refresh_tracker.refresh_status || !queue_context) return false;
+
+    const queued_count = asFiniteCount(queue_context.queued_count, 0);
+    const skipped_count = asFiniteCount(queue_context.skipped_count, 0);
+    const new_items_count = queued_count + skipped_count;
+    const should_update = force
+        || refresh_tracker.refresh_status.queued_count !== queued_count
+        || refresh_tracker.refresh_status.skipped_count !== skipped_count
+        || refresh_tracker.refresh_status.new_items_count !== new_items_count;
+
+    if (!should_update) return false;
+
+    refresh_tracker.refresh_status.queued_count = queued_count;
+    refresh_tracker.refresh_status.skipped_count = skipped_count;
+    refresh_tracker.refresh_status.new_items_count = new_items_count;
+    return await maybePersistSubscriptionRefreshStatus(refresh_tracker, force);
 }
 
 async function removeArchivedPendingSubscriptionDownloads(sub, pending_downloads = null) {
@@ -717,31 +747,64 @@ async function removeArchivedPendingSubscriptionDownloads(sub, pending_downloads
     return removed_count;
 }
 
-function adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_pending_count = 0, pending_download_count = 0, running_download_count = 0) {
+function adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_pending_count = 0, pending_download_count = 0, running_download_count = 0, skipped_download_count = 0) {
     const normalized_refresh_status = normalizeSubscriptionRefreshStatus(refresh_status);
-    if (removed_pending_count <= 0) return normalized_refresh_status;
+    const normalized_removed_pending_count = asFiniteCount(removed_pending_count, 0);
+    const adjusted_skipped_count = Math.max(
+        normalized_refresh_status.skipped_count,
+        asFiniteCount(skipped_download_count, 0)
+    ) + normalized_removed_pending_count;
 
-    const adjusted_queued_count = Math.max(0, normalized_refresh_status.queued_count - removed_pending_count);
-    const adjusted_new_items_count = normalized_refresh_status.new_items_count === null
-        ? null
-        : Math.max(0, normalized_refresh_status.new_items_count - removed_pending_count);
+    if (normalized_removed_pending_count <= 0 && adjusted_skipped_count === normalized_refresh_status.skipped_count) {
+        return normalized_refresh_status;
+    }
+
+    const adjusted_queued_count = normalized_removed_pending_count > 0
+        ? Math.max(0, normalized_refresh_status.queued_count - normalized_removed_pending_count)
+        : normalized_refresh_status.queued_count;
+    const adjusted_new_items_count = normalized_removed_pending_count > 0 && normalized_refresh_status.new_items_count !== null
+        ? Math.max(0, normalized_refresh_status.new_items_count - normalized_removed_pending_count)
+        : normalized_refresh_status.new_items_count;
     const should_mark_complete = normalized_refresh_status.phase === SUBSCRIPTION_REFRESH_PHASES.QUEUED
-        && adjusted_queued_count === 0
         && pending_download_count === 0
-        && running_download_count === 0;
+        && running_download_count === 0
+        && (adjusted_queued_count === 0 || adjusted_skipped_count >= adjusted_queued_count);
 
     return normalizeSubscriptionRefreshStatus({
         ...normalized_refresh_status,
         phase: should_mark_complete ? SUBSCRIPTION_REFRESH_PHASES.COMPLETE : normalized_refresh_status.phase,
         new_items_count: adjusted_new_items_count,
-        queued_count: adjusted_queued_count
+        queued_count: adjusted_queued_count,
+        skipped_count: adjusted_skipped_count
     });
+}
+
+function countSkippedSubscriptionDownloads(downloads = [], refresh_started_at = null) {
+    if (!Array.isArray(downloads)) return 0;
+    const normalized_refresh_started_at = normalizeNullableCount(refresh_started_at);
+    return downloads.filter(download => {
+        if (!downloader_api.isSkippableSubscriptionDownloadError(download && download.error, download && download.error_type)) return false;
+        const download_started_at = normalizeNullableCount(download && download.timestamp_start);
+        return normalized_refresh_started_at === null || download_started_at === null || download_started_at >= normalized_refresh_started_at;
+    }).length;
+}
+
+async function persistSubscriptionRefreshStatusIfChanged(sub_id, original_refresh_status, refresh_status) {
+    const original_normalized_refresh_status = normalizeSubscriptionRefreshStatus(original_refresh_status);
+    const next_refresh_status = normalizeSubscriptionRefreshStatus(refresh_status);
+    const changed = original_normalized_refresh_status.phase !== next_refresh_status.phase
+        || original_normalized_refresh_status.new_items_count !== next_refresh_status.new_items_count
+        || original_normalized_refresh_status.queued_count !== next_refresh_status.queued_count
+        || original_normalized_refresh_status.skipped_count !== next_refresh_status.skipped_count;
+    if (!changed) return false;
+    return await persistSubscriptionRefreshStatus(sub_id, next_refresh_status);
 }
 
 async function finalizeSubscriptionRefreshSuccess(sub, tracker, queue_context = null) {
     if (!tracker) return 0;
 
     const queued_count = queue_context ? queue_context.queued_count : 0;
+    const skipped_count = queue_context ? asFiniteCount(queue_context.skipped_count, 0) : tracker.refresh_status.skipped_count;
     const discovered_count = tracker.refresh_status.discovered_count;
     tracker.refresh_status = normalizeSubscriptionRefreshStatus({
         ...tracker.refresh_status,
@@ -750,8 +813,9 @@ async function finalizeSubscriptionRefreshSuccess(sub, tracker, queue_context = 
         total_count: tracker.refresh_status.total_count === null
             ? discovered_count
             : Math.max(tracker.refresh_status.total_count, discovered_count),
-        new_items_count: queued_count,
+        new_items_count: queued_count + skipped_count,
         queued_count: queued_count,
+        skipped_count: skipped_count,
         latest_item_title: null,
         completed_at: Date.now(),
         error: null
@@ -1258,7 +1322,8 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
     }
 
     const effective_queue_context = await ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_tracker, queue_context);
-    const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context, discovery_filter_context);
+    const files_to_download = await getFilesToDownload(sub, filtered_output_jsons, effective_queue_context.download_context, discovery_filter_context, effective_queue_context);
+    await updateSubscriptionRefreshTrackerQueueCounts(refresh_tracker, effective_queue_context);
 
     for (const file_to_download of files_to_download) {
         const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
@@ -1268,11 +1333,7 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
         }
         await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', effective_queue_context.base_download_options, user_uid, sub.id, sub.name, prefetched_info);
         effective_queue_context.queued_count += 1;
-        if (refresh_tracker) {
-            refresh_tracker.refresh_status.queued_count = effective_queue_context.queued_count;
-            refresh_tracker.refresh_status.new_items_count = effective_queue_context.queued_count;
-            await maybePersistSubscriptionRefreshStatus(refresh_tracker);
-        }
+        await updateSubscriptionRefreshTrackerQueueCounts(refresh_tracker, effective_queue_context);
     }
 
     return effective_queue_context;
@@ -1507,7 +1568,7 @@ async function createSubscriptionDownloadContext(sub) {
     };
 }
 
-async function getFilesToDownload(sub, output_jsons, download_context = null, discovery_filter_context = null) {
+async function getFilesToDownload(sub, output_jsons, download_context = null, discovery_filter_context = null, skip_context = null) {
     const files_to_download = [];
     const effective_download_context = download_context || await createSubscriptionDownloadContext(sub);
     const {
@@ -1523,7 +1584,7 @@ async function getFilesToDownload(sub, output_jsons, download_context = null, di
         const output_json = output_jsons[i];
         if (!output_json || !output_json['webpage_url']) continue;
 
-        if (await shouldSkipSubscriptionOutput(output_json, sub, discovery_filter_context)) continue;
+        if (await shouldSkipSubscriptionOutput(output_json, sub, discovery_filter_context, skip_context)) continue;
 
         const output_url = output_json['webpage_url'];
         const output_path = output_json['_filename'];
@@ -1626,19 +1687,23 @@ exports.getSubscription = async (subID, user_uid = null) => {
     const [
         current_downloads,
         pending_download_count,
-        running_download_count
+        running_download_count,
+        skipped_downloads
     ] = await Promise.all([
         db_api.getRecords('download_queue', {running: true, sub_id: subID}, true),
         db_api.getRecords('download_queue', {sub_id: subID, finished: false}, true),
-        db_api.getRecords('download_queue', {sub_id: subID, running: true, finished: false}, true)
+        db_api.getRecords('download_queue', {sub_id: subID, running: true, finished: false}, true),
+        db_api.getRecords('download_queue', {sub_id: subID, finished: true, error: {$ne: null}})
     ]);
     if (!sub['downloading']) sub['downloading'] = current_downloads > 0;
 
-    let refresh_status = normalizeSubscriptionRefreshStatus(sub['refresh_status']);
+    const original_refresh_status = normalizeSubscriptionRefreshStatus(sub['refresh_status']);
+    const skipped_download_count = countSkippedSubscriptionDownloads(skipped_downloads, original_refresh_status.started_at);
+    let refresh_status = normalizeSubscriptionRefreshStatus(original_refresh_status);
     if (!sub['downloading'] && refresh_status.active) {
         refresh_status = buildInterruptedSubscriptionRefreshStatus(refresh_status);
     }
-    refresh_status = adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_archived_pending_count, pending_download_count, running_download_count);
+    refresh_status = adjustRefreshStatusAfterPendingCleanup(refresh_status, removed_archived_pending_count, pending_download_count, running_download_count, skipped_download_count);
 
     if (refresh_status.phase === SUBSCRIPTION_REFRESH_PHASES.IDLE && pending_download_count > 0) {
         refresh_status = normalizeSubscriptionRefreshStatus({
@@ -1647,9 +1712,7 @@ exports.getSubscription = async (subID, user_uid = null) => {
             queued_count: refresh_status.queued_count || pending_download_count
         });
     }
-    if (removed_archived_pending_count > 0) {
-        await persistSubscriptionRefreshStatus(subID, refresh_status);
-    }
+    await persistSubscriptionRefreshStatusIfChanged(subID, original_refresh_status, refresh_status);
 
     sub['refresh_status'] = {
         ...refresh_status,

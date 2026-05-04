@@ -305,10 +305,72 @@ describe('Subscriptions', function() {
         assert.strictEqual(refreshed_sub['refresh_status']['running_download_count'], 0);
         assert.strictEqual(refreshed_sub['refresh_status']['queued_count'], 0);
         assert.strictEqual(refreshed_sub['refresh_status']['new_items_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['skipped_count'], 1);
         assert.strictEqual(refreshed_sub['refresh_status']['phase'], 'complete');
 
         const remaining_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
         assert.strictEqual(remaining_downloads.length, 0);
+    });
+    it('Reports skipped finished subscription downloads in refresh status', async function() {
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'skipped_finished_sub'});
+
+        await db_api.insertRecordIntoTable('subscriptions', {
+            ...sub,
+            refresh_status: {
+                active: false,
+                phase: 'queued',
+                discovered_count: 2,
+                total_count: 2,
+                new_items_count: 2,
+                queued_count: 2
+            }
+        });
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: uuid(),
+            url: 'https://www.youtube.com/watch?v=join-only-video-1',
+            type: 'video',
+            title: 'Members-only video 1',
+            options: {},
+            sub_id: sub.id,
+            user_uid: null,
+            running: false,
+            paused: false,
+            finished_step: true,
+            finished: true,
+            error: 'Error while retrieving info on video: Join this channel to get access to members-only content',
+            error_type: 'join_only',
+            timestamp_start: Date.now()
+        });
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: uuid(),
+            url: 'https://www.youtube.com/watch?v=join-only-video-2',
+            type: 'video',
+            title: 'Members-only video 2',
+            options: {},
+            sub_id: sub.id,
+            user_uid: null,
+            running: false,
+            paused: false,
+            finished_step: true,
+            finished: true,
+            error: 'Error while retrieving info on video: Join this channel to get access to members-only content',
+            error_type: 'join_only',
+            timestamp_start: Date.now()
+        });
+
+        const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+
+        assert(refreshed_sub);
+        assert.strictEqual(refreshed_sub['refresh_status']['pending_download_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['running_download_count'], 0);
+        assert.strictEqual(refreshed_sub['refresh_status']['queued_count'], 2);
+        assert.strictEqual(refreshed_sub['refresh_status']['new_items_count'], 2);
+        assert.strictEqual(refreshed_sub['refresh_status']['skipped_count'], 2);
+        assert.strictEqual(refreshed_sub['refresh_status']['phase'], 'complete');
+
+        const stored_sub = await db_api.getRecord('subscriptions', {id: sub.id});
+        assert.strictEqual(stored_sub['refresh_status']['skipped_count'], 2);
+        assert.strictEqual(stored_sub['refresh_status']['phase'], 'complete');
     });
     it('Update subscription', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
@@ -575,6 +637,11 @@ describe('Subscriptions', function() {
         assert.strictEqual(queued_downloads.length, 1);
         assert.strictEqual(queued_downloads[0].url, public_output.webpage_url);
         assert.strictEqual(await archive_api.existsInArchive('youtube', join_only_output.id, sub.type, sub.user_uid, sub.id), true);
+
+        const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+        assert.strictEqual(refreshed_sub.refresh_status.queued_count, 1);
+        assert.strictEqual(refreshed_sub.refresh_status.skipped_count, 1);
+        assert.strictEqual(refreshed_sub.refresh_status.new_items_count, 2);
     });
     it('Filters archived flat playlist entries from cached subscription archive state', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
