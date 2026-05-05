@@ -23,7 +23,13 @@ esac
 
 echo "(INFO) Architecture detected: $ARCH"
 echo "(1/5) READY - Install unzip"
-apt-get update && apt-get -y install unzip curl libicu74
+apt-get update
+ICU_PKG="$(apt-cache search '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1)"
+if [ -z "$ICU_PKG" ]; then
+  echo "Unable to find an ICU runtime package."
+  exit 1
+fi
+apt-get -y install unzip curl "$ICU_PKG"
 
 # Resolve latest version from GitHub's redirect endpoint to avoid API rate-limit failures.
 LATEST_RELEASE_URL="$(curl -fL -o /dev/null -w '%{url_effective}' \
