@@ -52,7 +52,7 @@ RUN apt update && \
 
 # Build frontend
 ARG BUILDPLATFORM
-FROM --platform=${BUILDPLATFORM} node:24 AS frontend
+FROM --platform=${BUILDPLATFORM} node:26 AS frontend
 WORKDIR /build
 COPY [ ".npmrc", "package.json", "package-lock.json", "angular.json", "tsconfig.json", "/build/" ]
 COPY [ "src/", "/build/src/" ]
