@@ -427,6 +427,160 @@ describe('Subscriptions', function() {
             await fs.remove(raw_subscription_path);
         }
     });
+    it('Writes flat subscription metadata outside the downloads folder', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'flat-subscription-metadata');
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'flat_metadata_sub',
+            isPlaylist: false,
+            use_subfolder: false
+        });
+        const metadata_path = path.join(test_base_path, 'channels', '.metadata', 'flat_metadata_sub', 'subscription_backup.json');
+        const root_metadata_path = path.join(test_base_path, 'channels', 'subscription_backup.json');
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+
+            const success = subscriptions_api.writeSubscriptionMetadata(sub);
+            const download_options = subscriptions_api.generateOptionsForSubscriptionDownload(sub, null);
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            const subscription_dir = (await db_api.getFileDirectoriesAndDBs()).find(dir => dir.sub_id === sub.id);
+
+            assert.strictEqual(success, true);
+            assert.strictEqual(fs.existsSync(metadata_path), true);
+            assert.strictEqual(fs.existsSync(root_metadata_path), false);
+            assert.strictEqual(download_options.customFileFolderPath, path.join(test_base_path, 'channels'));
+            assert(subscription_dir);
+            assert.strictEqual(subscription_dir.basePath, path.join(test_base_path, 'channels'));
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
+    it('Moves subscription files when toggling the subscription name folder setting', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'subscription-folder-toggle');
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'move_sub',
+            isPlaylist: false,
+            use_subfolder: true
+        });
+        const nested_dir = path.join(test_base_path, 'channels', 'move_sub');
+        const flat_dir = path.join(test_base_path, 'channels');
+        const nested_media_path = path.join(nested_dir, 'Episode 1.mp4');
+        const nested_info_path = path.join(nested_dir, 'Episode 1.info.json');
+        const nested_thumbnail_path = path.join(nested_dir, 'Episode 1.jpg');
+        const flat_media_path = path.join(flat_dir, 'Episode 1.mp4');
+        const flat_info_path = path.join(flat_dir, 'Episode 1.info.json');
+        const flat_thumbnail_path = path.join(flat_dir, 'Episode 1.jpg');
+        const file_uid = uuid();
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+            await fs.outputFile(nested_media_path, 'video');
+            await fs.outputJSON(nested_info_path, {id: 'episode-1', extractor: 'youtube'});
+            await fs.outputFile(nested_thumbnail_path, 'thumb');
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await db_api.insertRecordIntoTable('files', {
+                uid: file_uid,
+                sub_id: sub.id,
+                path: nested_media_path,
+                isAudio: false,
+                url: 'https://example.com/episode-1',
+                title: 'Episode 1'
+            });
+
+            const flat_sub_update = Object.assign({}, sub, {use_subfolder: false});
+            const flattened = await subscriptions_api.updateSubscription(flat_sub_update);
+
+            assert.strictEqual(flattened, true);
+            assert.strictEqual(fs.existsSync(flat_media_path), true);
+            assert.strictEqual(fs.existsSync(flat_info_path), true);
+            assert.strictEqual(fs.existsSync(flat_thumbnail_path), true);
+            assert.strictEqual(fs.existsSync(nested_media_path), false);
+            assert.strictEqual(fs.existsSync(nested_dir), false);
+            assert.strictEqual(fs.existsSync(path.join(flat_dir, '.metadata', 'move_sub', 'subscription_backup.json')), true);
+
+            let moved_file = await db_api.getRecord('files', {uid: file_uid});
+            assert.strictEqual(moved_file.path, flat_media_path);
+
+            const nested_sub_update = Object.assign({}, flat_sub_update, {use_subfolder: true});
+            const nested = await subscriptions_api.updateSubscription(nested_sub_update);
+
+            assert.strictEqual(nested, true);
+            assert.strictEqual(fs.existsSync(nested_media_path), true);
+            assert.strictEqual(fs.existsSync(nested_info_path), true);
+            assert.strictEqual(fs.existsSync(nested_thumbnail_path), true);
+            assert.strictEqual(fs.existsSync(flat_media_path), false);
+            assert.strictEqual(fs.existsSync(path.join(nested_dir, 'subscription_backup.json')), true);
+            assert.strictEqual(fs.existsSync(path.join(flat_dir, '.metadata', 'move_sub', 'subscription_backup.json')), false);
+
+            moved_file = await db_api.getRecord('files', {uid: file_uid});
+            assert.strictEqual(moved_file.path, nested_media_path);
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
+    it('Does not remove other flat subscription files when unsubscribing with delete mode', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'flat-subscription-unsubscribe');
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'flat_delete_sub',
+            use_subfolder: false
+        });
+        const other_sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'flat_keep_sub',
+            use_subfolder: false
+        });
+        const delete_file_path = path.join(test_base_path, 'channels', 'Delete Me.mp4');
+        const keep_file_path = path.join(test_base_path, 'channels', 'Keep Me.mp4');
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+            await fs.outputFile(delete_file_path, 'delete');
+            await fs.outputFile(keep_file_path, 'keep');
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await db_api.insertRecordIntoTable('subscriptions', other_sub);
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'delete-flat-file',
+                sub_id: sub.id,
+                path: delete_file_path,
+                isAudio: false,
+                url: 'https://example.com/delete',
+                title: 'Delete Me'
+            });
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'keep-flat-file',
+                sub_id: other_sub.id,
+                path: keep_file_path,
+                isAudio: false,
+                url: 'https://example.com/keep',
+                title: 'Keep Me'
+            });
+
+            const result = await subscriptions_api.unsubscribe(sub.id, true);
+
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(fs.existsSync(delete_file_path), false);
+            assert.strictEqual(fs.existsSync(keep_file_path), true);
+            assert.strictEqual(!!(await db_api.getRecord('subscriptions', {id: sub.id})), false);
+            assert.strictEqual(!!(await db_api.getRecord('subscriptions', {id: other_sub.id})), true);
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
     it('Does not let path separators split subscription metadata folders', async function() {
         const sub = Object.assign({}, new_sub, {
             id: uuid(),

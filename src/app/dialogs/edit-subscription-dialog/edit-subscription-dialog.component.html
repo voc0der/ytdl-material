@@ -11,6 +11,9 @@
       <div class="col-12 mt-3">
         <mat-checkbox (change)="downloadAllToggled()" [(ngModel)]="download_all"><ng-container i18n="Download all uploads subscription setting">Download all uploads</ng-container></mat-checkbox>
       </div>
+      <div class="col-12 mt-3">
+        <mat-checkbox [(ngModel)]="new_sub.use_subfolder"><ng-container i18n="Use subscription name folder setting">Save downloads in subscription name folder</ng-container></mat-checkbox>
+      </div>
       @if (editor_initialized) {
         <div class="col-12">
           <ng-container i18n="Download time range prefix">Download videos uploaded in the last</ng-container>

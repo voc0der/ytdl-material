@@ -55,6 +55,31 @@ exports.getSubscriptionPathName = (sub = {}) => {
     return exports.sanitizePathSegment(sub && sub.name, fallback);
 }
 
+exports.usesSubscriptionSubfolder = (sub = {}) => {
+    return !(sub && sub.use_subfolder === false);
+}
+
+exports.getSubscriptionTypeFolder = (sub = {}) => {
+    return sub && sub.isPlaylist ? 'playlists' : 'channels';
+}
+
+exports.getSubscriptionTypePath = (sub = {}, base_path = '') => {
+    return path.join(base_path, exports.getSubscriptionTypeFolder(sub));
+}
+
+exports.getSubscriptionDownloadPath = (sub = {}, base_path = '') => {
+    const subscription_type_path = exports.getSubscriptionTypePath(sub, base_path);
+    if (!exports.usesSubscriptionSubfolder(sub)) return subscription_type_path;
+    return path.join(subscription_type_path, exports.getSubscriptionPathName(sub));
+}
+
+exports.getSubscriptionMetadataPath = (sub = {}, base_path = '') => {
+    const subscription_type_path = exports.getSubscriptionTypePath(sub, base_path);
+    const subscription_path_name = exports.getSubscriptionPathName(sub);
+    if (exports.usesSubscriptionSubfolder(sub)) return path.join(subscription_type_path, subscription_path_name);
+    return path.join(subscription_type_path, '.metadata', subscription_path_name);
+}
+
 // replaces .webm with appropriate extension
 exports.getTrueFileName = (unfixed_path, type, force_ext = null) => {
     let fixed_path = unfixed_path;

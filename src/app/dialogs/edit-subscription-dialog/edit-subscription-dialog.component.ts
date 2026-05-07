@@ -64,6 +64,8 @@ export class EditSubscriptionDialogComponent implements OnInit {
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, private dialog: MatDialog, private postsService: PostsService) {
     this.sub = JSON.parse(JSON.stringify(this.data.sub));
     this.new_sub = JSON.parse(JSON.stringify(this.sub));
+    this.sub.use_subfolder = this.sub.use_subfolder !== false;
+    this.new_sub.use_subfolder = this.new_sub.use_subfolder !== false;
 
     // ignore videos to keep requests small
     delete this.sub['videos'];

@@ -14,6 +14,7 @@ export class SubscribeDialogComponent implements OnInit {
   timerange_amount;
   timerange_unit = 'days';
   download_all = true;
+  useSubfolder = true;
   url = null;
   name = null;
 
@@ -87,7 +88,7 @@ export class SubscribeDialogComponent implements OnInit {
         timerange = 'now-' + this.timerange_amount.toString() + this.timerange_unit;
       }
       this.postsService.createSubscription(this.url, this.name, timerange, this.maxQuality,
-                                          this.audioOnlyMode, this.customArgs, this.customFileOutput).subscribe(res => {
+                                          this.audioOnlyMode, this.customArgs, this.customFileOutput, this.useSubfolder).subscribe(res => {
         this.subscribing = false;
         if (res['new_sub']) {
           this.dialogRef.close(res['new_sub']);

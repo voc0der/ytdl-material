@@ -9,5 +9,6 @@ export type SubscribeRequest = {
     audioOnly?: boolean;
     customArgs?: string;
     customFileOutput?: string;
+    useSubfolder?: boolean;
     maxQuality?: string;
 };
