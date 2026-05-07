@@ -35,6 +35,29 @@ function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
 }
 
+function getSubscriptionsBasePath(user_uid = null) {
+    if (user_uid) return path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions');
+    return config_api.getConfigItem('ytdl_subscriptions_base_path');
+}
+
+function getSubscriptionsBasePathForSub(sub = null, user_uid = null) {
+    return getSubscriptionsBasePath(user_uid || (sub && sub.user_uid));
+}
+
+function normalizeSubscriptionStorageOptions(sub = null) {
+    if (!sub || typeof sub !== 'object') return sub;
+    sub.use_subfolder = sub.use_subfolder !== false;
+    return sub;
+}
+
+function getSubscriptionMetadataBasePath(sub, base_path) {
+    return utils.getSubscriptionMetadataPath(sub, base_path);
+}
+
+function getSubscriptionTemporaryArchivePath(sub, base_path) {
+    return path.join(getSubscriptionMetadataBasePath(sub, base_path), 'archive.txt');
+}
+
 function asFiniteCount(value, default_value = 0) {
     const numeric_value = Number(value);
     if (!Number.isFinite(numeric_value)) return default_value;
@@ -924,6 +947,7 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
         error: ''
     };
     return new Promise(async resolve => {
+        normalizeSubscriptionStorageOptions(sub);
         // sub should just have url and name. here we will get isPlaylist and path
         sub.isPlaylist = sub.isPlaylist || sub.url.includes('playlist');
         sub.videos = [];
@@ -1019,11 +1043,7 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
             error: 'Subscription not found or not owned by the current user.'
         };
     }
-    let basePath = null;
-    if (user_uid)
-        basePath = path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions');
-    else
-        basePath = config_api.getConfigItem('ytdl_subscriptions_base_path');
+    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let id = sub.id;
 
@@ -1042,6 +1062,13 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     }
 
     await killSubDownloads(sub_id, true);
+
+    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
+        for (const sub_file of sub_files) {
+            await files_api.deleteFile(sub_file.uid, false, user_uid);
+        }
+    }
+
     const remove_sub_filter = {id: id};
     if (shouldRestrictToUser(user_uid)) remove_sub_filter['user_uid'] = user_uid;
     await db_api.removeRecord('subscriptions', remove_sub_filter);
@@ -1053,8 +1080,13 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     }
 
     const appendedBasePath = getAppendedBasePath(sub, basePath);
-    if (deleteMode && (await fs.pathExists(appendedBasePath))) {
+    if (deleteMode && utils.usesSubscriptionSubfolder(sub) && (await fs.pathExists(appendedBasePath))) {
         await fs.remove(appendedBasePath);
+    }
+    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
+        const metadataBasePath = getSubscriptionMetadataBasePath(sub, basePath);
+        if (await fs.pathExists(metadataBasePath)) await fs.remove(metadataBasePath);
+        await cleanupEmptyDirectory(path.dirname(metadataBasePath), utils.getSubscriptionTypePath(sub, basePath));
     }
 
     await db_api.removeAllRecords('archives', {sub_id: sub.id, ...(shouldRestrictToUser(user_uid) ? {user_uid: user_uid} : {})});
@@ -1067,9 +1099,7 @@ exports.deleteSubscriptionFile = async (sub, file, deleteForever, file_uid = nul
         sub = await db_api.getRecord('subscriptions', {sub_id: sub});
     }
     // TODO: combine this with deletefile
-    let basePath = null;
-    basePath = user_uid ? path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions')
-                        : config_api.getConfigItem('ytdl_subscriptions_base_path');
+    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
     const appendedBasePath = getAppendedBasePath(sub, basePath);
     const name = file;
     let retrievedID = null;
@@ -1262,11 +1292,7 @@ async function _getVideosForSub(sub) {
     ]);
 
     // get basePath
-    let basePath = null;
-    if (user_uid)
-        basePath = path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions');
-    else
-        basePath = config_api.getConfigItem('ytdl_subscriptions_base_path');
+    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let appendedBasePath = getAppendedBasePath(sub, basePath);
     fs.ensureDirSync(appendedBasePath);
@@ -1300,7 +1326,7 @@ async function _getVideosForSub(sub) {
         return null;
     } finally {
         // remove temporary archive file if it exists
-        const archive_path = path.join(appendedBasePath, 'archive.txt');
+        const archive_path = getSubscriptionTemporaryArchivePath(sub, basePath);
         const archive_exists = await fs.pathExists(archive_path);
         if (archive_exists) {
             await fs.unlink(archive_path);
@@ -1340,11 +1366,7 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
 }
 
 exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {
-    let basePath = null;
-    if (user_uid)
-        basePath = path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions');
-    else
-        basePath = config_api.getConfigItem('ytdl_subscriptions_base_path');
+    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let default_output = config_api.getConfigItem('ytdl_default_file_output') ? config_api.getConfigItem('ytdl_default_file_output') : '%(title)s';
 
@@ -1361,11 +1383,7 @@ exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {
 
 async function generateArgsForSubscription(sub, user_uid, redownload = false, desired_path = null) {
     // get basePath
-    let basePath = null;
-    if (user_uid)
-        basePath = path.join(config_api.getConfigItem('ytdl_users_base_path'), user_uid, 'subscriptions');
-    else
-        basePath = config_api.getConfigItem('ytdl_subscriptions_base_path');
+    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let appendedBasePath = getAppendedBasePath(sub, basePath);
 
@@ -1397,7 +1415,8 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     const archive_count = archive_text.split('\n').length - 1;
     if (archive_count > 0) {
         logger.verbose(`Generating temporary archive file for subscription ${sub.name} with ${archive_count} entries.`)
-        const archive_path = path.join(appendedBasePath, 'archive.txt');
+        const archive_path = getSubscriptionTemporaryArchivePath(sub, basePath);
+        await fs.ensureDir(path.dirname(archive_path));
         await fs.writeFile(archive_path, archive_text);
         downloadConfig.push('--download-archive', archive_path);
     }
@@ -1729,12 +1748,238 @@ exports.getSubscriptionByName = async (subName, user_uid = null) => {
     return await db_api.getRecord('subscriptions', {name: subName, user_uid: user_uid});
 }
 
+function normalizePath(file_path = '') {
+    return path.resolve(file_path);
+}
+
+function isSamePath(first_path = '', second_path = '') {
+    return normalizePath(first_path) === normalizePath(second_path);
+}
+
+function isPathInsideOrSame(candidate_path = '', parent_path = '') {
+    const normalized_candidate_path = normalizePath(candidate_path);
+    const normalized_parent_path = normalizePath(parent_path);
+    if (normalized_candidate_path === normalized_parent_path) return true;
+    const relative_path = path.relative(normalized_parent_path, normalized_candidate_path);
+    return !!relative_path && !relative_path.startsWith('..') && !path.isAbsolute(relative_path);
+}
+
+function getDestinationPathForSubscriptionMove(source_path, old_base_path, new_base_path) {
+    if (isPathInsideOrSame(new_base_path, old_base_path) && isPathInsideOrSame(source_path, new_base_path)) {
+        return source_path;
+    }
+
+    if (!isPathInsideOrSame(source_path, old_base_path)) {
+        if (isPathInsideOrSame(source_path, new_base_path)) return source_path;
+        return path.join(new_base_path, path.basename(source_path));
+    }
+
+    const relative_path = path.relative(path.resolve(old_base_path), path.resolve(source_path));
+    return path.join(new_base_path, relative_path);
+}
+
+async function getExistingSubscriptionMediaPath(file_obj = null, type = 'video') {
+    if (!file_obj || !file_obj.path) return null;
+
+    const candidate_paths = [
+        file_obj.path,
+        utils.getTrueFileName(file_obj.path, type)
+    ].filter((candidate_path, index, all_paths) => candidate_path && all_paths.indexOf(candidate_path) === index);
+
+    for (const candidate_path of candidate_paths) {
+        if (await fs.pathExists(candidate_path)) return candidate_path;
+    }
+
+    return null;
+}
+
+async function getSubscriptionSubtitleSidecarPaths(media_path) {
+    const subtitle_sidecar_paths = [];
+    const media_directory = path.dirname(media_path);
+    const media_basename = path.basename(utils.removeFileExtension(media_path)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const subtitle_regex = new RegExp(`^${media_basename}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
+
+    let directory_entries = [];
+    try {
+        directory_entries = await fs.readdir(media_directory);
+    } catch (e) {
+        return subtitle_sidecar_paths;
+    }
+
+    for (const directory_entry of directory_entries) {
+        if (subtitle_regex.test(directory_entry)) {
+            subtitle_sidecar_paths.push(path.join(media_directory, directory_entry));
+        }
+    }
+
+    return subtitle_sidecar_paths;
+}
+
+async function getExistingSubscriptionSidecarPaths(media_path, type = 'video') {
+    const file_path_no_extension = utils.removeFileExtension(media_path);
+    const expected_extension = type === 'audio' ? '.mp3' : '.mp4';
+    const actual_extension = path.extname(media_path);
+    const sidecar_candidates = [
+        `${media_path}.info.json`,
+        `${file_path_no_extension}.info.json`,
+        `${file_path_no_extension}${expected_extension}.info.json`,
+        `${file_path_no_extension}.webp`,
+        `${file_path_no_extension}.jpg`,
+        `${file_path_no_extension}.png`,
+        `${file_path_no_extension}.nfo`,
+        ...await getSubscriptionSubtitleSidecarPaths(media_path)
+    ];
+
+    if (actual_extension && actual_extension !== expected_extension) {
+        sidecar_candidates.push(`${file_path_no_extension}${actual_extension}.info.json`);
+    }
+
+    const existing_sidecar_paths = [];
+    for (const sidecar_candidate of [...new Set(sidecar_candidates)]) {
+        if (await fs.pathExists(sidecar_candidate)) existing_sidecar_paths.push(sidecar_candidate);
+    }
+
+    return existing_sidecar_paths;
+}
+
+function addSubscriptionMovePlanEntry(move_plan, source_path, destination_path) {
+    if (!source_path || !destination_path || isSamePath(source_path, destination_path)) return;
+    if (move_plan.some(plan_entry => isSamePath(plan_entry.source_path, source_path))) return;
+
+    move_plan.push({
+        source_path: source_path,
+        destination_path: destination_path
+    });
+}
+
+async function validateSubscriptionMovePlan(move_plan = []) {
+    const destination_paths = new Set();
+    for (const plan_entry of move_plan) {
+        const normalized_destination_path = normalizePath(plan_entry.destination_path);
+        if (destination_paths.has(normalized_destination_path)) {
+            logger.error(`Failed to move subscription files. Multiple files would move to '${plan_entry.destination_path}'.`);
+            return false;
+        }
+        destination_paths.add(normalized_destination_path);
+
+        if (await fs.pathExists(plan_entry.destination_path)) {
+            logger.error(`Failed to move subscription files. Destination already exists: '${plan_entry.destination_path}'.`);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+async function applySubscriptionMovePlan(move_plan = []) {
+    for (const plan_entry of move_plan) {
+        await fs.ensureDir(path.dirname(plan_entry.destination_path));
+        await fs.move(plan_entry.source_path, plan_entry.destination_path, {overwrite: false});
+    }
+}
+
+async function cleanupEmptyDirectory(directory_path, stop_path) {
+    let current_path = path.resolve(directory_path);
+    const resolved_stop_path = path.resolve(stop_path);
+
+    while (current_path !== resolved_stop_path && isPathInsideOrSame(current_path, resolved_stop_path)) {
+        let directory_entries = null;
+        try {
+            directory_entries = await fs.readdir(current_path);
+        } catch (e) {
+            return;
+        }
+
+        if (directory_entries.length > 0) return;
+        await fs.remove(current_path);
+        current_path = path.dirname(current_path);
+    }
+}
+
+async function moveSubscriptionFilesForUpdatedPath(current_sub, updated_sub, user_uid = null) {
+    const old_base_path = getSubscriptionsBasePathForSub(current_sub, user_uid);
+    const new_base_path = getSubscriptionsBasePathForSub(updated_sub, user_uid);
+    const old_download_path = getAppendedBasePath(current_sub, old_base_path);
+    const new_download_path = getAppendedBasePath(updated_sub, new_base_path);
+    if (isSamePath(old_download_path, new_download_path)) return true;
+
+    const sub_files_filter = {sub_id: current_sub.id};
+    if (shouldRestrictToUser(user_uid)) sub_files_filter['user_uid'] = user_uid;
+    const sub_files = await db_api.getRecords('files', sub_files_filter);
+    const move_plan = [];
+    const file_path_updates = {};
+
+    for (const sub_file of sub_files) {
+        const file_type = sub_file.isAudio || updated_sub.type === 'audio' ? 'audio' : 'video';
+        const media_source_path = await getExistingSubscriptionMediaPath(sub_file, file_type);
+        if (!media_source_path) continue;
+
+        const media_destination_path = getDestinationPathForSubscriptionMove(media_source_path, old_download_path, new_download_path);
+        addSubscriptionMovePlanEntry(move_plan, media_source_path, media_destination_path);
+
+        if (!isSamePath(media_source_path, media_destination_path)) {
+            file_path_updates[sub_file.uid] = {path: media_destination_path};
+        }
+
+        const sidecar_paths = await getExistingSubscriptionSidecarPaths(media_source_path, file_type);
+        for (const sidecar_path of sidecar_paths) {
+            addSubscriptionMovePlanEntry(
+                move_plan,
+                sidecar_path,
+                getDestinationPathForSubscriptionMove(sidecar_path, old_download_path, new_download_path)
+            );
+        }
+    }
+
+    if (!(await validateSubscriptionMovePlan(move_plan))) return false;
+
+    try {
+        await applySubscriptionMovePlan(move_plan);
+    } catch (e) {
+        logger.error(`Failed to move files for subscription '${current_sub.name}'.`);
+        logger.error(e);
+        return false;
+    }
+
+    await db_api.bulkUpdateRecordsByKey('files', 'uid', file_path_updates);
+    return true;
+}
+
+async function cleanupSubscriptionPathChange(current_sub, updated_sub, user_uid = null) {
+    const old_base_path = getSubscriptionsBasePathForSub(current_sub, user_uid);
+    const new_base_path = getSubscriptionsBasePathForSub(updated_sub, user_uid);
+    const old_download_path = getAppendedBasePath(current_sub, old_base_path);
+    const new_download_path = getAppendedBasePath(updated_sub, new_base_path);
+    const old_metadata_path = getSubscriptionMetadataBasePath(current_sub, old_base_path);
+    const new_metadata_path = getSubscriptionMetadataBasePath(updated_sub, new_base_path);
+    const old_subscription_type_path = utils.getSubscriptionTypePath(current_sub, old_base_path);
+
+    if (!isSamePath(old_metadata_path, new_metadata_path)) {
+        await fs.remove(path.join(old_metadata_path, CONSTS.SUBSCRIPTION_BACKUP_PATH));
+        await cleanupEmptyDirectory(old_metadata_path, old_subscription_type_path);
+    }
+
+    if (!isSamePath(old_download_path, new_download_path)) {
+        await cleanupEmptyDirectory(old_download_path, old_subscription_type_path);
+    }
+}
+
 exports.updateSubscription = async (sub, user_uid = null) => {
+    normalizeSubscriptionStorageOptions(sub);
     const filter_obj = {id: sub.id};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
+    const stored_sub = await db_api.getRecord('subscriptions', filter_obj);
+    if (!stored_sub) return false;
+    const current_sub = JSON.parse(JSON.stringify(stored_sub));
+
+    normalizeSubscriptionStorageOptions(current_sub);
+    const moved_files = await moveSubscriptionFilesForUpdatedPath(current_sub, sub, user_uid);
+    if (!moved_files) return false;
+
     const updated = await db_api.updateRecord('subscriptions', filter_obj, sub);
     if (!updated) return false;
     exports.writeSubscriptionMetadata(sub);
+    await cleanupSubscriptionPathChange(current_sub, sub, user_uid);
     return true;
 }
 
@@ -1763,8 +2008,7 @@ exports.writeSubscriptionMetadata = (sub) => {
             return false;
         }
 
-        let basePath = sub.user_uid ? path.join(config_api.getConfigItem('ytdl_users_base_path'), sub.user_uid, 'subscriptions')
-                                    : config_api.getConfigItem('ytdl_subscriptions_base_path');
+        let basePath = getSubscriptionsBasePathForSub(sub);
         if (typeof basePath !== 'string' || basePath.trim() === '') {
             logger.warn(`Skipping subscription metadata write for subscription '${subscription_name}' because the base path is missing.`);
             return false;
@@ -1772,7 +2016,7 @@ exports.writeSubscriptionMetadata = (sub) => {
 
         basePath = basePath.trim();
         const metadata_sub = Object.assign({}, sub, {name: subscription_name});
-        const appendedBasePath = getAppendedBasePath(metadata_sub, basePath);
+        const appendedBasePath = getSubscriptionMetadataBasePath(metadata_sub, basePath);
         const resolvedBasePath = path.resolve(basePath);
         const resolvedSubscriptionPath = path.resolve(appendedBasePath);
         const relativeSubscriptionPath = path.relative(resolvedBasePath, resolvedSubscriptionPath);
@@ -1842,5 +2086,5 @@ async function checkVideoIfBetterExists(file_obj, sub, user_uid) {
 // helper functions
 
 function getAppendedBasePath(sub, base_path) {
-    return path.join(base_path, sub.isPlaylist ? 'playlists' : 'channels', utils.getSubscriptionPathName(sub));
+    return utils.getSubscriptionDownloadPath(sub, base_path);
 }

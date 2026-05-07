@@ -25,6 +25,9 @@
         <mat-checkbox [(ngModel)]="download_all"><ng-container i18n="Download all uploads subscription setting">Download all uploads</ng-container></mat-checkbox>
       </div>
       <div class="col-12">
+        <mat-checkbox [(ngModel)]="useSubfolder"><ng-container i18n="Use subscription name folder setting">Save downloads in subscription name folder</ng-container></mat-checkbox>
+      </div>
+      <div class="col-12">
         <span i18n="Download time range prefix">Download videos uploaded in the last</span>
         <div>
           <mat-form-field color="accent" style="width: 100px; text-align: center;">

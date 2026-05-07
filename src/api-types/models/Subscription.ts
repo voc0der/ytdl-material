@@ -17,6 +17,7 @@ export type Subscription = {
     timerange?: string;
     custom_args?: string;
     custom_output?: string;
+    use_subfolder?: boolean;
     downloading?: boolean;
     paused?: boolean;
     refresh_status?: SubscriptionRefreshStatus;

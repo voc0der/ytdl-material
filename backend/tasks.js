@@ -351,7 +351,8 @@ const guessSubscriptions = async (isPlaylist, basePath = null) => {
     const subsSubPath = basePath ? path.join(basePath, 'subscriptions') : subscriptionsFileFolder;
     const subsPath = path.join(subsSubPath, isPlaylist ? 'playlists' : 'channels');
 
-    const subs = await utils.getDirectoriesInDirectory(subsPath);
+    const subs = (await utils.getDirectoriesInDirectory(subsPath))
+        .concat(await utils.getDirectoriesInDirectory(path.join(subsPath, '.metadata')));
     for (const subPath of subs) {
         const sub_backup_path = path.join(subPath, CONSTS.SUBSCRIPTION_BACKUP_PATH);
         if (!fs.existsSync(sub_backup_path)) continue;
@@ -359,7 +360,9 @@ const guessSubscriptions = async (isPlaylist, basePath = null) => {
         try {
             const sub_backup = fs.readJSONSync(sub_backup_path)
             delete sub_backup['_id'];
-            guessed_subs.push(sub_backup);
+            if (!guessed_subs.some(guessed_sub => guessed_sub.id === sub_backup.id)) {
+                guessed_subs.push(sub_backup);
+            }
         } catch(err) {
             logger.warn(`Failed to reimport subscription in path ${subPath}`)
             logger.warn(err);
