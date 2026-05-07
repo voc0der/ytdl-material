@@ -1769,10 +1769,7 @@ function getDestinationPathForSubscriptionMove(source_path, old_base_path, new_b
         return source_path;
     }
 
-    if (!isPathInsideOrSame(source_path, old_base_path)) {
-        if (isPathInsideOrSame(source_path, new_base_path)) return source_path;
-        return path.join(new_base_path, path.basename(source_path));
-    }
+    if (!isPathInsideOrSame(source_path, old_base_path)) return null;
 
     const relative_path = path.relative(path.resolve(old_base_path), path.resolve(source_path));
     return path.join(new_base_path, relative_path);
@@ -1852,18 +1849,45 @@ function addSubscriptionMovePlanEntry(move_plan, source_path, destination_path) 
     });
 }
 
-async function validateSubscriptionMovePlan(move_plan = []) {
+async function validateSubscriptionMovePlan(move_plan = [], source_base_path, destination_base_path) {
+    const resolved_source_base_path = path.resolve(source_base_path);
+    const resolved_destination_base_path = path.resolve(destination_base_path);
     const destination_paths = new Set();
     for (const plan_entry of move_plan) {
-        const normalized_destination_path = normalizePath(plan_entry.destination_path);
+        const source_path = path.resolve(plan_entry.source_path);
+        const destination_path = path.resolve(plan_entry.destination_path);
+        const source_relative_path = path.relative(resolved_source_base_path, source_path);
+        const destination_relative_path = path.relative(resolved_destination_base_path, destination_path);
+
+        if (source_relative_path === '..' || source_relative_path.startsWith('..' + path.sep)) {
+            logger.error(`Failed to move subscription files. Source is outside the old subscription folder: '${source_path}'.`);
+            return false;
+        }
+
+        if (path.isAbsolute(source_relative_path)) {
+            logger.error(`Failed to move subscription files. Source resolved to an absolute relative path: '${source_path}'.`);
+            return false;
+        }
+
+        if (destination_relative_path === '..' || destination_relative_path.startsWith('..' + path.sep)) {
+            logger.error(`Failed to move subscription files. Destination is outside the new subscription folder: '${destination_path}'.`);
+            return false;
+        }
+
+        if (path.isAbsolute(destination_relative_path)) {
+            logger.error(`Failed to move subscription files. Destination resolved to an absolute relative path: '${destination_path}'.`);
+            return false;
+        }
+
+        const normalized_destination_path = normalizePath(destination_path);
         if (destination_paths.has(normalized_destination_path)) {
-            logger.error(`Failed to move subscription files. Multiple files would move to '${plan_entry.destination_path}'.`);
+            logger.error(`Failed to move subscription files. Multiple files would move to '${destination_path}'.`);
             return false;
         }
         destination_paths.add(normalized_destination_path);
 
-        if (await fs.pathExists(plan_entry.destination_path)) {
-            logger.error(`Failed to move subscription files. Destination already exists: '${plan_entry.destination_path}'.`);
+        if (await fs.pathExists(destination_path)) {
+            logger.error(`Failed to move subscription files. Destination already exists: '${destination_path}'.`);
             return false;
         }
     }
@@ -1871,10 +1895,34 @@ async function validateSubscriptionMovePlan(move_plan = []) {
     return true;
 }
 
-async function applySubscriptionMovePlan(move_plan = []) {
+async function applySubscriptionMovePlan(move_plan = [], source_base_path, destination_base_path) {
+    const resolved_source_base_path = path.resolve(source_base_path);
+    const resolved_destination_base_path = path.resolve(destination_base_path);
+
     for (const plan_entry of move_plan) {
-        await fs.ensureDir(path.dirname(plan_entry.destination_path));
-        await fs.move(plan_entry.source_path, plan_entry.destination_path, {overwrite: false});
+        const source_path = path.resolve(plan_entry.source_path);
+        const destination_path = path.resolve(plan_entry.destination_path);
+        const source_relative_path = path.relative(resolved_source_base_path, source_path);
+        const destination_relative_path = path.relative(resolved_destination_base_path, destination_path);
+
+        if (source_relative_path === '..' || source_relative_path.startsWith('..' + path.sep)) {
+            throw new Error('Subscription file move source path failed validation.');
+        }
+
+        if (path.isAbsolute(source_relative_path)) {
+            throw new Error('Subscription file move source path failed validation.');
+        }
+
+        if (destination_relative_path === '..' || destination_relative_path.startsWith('..' + path.sep)) {
+            throw new Error('Subscription file move destination path failed validation.');
+        }
+
+        if (path.isAbsolute(destination_relative_path)) {
+            throw new Error('Subscription file move path failed validation.');
+        }
+
+        await fs.ensureDir(path.dirname(destination_path));
+        await fs.move(source_path, destination_path, {overwrite: false});
     }
 }
 
@@ -1899,6 +1947,8 @@ async function cleanupEmptyDirectory(directory_path, stop_path) {
 async function moveSubscriptionFilesForUpdatedPath(current_sub, updated_sub, user_uid = null) {
     const old_base_path = getSubscriptionsBasePathForSub(current_sub, user_uid);
     const new_base_path = getSubscriptionsBasePathForSub(updated_sub, user_uid);
+    const old_subscription_type_path = utils.getSubscriptionTypePath(current_sub, old_base_path);
+    const new_subscription_type_path = utils.getSubscriptionTypePath(updated_sub, new_base_path);
     const old_download_path = getAppendedBasePath(current_sub, old_base_path);
     const new_download_path = getAppendedBasePath(updated_sub, new_base_path);
     if (isSamePath(old_download_path, new_download_path)) return true;
@@ -1913,6 +1963,10 @@ async function moveSubscriptionFilesForUpdatedPath(current_sub, updated_sub, use
         const file_type = sub_file.isAudio || updated_sub.type === 'audio' ? 'audio' : 'video';
         const media_source_path = await getExistingSubscriptionMediaPath(sub_file, file_type);
         if (!media_source_path) continue;
+        if (!isPathInsideOrSame(media_source_path, old_download_path)) {
+            logger.warn(`Skipping move for subscription file '${sub_file.uid}' because its path is outside the old subscription folder.`);
+            continue;
+        }
 
         const media_destination_path = getDestinationPathForSubscriptionMove(media_source_path, old_download_path, new_download_path);
         addSubscriptionMovePlanEntry(move_plan, media_source_path, media_destination_path);
@@ -1931,10 +1985,10 @@ async function moveSubscriptionFilesForUpdatedPath(current_sub, updated_sub, use
         }
     }
 
-    if (!(await validateSubscriptionMovePlan(move_plan))) return false;
+    if (!(await validateSubscriptionMovePlan(move_plan, old_subscription_type_path, new_subscription_type_path))) return false;
 
     try {
-        await applySubscriptionMovePlan(move_plan);
+        await applySubscriptionMovePlan(move_plan, old_subscription_type_path, new_subscription_type_path);
     } catch (e) {
         logger.error(`Failed to move files for subscription '${current_sub.name}'.`);
         logger.error(e);
