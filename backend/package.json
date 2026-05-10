@@ -63,7 +63,7 @@
     "pg": "^8.20.0",
     "progress": "^2.0.3",
     "ps-node": "^0.1.6",
-    "rate-limit-redis": "^4.3.1",
+    "rate-limit-redis": "^5.0.0",
     "read-last-lines": "^1.8.0",
     "redis": "^5.12.1",
     "rxjs": "^7.8.2",
