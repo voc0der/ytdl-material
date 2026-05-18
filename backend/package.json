@@ -60,7 +60,7 @@
     "passport-jwt": "^4.0.1",
     "passport-ldapauth": "^3.0.1",
     "passport-local": "^1.0.0",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "progress": "^2.0.3",
     "ps-node": "^0.1.6",
     "rate-limit-redis": "^5.0.0",
