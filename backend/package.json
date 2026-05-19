@@ -25,7 +25,7 @@
   "dependencies": {
     "@discordjs/builders": "^1.14.1",
     "@discordjs/core": "^2.4.0",
-    "@scalar/express-api-reference": "^0.9.14",
+    "@scalar/express-api-reference": "^0.9.16",
     "archiver": "^8.0.0",
     "async": "^3.2.3",
     "async-mutex": "^0.5.0",
@@ -60,7 +60,7 @@
     "passport-jwt": "^4.0.1",
     "passport-ldapauth": "^3.0.1",
     "passport-local": "^1.0.0",
-    "pg": "^8.20.0",
+    "pg": "^8.21.0",
     "progress": "^2.0.3",
     "ps-node": "^0.1.6",
     "rate-limit-redis": "^5.0.0",
