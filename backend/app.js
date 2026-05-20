@@ -3207,7 +3207,7 @@ app.post('/api/deleteAllNotifications', optionalJwt, async (req, res) => {
 });
 
 app.post('/api/telegramRequest', async (req, res) => {
-    if (!req.body.message  && !req.body.message.text) {
+    if (!req.body.message || !req.body.message.text) {
         logger.error('Invalid Telegram request received!');
         res.sendStatus(400);
         return;
