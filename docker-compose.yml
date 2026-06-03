@@ -38,4 +38,4 @@ services:
     logging:
       driver: "none"
     volumes:
-      - ./db:/var/lib/postgresql/data
+      - ./db:/var/lib/postgresql
