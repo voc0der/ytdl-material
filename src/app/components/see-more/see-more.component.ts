@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, Pipe, PipeTransform } from '@angular/core';
+import { Component, Input, OnInit, Pipe, PipeTransform, ChangeDetectionStrategy } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 
 @Pipe({
@@ -39,6 +39,7 @@ export class LinkifyPipe implements PipeTransform {
     templateUrl: './see-more.component.html',
     providers: [LinkifyPipe],
     styleUrls: ['./see-more.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class SeeMoreComponent implements OnInit {

@@ -48,7 +48,7 @@
       <mat-menu #addtoplaylist="matMenu">
         @for (playlist of availablePlaylists; track playlist.id) {
           @if ((playlist.type === 'audio') === file_obj.isAudio) {
-            <button [disabled]="playlist.uids?.includes(file_obj.uid)" (click)="emitAddFileToPlaylist(playlist.id)" mat-menu-item>{{playlist.name}}</button>
+            <button [disabled]="$safeNavigationMigration(playlist.uids?.includes(file_obj.uid))" (click)="emitAddFileToPlaylist(playlist.id)" mat-menu-item>{{playlist.name}}</button>
           }
         }
       </mat-menu>

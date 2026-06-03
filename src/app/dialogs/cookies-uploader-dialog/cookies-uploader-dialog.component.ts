@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { NgxFileDropEntry, FileSystemFileEntry, FileSystemDirectoryEntry } from 'ngx-file-drop';
 import { PostsService } from 'app/posts.services';
 
@@ -11,6 +11,7 @@ type CookiesTestResponse = {
     selector: 'app-cookies-uploader-dialog',
     templateUrl: './cookies-uploader-dialog.component.html',
     styleUrls: ['./cookies-uploader-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class CookiesUploaderDialogComponent implements OnInit {

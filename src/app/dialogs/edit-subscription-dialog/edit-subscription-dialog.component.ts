@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { ArgModifierDialogComponent } from '../arg-modifier-dialog/arg-modifier-dialog.component';
@@ -7,6 +7,7 @@ import { ArgModifierDialogComponent } from '../arg-modifier-dialog/arg-modifier-
     selector: 'app-edit-subscription-dialog',
     templateUrl: './edit-subscription-dialog.component.html',
     styleUrls: ['./edit-subscription-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class EditSubscriptionDialogComponent implements OnInit {

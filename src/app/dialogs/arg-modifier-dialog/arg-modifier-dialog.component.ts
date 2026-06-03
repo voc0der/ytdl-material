@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, Pipe, PipeTransform, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, Inject, Pipe, PipeTransform, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { COMMA, ENTER } from '@angular/cdk/keycodes';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -30,6 +30,7 @@ export class HighlightPipe implements PipeTransform {
     templateUrl: './arg-modifier-dialog.component.html',
     providers: [HighlightPipe],
     styleUrls: ['./arg-modifier-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class ArgModifierDialogComponent implements OnInit, AfterViewInit {

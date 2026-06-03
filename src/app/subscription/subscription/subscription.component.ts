@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -11,6 +11,7 @@ import { filter, take } from 'rxjs/operators';
     selector: 'app-subscription',
     templateUrl: './subscription.component.html',
     styleUrls: ['./subscription.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class SubscriptionComponent implements OnInit, OnDestroy {

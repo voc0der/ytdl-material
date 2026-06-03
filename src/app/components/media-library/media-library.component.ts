@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
 import { DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
@@ -28,6 +28,7 @@ interface MediaLibraryRow<T> {
     selector: 'app-media-library',
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {

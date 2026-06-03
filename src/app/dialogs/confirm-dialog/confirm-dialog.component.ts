@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, EventEmitter } from '@angular/core';
+import { Component, OnInit, Inject, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 interface ConfirmDialogAction {
@@ -11,6 +11,7 @@ interface ConfirmDialogAction {
     selector: 'app-confirm-dialog',
     templateUrl: './confirm-dialog.component.html',
     styleUrls: ['./confirm-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class ConfirmDialogComponent implements OnInit {

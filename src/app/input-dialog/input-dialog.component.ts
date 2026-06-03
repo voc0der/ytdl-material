@@ -1,10 +1,11 @@
-import { Component, OnInit, Input, Inject, EventEmitter } from '@angular/core';
+import { Component, OnInit, Input, Inject, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 @Component({
     selector: 'app-input-dialog',
     templateUrl: './input-dialog.component.html',
     styleUrls: ['./input-dialog.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class InputDialogComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
@@ -12,6 +12,7 @@ import { DuplicateGroup, DuplicateRemovalMode, PostsService } from 'app/posts.se
     selector: 'app-duplicates',
     templateUrl: './duplicates.component.html',
     styleUrls: ['./duplicates.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class DuplicatesComponent implements OnInit, OnDestroy {

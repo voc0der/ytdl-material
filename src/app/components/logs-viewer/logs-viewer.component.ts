@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from '../../posts.services';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
@@ -7,6 +7,7 @@ import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialo
     selector: 'app-logs-viewer',
     templateUrl: './logs-viewer.component.html',
     styleUrls: ['./logs-viewer.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class LogsViewerComponent implements OnInit {

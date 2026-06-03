@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, Input, EventEmitter, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, Input, EventEmitter, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { trigger, transition, animateChild, stagger, query, style, animate } from '@angular/animations';
 import { Router } from '@angular/router';
@@ -18,6 +18,7 @@ import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state
     selector: 'app-downloads',
     templateUrl: './downloads.component.html',
     styleUrls: ['./downloads.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class DownloadsComponent implements OnInit, OnDestroy {

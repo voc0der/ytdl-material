@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef } from '@angular/core';
+import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { VgApiService } from '@videogular/ngx-videogular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -43,6 +43,7 @@ const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
     selector: 'app-player',
     templateUrl: './player.component.html',
     styleUrls: ['./player.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {

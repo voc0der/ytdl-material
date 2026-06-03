@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { filesize } from 'filesize';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
@@ -9,6 +9,7 @@ import { DatePipe } from '@angular/common';
     selector: 'app-video-info-dialog',
     templateUrl: './video-info-dialog.component.html',
     styleUrls: ['./video-info-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class VideoInfoDialogComponent implements OnInit {

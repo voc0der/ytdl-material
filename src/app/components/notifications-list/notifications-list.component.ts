@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { Notification } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
 import { NotificationType } from 'api-types/models/NotificationType';
@@ -7,6 +7,7 @@ import { NotificationType } from 'api-types/models/NotificationType';
     selector: 'app-notifications-list',
     templateUrl: './notifications-list.component.html',
     styleUrls: ['./notifications-list.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class NotificationsListComponent {

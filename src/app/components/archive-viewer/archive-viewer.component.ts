@@ -1,5 +1,5 @@
 import { SelectionModel } from '@angular/cdk/collections';
-import { Component, ViewChild } from '@angular/core';
+import { Component, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
@@ -14,6 +14,7 @@ import { NgxFileDropEntry } from 'ngx-file-drop';
     selector: 'app-archive-viewer',
     templateUrl: './archive-viewer.component.html',
     styleUrls: ['./archive-viewer.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class ArchiveViewerComponent {

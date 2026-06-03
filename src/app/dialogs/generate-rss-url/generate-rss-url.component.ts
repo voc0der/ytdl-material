@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { Router, UrlSerializer } from '@angular/router';
 import { Sort } from 'api-types';
 import { PostsService } from 'app/posts.services';
@@ -8,6 +8,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
     selector: 'app-generate-rss-url',
     templateUrl: './generate-rss-url.component.html',
     styleUrls: ['./generate-rss-url.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class GenerateRssUrlComponent {

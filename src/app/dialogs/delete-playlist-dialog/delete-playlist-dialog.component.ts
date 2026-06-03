@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { take } from 'rxjs/operators';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
@@ -9,6 +9,7 @@ export type DeletePlaylistDialogAction = 'playlist_only' | 'playlist_and_files';
     selector: 'app-delete-playlist-dialog',
     templateUrl: './delete-playlist-dialog.component.html',
     styleUrls: ['./delete-playlist-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class DeletePlaylistDialogComponent {

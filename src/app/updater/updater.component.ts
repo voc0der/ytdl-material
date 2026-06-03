@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 import { MatDialog } from '@angular/material/dialog';
@@ -15,6 +15,7 @@ type ParsedReleaseVersion = {
     selector: 'app-updater',
     templateUrl: './updater.component.html',
     styleUrls: ['./updater.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class UpdaterComponent implements OnInit {

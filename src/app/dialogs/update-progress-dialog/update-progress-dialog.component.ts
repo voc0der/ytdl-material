@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { UpdaterStatus } from '../../../api-types';
 
@@ -6,6 +6,7 @@ import { UpdaterStatus } from '../../../api-types';
     selector: 'app-update-progress-dialog',
     templateUrl: './update-progress-dialog.component.html',
     styleUrls: ['./update-progress-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class UpdateProgressDialogComponent implements OnInit {

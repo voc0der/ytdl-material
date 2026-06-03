@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList, ChangeDetectionStrategy } from '@angular/core';
 import {PostsService} from '../posts.services';
 import { fromEvent, Subject } from 'rxjs';
 import {UntypedFormControl, Validators} from '@angular/forms';
@@ -19,6 +19,7 @@ import { debounceTime, filter, map, switchMap, take, takeUntil, tap } from 'rxjs
     selector: 'app-root',
     templateUrl: './main.component.html',
     styleUrls: ['./main.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class MainComponent implements OnInit {

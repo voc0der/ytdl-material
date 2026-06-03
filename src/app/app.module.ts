@@ -37,7 +37,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { AppComponent } from './app.component';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, withXhr } from '@angular/common/http';
 import { PostsService } from 'app/posts.services';
 import { RouterModule } from '@angular/router';
 import { AppRoutingModule } from './app-routing.module';
@@ -214,7 +214,7 @@ registerLocaleData(es, 'es');
         PostsService,
         DatePipe,
         provideZoneChangeDetection(),
-        provideHttpClient(withInterceptors([h401InterceptorFn]))
+        provideHttpClient(withXhr(), withInterceptors([h401InterceptorFn]))
     ],
     bootstrap: [AppComponent]
 })

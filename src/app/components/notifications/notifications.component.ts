@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, OnInit, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { PostsService } from 'app/posts.services';
 import { Notification, NotificationType } from 'api-types';
@@ -10,6 +10,7 @@ import { filter, take } from 'rxjs/operators';
     selector: 'app-notifications',
     templateUrl: './notifications.component.html',
     styleUrls: ['./notifications.component.css'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class NotificationsComponent implements OnInit {

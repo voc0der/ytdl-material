@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { Download } from 'api-types';
 
@@ -6,6 +6,7 @@ import { Download } from 'api-types';
     selector: 'app-playlist-download-progress-dialog',
     templateUrl: './playlist-download-progress-dialog.component.html',
     styleUrls: ['./playlist-download-progress-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class PlaylistDownloadProgressDialogComponent implements OnInit {

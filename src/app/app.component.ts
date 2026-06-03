@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild, HostBinding, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, HostBinding, AfterViewInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import {MatDialogRef} from '@angular/material/dialog';
 import {PostsService} from './posts.services';
 import { MatDialog } from '@angular/material/dialog';
@@ -28,6 +28,7 @@ import { PLAYER_NAVIGATOR_STORAGE_KEY } from './media-library-navigation-state.s
             provide: MatDialogRef,
             useValue: {}
         }],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 
@@ -6,6 +6,7 @@ import { CURRENT_VERSION } from 'app/consts';
     selector: 'app-about-dialog',
     templateUrl: './about-dialog.component.html',
     styleUrls: ['./about-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class AboutDialogComponent implements OnInit {

@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { User } from 'api-types';
@@ -7,6 +7,7 @@ import { User } from 'api-types';
     selector: 'app-manage-user',
     templateUrl: './manage-user.component.html',
     styleUrls: ['./manage-user.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class ManageUserComponent implements OnInit {

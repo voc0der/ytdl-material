@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 
@@ -6,6 +6,7 @@ import { PostsService } from 'app/posts.services';
     selector: 'app-restore-db-dialog',
     templateUrl: './restore-db-dialog.component.html',
     styleUrls: ['./restore-db-dialog.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false
 })
 export class RestoreDbDialogComponent implements OnInit {
