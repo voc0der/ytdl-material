@@ -23,11 +23,11 @@ services:
       - ./users:/app/users
 
   ytdl-mongo-db:
-    image: mongo:8
+    image: mongo:4
     container_name: ytdl-mongo-db
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand({ping:1}).ok' --quiet"]
+      test: ["CMD-SHELL", "mongo --eval 'db.runCommand({ping:1}).ok' --quiet"]
       interval: 15s
       timeout: 30s
       retries: 5
