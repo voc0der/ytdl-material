@@ -1,0 +1,39 @@
+services:
+  ytdl-material:
+    image: voc0der/ytdl-material:nightly
+    container_name: ytdl-material
+    restart: always
+    environment:
+      # MongoDB migration guide:
+      # https://github.com/voc0der/ytdl-material/wiki/Migrating-between-MongoDB-and-PostgreSQL
+      ytdl_use_local_db: 'false'
+      ytdl_remote_db_type: 'mongo'
+      ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'
+      write_ytdl_config: 'true'
+    depends_on:
+      ytdl-mongo-db:
+        condition: service_healthy
+    ports:
+      - "17442:17442"
+    volumes:
+      - ./appdata:/app/appdata
+      - ./audio:/app/audio
+      - ./video:/app/video
+      - ./subscriptions:/app/subscriptions
+      - ./users:/app/users
+
+  ytdl-mongo-db:
+    image: mongo:8
+    container_name: ytdl-mongo-db
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand({ping:1}).ok' --quiet"]
+      interval: 15s
+      timeout: 30s
+      retries: 5
+      start_period: 35s
+      start_interval: 1s
+    logging:
+      driver: "none"
+    volumes:
+      - ./db:/data/db

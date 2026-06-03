@@ -38,6 +38,9 @@ docker compose up -d
 
 Docker environment variables: [docker-environment.md](./docker-environment.md). See [Wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for host-specific instructions.
 
+#### Migration
+If migrating from [YoutubeDL-Material](https://github.com/Tzahi12345/YoutubeDL-Material), download [docker-compose-youtubedl-material.yml](https://github.com/voc0der/ytdl-material/blob/main/docker-compose-youtubedl-material.yml) instead.
+
 #### Build manually
 See the [install and build guide](./install-and-build.md).
 
