@@ -247,10 +247,6 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_subscriptions_base_path',
         'path': 'YtdlMaterial.Subscriptions.subscriptions_base_path'
     },
-    'ytdl_subscriptions_check_interval': {
-        'key': 'ytdl_subscriptions_check_interval',
-        'path': 'YtdlMaterial.Subscriptions.subscriptions_check_interval'
-    },
     'ytdl_subscriptions_redownload_fresh_uploads': {
         'key': 'ytdl_subscriptions_redownload_fresh_uploads',
         'path': 'YtdlMaterial.Subscriptions.redownload_fresh_uploads'

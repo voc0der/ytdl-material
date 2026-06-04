@@ -2853,6 +2853,7 @@ components:
       - delete_old_files
       - import_legacy_archives
       - rebuild_database
+      - subscriptions_check
     Schedule:
       required:
         - type

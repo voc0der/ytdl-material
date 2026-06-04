@@ -17,6 +17,8 @@ These apply to many Docker setups regardless of which database or login method y
 
 For most setups, prefer Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
 
+Subscription refresh scheduling is managed from the in-app Tasks page. It is not configured with a Docker environment variable.
+
 ## Database Variables
 
 If you use the provided default compose files, PostgreSQL is already wired up for you. If you want to stay on the local JSON database, you can skip most of this section.
