@@ -858,6 +858,7 @@ async function loadConfig() {
                 refresh_status: subscriptions_api.buildInterruptedSubscriptionRefreshStatus(sub.refresh_status)
             });
         }));
+        await tasks_api.executeRunOnStartup('subscriptions_check');
     }
 
     // start the server here

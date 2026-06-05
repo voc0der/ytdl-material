@@ -66,6 +66,7 @@ const TASKS = {
     }
 }
 const TASK_JOBS = new Map();
+let setup_tasks_promise = null;
 
 // Backwards-compatible job access for tests/callers while storing jobs in a Map.
 function ensureTaskJobAccessor(taskKey) {
@@ -157,15 +158,17 @@ function scheduleJob(task_key, schedule) {
     });
 }
 
-if (db_api.database_initialized) {
-    exports.setupTasks();
-} else {
-    db_api.database_initialized_bs.subscribe(init => {
-        if (init) exports.setupTasks();
-    });
+exports.setupTasks = async () => {
+    if (setup_tasks_promise) return await setup_tasks_promise;
+    setup_tasks_promise = setupTasks();
+    try {
+        return await setup_tasks_promise;
+    } finally {
+        setup_tasks_promise = null;
+    }
 }
 
-exports.setupTasks = async () => {
+async function setupTasks() {
     const tasks_keys = Object.keys(TASKS);
     for (let i = 0; i < tasks_keys.length; i++) {
         const task_key = tasks_keys[i];
@@ -218,6 +221,14 @@ exports.setupTasks = async () => {
     }
 }
 
+if (db_api.database_initialized) {
+    exports.setupTasks();
+} else {
+    db_api.database_initialized_bs.subscribe(init => {
+        if (init) exports.setupTasks();
+    });
+}
+
 exports.executeTask = async (task_key) => {
     if (!TASKS[task_key]) {
         logger.error(`Task ${task_key} does not exist!`);
@@ -228,6 +239,28 @@ exports.executeTask = async (task_key) => {
     if (!TASKS[task_key]['confirm']) return;
     await exports.executeConfirm(task_key);
     logger.verbose(`Finished executing ${task_key}`);
+}
+
+exports.executeRunOnStartup = async (task_key) => {
+    if (!TASKS[task_key]) {
+        logger.error(`Task ${task_key} does not exist!`);
+        return false;
+    }
+
+    await exports.setupTasks();
+    const task_state = await db_api.getRecord('tasks', {key: task_key});
+    if (!task_state || !task_state['schedule']) {
+        logger.verbose(`Skipping startup run for task ${task_key} as it is not scheduled.`);
+        return false;
+    }
+
+    if (task_state['running'] || task_state['confirming']) {
+        logger.verbose(`Skipping startup run for task ${task_key} as it is already in progress.`);
+        return false;
+    }
+
+    await exports.executeRun(task_key);
+    return true;
 }
 
 exports.executeRun = async (task_key) => {

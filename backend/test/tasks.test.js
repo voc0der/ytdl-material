@@ -58,6 +58,47 @@ describe('Tasks', function() {
         }
     });
 
+    it('Runs the scheduled subscription check task on startup', async function() {
+        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
+        let check_next_subscription_called = false;
+
+        subscriptions_api.checkNextSubscription = async () => {
+            check_next_subscription_called = true;
+            return {success: true, checked: true, sub_id: 'startup-subscription'};
+        };
+
+        try {
+            const success = await tasks_api.executeRunOnStartup('subscriptions_check');
+            const task = await db_api.getRecord('tasks', {key: 'subscriptions_check'});
+
+            assert.strictEqual(success, true);
+            assert(check_next_subscription_called);
+            assert(task['last_ran']);
+        } finally {
+            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+        }
+    });
+
+    it('Skips the startup subscription check when the task is not scheduled', async function() {
+        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
+        let check_next_subscription_called = false;
+
+        subscriptions_api.checkNextSubscription = async () => {
+            check_next_subscription_called = true;
+            return {success: true};
+        };
+
+        try {
+            await tasks_api.updateTaskSchedule('subscriptions_check', null);
+            const success = await tasks_api.executeRunOnStartup('subscriptions_check');
+
+            assert.strictEqual(success, false);
+            assert.strictEqual(check_next_subscription_called, false);
+        } finally {
+            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+        }
+    });
+
     it('Check for missing files', async function() {
         this.timeout(300000);
         await db_api.removeAllRecords('files', {uid: 'test'});
