@@ -858,8 +858,6 @@ async function loadConfig() {
                 refresh_status: subscriptions_api.buildInterruptedSubscriptionRefreshStatus(sub.refresh_status)
             });
         }));
-        // runs initially, then runs every ${subscriptionCheckInterval} seconds
-        subscriptions_api.watchSubscriptionsInterval();
     }
 
     // start the server here
@@ -2821,7 +2819,9 @@ app.post('/api/getTasks', optionalJwt, async (req, res) => {
             logger.verbose(`Task ${task['key']} does not exist!`);
             continue;
         }
-        if (task['schedule']) task['next_invocation'] = tasks_api.TASKS[task['key']]['job'].nextInvocation().getTime();
+        const job = tasks_api.TASKS[task['key']]['job'];
+        const next_invocation = job && job.nextInvocation ? job.nextInvocation() : null;
+        if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
     }
     res.send({tasks: tasks});
 });
@@ -2840,7 +2840,9 @@ app.post('/api/resetTasks', optionalJwt, async (req, res) => {
 app.post('/api/getTask', optionalJwt, async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
-    if (task['schedule']) task['next_invocation'] = tasks_api.TASKS[task_key]['job'].nextInvocation().getTime();
+    const job = tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['job'];
+    const next_invocation = job && job.nextInvocation ? job.nextInvocation() : null;
+    if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
     res.send({task: task});
 });
 

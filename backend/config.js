@@ -280,7 +280,6 @@ const DEFAULT_CONFIG = {
       "Subscriptions": {
         "allow_subscriptions": true,
         "subscriptions_base_path": "subscriptions/",
-        "subscriptions_check_interval": "86400",
         "redownload_fresh_uploads": false
       },
       "Users": {

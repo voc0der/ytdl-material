@@ -18,6 +18,7 @@ describe('Subscriptions', function() {
         await db_api.removeAllRecords('download_queue');
         await db_api.removeAllRecords('files');
         await db_api.removeAllRecords('archives');
+        config_api.setConfigItem('ytdl_allow_subscriptions', true);
         config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
         config_api.setConfigItem('ytdl_custom_args', '');
         config_api.setConfigItem('ytdl_skip_join_only_videos', false);
@@ -218,6 +219,48 @@ describe('Subscriptions', function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         const subs = await subscriptions_api.getSubscriptions(null);
         assert(subs && subs.length === 1);
+    });
+    it('Checks valid subscriptions in round-robin order', async function() {
+        const original_get_videos_for_sub = subscriptions_api.getVideosForSub;
+        const checked_sub_ids = [];
+        const sub_one = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'round_robin_sub_one',
+            paused: false
+        });
+        const sub_two = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'round_robin_sub_two',
+            url: 'https://www.youtube.com/channel/round-robin-two',
+            paused: false
+        });
+        const paused_sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'round_robin_paused_sub',
+            url: 'https://www.youtube.com/channel/round-robin-paused',
+            paused: true
+        });
+
+        subscriptions_api.getVideosForSub = async (sub_id) => {
+            checked_sub_ids.push(sub_id);
+            return true;
+        };
+
+        try {
+            subscriptions_api.resetSubscriptionCheckCursor();
+            await db_api.insertRecordIntoTable('subscriptions', sub_one);
+            await db_api.insertRecordIntoTable('subscriptions', sub_two);
+            await db_api.insertRecordIntoTable('subscriptions', paused_sub);
+
+            const first_result = await subscriptions_api.checkNextSubscription();
+            const second_result = await subscriptions_api.checkNextSubscription();
+
+            assert.strictEqual(first_result.checked, true);
+            assert.strictEqual(second_result.checked, true);
+            assert.deepStrictEqual(checked_sub_ids, [sub_one.id, sub_two.id]);
+        } finally {
+            subscriptions_api.getVideosForSub = original_get_videos_for_sub;
+        }
     });
     it('Get subscription refresh status with pending queue counts', async function() {
         await subscriptions_api.subscribe(new_sub, null, true);

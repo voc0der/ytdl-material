@@ -14,6 +14,14 @@ const fs = require('fs-extra');
 const path = require('path');
 const scheduler = require('node-schedule');
 
+const DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE = {
+    type: 'recurring',
+    data: {
+        hour: 0,
+        minute: 0
+    }
+};
+
 const TASKS = {
     backup_local_db: {
         run: db_api.backupDB,
@@ -50,6 +58,11 @@ const TASKS = {
     rebuild_database: {
         run: rebuildDB,
         title: 'Rebuild database'
+    },
+    subscriptions_check: {
+        run: checkSubscriptions,
+        title: 'Check subscriptions',
+        defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE))
     }
 }
 const TASK_JOBS = new Map();
@@ -81,6 +94,27 @@ function ensureTaskJobAccessor(taskKey) {
 }
 for (const taskKey of Object.keys(TASKS)) {
     ensureTaskJobAccessor(taskKey);
+}
+
+function getDefaultTaskSchedule(task_key) {
+    const default_schedule = TASKS[task_key] && TASKS[task_key]['defaultSchedule'];
+    if (!default_schedule) return null;
+    const schedule = typeof default_schedule === 'function' ? default_schedule() : default_schedule;
+    return schedule ? JSON.parse(JSON.stringify(schedule)) : null;
+}
+
+function cancelTaskJob(task_key) {
+    const existing_job = TASK_JOBS.get(task_key);
+    if (existing_job) existing_job.cancel();
+    TASK_JOBS.delete(task_key);
+}
+
+function scheduleTaskJob(task_key, schedule) {
+    cancelTaskJob(task_key);
+    if (!schedule) return null;
+    const job = scheduleJob(task_key, schedule);
+    if (job) TASK_JOBS.set(task_key, job);
+    return job;
 }
 
 const defaultOptions = {
@@ -139,6 +173,7 @@ exports.setupTasks = async () => {
         const mergedDefaultOptions = Object.assign({}, defaultOptions['all'], defaultOptions[task_key] || {});
         const task_in_db = await db_api.getRecord('tasks', {key: task_key});
         if (!task_in_db) {
+            const default_schedule = getDefaultTaskSchedule(task_key);
             // insert task metadata into table if missing, eventually move title to UI
             await db_api.insertRecordIntoTable('tasks', {
                 key: task_key,
@@ -149,9 +184,10 @@ exports.setupTasks = async () => {
                 confirming: false,
                 data: null,
                 error: null,
-                schedule: null,
-                options: Object.assign({}, defaultOptions['all'], defaultOptions[task_key] || {})
+                schedule: default_schedule,
+                options: mergedDefaultOptions
             });
+            if (default_schedule) scheduleTaskJob(task_key, default_schedule);
         } else {
             // verify all options exist in task
             for (const key of Object.keys(mergedDefaultOptions)) {
@@ -170,10 +206,13 @@ exports.setupTasks = async () => {
             if (task_in_db['schedule']) {
                 // prevent timestamp schedules from being set to the past
                 if (task_in_db['schedule']['type'] === 'timestamp' && task_in_db['schedule']['data']['timestamp'] < Date.now()) {
+                    cancelTaskJob(task_key);
                     await db_api.updateRecord('tasks', {key: task_key}, {schedule: null});
                     continue;
                 }
-                TASK_JOBS.set(task_key, scheduleJob(task_key, task_in_db['schedule']));
+                scheduleTaskJob(task_key, task_in_db['schedule']);
+            } else {
+                cancelTaskJob(task_key);
             }
         }
     }
@@ -230,14 +269,12 @@ exports.updateTaskSchedule = async (task_key, schedule) => {
     }
     ensureTaskJobAccessor(task_key);
     await db_api.updateRecord('tasks', {key: task_key}, {schedule: schedule});
-    const existingJob = TASK_JOBS.get(task_key);
-    if (existingJob) {
-        existingJob.cancel();
-        TASK_JOBS.delete(task_key);
-    }
-    if (schedule) {
-        TASK_JOBS.set(task_key, scheduleJob(task_key, schedule));
-    }
+    scheduleTaskJob(task_key, schedule);
+    return true;
+}
+
+async function checkSubscriptions() {
+    return await subscriptions_api.checkNextSubscription();
 }
 
 // missing files check

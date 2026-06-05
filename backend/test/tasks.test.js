@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, fs, db_api, utils, generateEmptyVideoFile } = require('./test-shared');
+const { assert, fs, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
@@ -24,6 +24,38 @@ describe('Tasks', function() {
         const backups_new = await utils.recFindByExt('appdata', 'bak');
         const new_length = backups_new.length;
         assert(original_length === new_length-1);
+    });
+
+    it('Creates the subscription check task with a daily default schedule', async function() {
+        const task = await db_api.getRecord('tasks', {key: 'subscriptions_check'});
+
+        assert(task);
+        assert.strictEqual(task['title'], 'Check subscriptions');
+        assert.strictEqual(task['schedule']['type'], 'recurring');
+        assert.strictEqual(task['schedule']['data']['hour'], 0);
+        assert.strictEqual(task['schedule']['data']['minute'], 0);
+        assert(!!tasks_api.TASKS['subscriptions_check']['job']);
+    });
+
+    it('Runs subscription checks from the task manager', async function() {
+        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
+        let check_next_subscription_called = false;
+
+        subscriptions_api.checkNextSubscription = async () => {
+            check_next_subscription_called = true;
+            return {success: true, checked: true, sub_id: 'test-subscription'};
+        };
+
+        try {
+            await tasks_api.executeRun('subscriptions_check');
+            const task = await db_api.getRecord('tasks', {key: 'subscriptions_check'});
+
+            assert(check_next_subscription_called);
+            assert(task['last_ran']);
+            assert.strictEqual(task['running'], false);
+        } finally {
+            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+        }
     });
 
     it('Check for missing files', async function() {
@@ -112,4 +144,3 @@ describe('Tasks', function() {
         assert(dummy_task_obj['data']);
     });
 });
-
