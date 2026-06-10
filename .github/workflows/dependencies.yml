@@ -35,12 +35,62 @@ jobs:
       - name: Check frontend dependencies
         id: frontend_outdated
         continue-on-error: true
-        run: npm outdated
+        run: |
+          set +e
+          npm outdated --json > outdated.json
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            exit "$status"
+          fi
+
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('outdated.json', 'utf8').trim();
+          const packages = raw ? JSON.parse(raw) : {};
+          const behindWanted = Object.entries(packages)
+            .filter(([, details]) => details.current !== details.wanted);
+
+          if (behindWanted.length === 0) {
+            process.exit(0);
+          }
+
+          for (const [name, details] of behindWanted) {
+            console.log(`${name}: current ${details.current}, wanted ${details.wanted}, latest ${details.latest}`);
+          }
+          process.exit(1);
+          NODE
 
       - name: Check backend dependencies
         id: backend_outdated
         continue-on-error: true
-        run: npm outdated
+        run: |
+          set +e
+          npm outdated --json > outdated.json
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            exit "$status"
+          fi
+
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('outdated.json', 'utf8').trim();
+          const packages = raw ? JSON.parse(raw) : {};
+          const behindWanted = Object.entries(packages)
+            .filter(([, details]) => details.current !== details.wanted);
+
+          if (behindWanted.length === 0) {
+            process.exit(0);
+          }
+
+          for (const [name, details] of behindWanted) {
+            console.log(`${name}: current ${details.current}, wanted ${details.wanted}, latest ${details.latest}`);
+          }
+          process.exit(1);
+          NODE
         working-directory: ./backend
 
       - name: Fail if dependencies are outdated
