@@ -38,33 +38,33 @@ describe('Tasks', function() {
     });
 
     it('Runs subscription checks from the task manager', async function() {
-        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
-        let check_next_subscription_called = false;
+        const original_check_subscriptions = subscriptions_api.checkSubscriptions;
+        let check_subscriptions_called = false;
 
-        subscriptions_api.checkNextSubscription = async () => {
-            check_next_subscription_called = true;
-            return {success: true, checked: true, sub_id: 'test-subscription'};
+        subscriptions_api.checkSubscriptions = async () => {
+            check_subscriptions_called = true;
+            return {success: true, checked: true, checked_count: 1, sub_ids: ['test-subscription']};
         };
 
         try {
             await tasks_api.executeRun('subscriptions_check');
             const task = await db_api.getRecord('tasks', {key: 'subscriptions_check'});
 
-            assert(check_next_subscription_called);
+            assert(check_subscriptions_called);
             assert(task['last_ran']);
             assert.strictEqual(task['running'], false);
         } finally {
-            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+            subscriptions_api.checkSubscriptions = original_check_subscriptions;
         }
     });
 
     it('Runs the scheduled subscription check task on startup', async function() {
-        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
-        let check_next_subscription_called = false;
+        const original_check_subscriptions = subscriptions_api.checkSubscriptions;
+        let check_subscriptions_called = false;
 
-        subscriptions_api.checkNextSubscription = async () => {
-            check_next_subscription_called = true;
-            return {success: true, checked: true, sub_id: 'startup-subscription'};
+        subscriptions_api.checkSubscriptions = async () => {
+            check_subscriptions_called = true;
+            return {success: true, checked: true, checked_count: 1, sub_ids: ['startup-subscription']};
         };
 
         try {
@@ -72,19 +72,19 @@ describe('Tasks', function() {
             const task = await db_api.getRecord('tasks', {key: 'subscriptions_check'});
 
             assert.strictEqual(success, true);
-            assert(check_next_subscription_called);
+            assert(check_subscriptions_called);
             assert(task['last_ran']);
         } finally {
-            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+            subscriptions_api.checkSubscriptions = original_check_subscriptions;
         }
     });
 
     it('Skips the startup subscription check when the task is not scheduled', async function() {
-        const original_check_next_subscription = subscriptions_api.checkNextSubscription;
-        let check_next_subscription_called = false;
+        const original_check_subscriptions = subscriptions_api.checkSubscriptions;
+        let check_subscriptions_called = false;
 
-        subscriptions_api.checkNextSubscription = async () => {
-            check_next_subscription_called = true;
+        subscriptions_api.checkSubscriptions = async () => {
+            check_subscriptions_called = true;
             return {success: true};
         };
 
@@ -93,9 +93,9 @@ describe('Tasks', function() {
             const success = await tasks_api.executeRunOnStartup('subscriptions_check');
 
             assert.strictEqual(success, false);
-            assert.strictEqual(check_next_subscription_called, false);
+            assert.strictEqual(check_subscriptions_called, false);
         } finally {
-            subscriptions_api.checkNextSubscription = original_check_next_subscription;
+            subscriptions_api.checkSubscriptions = original_check_subscriptions;
         }
     });
 

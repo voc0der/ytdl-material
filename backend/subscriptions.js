@@ -1215,17 +1215,14 @@ exports.redownloadSubscription = async (sub_id, user_uid = null) => {
     return result;
 }
 
-let current_sub_index = 0; // To keep track of the current subscription
-exports.resetSubscriptionCheckCursor = () => {
-    current_sub_index = 0;
-}
-
-exports.checkNextSubscription = async () => {
+exports.checkSubscriptions = async () => {
     if (!config_api.getConfigItem('ytdl_allow_subscriptions')) {
         logger.info('Skipping subscription check as subscriptions are disabled.');
         return {
             success: true,
             checked: false,
+            checked_count: 0,
+            skipped_count: 0,
             reason: 'subscriptions_disabled'
         };
     }
@@ -1236,19 +1233,30 @@ exports.checkNextSubscription = async () => {
         return {
             success: true,
             checked: false,
+            checked_count: 0,
+            skipped_count: 0,
             reason: 'no_valid_subscriptions'
         };
     }
 
-    current_sub_index = current_sub_index % subscription_ids.length;
-    const sub_id = subscription_ids[current_sub_index];
-    current_sub_index = (current_sub_index + 1) % subscription_ids.length;
-    const started = await checkSubscription(sub_id);
+    const checked_sub_ids = [];
+    const skipped_sub_ids = [];
+    for (const sub_id of subscription_ids) {
+        const started = await checkSubscription(sub_id);
+        if (started === false) {
+            skipped_sub_ids.push(sub_id);
+        } else {
+            checked_sub_ids.push(sub_id);
+        }
+    }
 
     return {
-        success: started !== false,
-        checked: started !== false,
-        sub_id: sub_id
+        success: true,
+        checked: checked_sub_ids.length > 0,
+        checked_count: checked_sub_ids.length,
+        skipped_count: skipped_sub_ids.length,
+        sub_ids: checked_sub_ids,
+        skipped_sub_ids: skipped_sub_ids
     };
 }
 
