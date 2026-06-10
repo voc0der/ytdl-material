@@ -220,24 +220,24 @@ describe('Subscriptions', function() {
         const subs = await subscriptions_api.getSubscriptions(null);
         assert(subs && subs.length === 1);
     });
-    it('Checks valid subscriptions in round-robin order', async function() {
+    it('Checks all valid subscriptions in one run', async function() {
         const original_get_videos_for_sub = subscriptions_api.getVideosForSub;
         const checked_sub_ids = [];
         const sub_one = Object.assign({}, new_sub, {
             id: uuid(),
-            name: 'round_robin_sub_one',
+            name: 'check_all_sub_one',
             paused: false
         });
         const sub_two = Object.assign({}, new_sub, {
             id: uuid(),
-            name: 'round_robin_sub_two',
-            url: 'https://www.youtube.com/channel/round-robin-two',
+            name: 'check_all_sub_two',
+            url: 'https://www.youtube.com/channel/check-all-two',
             paused: false
         });
         const paused_sub = Object.assign({}, new_sub, {
             id: uuid(),
-            name: 'round_robin_paused_sub',
-            url: 'https://www.youtube.com/channel/round-robin-paused',
+            name: 'check_all_paused_sub',
+            url: 'https://www.youtube.com/channel/check-all-paused',
             paused: true
         });
 
@@ -247,16 +247,17 @@ describe('Subscriptions', function() {
         };
 
         try {
-            subscriptions_api.resetSubscriptionCheckCursor();
             await db_api.insertRecordIntoTable('subscriptions', sub_one);
             await db_api.insertRecordIntoTable('subscriptions', sub_two);
             await db_api.insertRecordIntoTable('subscriptions', paused_sub);
 
-            const first_result = await subscriptions_api.checkNextSubscription();
-            const second_result = await subscriptions_api.checkNextSubscription();
+            const result = await subscriptions_api.checkSubscriptions();
 
-            assert.strictEqual(first_result.checked, true);
-            assert.strictEqual(second_result.checked, true);
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(result.checked, true);
+            assert.strictEqual(result.checked_count, 2);
+            assert.strictEqual(result.skipped_count, 0);
+            assert.deepStrictEqual(result.sub_ids, [sub_one.id, sub_two.id]);
             assert.deepStrictEqual(checked_sub_ids, [sub_one.id, sub_two.id]);
         } finally {
             subscriptions_api.getVideosForSub = original_get_videos_for_sub;

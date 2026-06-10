@@ -307,7 +307,7 @@ exports.updateTaskSchedule = async (task_key, schedule) => {
 }
 
 async function checkSubscriptions() {
-    return await subscriptions_api.checkNextSubscription();
+    return await subscriptions_api.checkSubscriptions();
 }
 
 // missing files check
