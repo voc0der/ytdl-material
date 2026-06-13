@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, path, fs, youtubedl_api, CONSTS } = require('./test-shared');
+const { assert, path, fs, youtubedl_api, config_api, CONSTS } = require('./test-shared');
 
 describe('downloader info', function() {
     const fork = 'yt-dlp';
@@ -82,5 +82,42 @@ describe('downloader info', function() {
         assert.strictEqual(details.version, null);
         assert.strictEqual(details.binary_exists, false);
         assert.strictEqual(details.loaded, false);
+    });
+
+    it('uses the system yt-dlp binary only when impersonation is enabled', function() {
+        const system_binary_path = path.join('test', 'tmp-system-yt-dlp');
+        const original_impersonation = config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+        const original_lower_env = process.env.ytdl_ytdlp_impersonation_binary;
+        const original_upper_env = process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+
+        try {
+            fs.ensureDirSync(path.dirname(system_binary_path));
+            fs.writeFileSync(system_binary_path, '');
+            process.env.ytdl_ytdlp_impersonation_binary = system_binary_path;
+            delete process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', false);
+            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), binary_path);
+
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', true);
+            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), system_binary_path);
+            assert.strictEqual(
+                youtubedl_api.getYoutubeDLRuntimePath('youtube-dl'),
+                path.join('appdata', 'bin', 'youtube-dl' + (process.platform === 'win32' ? '.exe' : ''))
+            );
+        } finally {
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', original_impersonation);
+            if (original_lower_env === undefined) {
+                delete process.env.ytdl_ytdlp_impersonation_binary;
+            } else {
+                process.env.ytdl_ytdlp_impersonation_binary = original_lower_env;
+            }
+            if (original_upper_env === undefined) {
+                delete process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+            } else {
+                process.env.YTDL_YTDLP_IMPERSONATION_BINARY = original_upper_env;
+            }
+            fs.removeSync(system_binary_path);
+        }
     });
 });
