@@ -34,6 +34,7 @@ const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
+const DEFAULT_YTDLP_IMPERSONATION_ARG = '--impersonate=';
 const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TYPES = new Set(['join_only', 'no_output', 'no_downloadable_items']);
 const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
     'join this channel',
@@ -76,6 +77,21 @@ function hasArg(args = [], target_arg = '') {
     }
     return false;
 }
+
+function isYtDlpImpersonationEnabled() {
+    return !!config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+}
+exports.isYtDlpImpersonationEnabled = isYtDlpImpersonationEnabled;
+
+function appendYtDlpImpersonationArgs(download_args = [], downloader_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    if (!Array.isArray(download_args)) return [];
+    if (downloader_fork !== 'yt-dlp') return download_args;
+    if (!isYtDlpImpersonationEnabled()) return download_args;
+    if (hasArg(download_args, '--impersonate')) return download_args;
+
+    return download_args.concat([DEFAULT_YTDLP_IMPERSONATION_ARG]);
+}
+exports.appendYtDlpImpersonationArgs = appendYtDlpImpersonationArgs;
 
 function normalizeArchiveExtractor(value = null) {
     if (typeof value !== 'string') return null;
@@ -1141,7 +1157,8 @@ async function finalizePlaylistBatchContainer(download_uid = null) {
 exports.finalizePlaylistBatchContainer = finalizePlaylistBatchContainer;
 
 async function getPlaylistChunkingMetadata(url, options = {}) {
-    const probe_args = ['--flat-playlist', '--dump-single-json', '--ignore-errors'];
+    const downloader_fork = getPreferredDownloaderFork(options);
+    let probe_args = ['--flat-playlist', '--dump-single-json', '--ignore-errors'];
     if (url.includes('list=') && !probe_args.includes('--yes-playlist')) {
         probe_args.push('--yes-playlist');
     }
@@ -1155,9 +1172,11 @@ async function getPlaylistChunkingMetadata(url, options = {}) {
         probe_args.push('--cookies', path.join('appdata', 'cookies.txt'));
     }
 
+    probe_args = appendYtDlpImpersonationArgs(probe_args, downloader_fork);
+
     logger.debug(`Probing playlist metadata for automatic chunking: ${url}`);
     try {
-        const run_result = await youtubedl_api.runYoutubeDL(url, probe_args);
+        const run_result = await youtubedl_api.runYoutubeDL(url, probe_args, null, downloader_fork);
         if (!run_result || !run_result.callback) return null;
         const {parsed_output} = await run_result.callback;
         if (!Array.isArray(parsed_output) || parsed_output.length === 0) return null;
@@ -2046,6 +2065,7 @@ function shouldForceYtDlpForCustomQualityConfiguration(custom_quality_configurat
 
 function getPreferredDownloaderFork(options = {}) {
     if (options.forceYtDlp) return 'yt-dlp';
+    if (isYtDlpImpersonationEnabled()) return 'yt-dlp';
     const selected_audio_language = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
     const selected_subtitle_language = normalizeSelectedSubtitleLanguage(options.selectedSubtitleLanguage);
     const custom_quality_configuration = typeof options.customQualityConfiguration === 'string'
@@ -2270,6 +2290,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         }
 
     }
+
+    downloadConfig = appendYtDlpImpersonationArgs(downloadConfig, default_downloader);
 
     // filter out incompatible args
     downloadConfig = filterArgs(downloadConfig, is_audio);

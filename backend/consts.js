@@ -82,6 +82,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_skip_join_only_videos',
         'path': 'YtdlMaterial.Downloader.skip_join_only_videos'
     },
+    'ytdl_use_ytdlp_impersonation': {
+        'key': 'ytdl_use_ytdlp_impersonation',
+        'path': 'YtdlMaterial.Downloader.use_ytdlp_impersonation'
+    },
 
     // Extra
     'ytdl_title_top': {
@@ -445,6 +449,7 @@ const YTDL_ARGS_WITH_VALUES = [
     '--cache-dir',
     '--encoding',
     '--user-agent',
+    '--impersonate',
     '--referer',
     '--add-header',
     '--sleep-interval',
