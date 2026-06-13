@@ -12,6 +12,33 @@ let configPath = debugMode ? '../src/assets/default.json' : 'appdata/default.jso
 exports.config_updated = new BehaviorSubject();
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
 const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
+const YTDLP_IMPERSONATION_DEPENDENCY_ENV_KEYS = [
+    'ytdl_enable_ytdlp_impersonation_dependencies',
+    'YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES',
+    'ytdl_enable_curl_cffi',
+    'YTDL_ENABLE_CURL_CFFI'
+];
+
+function isTruthyEnvValue(value) {
+    return typeof value === 'string' && ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
+function isYtDlpImpersonationDependencyEnvEnabled() {
+    return YTDLP_IMPERSONATION_DEPENDENCY_ENV_KEYS.some(env_key => isTruthyEnvValue(process.env[env_key]));
+}
+
+function getDefaultConfig() {
+    const default_config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    if (isYtDlpImpersonationDependencyEnvEnabled()) {
+        default_config.YtdlMaterial.Downloader.use_ytdlp_impersonation = true;
+    }
+    return default_config;
+}
+
+function getDefaultConfigItemValue(key) {
+    const default_config = getDefaultConfig();
+    return Object.byString(default_config, exports.CONFIG_ITEMS[key]['path']);
+}
 
 function normalizeConfigRoot(config_json) {
     if (!config_json || typeof config_json !== 'object') return {normalized_config: config_json, migrated: false};
@@ -39,7 +66,7 @@ function ensureConfigItemsExist() {
 function ensureConfigFileExists() {
     if (!fs.existsSync(configPath)) {
         logger.info('Cannot find config file. Creating one with default values...');
-        fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2));
+        fs.writeFileSync(configPath, JSON.stringify(getDefaultConfig(), null, 2));
     }
 }
 
@@ -76,7 +103,7 @@ function getElementNameInConfig(path) {
 exports.configExistsCheck = () => {
     let exists = fs.existsSync(configPath);
     if (!exists) {
-        exports.setConfigFile(DEFAULT_CONFIG);
+        exports.setConfigFile(getDefaultConfig());
     }
 }
 
@@ -124,8 +151,9 @@ exports.getConfigItem = (key) => {
     const val = Object.byString(config_json, path);
     if (val === undefined && Object.byString(DEFAULT_CONFIG, path) !== undefined) {
         logger.warn(`Cannot find config with key '${key}'. Creating one with the default value...`);
-        exports.setConfigItem(key, Object.byString(DEFAULT_CONFIG, path));
-        return Object.byString(DEFAULT_CONFIG, path);
+        const default_value = getDefaultConfigItemValue(key);
+        exports.setConfigItem(key, default_value);
+        return default_value;
     }
     return Object.byString(config_json, path);
 }
@@ -232,7 +260,8 @@ const DEFAULT_CONFIG = {
         "min_sleep_between_downloads": 0,
         "playlist_chunk_size": 20,
         "download_rate_limit": "",
-        "skip_join_only_videos": false
+        "skip_join_only_videos": false,
+        "use_ytdlp_impersonation": false
       },
       "Extra": {
         "title_top": "ytdl-material",

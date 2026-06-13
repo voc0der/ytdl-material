@@ -14,8 +14,14 @@ These apply to many Docker setups regardless of which database or login method y
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
+* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install yt-dlp's optional `curl_cffi` browser impersonation dependency during container startup
 
 For most setups, prefer Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
+
+If `ytdl_enable_ytdlp_impersonation_dependencies` is enabled, let the container start as root so the entrypoint can install the Python dependency before it drops privileges.
+Custom images that already include `curl_cffi` can still run directly as a non-root user.
+The first startup with this env flag also enables the Settings > Downloader > Use yt-dlp browser impersonation option when that setting does not exist yet.
+That setting adds yt-dlp's `--impersonate=""` option; installing `curl_cffi` alone only makes impersonation targets available.
 
 Subscription refresh scheduling is managed from the in-app Tasks page. It is not configured with a Docker environment variable.
 

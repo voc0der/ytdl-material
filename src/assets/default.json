@@ -19,7 +19,9 @@
       "max_concurrent_downloads": 5,
       "min_sleep_between_downloads": 0,
       "playlist_chunk_size": 20,
-      "download_rate_limit": ""
+      "download_rate_limit": "",
+      "skip_join_only_videos": false,
+      "use_ytdlp_impersonation": false
     },
     "Extra": {
       "title_top": "ytdl-material",
@@ -31,7 +33,12 @@
       "settings_pin_required": false,
       "enable_downloads_manager": true,
       "allow_playlist_categorization": true,
-      "allow_autoplay": true
+      "allow_autoplay": true,
+      "force_autoplay": false,
+      "enable_notifications": true,
+      "enable_all_notifications": true,
+      "allowed_notification_types": [],
+      "enable_rss_feed": false
     },
     "API": {
       "use_API_key": false,
@@ -43,7 +50,22 @@
       "twitch_API_key": "",
       "twitch_auto_download_chat": true,
       "use_sponsorblock_API": false,
-      "generate_NFO_files": false
+      "generate_NFO_files": false,
+      "use_telegram_API": false,
+      "telegram_bot_token": "",
+      "use_ntfy_API": false,
+      "ntfy_topic_URL": "",
+      "use_gotify_API": false,
+      "gotify_server_URL": "",
+      "gotify_app_token": "",
+      "telegram_chat_id": "",
+      "telegram_webhook_proxy": "",
+      "webhook_URL": "",
+      "use_custom_webhook_template": false,
+      "custom_webhook_title_template": "{{event_name}}",
+      "custom_webhook_body_template": "{{event_body}}",
+      "discord_webhook_URL": "",
+      "slack_webhook_URL": ""
     },
     "Themes": {
       "default_theme": "default",
@@ -87,7 +109,8 @@
       "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib",
       "postgresdb_connection_string": "postgresql://ytdl-material:ytdl-material@127.0.0.1:5432/ytdl-material",
       "db_migrate": "",
-      "use_local_db": false
+      "use_local_db": true,
+      "redis_connection_string": ""
     },
     "Advanced": {
       "use_default_downloading_agent": true,

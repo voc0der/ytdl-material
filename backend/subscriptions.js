@@ -982,10 +982,12 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
 
 async function getSubscriptionInfo(sub) {
     // get videos
+    const downloader_fork = downloader_api.getPreferredDownloaderFork({});
     let downloadConfig = ['--dump-json'];
     downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
     downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
     downloadConfig = utils.injectArgs(downloadConfig, ['--playlist-end', '1']);
+    downloadConfig = downloader_api.appendYtDlpImpersonationArgs(downloadConfig, downloader_fork);
     let useCookies = config_api.getConfigItem('ytdl_use_cookies');
     if (useCookies) {
         if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
@@ -998,7 +1000,7 @@ async function getSubscriptionInfo(sub) {
     // Note: yt-dlp-ejs is installed via pip and will be automatically detected
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
-    let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
+    let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig, null, downloader_fork);
     const {parsed_output, err} = await callback;
     if (err) {
         logger.error(`Subscribe: failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
@@ -1329,10 +1331,11 @@ async function _getVideosForSub(sub) {
     logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(discoveryDownloadConfig).join(',')}`);
 
     const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context);
+    const downloader_fork = downloader_api.getPreferredDownloaderFork({});
     let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, discoveryDownloadConfig, {
         onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
         onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
-    });
+    }, downloader_fork);
     await updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
     try {
         const {err} = await callback;
@@ -1446,7 +1449,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
     downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
 
-    const default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+    const default_downloader = downloader_api.getPreferredDownloaderFork({});
     downloadConfig = downloader_api.appendFilenameSanitizationArgs(downloadConfig, default_downloader);
 
     if (sub.timerange && !redownload) {
@@ -1476,6 +1479,8 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
         // Note: yt-dlp-ejs is installed via pip and will be automatically detected
         // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
     }
+
+    downloadConfig = downloader_api.appendYtDlpImpersonationArgs(downloadConfig, default_downloader);
 
     downloadConfig = utils.filterArgs(downloadConfig, ['--write-comments']);
 
@@ -2146,7 +2151,8 @@ async function checkVideoIfBetterExists(file_obj, sub, user_uid) {
         const metric_to_compare = sub.type === 'audio' ? 'abr' : 'height';
         if (info[metric_to_compare] > file_obj[metric_to_compare]) {
             // download new video as the simulated one is better
-            let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig);
+            const downloader_fork = downloader_api.getPreferredDownloaderFork({});
+            let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig, null, downloader_fork);
             const {parsed_output, err} = await callback;
             if (err) {
                 logger.verbose(`Failed to download better version of video ${file_obj['id']}`);

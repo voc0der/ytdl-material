@@ -245,6 +245,41 @@ describe('Downloader', function() {
         }
     });
 
+    it('Generate args appends yt-dlp browser impersonation when enabled', async function() {
+        const original_default_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        const original_impersonation = config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+
+        try {
+            config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', true);
+
+            const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
+            assert(args.includes('--impersonate='));
+            assert.strictEqual(downloader_api.getPreferredDownloaderFork({}), 'yt-dlp');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_default_downloader);
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', original_impersonation);
+        }
+    });
+
+    it('Generate args does not duplicate manually configured impersonation args', async function() {
+        const original_impersonation = config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+
+        try {
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', true);
+
+            const args = await downloader_api.generateArgs(url, 'video', {
+                customArgs: '--impersonate,,chrome',
+                ui_uid: uuid()
+            }, null, true);
+            const impersonate_args = args.filter(arg => arg === '--impersonate');
+            assert.strictEqual(impersonate_args.length, 1);
+            assert.strictEqual(args[args.indexOf('--impersonate') + 1], 'chrome');
+        } finally {
+            config_api.setConfigItem('ytdl_use_ytdlp_impersonation', original_impersonation);
+        }
+    });
+
     it('Download file', async function() {
         this.timeout(300000);
         await downloader_api.setupDownloads();
