@@ -18,64 +18,8 @@ resolve_runtime_env() {
     printf '%s' "$default_value"
 }
 
-is_truthy() {
-    case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
-        1|true|yes|on)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-python_module_available() {
-    python3 - "$1" <<'PY'
-import importlib.util
-import sys
-
-sys.exit(0 if importlib.util.find_spec(sys.argv[1]) else 1)
-PY
-}
-
-install_ytdlp_impersonation_dependencies() {
-    local enabled
-    enabled="$(resolve_runtime_env false \
-        ytdl_enable_ytdlp_impersonation_dependencies \
-        YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES \
-        ytdl_enable_curl_cffi \
-        YTDL_ENABLE_CURL_CFFI)"
-
-    if ! is_truthy "$enabled"; then
-        return
-    fi
-
-    if python_module_available curl_cffi; then
-        echo "[entrypoint] yt-dlp impersonation dependency curl_cffi is already installed"
-        return
-    fi
-
-    if [ "$(id -u)" != "0" ]; then
-        echo "[entrypoint] ERROR: ytdl_enable_ytdlp_impersonation_dependencies is enabled,"
-        echo "[entrypoint] but curl_cffi is missing and the container is not running as root."
-        echo "[entrypoint] Start as root for the entrypoint install step, or bake curl_cffi into a custom image."
-        exit 1
-    fi
-
-    echo "[entrypoint] Installing optional yt-dlp impersonation dependencies"
-    python3 -m pip install --upgrade --break-system-packages "yt-dlp[default,curl-cffi]" yt-dlp-ejs || \
-        python3 -m pip install --upgrade "yt-dlp[default,curl-cffi]" yt-dlp-ejs
-
-    if ! python_module_available curl_cffi; then
-        echo "[entrypoint] ERROR: curl_cffi was not available after installation."
-        exit 1
-    fi
-}
-
 runtime_uid="$(resolve_runtime_env 1000 ytdl_uid uid UID)"
 runtime_gid="$(resolve_runtime_env 1000 ytdl_gid gid GID)"
-
-install_ytdlp_impersonation_dependencies
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then
