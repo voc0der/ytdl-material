@@ -84,40 +84,39 @@ describe('downloader info', function() {
         assert.strictEqual(details.loaded, false);
     });
 
-    it('uses the system yt-dlp binary only when impersonation is enabled', function() {
-        const system_binary_path = path.join('test', 'tmp-system-yt-dlp');
+    it('uses the Python yt-dlp runtime only when impersonation env and setting are enabled', function() {
         const original_impersonation = config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
-        const original_lower_env = process.env.ytdl_ytdlp_impersonation_binary;
-        const original_upper_env = process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+        const original_dependency_env = process.env.ytdl_enable_ytdlp_impersonation_dependencies;
+        const original_upper_dependency_env = process.env.YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES;
 
         try {
-            fs.ensureDirSync(path.dirname(system_binary_path));
-            fs.writeFileSync(system_binary_path, '');
-            process.env.ytdl_ytdlp_impersonation_binary = system_binary_path;
-            delete process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+            delete process.env.ytdl_enable_ytdlp_impersonation_dependencies;
+            delete process.env.YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES;
 
             config_api.setConfigItem('ytdl_use_ytdlp_impersonation', false);
             assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), binary_path);
 
             config_api.setConfigItem('ytdl_use_ytdlp_impersonation', true);
-            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), system_binary_path);
+            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), binary_path);
+
+            process.env.ytdl_enable_ytdlp_impersonation_dependencies = 'true';
+            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), process.platform === 'win32' ? 'python' : 'python3');
             assert.strictEqual(
                 youtubedl_api.getYoutubeDLRuntimePath('youtube-dl'),
                 path.join('appdata', 'bin', 'youtube-dl' + (process.platform === 'win32' ? '.exe' : ''))
             );
         } finally {
             config_api.setConfigItem('ytdl_use_ytdlp_impersonation', original_impersonation);
-            if (original_lower_env === undefined) {
-                delete process.env.ytdl_ytdlp_impersonation_binary;
+            if (original_dependency_env === undefined) {
+                delete process.env.ytdl_enable_ytdlp_impersonation_dependencies;
             } else {
-                process.env.ytdl_ytdlp_impersonation_binary = original_lower_env;
+                process.env.ytdl_enable_ytdlp_impersonation_dependencies = original_dependency_env;
             }
-            if (original_upper_env === undefined) {
-                delete process.env.YTDL_YTDLP_IMPERSONATION_BINARY;
+            if (original_upper_dependency_env === undefined) {
+                delete process.env.YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES;
             } else {
-                process.env.YTDL_YTDLP_IMPERSONATION_BINARY = original_upper_env;
+                process.env.YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES = original_upper_dependency_env;
             }
-            fs.removeSync(system_binary_path);
         }
     });
 });

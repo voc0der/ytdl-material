@@ -79,7 +79,8 @@ function hasArg(args = [], target_arg = '') {
 }
 
 function isYtDlpImpersonationEnabled() {
-    return !!config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+    return config_api.isYtDlpImpersonationDependencyEnvEnabled()
+        && !!config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
 }
 exports.isYtDlpImpersonationEnabled = isYtDlpImpersonationEnabled;
 

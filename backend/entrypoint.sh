@@ -18,8 +18,72 @@ resolve_runtime_env() {
     printf '%s' "$default_value"
 }
 
+is_truthy() {
+    case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+python_target_has_ytdlp_impersonation() {
+    python3 - "$1" <<'PY'
+import importlib.util
+import sys
+
+sys.path.insert(0, sys.argv[1])
+missing = [
+    module
+    for module in ("yt_dlp", "curl_cffi")
+    if importlib.util.find_spec(module) is None
+]
+sys.exit(1 if missing else 0)
+PY
+}
+
+install_ytdlp_impersonation_dependencies() {
+    local enabled
+    local target_path
+
+    enabled="$(resolve_runtime_env false \
+        ytdl_enable_ytdlp_impersonation_dependencies \
+        YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES \
+        ytdl_enable_curl_cffi \
+        YTDL_ENABLE_CURL_CFFI)"
+
+    if ! is_truthy "$enabled"; then
+        return
+    fi
+
+    target_path="$(resolve_runtime_env appdata/ytdlp-impersonation/python \
+        ytdl_ytdlp_impersonation_python_path \
+        YTDL_YTDLP_IMPERSONATION_PYTHON_PATH)"
+
+    if python_target_has_ytdlp_impersonation "$target_path"; then
+        echo "[entrypoint] yt-dlp impersonation dependencies are already installed"
+        export PYTHONPATH="${target_path}${PYTHONPATH:+:${PYTHONPATH}}"
+        return
+    fi
+
+    echo "[entrypoint] Installing optional yt-dlp impersonation dependencies"
+    mkdir -p "$target_path"
+    python3 -m pip install --upgrade --target "$target_path" "yt-dlp[default,curl-cffi]" yt-dlp-ejs
+
+    if ! python_target_has_ytdlp_impersonation "$target_path"; then
+        echo "[entrypoint] ERROR: yt-dlp impersonation dependencies were not available after installation."
+        exit 1
+    fi
+
+    export PYTHONPATH="${target_path}${PYTHONPATH:+:${PYTHONPATH}}"
+}
+
 runtime_uid="$(resolve_runtime_env 1000 ytdl_uid uid UID)"
 runtime_gid="$(resolve_runtime_env 1000 ytdl_gid gid GID)"
+
+install_ytdlp_impersonation_dependencies
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then

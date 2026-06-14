@@ -13,7 +13,7 @@ const config_api = require('./config.js');
 
 const is_windows = process.platform === 'win32';
 const STREAMING_ERROR_BUFFER_LIMIT = 20000;
-const DEFAULT_SYSTEM_YTDLP_PATH = is_windows ? 'yt-dlp.exe' : '/usr/local/bin/yt-dlp';
+const DEFAULT_YTDLP_IMPERSONATION_PATH = path.join('appdata', 'ytdlp-impersonation', 'python');
 
 exports.youtubedl_forks = {
     'youtube-dl': {
@@ -52,20 +52,39 @@ function getYoutubeDLEnv() {
     };
 }
 
-function getConfiguredSystemYtDlpPath() {
-    return process.env.ytdl_ytdlp_impersonation_binary
-        || process.env.YTDL_YTDLP_IMPERSONATION_BINARY
-        || DEFAULT_SYSTEM_YTDLP_PATH;
+function getYtDlpImpersonationPath() {
+    return process.env.ytdl_ytdlp_impersonation_python_path
+        || process.env.YTDL_YTDLP_IMPERSONATION_PYTHON_PATH
+        || DEFAULT_YTDLP_IMPERSONATION_PATH;
 }
 
 function isYtDlpImpersonationEnabled() {
-    return !!config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+    return config_api.isYtDlpImpersonationDependencyEnvEnabled()
+        && !!config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
+}
+
+function useYtDlpImpersonationRuntime(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    return youtubedl_fork === 'yt-dlp' && isYtDlpImpersonationEnabled();
+}
+
+function getYoutubeDLRuntimeBaseArgs(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    return useYtDlpImpersonationRuntime(youtubedl_fork)
+        ? ['-m', 'yt_dlp']
+        : [];
+}
+
+function getYoutubeDLRuntimeEnv(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    const env = getYoutubeDLEnv();
+    if (useYtDlpImpersonationRuntime(youtubedl_fork)) {
+        const impersonation_path = getYtDlpImpersonationPath();
+        env.PYTHONPATH = env.PYTHONPATH ? `${impersonation_path}${path.delimiter}${env.PYTHONPATH}` : impersonation_path;
+    }
+    return env;
 }
 
 function getYoutubeDLRuntimePath(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
-    if (youtubedl_fork === 'yt-dlp' && isYtDlpImpersonationEnabled()) {
-        const system_ytdlp_path = getConfiguredSystemYtDlpPath();
-        if (fs.existsSync(system_ytdlp_path)) return system_ytdlp_path;
+    if (useYtDlpImpersonationRuntime(youtubedl_fork)) {
+        return is_windows ? 'python' : 'python3';
     }
 
     return getYoutubeDLPath(youtubedl_fork);
@@ -126,7 +145,9 @@ function createLineStreamHandler(stream = null, line_handler = null) {
 exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLRuntimePath(selected_fork);
-    if (!fs.existsSync(output_file_path)) await exports.checkForYoutubeDLUpdate(selected_fork);
+    if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
+        await exports.checkForYoutubeDLUpdate(selected_fork);
+    }
     let callback = null;
     let child_process = null;
     if (customDownloadHandler) {
@@ -141,13 +162,16 @@ exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl
 exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLRuntimePath(selected_fork);
-    if (!fs.existsSync(output_file_path)) await exports.checkForYoutubeDLUpdate(selected_fork);
+    if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
+        await exports.checkForYoutubeDLUpdate(selected_fork);
+    }
 
     const runtime_args = ensureJavascriptRuntimeArgs(args, selected_fork);
+    const base_args = getYoutubeDLRuntimeBaseArgs(selected_fork);
     logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
-    const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [url, ...runtime_args], {
+    const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, url, ...runtime_args], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: getYoutubeDLEnv()
+        env: getYoutubeDLRuntimeEnv(selected_fork)
     });
 
     let recent_stdout = '';
@@ -217,21 +241,22 @@ const runYoutubeDLCustom = async (url, args, customDownloadHandler) => {
 // Run youtube-dl in a subprocess (cancellable)
 const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {
     const youtubedl_path = getYoutubeDLRuntimePath(youtubedl_fork);
-    const binary_exists = fs.existsSync(youtubedl_path);
+    const binary_exists = useYtDlpImpersonationRuntime(youtubedl_fork) || fs.existsSync(youtubedl_path);
     if (!binary_exists) {
         const err = `Could not find path for ${youtubedl_fork} at ${youtubedl_path}`;
         logger.error(err);
         return;
     }
     const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
+    const base_args = getYoutubeDLRuntimeBaseArgs(youtubedl_fork);
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
-    const child_process = execa(youtubedl_path, [url, ...runtime_args], {
+    const child_process = execa(youtubedl_path, [...base_args, url, ...runtime_args], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,
         cleanup: true,    // Kill all child processes when parent exits
         killSignal: 'SIGKILL',  // Force kill instead of graceful SIGTERM
-        env: getYoutubeDLEnv()
+        env: getYoutubeDLRuntimeEnv(youtubedl_fork)
     });
 
     // Log when process exits

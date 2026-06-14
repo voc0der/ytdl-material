@@ -1232,6 +1232,7 @@ app.get('/api/config', function(req, res) {
     let config_file = config_api.getConfigFile();
     res.send({
         config_file: config_file,
+        ytdlp_impersonation_available: config_api.isYtDlpImpersonationDependencyEnvEnabled(),
         success: !!config_file
     });
 });

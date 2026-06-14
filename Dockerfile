@@ -92,9 +92,9 @@ RUN npm install -g pm2 && \
 # Install Deno system-wide for yt-dlp YouTube support
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
-# Ensure yt-dlp, yt-dlp-ejs, and optional browser impersonation support are available.
-RUN pip install --upgrade "yt-dlp[default,curl-cffi]" yt-dlp-ejs --break-system-packages || \
-    pip install --upgrade "yt-dlp[default,curl-cffi]" yt-dlp-ejs
+# Ensure yt-dlp and yt-dlp-ejs are up to date
+RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
+    pip install --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]

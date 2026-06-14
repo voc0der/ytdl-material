@@ -14,13 +14,9 @@ These apply to many Docker setups regardless of which database or login method y
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
-* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to enable yt-dlp browser impersonation on first startup when that setting does not exist yet
+* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install support, show the Downloader impersonation option, and enable it for new configs
 
 You can use Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
-
-The Docker image includes yt-dlp's optional `curl_cffi` browser impersonation dependency, but ytdl-material only uses the dependency-aware yt-dlp path when Settings > Downloader > Use yt-dlp browser impersonation is enabled.
-The first startup with `ytdl_enable_ytdlp_impersonation_dependencies` also enables that setting when it does not exist yet.
-That setting adds yt-dlp's `--impersonate=""` option; the bundled `curl_cffi` dependency only makes impersonation targets available.
 
 Subscription refresh scheduling is managed from the in-app Tasks page. It is not configured with a Docker environment variable.
 

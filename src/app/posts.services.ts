@@ -194,6 +194,7 @@ export class PostsService {
 
     // global vars
     config = null;
+    ytdlpImpersonationAvailable = false;
     subscriptions: Subscription[] = null;
     categories: Category[] = null;
     sidenav = null;
@@ -224,6 +225,7 @@ export class PostsService {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
+                this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
@@ -323,6 +325,7 @@ export class PostsService {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
+                this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 this.config_reloaded.next(true);
