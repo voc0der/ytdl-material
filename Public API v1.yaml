@@ -2645,6 +2645,8 @@ components:
       properties:
         config_file:
           $ref: '#/components/schemas/Config'
+        ytdlp_impersonation_available:
+          type: boolean
         success:
           type: boolean
     SetConfigRequest:

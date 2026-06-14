@@ -186,9 +186,11 @@
             <div class="col-12 mt-2 mb-2">
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['skip_join_only_videos']"><ng-container i18n="Skip join-only videos setting">Skip join-only videos</ng-container></mat-checkbox>
             </div>
+            @if (postsService.ytdlpImpersonationAvailable) {
             <div class="col-12 mt-2 mb-2">
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_ytdlp_impersonation']"><ng-container i18n="Use yt-dlp browser impersonation setting">Use yt-dlp browser impersonation</ng-container></mat-checkbox>
             </div>
+            }
           </div>
         </div>
       }

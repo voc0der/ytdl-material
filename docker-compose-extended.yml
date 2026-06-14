@@ -16,8 +16,7 @@ services:
       write_ytdl_config: 'true'
 
       # Optional yt-dlp browser impersonation support.
-      # When true, enables Settings > Downloader > Use yt-dlp browser impersonation on first startup.
-      # The Docker image already includes yt-dlp's curl_cffi extra; it is only used when impersonation is enabled.
+      # Set true to install and show it; otherwise normal yt-dlp behavior is unchanged.
       # ytdl_enable_ytdlp_impersonation_dependencies: 'true'
 
       # Option 1: Let the container start as root, fix permissions, then drop privileges.

@@ -26,6 +26,7 @@ function isTruthyEnvValue(value) {
 function isYtDlpImpersonationDependencyEnvEnabled() {
     return YTDLP_IMPERSONATION_DEPENDENCY_ENV_KEYS.some(env_key => isTruthyEnvValue(process.env[env_key]));
 }
+exports.isYtDlpImpersonationDependencyEnvEnabled = isYtDlpImpersonationDependencyEnvEnabled;
 
 function getDefaultConfig() {
     const default_config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
