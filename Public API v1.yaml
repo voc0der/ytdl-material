@@ -1961,6 +1961,11 @@ components:
           type: boolean
           description: If set to true, only gets favorites
           default: false
+        category_filter_uids:
+          type: array
+          description: If set, only gets files in one of these categories
+          items:
+            type: string
         sub_id:
           type: string
           description: Include if you want to filter by subscription
@@ -3128,6 +3133,9 @@ components:
         custom_output:
           type: string
           description: Overrides file output for downloaded files in category
+        show_as_filter:
+          type: boolean
+          description: Shows this category as a quick filter in the media library
     CategoryRule:
       type: object
       properties:

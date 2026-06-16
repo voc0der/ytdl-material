@@ -153,8 +153,13 @@
                   @for (category of postsService.categories; track category) {
                     <div class="category-box" cdkDrag>
                       <div class="category-custom-placeholder" *cdkDragPlaceholder></div>
-                      {{category['name']}}
+                      <span class="category-name">
+                        {{category['name']}}
+                      </span>
                       <span style="float: right">
+                        @if (category['show_as_filter']) {
+                          <button mat-icon-button disabled matTooltip="Shown as library filter" i18n-matTooltip="Shown as library filter tooltip"><mat-icon>home</mat-icon></button>
+                        }
                         <button mat-icon-button (click)="openEditCategoryDialog(category)"><mat-icon>edit</mat-icon></button>
                         <button mat-icon-button (click)="deleteCategory(category)"><mat-icon>cancel</mat-icon></button>
                       </span>

@@ -199,6 +199,7 @@ export class SettingsComponent implements OnInit {
       this.addingDefaultCategories = false;
       if (res['success']) {
         this.postsService.categories = res['categories'];
+        this.postsService.categories_changed.next(true);
         this.postsService.openSnackBar($localize`Default categories added!`);
       } else {
         this.postsService.openSnackBar(res['error'] || $localize`Failed to add default categories!`);

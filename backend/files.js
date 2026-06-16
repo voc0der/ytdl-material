@@ -1406,7 +1406,7 @@ exports.getVideosByUIDs = async (file_uids = [], user_uid = null) => {
     return ordered_uids.map(uid => file_by_uid.get(uid)).filter(Boolean);
 }
 
-exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid) => {
+exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid, category_filter_uids = null) => {
     const filter_obj = {};
     if (config_api.getConfigItem('ytdl_multi_user_mode')) {
         filter_obj['user_uid'] = uuid;
@@ -1425,6 +1425,13 @@ exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorit
 
     if (favorite_filter) {
         filter_obj['favorite'] = true;
+    }
+
+    const sanitized_category_filter_uids = Array.isArray(category_filter_uids)
+        ? category_filter_uids.filter(category_uid => !!category_uid)
+        : [];
+    if (sanitized_category_filter_uids.length > 0) {
+        filter_obj['category.uid'] = {$in: sanitized_category_filter_uids};
     }
 
     if (sub_id) {

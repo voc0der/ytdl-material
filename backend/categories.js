@@ -198,6 +198,7 @@ function cloneDefaultCategoryTemplate(category) {
             ...category_rule,
             preceding_operator: index === 0 ? null : category_rule.preceding_operator
         })),
+        show_as_filter: false,
         custom_output: ''
     };
 }

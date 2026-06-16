@@ -12,4 +12,8 @@ export type Category = {
      * Overrides file output for downloaded files in category
      */
     custom_output?: string;
+    /**
+     * Shows this category as a quick filter in the media library
+     */
+    show_as_filter?: boolean;
 };

@@ -1469,11 +1469,12 @@ app.post('/api/getAllFiles', optionalJwt, async function (req, res) {
     const text_search = req.body.text_search;
     const file_type_filter = req.body.file_type_filter;
     const favorite_filter = req.body.favorite_filter;
+    const category_filter_uids = req.body.category_filter_uids;
     const sub_id = req.body.sub_id;
     const include_chapters = req.body.include_chapters === true;
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
-    const {files, file_count} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid);
+    const {files, file_count} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid, category_filter_uids);
     const parsed_files = include_chapters ? files_api.attachFileChaptersCollection(files) : files;
 
     res.send({
@@ -1698,6 +1699,7 @@ app.post('/api/createCategory', optionalJwt, async (req, res) => {
         name: name,
         uid: uuid(),
         rules: [],
+        show_as_filter: false,
         custom_output: ''
     };
 
@@ -3276,10 +3278,15 @@ app.get('/api/rss', async function (req, res) {
     const text_search = req.query.text_search ? decodeURIComponent(req.query.text_search) : null;
     const file_type_filter = req.query.file_type_filter;
     const favorite_filter = req.query.favorite_filter === 'true';
+    const category_filter_uids = Array.isArray(req.query.category_filter_uids)
+        ? req.query.category_filter_uids.map(category_uid => decodeURIComponent(category_uid))
+        : req.query.category_filter_uids
+            ? `${req.query.category_filter_uids}`.split(',').map(category_uid => decodeURIComponent(category_uid))
+            : null;
     const sub_id = req.query.sub_id ? decodeURIComponent(req.query.sub_id) : null;
     const uuid = req.query.uuid ? decodeURIComponent(req.query.uuid) : null;
 
-    const {files} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid);
+    const {files} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid, category_filter_uids);
 
     const { Feed } = await import('feed');
     const feed = new Feed({

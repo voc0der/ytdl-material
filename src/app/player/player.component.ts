@@ -75,6 +75,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   queue_sort_order = -1;
   queue_file_type_filter: FileTypeFilter = null;
   queue_favorite_filter = false;
+  queue_category_filter_uids: string[] = [];
   queue_search = null;
   queue_sub_id = null;
 
@@ -138,6 +139,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.queue_sort_order = this.parseSortOrder(this.route.snapshot.paramMap.get('queue_sort_order'));
     this.queue_file_type_filter = this.parseFileTypeFilter(this.route.snapshot.paramMap.get('queue_file_type_filter'));
     this.queue_favorite_filter = this.route.snapshot.paramMap.get('queue_favorite_filter') === 'true';
+    this.queue_category_filter_uids = this.parseCategoryFilterUids(this.route.snapshot.paramMap.get('queue_category_filter_uids'));
     this.queue_search = this.route.snapshot.paramMap.get('queue_search');
     this.queue_sub_id = this.route.snapshot.paramMap.get('queue_sub_id');
 
@@ -683,7 +685,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const textSearch = this.queue_search?.trim() ? this.queue_search.trim() : null;
     const queueSubID = this.queue_sub_id || null;
 
-    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, false).subscribe(res => {
+    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, false, this.queue_category_filter_uids).subscribe(res => {
       if (!this.autoplay_enabled) {
         this.autoplay_queue_loading = false;
         this.pending_autoplay_advance = false;
@@ -1249,6 +1251,16 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       return this.db_file.isAudio ? FileTypeFilter.AUDIO_ONLY : FileTypeFilter.VIDEO_ONLY;
     }
     return FileTypeFilter.BOTH;
+  }
+
+  parseCategoryFilterUids(raw_value: string | null): string[] {
+    if (!raw_value) {
+      return [];
+    }
+
+    return raw_value.split(',')
+      .map(category_uid => category_uid.trim())
+      .filter(category_uid => !!category_uid);
   }
 
   repeatCurrentVideo(): void {
