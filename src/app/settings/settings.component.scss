@@ -111,6 +111,12 @@
     font-size: 14px;
 }
 
+.category-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .cdk-drag-preview {
     box-sizing: border-box;
     border-radius: 4px;

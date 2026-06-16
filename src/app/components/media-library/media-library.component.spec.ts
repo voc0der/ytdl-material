@@ -36,6 +36,7 @@ describe('MediaLibraryComponent', () => {
       },
       card_size: 'medium',
       locale: 'en',
+      categories: [],
       theme: {
         ghost_primary: '#000',
         ghost_secondary: '#111'
@@ -53,7 +54,8 @@ describe('MediaLibraryComponent', () => {
       getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue(of({files: [], file_count: 0})),
       getPlaylists: jasmine.createSpy('getPlaylists').and.returnValue(of({playlists: []})),
       files_changed: new BehaviorSubject(false),
-      playlists_changed: new BehaviorSubject(false)
+      playlists_changed: new BehaviorSubject(false),
+      categories_changed: new BehaviorSubject(false)
     };
     routerStub = {
       url: '/home',
@@ -118,7 +120,9 @@ describe('MediaLibraryComponent', () => {
       null,
       'both',
       false,
-      null
+      null,
+      false,
+      []
     );
     expect(component.paged_data.length).toBe(2);
     expect(component.file_count).toBe(40);
@@ -151,7 +155,9 @@ describe('MediaLibraryComponent', () => {
       null,
       'both',
       false,
-      null
+      null,
+      false,
+      []
     );
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2', 'file-3']);
   });
@@ -172,6 +178,40 @@ describe('MediaLibraryComponent', () => {
     } finally {
       postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
     }
+  });
+
+  it('should request selected category filters from the server', () => {
+    postsServiceStub.categories = [
+      { uid: 'cat-music', name: 'Music', show_as_filter: true },
+      { uid: 'cat-sports', name: 'Sports', show_as_filter: false }
+    ];
+    component.selectedFilters = ['category:cat-music', 'category:cat-sports', 'favorited'];
+    postsServiceStub.getAllFiles.calls.reset();
+
+    component.getAllFiles();
+
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
+      { by: 'registered', order: -1 },
+      [0, 10],
+      null,
+      'both',
+      true,
+      null,
+      false,
+      ['cat-music']
+    );
+  });
+
+  it('should expose only categories marked as library filters', () => {
+    postsServiceStub.categories = [
+      { uid: 'cat-music', name: 'Music', show_as_filter: true },
+      { uid: 'cat-sports', name: 'Sports', show_as_filter: false }
+    ];
+
+    const category_filters = component.getCategoryFilterOptions();
+
+    expect(category_filters.map(filter => filter.key)).toEqual(['category:cat-music']);
+    expect(category_filters[0].label).toBe('Music');
   });
 
   it('should queue one follow-up full refresh instead of overlapping concurrent refreshes', () => {
@@ -548,6 +588,17 @@ describe('MediaLibraryComponent', () => {
     expect(restored.snapshot.selectedFilters).toEqual(['favorited']);
     expect(restored.snapshot.anchorUid).toBe('file-1');
     expect(restored.files.map(file => file.uid)).toEqual(['file-1', 'file-2']);
+  });
+
+  it('should include category filters in player route params', () => {
+    postsServiceStub.categories = [
+      { uid: 'cat-music', name: 'Music', show_as_filter: true }
+    ];
+    component.selectedFilters = ['category:cat-music'];
+
+    const route_params = component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any);
+
+    expect(route_params.queue_category_filter_uids).toBe('cat-music');
   });
 
   it('should not save restore state when opening the player in a new tab', () => {

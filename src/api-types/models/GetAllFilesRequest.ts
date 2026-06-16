@@ -18,6 +18,10 @@ export type GetAllFilesRequest = {
      */
     favorite_filter?: boolean;
     /**
+     * If set, only gets files in one of these categories
+     */
+    category_filter_uids?: Array<string>;
+    /**
      * Include if you want to filter by subscription
      */
     sub_id?: string;

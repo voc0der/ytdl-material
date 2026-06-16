@@ -494,4 +494,30 @@ describe('Files', function() {
             db_api.getRecords = original_get_records;
         }
     });
+
+    it('filters files by selected category uids', async function() {
+        const original_get_records = db_api.getRecords;
+        const captured_filters = [];
+
+        try {
+            db_api.getRecords = async (table, filter_obj, return_count) => {
+                captured_filters.push({table, filter_obj, return_count});
+                return return_count ? 0 : [];
+            };
+
+            await files_api.getAllFiles({by: 'registered', order: -1}, [0, 20], null, 'both', false, null, null, ['cat-music', 'cat-sports']);
+
+            assert.strictEqual(captured_filters.length, 2);
+            assert.deepStrictEqual(captured_filters[0].filter_obj, {
+                'category.uid': {$in: ['cat-music', 'cat-sports']}
+            });
+            assert.strictEqual(captured_filters[0].return_count, false);
+            assert.deepStrictEqual(captured_filters[1].filter_obj, {
+                'category.uid': {$in: ['cat-music', 'cat-sports']}
+            });
+            assert.strictEqual(captured_filters[1].return_count, true);
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
+    });
 });

@@ -1,7 +1,7 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
-import { DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
+import { Category, DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -24,6 +24,13 @@ interface MediaLibraryRow<T> {
   items: T[];
 }
 
+interface MediaLibraryFilter {
+  key: string;
+  label: string;
+  incompatible?: string[];
+  categoryUid?: string;
+}
+
 @Component({
     selector: 'app-media-library',
     templateUrl: './media-library.component.html',
@@ -43,6 +50,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly virtualRowOverscan = 2;
   readonly autoLoadBufferRows = 2;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
+  readonly categoryFilterPrefix = 'category:';
 
   @Input() usePaginator = true;
 
@@ -83,7 +91,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   playlistSearchText = '';
   playlistSearchIsFocused = false;
 
-  fileFilters = {
+  fileFilters: Record<string, MediaLibraryFilter> = {
     video_only: {
       key: 'video_only',
       label: $localize`Video only`,
@@ -180,7 +188,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     // set file type filter to cached value
     const cached_file_filter = localStorage.getItem('file_filter');
     if (this.usePaginator && cached_file_filter) {
-      this.selectedFilters = JSON.parse(cached_file_filter)
+      try {
+        this.selectedFilters = this.sanitizeSelectedFilters(JSON.parse(cached_file_filter));
+      } catch {
+        this.selectedFilters = [];
+      }
     } else {
       this.selectedFilters = [];
     }
@@ -244,6 +256,15 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.postsService.categories_changed
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(changed => {
+        if (!changed) return;
+        if (this.pruneUnavailableCategoryFilters() && this.isVideoLibraryActive()) {
+          this.getAllFiles();
+        }
+      });
+
     
     this.selected_data = this.defaultSelected.map(file => file.uid);
     this.selected_data_objs = this.defaultSelected;    
@@ -302,9 +323,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       this.sortProperty = snapshot.sortProperty;
     }
     this.descendingMode = !!snapshot.descendingMode;
-    this.selectedFilters = Array.isArray(snapshot.selectedFilters)
-      ? snapshot.selectedFilters.filter(filter_key => !!this.fileFilters[filter_key])
-      : [];
+    this.selectedFilters = this.sanitizeSelectedFilters(snapshot.selectedFilters);
     this.search_text = snapshot.searchText ?? '';
     this.search_mode = !!this.search_text.trim();
     this.playlistSearchText = snapshot.playlistSearchText ?? '';
@@ -668,16 +687,96 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   selectedFiltersChanged(event: MatChipListboxChange): void {
+    const next_filters = this.sanitizeSelectedFilters(this.normalizeSelectedFilterValues(event.value));
     // in some cases this function will fire even if the selected filters haven't changed
-    if (event.value.length === this.selectedFilters.length) return;
-    if (event.value.length > this.selectedFilters.length) {
-      const filter_key = event.value.filter(possible_new_key => !this.selectedFilters.includes(possible_new_key))[0];
-      this.selectedFilters = this.selectedFilters.filter(existing_filter => !this.fileFilters[existing_filter].incompatible || !this.fileFilters[existing_filter].incompatible.includes(filter_key));
+    if (this.filtersAreEqual(next_filters, this.selectedFilters)) return;
+    if (next_filters.length > this.selectedFilters.length) {
+      const filter_key = next_filters.filter(possible_new_key => !this.selectedFilters.includes(possible_new_key))[0];
+      this.selectedFilters = this.selectedFilters.filter(existing_filter => {
+        const filter_definition = this.getFilterDefinition(existing_filter);
+        return !filter_definition?.incompatible || !filter_definition.incompatible.includes(filter_key);
+      });
       this.selectedFilters.push(filter_key);
     } else {
-      this.selectedFilters = event.value;
+      this.selectedFilters = next_filters;
     }
     this.filterChanged(JSON.stringify(this.selectedFilters));
+  }
+
+  getVisibleFilters(): MediaLibraryFilter[] {
+    return Object.keys(this.fileFilters)
+      .map(filter_key => this.fileFilters[filter_key])
+      .concat(this.getCategoryFilterOptions());
+  }
+
+  getCategoryFilterOptions(): MediaLibraryFilter[] {
+    if (!Array.isArray(this.postsService.categories)) {
+      return [];
+    }
+
+    return this.postsService.categories
+      .filter(category => !!category?.show_as_filter && !!category?.uid)
+      .map(category => ({
+        key: this.getCategoryFilterKey(category),
+        label: category.name || $localize`Untitled category`,
+        categoryUid: category.uid
+      }));
+  }
+
+  getCategoryFilterKey(category: Category | string): string {
+    const uid = typeof category === 'string' ? category : category?.uid;
+    return `${this.categoryFilterPrefix}${uid}`;
+  }
+
+  isCategoryFilterKey(filter_key: string): boolean {
+    return typeof filter_key === 'string' && filter_key.startsWith(this.categoryFilterPrefix);
+  }
+
+  getCategoryUidFromFilterKey(filter_key: string): string {
+    return filter_key.slice(this.categoryFilterPrefix.length);
+  }
+
+  getFilterDefinition(filter_key: string): MediaLibraryFilter | null {
+    return this.fileFilters[filter_key] || this.getCategoryFilterOptions().find(filter => filter.key === filter_key) || null;
+  }
+
+  normalizeSelectedFilterValues(filter_values: unknown): string[] {
+    if (!filter_values) return [];
+    const raw_filter_values = Array.isArray(filter_values) ? filter_values : [filter_values];
+    return raw_filter_values.filter(filter_value => typeof filter_value === 'string' && filter_value.trim() !== '') as string[];
+  }
+
+  sanitizeSelectedFilters(filter_values: unknown): string[] {
+    const visible_category_filter_keys = this.getVisibleCategoryFilterKeySet();
+    return this.normalizeSelectedFilterValues(filter_values).filter(filter_key => {
+      if (this.fileFilters[filter_key]) return true;
+      if (!this.isCategoryFilterKey(filter_key)) return false;
+      return !visible_category_filter_keys || visible_category_filter_keys.has(filter_key);
+    });
+  }
+
+  getVisibleCategoryFilterKeySet(): Set<string> | null {
+    if (!Array.isArray(this.postsService.categories)) {
+      return null;
+    }
+
+    return new Set(this.getCategoryFilterOptions().map(filter => filter.key));
+  }
+
+  pruneUnavailableCategoryFilters(): boolean {
+    const sanitized_filters = this.sanitizeSelectedFilters(this.selectedFilters);
+    if (this.filtersAreEqual(sanitized_filters, this.selectedFilters)) {
+      return false;
+    }
+
+    this.selectedFilters = sanitized_filters;
+    localStorage.setItem('file_filter', JSON.stringify(this.selectedFilters));
+    return true;
+  }
+
+  filtersAreEqual(filters_a: string[], filters_b: string[]): boolean {
+    if (filters_a.length !== filters_b.length) return false;
+    return filters_a.every((filter_key, index) => filters_b[index] === filter_key);
   }
 
   getFileTypeFilter(): string {
@@ -692,6 +791,20 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   getFavoriteFilter(): boolean {
     return this.selectedFilters.includes('favorited');
+  }
+
+  getCategoryFilterUids(): string[] {
+    const category_uids = this.selectedFilters
+      .filter(filter_key => this.isCategoryFilterKey(filter_key))
+      .map(filter_key => this.getCategoryUidFromFilterKey(filter_key))
+      .filter(category_uid => !!category_uid);
+
+    if (!Array.isArray(this.postsService.categories)) {
+      return category_uids;
+    }
+
+    const visible_category_uids = new Set(this.getCategoryFilterOptions().map(filter => filter.categoryUid));
+    return category_uids.filter(category_uid => visible_category_uids.has(category_uid));
   }
 
 
@@ -723,7 +836,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const range = this.getRequestedFileRange(cache_mode, append);
     const fileTypeFilter = this.getFileTypeFilter();
     const favoriteFilter = this.getFavoriteFilter();
-    this.postsService.getAllFiles(sort, this.usePaginator ? range : null, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id).subscribe(res => {
+    const categoryFilterUids = this.getCategoryFilterUids();
+    this.postsService.getAllFiles(sort, this.usePaginator ? range : null, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
       if (request_id !== this.latestFileRequestId) {
         return;
       }
@@ -817,6 +931,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       queue_file_type_filter: this.getFileTypeFilter(),
       queue_favorite_filter: '' + this.getFavoriteFilter()
     };
+    const category_filter_uids = this.getCategoryFilterUids();
+    if (category_filter_uids.length > 0) {
+      routeParams.queue_category_filter_uids = category_filter_uids.join(',');
+    }
     if (this.search_mode && this.search_text?.trim()) {
       routeParams.queue_search = this.search_text.trim();
     }
@@ -1474,10 +1592,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.selected_data.splice(index, 1);
     this.selected_data_objs.splice(index, 1);
     this.fileSelectionEmitter.emit({new_selection: this.selected_data, thumbnailURL: this.selected_data_objs[0].thumbnailURL});
-  }
-
-  originalOrder = (): number => {
-    return 0;
   }
 
   toggleFavorite(file_obj): void {

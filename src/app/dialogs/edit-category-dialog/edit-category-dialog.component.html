@@ -6,6 +6,12 @@
     <input matInput [(ngModel)]="category['name']" required>
   </mat-form-field>
 
+  <div class="quick-filter-option">
+    <mat-checkbox color="accent" [(ngModel)]="category['show_as_filter']">
+      <ng-container i18n="Show category as library filter">Show as library filter</ng-container>
+    </mat-checkbox>
+  </div>
+
   <mat-divider></mat-divider>
 
   <h6 style="margin-top: 20px;" i18n="Rules">Rules</h6>

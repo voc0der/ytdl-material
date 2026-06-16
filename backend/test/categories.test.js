@@ -142,6 +142,7 @@ describe('Categories', async function() {
             assert(music_category);
             assert(music_category.rules.some(category_rule => category_rule.property === 'categories' && category_rule.value === 'Music'));
             assert.strictEqual(music_category.rules[0].preceding_operator, null);
+            assert.strictEqual(music_category.show_as_filter, false);
         } finally {
             await db_api.removeAllRecords('categories');
         }

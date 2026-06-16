@@ -104,8 +104,8 @@
     </div>
     <div class="row justify-content-center library-filter-row">
       <mat-chip-listbox class="filter-list" [value]="selectedFilters" [multiple]="true" (change)="selectedFiltersChanged($event)">
-        @for (filter of fileFilters | keyvalue: originalOrder; track filter.key) {
-          <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.value.label}}</mat-chip-option>
+        @for (filter of getVisibleFilters(); track filter.key) {
+          <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.label}}</mat-chip-option>
         }
       </mat-chip-listbox>
     </div>
