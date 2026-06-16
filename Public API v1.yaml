@@ -1620,6 +1620,22 @@ paths:
       description: Creates a category
       security:
         - Auth query parameter: []
+  /api/createDefaultCategories:
+    post:
+      summary: Creates the default category set
+      tags:
+        - categories
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDefaultCategoriesResponse'
+      operationId: post-api-createDefaultCategories
+      description: Creates the default category set when no categories exist
+      security:
+        - Auth query parameter: []
   /api/deleteCategory:
     post:
       summary: Deletes a category
@@ -2562,6 +2578,15 @@ components:
           $ref: '#/components/schemas/Category'
         success:
           type: boolean
+    CreateDefaultCategoriesResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessObject'
+        - type: object
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/Category'
     CreateCategoryRequest:
       required:
         - name
@@ -2855,6 +2880,7 @@ components:
       - delete_old_files
       - import_legacy_archives
       - rebuild_database
+      - apply_categories
       - subscriptions_check
     Schedule:
       required:
@@ -3117,6 +3143,19 @@ components:
             - 'not_includes'
             - 'equals'
             - 'not_equals'
+        property:
+          type: string
+          enum:
+            - fulltitle
+            - id
+            - webpage_url
+            - view_count
+            - uploader
+            - categories
+            - _filename
+            - tags
+        value:
+          type: string
     Version:
       type: object
       properties:

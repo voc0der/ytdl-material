@@ -11,5 +11,6 @@ export enum TaskType {
     DELETE_OLD_FILES = 'delete_old_files',
     IMPORT_LEGACY_ARCHIVES = 'import_legacy_archives',
     REBUILD_DATABASE = 'rebuild_database',
+    APPLY_CATEGORIES = 'apply_categories',
     SUBSCRIPTIONS_CHECK = 'subscriptions_check',
 }

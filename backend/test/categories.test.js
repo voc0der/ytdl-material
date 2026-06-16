@@ -103,5 +103,47 @@ describe('Categories', async function() {
         const category = await categories_api.categorize([sample_video_json]);
         assert(category);
     });
-});
 
+    it('Categorize - source category arrays', async function() {
+        await db_api.removeAllRecords('categories');
+        try {
+            const new_category = {
+                name: 'Music',
+                uid: uuid(),
+                rules: [{
+                    preceding_operator: null,
+                    comparator: 'includes',
+                    property: 'categories',
+                    value: 'Music'
+                }],
+                custom_output: ''
+            };
+            await db_api.insertRecordIntoTable('categories', new_category);
+
+            const category = await categories_api.categorize([{
+                ...sample_video_json,
+                categories: ['Music']
+            }]);
+            assert(category && category.name === 'Music');
+        } finally {
+            await db_api.removeAllRecords('categories');
+        }
+    });
+
+    it('Create default categories', async function() {
+        await db_api.removeAllRecords('categories');
+        try {
+            const categories = await categories_api.createDefaultCategories();
+            const saved_categories = await db_api.getRecords('categories');
+            const music_category = saved_categories.find(category => category.name === 'Music');
+
+            assert(categories.length >= 10);
+            assert.strictEqual(saved_categories.length, categories.length);
+            assert(music_category);
+            assert(music_category.rules.some(category_rule => category_rule.property === 'categories' && category_rule.value === 'Music'));
+            assert.strictEqual(music_category.rules[0].preceding_operator, null);
+        } finally {
+            await db_api.removeAllRecords('categories');
+        }
+    });
+});

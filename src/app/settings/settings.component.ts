@@ -61,6 +61,7 @@ export class SettingsComponent implements OnInit {
   latestGithubRelease = null;
   CURRENT_VERSION = CURRENT_VERSION
   downloaderInfo: Record<string, DownloaderVersionInfo> = {};
+  addingDefaultCategories = false;
 
   tabs = ['main', 'downloader', 'extra', 'database', 'notifications', 'advanced', 'users', 'logs'];
   tabIndex = 0;
@@ -189,6 +190,24 @@ export class SettingsComponent implements OnInit {
           }
         });
       }
+    });
+  }
+
+  addDefaultCategories(): void {
+    this.addingDefaultCategories = true;
+    this.postsService.createDefaultCategories().subscribe(res => {
+      this.addingDefaultCategories = false;
+      if (res['success']) {
+        this.postsService.categories = res['categories'];
+        this.postsService.openSnackBar($localize`Default categories added!`);
+      } else {
+        this.postsService.openSnackBar(res['error'] || $localize`Failed to add default categories!`);
+        this.postsService.reloadCategories();
+      }
+    }, err => {
+      this.addingDefaultCategories = false;
+      this.postsService.openSnackBar($localize`Failed to add default categories!`);
+      console.error(err);
     });
   }
 

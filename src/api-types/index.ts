@@ -21,6 +21,7 @@ export type { Config } from './models/Config';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { CreateCategoryRequest } from './models/CreateCategoryRequest';
 export type { CreateCategoryResponse } from './models/CreateCategoryResponse';
+export type { CreateDefaultCategoriesResponse } from './models/CreateDefaultCategoriesResponse';
 export type { CreatePlaylistRequest } from './models/CreatePlaylistRequest';
 export type { CreatePlaylistResponse } from './models/CreatePlaylistResponse';
 export type { CropFileSettings } from './models/CropFileSettings';

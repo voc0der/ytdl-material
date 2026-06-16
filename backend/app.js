@@ -1709,6 +1709,24 @@ app.post('/api/createCategory', optionalJwt, async (req, res) => {
     });
 });
 
+app.post('/api/createDefaultCategories', optionalJwt, async (req, res) => {
+    const existing_categories = await db_api.getRecords('categories');
+    if (existing_categories && existing_categories.length > 0) {
+        res.send({
+            success: false,
+            categories: existing_categories,
+            error: 'Default categories can only be added when no categories exist.'
+        });
+        return;
+    }
+
+    const categories = await categories_api.createDefaultCategories();
+    res.send({
+        success: true,
+        categories: categories
+    });
+});
+
 app.post('/api/deleteCategory', optionalJwt, async (req, res) => {
     const category_uid = req.body.category_uid;
 

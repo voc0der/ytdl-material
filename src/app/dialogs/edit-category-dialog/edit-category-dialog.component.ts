@@ -37,6 +37,10 @@ export class EditCategoryDialogComponent implements OnInit {
       label: 'Uploader'
     },
     {
+      value: 'categories',
+      label: 'Source category'
+    },
+    {
       value: '_filename',
       label: 'File Name'
     },

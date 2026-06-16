@@ -66,6 +66,7 @@ import {
     DeleteCategoryRequest,
     CreateCategoryRequest,
     CreateCategoryResponse,
+    CreateDefaultCategoriesResponse,
     GetAllCategoriesResponse,
     AddFileToPlaylistRequest,
     IncrementViewCountRequest,
@@ -634,6 +635,10 @@ export class PostsService {
     createCategory(name) {
         const body: CreateCategoryRequest = {name: name};
         return this.http.post<CreateCategoryResponse>(this.path + 'createCategory', body, this.httpOptions);
+    }
+
+    createDefaultCategories() {
+        return this.http.post<CreateDefaultCategoriesResponse>(this.path + 'createDefaultCategories', {}, this.httpOptions);
     }
 
     deleteCategory(category_uid) {

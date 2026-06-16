@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, fs, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
+const { assert, fs, uuid, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
@@ -35,6 +35,15 @@ describe('Tasks', function() {
         assert.strictEqual(task['schedule']['data']['hour'], 0);
         assert.strictEqual(task['schedule']['data']['minute'], 0);
         assert(!!tasks_api.TASKS['subscriptions_check']['job']);
+    });
+
+    it('Creates the apply categories task without a default schedule', async function() {
+        const task = await db_api.getRecord('tasks', {key: 'apply_categories'});
+
+        assert(task);
+        assert.strictEqual(task['title'], 'Apply categories to existing files');
+        assert.strictEqual(task['schedule'], null);
+        assert.strictEqual(tasks_api.TASKS['apply_categories']['job'], null);
     });
 
     it('Runs subscription checks from the task manager', async function() {
@@ -127,6 +136,66 @@ describe('Tasks', function() {
         await tasks_api.executeTask('duplicate_files_check');
         const duplicated_record_count = await db_api.getRecords('files', {path: 'test/missing_file.mp4'}, true);
         assert(duplicated_record_count === 1);
+    });
+
+    it('Applies categories to existing files and overwrites stale categories', async function() {
+        const matching_file_uid = 'apply-category-match';
+        const unmatched_file_uid = 'apply-category-unmatched';
+        const matching_file_path = 'video/apply-category-match.mp4';
+        const matching_info_path = 'video/apply-category-match.info.json';
+        const category_uid = uuid();
+
+        await db_api.removeAllRecords('categories');
+        await db_api.removeAllRecords('files', {uid: matching_file_uid});
+        await db_api.removeAllRecords('files', {uid: unmatched_file_uid});
+        fs.ensureDirSync('video');
+        fs.writeJSONSync(matching_info_path, {
+            title: 'Sample Music Video',
+            fulltitle: 'Sample Music Video',
+            webpage_url: 'https://example.com/watch?v=music',
+            categories: ['Music']
+        });
+
+        try {
+            await db_api.insertRecordIntoTable('categories', {
+                name: 'Music',
+                uid: category_uid,
+                rules: [{
+                    preceding_operator: null,
+                    comparator: 'includes',
+                    property: 'categories',
+                    value: 'Music'
+                }],
+                custom_output: ''
+            });
+            await db_api.insertRecordIntoTable('files', {
+                uid: matching_file_uid,
+                title: 'Old Title',
+                path: matching_file_path,
+                isAudio: false,
+                category: {name: 'Old', uid: 'old-category'}
+            });
+            await db_api.insertRecordIntoTable('files', {
+                uid: unmatched_file_uid,
+                title: 'Unmatched Video',
+                path: 'video/apply-category-unmatched.mp4',
+                isAudio: false,
+                category: {name: 'Old', uid: 'old-category'}
+            });
+
+            await tasks_api.executeRun('apply_categories');
+
+            const matching_file = await db_api.getRecord('files', {uid: matching_file_uid});
+            const unmatched_file = await db_api.getRecord('files', {uid: unmatched_file_uid});
+
+            assert.deepStrictEqual(matching_file.category, {name: 'Music', uid: category_uid});
+            assert.strictEqual(unmatched_file.category, null);
+        } finally {
+            await db_api.removeAllRecords('categories');
+            await db_api.removeAllRecords('files', {uid: matching_file_uid});
+            await db_api.removeAllRecords('files', {uid: unmatched_file_uid});
+            if (fs.existsSync(matching_info_path)) fs.unlinkSync(matching_info_path);
+        }
     });
 
     it('Import unregistered files', async function() {

@@ -4,6 +4,7 @@ const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
 const subscriptions_api = require('./subscriptions');
+const categories_api = require('./categories');
 const config_api = require('./config');
 const auth_api = require('./authentication/auth');
 const utils = require('./utils');
@@ -58,6 +59,10 @@ const TASKS = {
     rebuild_database: {
         run: rebuildDB,
         title: 'Rebuild database'
+    },
+    apply_categories: {
+        run: categories_api.applyCategoriesToExistingFiles,
+        title: 'Apply categories to existing files'
     },
     subscriptions_check: {
         run: checkSubscriptions,
