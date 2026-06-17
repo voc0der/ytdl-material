@@ -35,6 +35,72 @@ describe('Files', function() {
         ]);
     });
 
+    it('attachFileChapters adjusts chapter timestamps around SponsorBlock cuts', async function() {
+        await fs.writeJSON(fixture_info_path, {
+            duration: 100,
+            chapters: [
+                {title: 'Intro', start_time: 0, end_time: 30},
+                {title: 'Main Part', start_time: 30, end_time: 70},
+                {title: 'Outro', start_time: 70, end_time: 100}
+            ],
+            sponsorblock_chapters: [
+                {start_time: 10, end_time: 20, category: 'sponsor', type: 'skip'},
+                {start_time: 15, end_time: 25, category: 'sponsor', type: 'skip'},
+                {start_time: 50, end_time: 60, category: 'sponsor', type: 'skip'},
+                {start_time: 80, end_time: 90, category: 'selfpromo', type: 'skip'}
+            ]
+        });
+
+        const output = files_api.attachFileChapters({
+            path: fixture_file_path,
+            duration: 100,
+            isAudio: false
+        });
+
+        assert.strictEqual(output.duration, 75);
+        assert.deepStrictEqual(output.chapters, [
+            {title: 'Intro', start_time: 0, end_time: 15},
+            {title: 'Main Part', start_time: 15, end_time: 45},
+            {title: 'Outro', start_time: 45, end_time: 75}
+        ]);
+    });
+
+    it('registerFileDB stores SponsorBlock-adjusted duration', async function() {
+        const original_include_metadata = config_api.getConfigItem('ytdl_include_metadata');
+
+        try {
+            config_api.setConfigItem('ytdl_include_metadata', true);
+            await db_api.removeAllRecords('files', {path: fixture_file_path});
+            await fs.writeFile(fixture_file_path, 'fixture');
+            await fs.writeJSON(fixture_info_path, {
+                id: 'chapter-video',
+                title: 'Chapter Video',
+                thumbnail: 'https://example.com/thumb.jpg',
+                duration: 100,
+                webpage_url: 'https://www.youtube.com/watch?v=chapter',
+                uploader: 'Uploader',
+                upload_date: '20200101',
+                description: 'Fixture description',
+                view_count: 1,
+                height: 720,
+                abr: null,
+                extractor: 'youtube',
+                sponsorblock_chapters: [
+                    {start_time: 10, end_time: 20, category: 'sponsor', type: 'skip'},
+                    {start_time: 50, end_time: 60, category: 'sponsor', type: 'skip'}
+                ]
+            });
+
+            const output = await files_api.registerFileDB(fixture_file_path, 'video');
+
+            assert(output);
+            assert.strictEqual(output.duration, 80);
+        } finally {
+            config_api.setConfigItem('ytdl_include_metadata', original_include_metadata);
+            await db_api.removeAllRecords('files', {path: fixture_file_path});
+        }
+    });
+
     it('attachFileChaptersCollection returns empty chapters when metadata is missing', function() {
         const output = files_api.attachFileChaptersCollection([{
             path: path.join(fixture_dir, 'missing-video.mp4'),

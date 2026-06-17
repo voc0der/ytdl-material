@@ -365,14 +365,118 @@ function normalizeChapter(raw_chapter) {
     };
 }
 
-function getChaptersForFile(file_obj) {
-    if (!file_obj || !file_obj.path) return [];
+function normalizeSponsorBlockCutRanges(metadata_json = null) {
+    if (!metadata_json || !Array.isArray(metadata_json.sponsorblock_chapters)) return [];
+
+    const cut_ranges = metadata_json.sponsorblock_chapters
+        .map((sponsorblock_chapter) => {
+            if (!sponsorblock_chapter || typeof sponsorblock_chapter !== 'object') return null;
+            const start_time = Number(sponsorblock_chapter.start_time);
+            const end_time = Number(sponsorblock_chapter.end_time);
+            const category = typeof sponsorblock_chapter.category === 'string'
+                ? sponsorblock_chapter.category.trim().toLowerCase()
+                : '';
+
+            if (category !== 'sponsor') return null;
+            if (!Number.isFinite(start_time) || start_time < 0) return null;
+            if (!Number.isFinite(end_time) || end_time <= start_time) return null;
+            return {start_time, end_time};
+        })
+        .filter(Boolean)
+        .sort((range_1, range_2) => range_1.start_time - range_2.start_time);
+
+    return cut_ranges.reduce((merged_ranges, cut_range) => {
+        const previous_range = merged_ranges[merged_ranges.length - 1];
+        if (!previous_range || cut_range.start_time > previous_range.end_time) {
+            merged_ranges.push({...cut_range});
+            return merged_ranges;
+        }
+
+        previous_range.end_time = Math.max(previous_range.end_time, cut_range.end_time);
+        return merged_ranges;
+    }, []);
+}
+
+function getSponsorBlockAdjustedTimestamp(timestamp, cut_ranges = []) {
+    const original_timestamp = Number(timestamp);
+    if (!Number.isFinite(original_timestamp) || original_timestamp <= 0) return 0;
+    if (!Array.isArray(cut_ranges) || cut_ranges.length === 0) return original_timestamp;
+
+    let removed_duration = 0;
+    for (const cut_range of cut_ranges) {
+        if (original_timestamp <= cut_range.start_time) break;
+        removed_duration += Math.min(original_timestamp, cut_range.end_time) - cut_range.start_time;
+        if (original_timestamp <= cut_range.end_time) break;
+    }
+
+    return Math.max(0, original_timestamp - removed_duration);
+}
+
+function getSponsorBlockAdjustedDuration(duration, cut_ranges = []) {
+    const original_duration = Number(duration);
+    if (!Number.isFinite(original_duration)) return duration;
+    return getSponsorBlockAdjustedTimestamp(original_duration, cut_ranges);
+}
+
+function getSponsorBlockAdjustedFileDuration(file_obj = null, metadata_json = null, cut_ranges = []) {
+    if (!file_obj || !metadata_json || !Array.isArray(cut_ranges) || cut_ranges.length === 0) return file_obj ? file_obj.duration : undefined;
+
+    const original_duration = Number(metadata_json.duration);
+    if (!Number.isFinite(original_duration)) return file_obj.duration;
+
+    const adjusted_duration = getSponsorBlockAdjustedDuration(original_duration, cut_ranges);
+    const current_duration = Number(file_obj.duration);
+    if (!Number.isFinite(current_duration)) return adjusted_duration;
+
+    const timestamp_tolerance_seconds = 0.5;
+    const current_matches_original = Math.abs(current_duration - original_duration) <= timestamp_tolerance_seconds;
+    const current_matches_adjusted = Math.abs(current_duration - adjusted_duration) <= timestamp_tolerance_seconds;
+    return current_matches_original || current_matches_adjusted ? adjusted_duration : file_obj.duration;
+}
+
+function adjustChaptersForSponsorBlock(chapters = [], cut_ranges = []) {
+    if (!Array.isArray(cut_ranges) || cut_ranges.length === 0) return chapters;
+
+    return chapters
+        .map((chapter) => {
+            const start_time = getSponsorBlockAdjustedTimestamp(chapter.start_time, cut_ranges);
+            const end_time = getSponsorBlockAdjustedTimestamp(chapter.end_time, cut_ranges);
+            if (!Number.isFinite(start_time) || !Number.isFinite(end_time) || end_time <= start_time) return null;
+
+            return {
+                title: chapter.title,
+                start_time,
+                end_time
+            };
+        })
+        .filter(Boolean);
+}
+
+function getPlaybackMetadataForFile(file_obj = null) {
+    if (!file_obj || !file_obj.path) {
+        return {
+            duration: file_obj ? file_obj.duration : undefined,
+            chapters: []
+        };
+    }
 
     const type = file_obj.isAudio ? 'audio' : 'video';
     const metadata_json = utils.getJSON(file_obj.path, type);
-    if (!metadata_json || !Array.isArray(metadata_json.chapters)) return [];
+    if (!metadata_json) {
+        return {
+            duration: file_obj.duration,
+            chapters: []
+        };
+    }
 
-    return metadata_json.chapters.map(normalizeChapter).filter(Boolean);
+    const sponsorblock_cut_ranges = normalizeSponsorBlockCutRanges(metadata_json);
+    const chapters = Array.isArray(metadata_json.chapters)
+        ? metadata_json.chapters.map(normalizeChapter).filter(Boolean)
+        : [];
+    return {
+        duration: getSponsorBlockAdjustedFileDuration(file_obj, metadata_json, sponsorblock_cut_ranges),
+        chapters: adjustChaptersForSponsorBlock(chapters, sponsorblock_cut_ranges)
+    };
 }
 
 function normalizeSubtitleLanguage(language = '') {
@@ -574,9 +678,11 @@ exports.attachFilePlaybackMetadata = async (file_obj = null, ensure_subtitle_sid
 
 exports.attachFileChapters = (file_obj = null) => {
     if (!file_obj) return file_obj;
+    const playback_metadata = getPlaybackMetadataForFile(file_obj);
     return {
         ...file_obj,
-        chapters: getChaptersForFile(file_obj)
+        duration: playback_metadata.duration,
+        chapters: playback_metadata.chapters
     };
 }
 
@@ -1018,7 +1124,8 @@ function generateFileObject(file_path, type) {
     const size = stats.size;
 
     const thumbnail = jsonobj.thumbnail;
-    const duration = jsonobj.duration;
+    const sponsorblock_cut_ranges = normalizeSponsorBlockCutRanges(jsonobj);
+    const duration = getSponsorBlockAdjustedDuration(jsonobj.duration, sponsorblock_cut_ranges);
     const isaudio = type === 'audio';
     const description = jsonobj.description;
     const source_metadata = extractSourceMetadataFromInfo(jsonobj, type);
