@@ -48,6 +48,10 @@ const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
     'this live event will begin',
     'no output received for video download'
 ];
+const TRANSIENT_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
+    'premieres in',
+    'this live event will begin'
+];
 const SUBSCRIPTION_REFRESH_QUEUED_PHASE = 'queued';
 const SUBSCRIPTION_REFRESH_COMPLETE_PHASE = 'complete';
 let filename_sanitization_non_ytdlp_warned = false;
@@ -199,6 +203,13 @@ function isSkippableSubscriptionDownloadError(error_message = '', error_type = n
     return SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT.some(error_text => normalized_message.includes(error_text));
 }
 exports.isSkippableSubscriptionDownloadError = isSkippableSubscriptionDownloadError;
+
+function isTransientSubscriptionDownloadError(error_message = '') {
+    if (typeof error_message !== 'string') return false;
+
+    const normalized_message = error_message.toLowerCase();
+    return TRANSIENT_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT.some(error_text => normalized_message.includes(error_text));
+}
 
 function asNonNegativeInteger(value, default_value = 0) {
     const numeric_value = Number(value);
@@ -1457,11 +1468,14 @@ exports.cancelDownload = async (download_uid) => {
 
 exports.clearDownload = async (download_uid) => {
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
-    const should_archive_subscription_skip = download && download['sub_id']
-        && ((download['paused'] && !download['finished'])
-            || (download['error'] && isSkippableSubscriptionDownloadError(download['error'], download['error_type'])));
-    if (should_archive_subscription_skip) {
+    const should_archive_paused_subscription_skip = download && download['sub_id'] && download['paused'] && !download['finished'];
+    const should_archive_errored_subscription_skip = download && download['sub_id'] && download['error']
+        && isSkippableSubscriptionDownloadError(download['error'], download['error_type'])
+        && !isTransientSubscriptionDownloadError(download['error']);
+    if (should_archive_paused_subscription_skip) {
         await archiveSubscriptionDownloadBySource(download, 'after being cleared from the download queue');
+    } else if (should_archive_errored_subscription_skip) {
+        await archiveSkippedSubscriptionDownload(download, download['error'], download['error_type']);
     }
     return await db_api.removeRecord('download_queue', {uid: download_uid});
 }
@@ -1470,15 +1484,21 @@ async function handleDownloadError(download_uid, error_message, error_type = nul
     if (!download_uid) return;
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     if (!download || download['error']) return;
+    const is_skippable_subscription_error = download['sub_id'] && isSkippableSubscriptionDownloadError(error_message, error_type);
+    const is_transient_subscription_error = download['sub_id'] && isTransientSubscriptionDownloadError(error_message);
     await archiveSkippedSubscriptionDownload(download, error_message, error_type);
-    notifications_api.sendDownloadErrorNotification(download, download['user_uid'], error_message, error_type);
+    if (!is_skippable_subscription_error) {
+        notifications_api.sendDownloadErrorNotification(download, download['user_uid'], error_message, error_type);
+    }
     await db_api.updateRecord('download_queue', {uid: download['uid']}, {error: error_message, finished: true, running: false, error_type: error_type});
     await updateSubscriptionRefreshStatusForSkippedDownload(download, error_message, error_type);
+    if (is_transient_subscription_error) await db_api.removeRecord('download_queue', {uid: download['uid']});
 }
 
 async function archiveSkippedSubscriptionDownload(download = null, error_message = '', error_type = null) {
     if (!download || !download['sub_id']) return false;
     if (!isSkippableSubscriptionDownloadError(error_message, error_type)) return false;
+    if (isTransientSubscriptionDownloadError(error_message)) return false;
     return await archiveSubscriptionDownloadBySource(download, `after ${error_type || 'download failure'}`);
 }
 
