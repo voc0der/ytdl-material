@@ -21,6 +21,7 @@ const {
 
 describe('Downloader', function() {
     const downloader_api = require('../downloader');
+    const notifications_api = require('../notifications');
     // These tests are intended to be unit-style. By default we do NOT hit live
     // YouTube/yt-dlp during CI because it is inherently flaky (bot checks,
     // removed videos, geo/auth restrictions, etc.).
@@ -456,6 +457,88 @@ describe('Downloader', function() {
             await archive_api.existsInArchive('youtube', prefetched_info[0].id, 'video', 'test_user', sub_id),
             true
         );
+    });
+
+    it('Does not notify for skippable subscription info lookup errors', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_sendDownloadErrorNotification = notifications_api.sendDownloadErrorNotification;
+        const prefetched_info = [{
+            _type: 'url',
+            extractor: 'youtube',
+            id: 'future-live-subscription-video',
+            webpage_url: 'https://www.youtube.com/watch?v=future-live-subscription-video',
+            title: 'Future live subscription video'
+        }];
+        const returned_download = await downloader_api.createDownload(
+            prefetched_info[0].webpage_url,
+            'video',
+            {ui_uid: uuid()},
+            'test_user',
+            sub_id,
+            'Test subscription',
+            prefetched_info
+        );
+        const sent_notifications = [];
+
+        youtubedl_api.runYoutubeDL = async () => ({
+            callback: Promise.resolve({
+                parsed_output: null,
+                err: {stderr: 'ERROR: [youtube] future-live-subscription-video: This live event will begin in 26 hours.'}
+            })
+        });
+        notifications_api.sendDownloadErrorNotification = async (...args) => {
+            sent_notifications.push(args);
+        };
+
+        try {
+            const info = await _originalGetVideoInfoByURL(prefetched_info[0].webpage_url, [], returned_download.uid);
+            assert.strictEqual(info, null);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            notifications_api.sendDownloadErrorNotification = original_sendDownloadErrorNotification;
+        }
+
+        const cleared_download = await db_api.getRecord('download_queue', {uid: returned_download.uid});
+        assert.strictEqual(sent_notifications.length, 0);
+        assert.strictEqual(cleared_download, undefined);
+        assert.strictEqual(
+            await archive_api.existsInArchive('youtube', prefetched_info[0].id, 'video', 'test_user', sub_id),
+            false
+        );
+    });
+
+    it('Still notifies for non-subscription info lookup errors', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_sendDownloadErrorNotification = notifications_api.sendDownloadErrorNotification;
+        const returned_download = await downloader_api.createDownload(
+            'https://www.youtube.com/watch?v=future-live-manual-video',
+            'video',
+            {ui_uid: uuid()}
+        );
+        const sent_notifications = [];
+
+        youtubedl_api.runYoutubeDL = async () => ({
+            callback: Promise.resolve({
+                parsed_output: null,
+                err: {stderr: 'ERROR: [youtube] future-live-manual-video: This live event will begin in 26 hours.'}
+            })
+        });
+        notifications_api.sendDownloadErrorNotification = async (...args) => {
+            sent_notifications.push(args);
+        };
+
+        try {
+            const info = await _originalGetVideoInfoByURL(returned_download.url, [], returned_download.uid);
+            assert.strictEqual(info, null);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            notifications_api.sendDownloadErrorNotification = original_sendDownloadErrorNotification;
+        }
+
+        const failed_download = await db_api.getRecord('download_queue', {uid: returned_download.uid});
+        assert.strictEqual(sent_notifications.length, 1);
+        assert.strictEqual(failed_download.finished, true);
+        assert.strictEqual(failed_download.error_type, 'info_retrieve_failed');
     });
 
     it('Marks queue-step exceptions as failed downloads instead of leaving them running', async function() {
