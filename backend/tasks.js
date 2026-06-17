@@ -67,6 +67,7 @@ const TASKS = {
     subscriptions_check: {
         run: checkSubscriptions,
         title: 'Check subscriptions',
+        notifyOnFinish: false,
         defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE))
     }
 }
@@ -277,7 +278,7 @@ exports.executeRun = async (task_key) => {
     await db_api.updateRecord('tasks', {key: task_key}, {data: TASKS[task_key]['confirm'] ? data : null, last_ran: Date.now()/1000, running: false});
     logger.verbose(`Finished running task ${task_key}`);
     const task_obj = await db_api.getRecord('tasks', {key: task_key});
-    await notifications_api.sendTaskNotification(task_obj, false);
+    if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
 
     if (task_obj['options'] && task_obj['options']['auto_confirm']) {
         exports.executeConfirm(task_key);
@@ -296,7 +297,7 @@ exports.executeConfirm = async (task_key) => {
     await TASKS[task_key].confirm(data);
     await db_api.updateRecord('tasks', {key: task_key}, {confirming: false, last_confirmed: Date.now()/1000, data: null});
     logger.verbose(`Finished confirming task ${task_key}`);
-    await notifications_api.sendTaskNotification(task_obj, false);
+    if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
 }
 
 exports.updateTaskSchedule = async (task_key, schedule) => {
