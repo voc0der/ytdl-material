@@ -3,6 +3,7 @@ const { assert, fs, uuid, db_api, utils, subscriptions_api, generateEmptyVideoFi
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
+    const notifications_api = require('../notifications');
     beforeEach(async function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('tasks');
@@ -64,6 +65,29 @@ describe('Tasks', function() {
             assert.strictEqual(task['running'], false);
         } finally {
             subscriptions_api.checkSubscriptions = original_check_subscriptions;
+        }
+    });
+
+    it('Does not send a generic task notification after checking subscriptions', async function() {
+        const original_check_subscriptions = subscriptions_api.checkSubscriptions;
+        const original_send_task_notification = notifications_api.sendTaskNotification;
+        const notified_task_keys = [];
+
+        subscriptions_api.checkSubscriptions = async () => {
+            return {success: true, checked: true, checked_count: 1, sub_ids: ['test-subscription']};
+        };
+        notifications_api.sendTaskNotification = async (task_obj) => {
+            notified_task_keys.push(task_obj.key);
+        };
+
+        try {
+            await tasks_api.executeRun('subscriptions_check');
+            await tasks_api.executeRun('dummy_task');
+
+            assert.deepStrictEqual(notified_task_keys, ['dummy_task']);
+        } finally {
+            subscriptions_api.checkSubscriptions = original_check_subscriptions;
+            notifications_api.sendTaskNotification = original_send_task_notification;
         }
     });
 
