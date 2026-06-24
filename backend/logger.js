@@ -7,11 +7,19 @@ function normalizeLogLevel(logLevel) {
     return Object.prototype.hasOwnProperty.call(winston.config.npm.levels, normalized) ? normalized : null;
 }
 
-function resolveLogLevelFromEnv() {
-    const raw_log_level = process.env.ytdl_log_level
+function getRawEnvLogLevel() {
+    return process.env.ytdl_log_level
         || process.env.YTDL_LOG_LEVEL
         || process.env.ytdl_logger_level
         || process.env.YTDL_LOGGER_LEVEL;
+}
+
+function hasEnvLogLevelOverride() {
+    return !!getRawEnvLogLevel();
+}
+
+function resolveLogLevelFromEnv() {
+    const raw_log_level = getRawEnvLogLevel();
 
     const normalized_log_level = normalizeLogLevel(raw_log_level);
     if (normalized_log_level) {
@@ -49,5 +57,7 @@ const logger = winston.createLogger({
 if (invalidRawLogLevel) {
     logger.warn(`Invalid log level '${invalidRawLogLevel}' from environment. Falling back to 'info'.`);
 }
+
+logger.hasEnvLogLevelOverride = hasEnvLogLevelOverride;
 
 module.exports = logger;

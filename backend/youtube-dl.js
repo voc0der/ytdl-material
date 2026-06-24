@@ -282,9 +282,12 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             if (e.stdout) logger.debug(`stdout from failed process: ${e.stdout.substring(0, 500)}`);
             if (e.stderr) logger.debug(`stderr from failed process: ${e.stderr.substring(0, 500)}`);
 
-            // Preserve partial JSON output from playlist runs where some entries fail.
-            const fallback_output_lines = e.stdout ? e.stdout.trim().split(/\r?\n/) : null;
-            const parsed_output = fallback_output_lines ? utils.parseOutputJSON(fallback_output_lines, e) : null;
+            // Only recover partial JSON output for the known benign per-item errors
+            // (e.g. playlist runs where some entries are private/unavailable). Any other
+            // error (network failure, 403, etc.) should be reported as a real failure
+            // instead of being masked by stale info-lookup JSON that printed before the
+            // download itself failed.
+            const parsed_output = utils.parseOutputJSON(null, e);
             resolve({parsed_output: parsed_output, err: e})
         }
     });
