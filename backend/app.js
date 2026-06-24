@@ -884,8 +884,10 @@ function loadConfigValues() {
     if (!url || url === '') url = 'http://example.com'
     url_domain = new URL(url);
 
-    let logger_level = config_api.getConfigItem('ytdl_logger_level');
-    utils.updateLoggerLevel(logger_level);
+    if (!logger.hasEnvLogLevelOverride()) {
+        let logger_level = config_api.getConfigItem('ytdl_logger_level');
+        utils.updateLoggerLevel(logger_level);
+    }
 
     configureExpressTrustProxy();
 }

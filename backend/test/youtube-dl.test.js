@@ -75,5 +75,37 @@ describe('youtube-dl', function() {
         const {child_process} = await youtubedl_api.runYoutubeDL(url, args);
         assert(child_process);
     });
+
+    it('Reports the real error instead of masking it with stale info-lookup JSON when the download itself fails', async function() {
+        this.timeout(300000);
+
+        const original_fork = config_api.getConfigItem('ytdl_default_downloader');
+        config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+        await youtubedl_api.checkForYoutubeDLUpdate('yt-dlp');
+
+        const binary_path = path.join('appdata', 'bin', 'yt-dlp');
+        const backup_path = `${binary_path}.real-test-backup`;
+        fs.renameSync(binary_path, backup_path);
+        fs.writeFileSync(binary_path, [
+            '#!/usr/bin/env node',
+            'process.stdout.write(\'{"id":"fake","title":"fake"}\\n\');',
+            'process.stderr.write(\'ERROR: unable to download video data: HTTP Error 403: Forbidden\\n\');',
+            'process.exit(1);',
+            ''
+        ].join('\n'));
+        fs.chmodSync(binary_path, 0o755);
+
+        try {
+            const {callback} = await youtubedl_api.runYoutubeDL('https://www.youtube.com/watch?v=fake', []);
+            const {parsed_output, err} = await callback;
+            assert.strictEqual(parsed_output, null);
+            assert(err);
+            assert(err.stderr.includes('HTTP Error 403: Forbidden'));
+        } finally {
+            fs.unlinkSync(binary_path);
+            fs.renameSync(backup_path, binary_path);
+            config_api.setConfigItem('ytdl_default_downloader', original_fork);
+        }
+    });
 });
 
