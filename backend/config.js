@@ -262,7 +262,8 @@ const DEFAULT_CONFIG = {
         "playlist_chunk_size": 20,
         "download_rate_limit": "",
         "skip_join_only_videos": false,
-        "use_ytdlp_impersonation": false
+        "use_ytdlp_impersonation": false,
+        "use_extractor_client_fallback": false
       },
       "Extra": {
         "title_top": "ytdl-material",
