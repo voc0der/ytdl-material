@@ -35,6 +35,7 @@ const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
 const DEFAULT_YTDLP_IMPERSONATION_ARG = '--impersonate=';
+const YOUTUBE_CLIENT_FALLBACK_ARG_VALUE = 'youtube:player_client=tv,web';
 const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TYPES = new Set(['join_only', 'no_output', 'no_downloadable_items']);
 const SKIPPABLE_SUBSCRIPTION_DOWNLOAD_ERROR_TEXT = [
     'join this channel',
@@ -97,6 +98,19 @@ function appendYtDlpImpersonationArgs(download_args = [], downloader_fork = conf
     return download_args.concat([DEFAULT_YTDLP_IMPERSONATION_ARG]);
 }
 exports.appendYtDlpImpersonationArgs = appendYtDlpImpersonationArgs;
+
+// Works around YouTube experiments (e.g. binding the GVS PO Token to the video ID for
+// the web_safari client) that cause yt-dlp to extract info successfully but get a 403
+// when it tries to download the actual video data.
+function appendYoutubeClientFallbackArgs(download_args = [], downloader_fork = config_api.getConfigItem('ytdl_default_downloader')) {
+    if (!Array.isArray(download_args)) return [];
+    if (downloader_fork !== 'yt-dlp') return download_args;
+    if (!config_api.getConfigItem('ytdl_use_youtube_client_fallback')) return download_args;
+    if (hasArg(download_args, '--extractor-args')) return download_args;
+
+    return download_args.concat(['--extractor-args', YOUTUBE_CLIENT_FALLBACK_ARG_VALUE]);
+}
+exports.appendYoutubeClientFallbackArgs = appendYoutubeClientFallbackArgs;
 
 function normalizeArchiveExtractor(value = null) {
     if (typeof value !== 'string') return null;
@@ -2313,6 +2327,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     }
 
     downloadConfig = appendYtDlpImpersonationArgs(downloadConfig, default_downloader);
+    downloadConfig = appendYoutubeClientFallbackArgs(downloadConfig, default_downloader);
 
     // filter out incompatible args
     downloadConfig = filterArgs(downloadConfig, is_audio);
