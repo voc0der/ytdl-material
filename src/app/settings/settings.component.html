@@ -195,7 +195,7 @@
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['skip_join_only_videos']"><ng-container i18n="Skip join-only videos setting">Skip join-only videos</ng-container></mat-checkbox>
             </div>
             <div class="col-12 mt-2 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_youtube_client_fallback']" matTooltip="Adds --extractor-args youtube:player_client=tv,web (yt-dlp only) to work around YouTube experiments that cause downloads to fail with HTTP 403 errors." i18n-matTooltip="Use YouTube client fallback setting tooltip"><ng-container i18n="Use YouTube client fallback setting">Use YouTube client fallback</ng-container></mat-checkbox>
+              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_extractor_client_fallback']" matTooltip="Adds --extractor-args youtube:player_client=tv,web (yt-dlp only) to work around extractor experiments that cause downloads to fail with HTTP 403 errors." i18n-matTooltip="Use extractor client fallback setting tooltip"><ng-container i18n="Use extractor client fallback setting">Use extractor client fallback</ng-container></mat-checkbox>
             </div>
             @if (postsService.ytdlpImpersonationAvailable) {
             <div class="col-12 mt-2 mb-2">

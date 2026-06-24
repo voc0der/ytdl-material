@@ -86,9 +86,9 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_use_ytdlp_impersonation',
         'path': 'YtdlMaterial.Downloader.use_ytdlp_impersonation'
     },
-    'ytdl_use_youtube_client_fallback': {
-        'key': 'ytdl_use_youtube_client_fallback',
-        'path': 'YtdlMaterial.Downloader.use_youtube_client_fallback'
+    'ytdl_use_extractor_client_fallback': {
+        'key': 'ytdl_use_extractor_client_fallback',
+        'path': 'YtdlMaterial.Downloader.use_extractor_client_fallback'
     },
 
     // Extra

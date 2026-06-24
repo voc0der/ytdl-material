@@ -322,11 +322,11 @@ describe('Downloader', function() {
         }
     });
 
-    it('Generate args appends the YouTube client fallback when enabled', async function() {
-        const original_fallback = config_api.getConfigItem('ytdl_use_youtube_client_fallback');
+    it('Generate args appends the extractor client fallback when enabled', async function() {
+        const original_fallback = config_api.getConfigItem('ytdl_use_extractor_client_fallback');
         const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
         try {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', true);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', true);
             config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
 
             const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
@@ -334,27 +334,27 @@ describe('Downloader', function() {
             assert(extractor_args_index !== -1);
             assert.strictEqual(args[extractor_args_index + 1], 'youtube:player_client=tv,web');
         } finally {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', original_fallback);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', original_fallback);
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
         }
     });
 
-    it('Generate args omits the YouTube client fallback when disabled', async function() {
-        const original_fallback = config_api.getConfigItem('ytdl_use_youtube_client_fallback');
+    it('Generate args omits the extractor client fallback when disabled', async function() {
+        const original_fallback = config_api.getConfigItem('ytdl_use_extractor_client_fallback');
         try {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', false);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', false);
 
             const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
             assert(!args.includes('--extractor-args'));
         } finally {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', original_fallback);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', original_fallback);
         }
     });
 
     it('Generate args does not duplicate a manually configured extractor-args override', async function() {
-        const original_fallback = config_api.getConfigItem('ytdl_use_youtube_client_fallback');
+        const original_fallback = config_api.getConfigItem('ytdl_use_extractor_client_fallback');
         try {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', true);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', true);
 
             const args = await downloader_api.generateArgs(url, 'video', {
                 customArgs: '--extractor-args,,youtube:player_client=android',
@@ -364,7 +364,7 @@ describe('Downloader', function() {
             assert.strictEqual(extractor_args_matches.length, 1);
             assert.strictEqual(args[args.indexOf('--extractor-args') + 1], 'youtube:player_client=android');
         } finally {
-            config_api.setConfigItem('ytdl_use_youtube_client_fallback', original_fallback);
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', original_fallback);
         }
     });
 

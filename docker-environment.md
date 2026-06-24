@@ -95,7 +95,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 * `ytdl_min_sleep_between_downloads`: minimum seconds to wait before starting the next queued download step (default `0`, disabled)
 * `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads and reuse existing files in playlists instead of downloading them again (default `'false'`)
 * `ytdl_max_playlist_chunks`: cap automatic playlist chunk creation (default `20`, min `1`)
-* `ytdl_use_youtube_client_fallback`: set to `'true'` to add yt-dlp `--extractor-args youtube:player_client=tv,web` as a workaround for 403 download errors (default `'false'`)
+* `ytdl_use_extractor_client_fallback`: set to `'true'` to add yt-dlp `--extractor-args youtube:player_client=tv,web` as a workaround for 403 download errors (default `'false'`)
 
 ## OIDC
 
