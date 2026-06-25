@@ -65,7 +65,7 @@
     "ps-node": "^0.1.6",
     "rate-limit-redis": "^5.0.0",
     "read-last-lines": "^1.8.0",
-    "redis": "^6.0.0",
+    "redis": "^6.0.1",
     "rxjs": "^7.8.2",
     "shortid": "^2.2.17",
     "tree-kill": "^1.2.2",
