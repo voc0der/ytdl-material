@@ -83,7 +83,7 @@
     "got": "11.8.6",
     "js-yaml": "4.2.0",
     "serialize-javascript": "7.0.5",
-    "undici": "6.24.0",
+    "undici": "6.27.0",
     "ws": "8.21.0"
   },
   "devDependencies": {
