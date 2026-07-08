@@ -811,7 +811,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   // get files
 
   getAllFiles(cache_mode = false, append = false): void {
-    if (append && (!this.autoPaginationEnabled || this.autoPageLoadInProgress || (this.paged_data?.length ?? 0) >= this.file_count)) {
+    if (append && (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.fullFileRefreshInProgress || (this.paged_data?.length ?? 0) >= this.file_count)) {
       return;
     }
 
@@ -838,39 +838,43 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const favoriteFilter = this.getFavoriteFilter();
     const categoryFilterUids = this.getCategoryFilterUids();
     this.postsService.getAllFiles(sort, this.usePaginator ? range : null, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
-      if (request_id !== this.latestFileRequestId) {
-        return;
+      // A newer request (of either kind) may have superseded this one. Its data must not be
+      // applied, but the in-progress flags below still belong solely to this request and must
+      // always be cleared, or a stale response would leave future filter/sort/append calls stuck.
+      if (request_id === this.latestFileRequestId) {
+        const previous_loaded_count = this.paged_data?.length ?? 0;
+        this.file_count = res['file_count'];
+        const files = this.normalizeFiles(res['files'] ?? []);
+        this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
+        if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
+          // Stop auto-prefetch if the backend response did not advance the loaded range.
+          this.file_count = this.paged_data?.length ?? this.file_count;
+        }
+        this.rebuildVideoRows();
+
+        // set cached file count for future use, note that we convert the amount of files to a string
+        localStorage.setItem('cached_file_count', '' + this.file_count);
+
+        this.normal_files_received = true;
+        this.scheduleVirtualVideoWindowUpdate(true);
+        this.schedulePendingScrollRestore();
       }
 
-      const previous_loaded_count = this.paged_data?.length ?? 0;
-      this.file_count = res['file_count'];
-      const files = this.normalizeFiles(res['files'] ?? []);
-      this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
-      if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
-        // Stop auto-prefetch if the backend response did not advance the loaded range.
-        this.file_count = this.paged_data?.length ?? this.file_count;
-      }
-      this.rebuildVideoRows();
-
-      // set cached file count for future use, note that we convert the amount of files to a string
-      localStorage.setItem('cached_file_count', '' + this.file_count);
-
-      this.normal_files_received = true;
       this.autoPageLoadInProgress = false;
       if (!append) {
         this.fullFileRefreshInProgress = false;
         this.flushQueuedFullFileRefresh();
       }
-      this.scheduleVirtualVideoWindowUpdate(true);
-      this.schedulePendingScrollRestore();
     }, err => {
-      if (request_id !== this.latestFileRequestId) {
-        return;
+      if (request_id === this.latestFileRequestId) {
+        console.error(err);
+        if (!append) {
+          this.normal_files_received = had_loaded_files;
+        }
       }
-      console.error(err);
+
       this.autoPageLoadInProgress = false;
       if (!append) {
-        this.normal_files_received = had_loaded_files;
         this.fullFileRefreshInProgress = false;
         this.flushQueuedFullFileRefresh();
       }
@@ -1355,7 +1359,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   maybeLoadMoreAutoFiles(): void {
-    if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.autoLoadQueued || (this.paged_data?.length ?? 0) >= this.file_count) {
+    if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.autoLoadQueued || this.fullFileRefreshInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
       return;
     }
 
@@ -1367,7 +1371,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.autoLoadQueued = true;
     queueMicrotask(() => {
       this.autoLoadQueued = false;
-      if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
+      if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.fullFileRefreshInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
         return;
       }
 
