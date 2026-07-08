@@ -258,6 +258,86 @@ describe('MediaLibraryComponent', () => {
     }
   });
 
+  it('should not start an auto-load append while a full refresh (e.g. a filter change) is in flight', () => {
+    const refresh_response = new Subject<any>();
+    component.autoPaginationEnabled = true;
+    component.normal_files_received = true;
+    component.file_count = 50;
+    component.paged_data = [
+      { uid: 'file-1', duration: 12 } as any
+    ];
+    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.and.returnValue(refresh_response.asObservable());
+
+    try {
+      component.getAllFiles();
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+
+      // A scroll/resize-triggered auto-load-more must not race ahead of the pending refresh -
+      // its stale paged_data.length would otherwise be sent as the range offset for the new filter.
+      component.loadMoreAutoFiles();
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+
+      refresh_response.next({
+        files: [{ uid: 'file-2', duration: 18 }],
+        file_count: 1
+      });
+      refresh_response.complete();
+
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-2']);
+      expect(component.file_count).toBe(1);
+    } finally {
+      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+  });
+
+  it('should not leave auto-load state stuck when a full refresh preempts a pending append response', () => {
+    const append_response = new Subject<any>();
+    const refresh_response = new Subject<any>();
+    let call_count = 0;
+    component.autoPaginationEnabled = true;
+    component.normal_files_received = true;
+    component.file_count = 50;
+    component.paged_data = [
+      { uid: 'file-1', duration: 12 } as any
+    ];
+    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.and.callFake(() => {
+      call_count += 1;
+      return call_count === 1 ? append_response.asObservable() : refresh_response.asObservable();
+    });
+
+    try {
+      component.loadMoreAutoFiles();
+      component.getAllFiles();
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(2);
+
+      // The append's response is now stale (superseded by the refresh) - it must not apply its
+      // data, but it must still release autoPageLoadInProgress instead of leaving it stuck.
+      append_response.next({
+        files: [{ uid: 'file-2', duration: 18 }],
+        file_count: 50
+      });
+      append_response.complete();
+
+      refresh_response.next({
+        files: [{ uid: 'file-3', duration: 24 }],
+        file_count: 5
+      });
+      refresh_response.complete();
+
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-3']);
+      expect(component.autoPageLoadInProgress).toBeFalse();
+
+      postsServiceStub.getAllFiles.calls.reset();
+      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 5}));
+      component.loadMoreAutoFiles();
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+    } finally {
+      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+  });
+
   it('should persist auto page size selection and reset paging', () => {
     spyOn(localStorage, 'setItem');
     component.manualPageIndex = 4;
