@@ -40,6 +40,9 @@ updates:
       - dependency-name: "@angular-devkit/build-angular"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
   - package-ecosystem: "npm"
     directory: "/backend/"
     schedule:
