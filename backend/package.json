@@ -25,7 +25,7 @@
   "dependencies": {
     "@discordjs/builders": "^1.14.1",
     "@discordjs/core": "^2.6.0",
-    "@scalar/express-api-reference": "^0.10.10",
+    "@scalar/express-api-reference": "^0.10.11",
     "archiver": "^8.0.0",
     "async": "^3.2.3",
     "async-mutex": "^0.5.0",
