@@ -108,7 +108,7 @@
       "picomatch": "4.0.4"
     },
     "esbuild": "0.28.1",
-    "express-rate-limit": "8.5.1",
+    "express-rate-limit": "8.6.0",
     "ngx-avatars": {
       "@angular/common": "21.2.0",
       "@angular/core": "21.2.0"
