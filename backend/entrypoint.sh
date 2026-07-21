@@ -80,10 +80,54 @@ install_ytdlp_impersonation_dependencies() {
     export PYTHONPATH="${target_path}${PYTHONPATH:+:${PYTHONPATH}}"
 }
 
+install_transcoding_drivers() {
+    local transcoding_mode
+    transcoding_mode="$(resolve_runtime_env "" ytdl_transcoding YTDL_TRANSCODING | tr '[:upper:]' '[:lower:]')"
+
+    # Only VAAPI/QSV need userspace drivers inside the container.
+    # NVENC (libcuda) and AMF (libamfrt) runtimes come from the host via the container runtime.
+    case "$transcoding_mode" in
+        vaapi|qsv|intel|quicksync)
+            ;;
+        *)
+            return
+            ;;
+    esac
+
+    # Skip if a VA driver is already present (from a previous start or a derived image)
+    if ls /usr/lib/*/dri/*_drv_video.so >/dev/null 2>&1; then
+        echo "[entrypoint] VAAPI/QSV userspace drivers are already installed"
+        return
+    fi
+
+    if [ "$(id -u)" != "0" ]; then
+        echo "[entrypoint] WARNING: ytdl_transcoding is set to '$transcoding_mode' but the container is not running as root, so VAAPI/QSV drivers cannot be installed automatically. Hardware acceleration will likely fail its flight test."
+        return
+    fi
+
+    echo "[entrypoint] Installing VAAPI/QSV userspace drivers for ytdl_transcoding='$transcoding_mode'"
+    export DEBIAN_FRONTEND=noninteractive
+    if ! apt-get update; then
+        echo "[entrypoint] WARNING: apt-get update failed; hardware acceleration drivers were not installed."
+        return
+    fi
+    apt-get install -y --no-install-recommends mesa-va-drivers || echo "[entrypoint] WARNING: mesa-va-drivers could not be installed"
+    apt-get install -y --no-install-recommends intel-media-va-driver-non-free || \
+        apt-get install -y --no-install-recommends intel-media-va-driver || \
+        echo "[entrypoint] WARNING: intel-media-va-driver could not be installed"
+    case "$transcoding_mode" in
+        qsv|intel|quicksync)
+            apt-get install -y --no-install-recommends libmfx-gen1.2 || echo "[entrypoint] WARNING: libmfx-gen1.2 could not be installed"
+            ;;
+    esac
+    rm -rf /var/lib/apt/lists/*
+}
+
 runtime_uid="$(resolve_runtime_env 1000 ytdl_uid uid UID)"
 runtime_gid="$(resolve_runtime_env 1000 ytdl_gid gid GID)"
 
 install_ytdlp_impersonation_dependencies
+install_transcoding_drivers
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then

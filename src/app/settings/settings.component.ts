@@ -80,6 +80,18 @@ export class SettingsComponent implements OnInit {
     this._settingsSame = val;
   }
 
+  get transcodingWarning(): string {
+    const status = this.postsService.transcodingStatus;
+    if (!status || !status.mode || !status.checked || status.available !== false) return null;
+    const warning = $localize`The hardware acceleration flight test failed for ${status.label}:mode:. Video processing will fall back to software encoding.`;
+    return status.error ? `${warning} (${status.error})` : warning;
+  }
+
+  get transcodingTestPending(): boolean {
+    const status = this.postsService.transcodingStatus;
+    return !!(status && status.mode && !status.checked);
+  }
+
   constructor(public postsService: PostsService, private snackBar: MatSnackBar, private sanitizer: DomSanitizer,
     private dialog: MatDialog, private router: Router, private route: ActivatedRoute) {
       // invert index to tab

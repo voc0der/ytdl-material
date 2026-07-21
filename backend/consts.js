@@ -90,6 +90,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_use_extractor_client_fallback',
         'path': 'YtdlMaterial.Downloader.use_extractor_client_fallback'
     },
+    'ytdl_transcoding': {
+        'key': 'ytdl_transcoding',
+        'path': 'YtdlMaterial.Downloader.transcoding'
+    },
 
     // Extra
     'ytdl_title_top': {
