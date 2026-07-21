@@ -150,6 +150,16 @@ export interface RemoveDuplicatesResponse {
     removed_uids: string[];
 }
 
+export interface TranscodingStatus {
+    mode: string | null;
+    label: string | null;
+    in_progress: boolean;
+    checked: boolean;
+    available: boolean | null;
+    error: string | null;
+    last_checked: number | null;
+}
+
 @Injectable()
 export class PostsService {
     path = '';
@@ -197,6 +207,7 @@ export class PostsService {
     // global vars
     config = null;
     ytdlpImpersonationAvailable = false;
+    transcodingStatus: TranscodingStatus = null;
     subscriptions: Subscription[] = null;
     categories: Category[] = null;
     sidenav = null;
@@ -228,6 +239,7 @@ export class PostsService {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
                 this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
+                this.transcodingStatus = !this.debugMode ? (res['transcoding_status'] || null) : null;
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
@@ -328,6 +340,7 @@ export class PostsService {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
                 this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
+                this.transcodingStatus = !this.debugMode ? (res['transcoding_status'] || null) : null;
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 this.config_reloaded.next(true);

@@ -90,6 +90,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_js_runtimes',
         'path': 'YtdlMaterial.Downloader.js_runtimes'
     },
+    'ytdl_transcoding': {
+        'key': 'ytdl_transcoding',
+        'path': 'YtdlMaterial.Downloader.transcoding'
+    },
 
     // Extra
     'ytdl_title_top': {

@@ -139,6 +139,31 @@
                 <button class="args-edit-button" (click)="openArgsModifierDialog()" mat-icon-button><mat-icon>edit</mat-icon></button>
               </mat-form-field>
             </div>
+            <div class="col-12 mt-2 mb-4">
+              <mat-form-field class="text-field" color="accent">
+                <mat-label i18n="Hardware acceleration setting label">Hardware acceleration</mat-label>
+                <mat-select color="accent" [(ngModel)]="new_config['Downloader']['transcoding']">
+                  <mat-option [value]="false"><ng-container i18n="Hardware acceleration none option">None</ng-container></mat-option>
+                  <mat-option value="amf">AMD AMF</mat-option>
+                  <mat-option value="nvenc">Nvidia NVENC</mat-option>
+                  <mat-option value="qsv">Intel Quicksync (QSV)</mat-option>
+                  <mat-option value="vaapi">Video Acceleration API (VAAPI)</mat-option>
+                </mat-select>
+                <mat-hint><ng-container i18n="Hardware acceleration setting hint">Uses your GPU to speed up video processing such as cropping. The GPU must be passed through to the container.</ng-container></mat-hint>
+              </mat-form-field>
+            </div>
+            @if (transcodingWarning) {
+              <div class="col-12 mt-2 mb-2 transcoding-warning">
+                <mat-icon class="transcoding-warning-icon">warning</mat-icon>
+                <span>{{transcodingWarning}}</span>
+              </div>
+            }
+            @if (transcodingTestPending) {
+              <div class="col-12 mt-2 mb-2 transcoding-pending">
+                <mat-icon class="transcoding-pending-icon">hourglass_empty</mat-icon>
+                <span i18n="Hardware acceleration test pending message">The hardware acceleration flight test is still running. Refresh this page shortly to see the result.</span>
+              </div>
+            }
           </div>
         </div>
       }

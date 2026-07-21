@@ -296,7 +296,8 @@ const DEFAULT_CONFIG = {
         "download_rate_limit": "",
         "skip_join_only_videos": false,
         "use_ytdlp_impersonation": false,
-        "js_runtimes": ""
+        "js_runtimes": "",
+        "transcoding": false
       },
       "Extra": {
         "title_top": "ytdl-material",

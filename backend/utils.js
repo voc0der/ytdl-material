@@ -8,6 +8,7 @@ const winston = require('winston');
 
 const config_api = require('./config');
 const logger = require('./logger');
+const transcoding_api = require('./transcoding');
 const CONSTS = require('./consts');
 
 const is_windows = process.platform === 'win32';
@@ -461,6 +462,16 @@ exports.createEdgeNGrams = (str) => {
 // ffmpeg helper functions
 
 exports.cropFile = async (file_path, start, end, ext) => {
+    const hardware_settings = transcoding_api.getHardwareFfmpegSettings(ext);
+    const crop_success = await cropFileAttempt(file_path, start, end, ext, hardware_settings);
+    if (!crop_success && hardware_settings) {
+        logger.warn(`Hardware-accelerated crop failed for '${file_path}'. Retrying with software processing.`);
+        return await cropFileAttempt(file_path, start, end, ext, null);
+    }
+    return crop_success;
+}
+
+function cropFileAttempt(file_path, start, end, ext, hardware_settings) {
     return new Promise(resolve => {
         const temp_file_path = `${file_path}.cropped${ext}`;
         let base_ffmpeg_call = ffmpeg(file_path);
@@ -469,6 +480,15 @@ exports.cropFile = async (file_path, start, end, ext) => {
         }
         if (end) {
             base_ffmpeg_call = base_ffmpeg_call.duration(end - start);
+        }
+        if (hardware_settings) {
+            if (hardware_settings.input_options.length > 0) {
+                base_ffmpeg_call = base_ffmpeg_call.inputOptions(hardware_settings.input_options);
+            }
+            if (hardware_settings.video_filters.length > 0) {
+                base_ffmpeg_call = base_ffmpeg_call.videoFilters(hardware_settings.video_filters);
+            }
+            base_ffmpeg_call = base_ffmpeg_call.videoCodec(hardware_settings.video_encoder);
         }
         base_ffmpeg_call
             .on('end', () => {
@@ -480,6 +500,11 @@ exports.cropFile = async (file_path, start, end, ext) => {
             .on('error', (err) => {
                 logger.error(`Failed to crop ${file_path}.`);
                 logger.error(err);
+                try {
+                    fs.removeSync(temp_file_path);
+                } catch (e) {
+                    // Non-fatal.
+                }
                 resolve(false);
             }).save(temp_file_path);
     });
