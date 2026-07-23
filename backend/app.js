@@ -36,6 +36,7 @@ const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
 const notifications_api = require('./notifications');
+const transcoding_api = require('./transcoding');
 
 var app = express();
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
@@ -814,6 +815,8 @@ async function setConfigFromEnv() {
 
 async function loadConfig() {
     loadConfigValues();
+    // non-blocking hardware transcoding flight test
+    transcoding_api.initialize();
     initializeDocumentationAPI();
     await initializeRateLimiters();
 
@@ -1235,6 +1238,7 @@ app.get('/api/config', function(req, res) {
     res.send({
         config_file: config_file,
         ytdlp_impersonation_available: config_api.isYtDlpImpersonationDependencyEnvEnabled(),
+        transcoding_status: transcoding_api.getStatus(),
         success: !!config_file
     });
 });

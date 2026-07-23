@@ -97,6 +97,54 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 * `ytdl_max_playlist_chunks`: cap automatic playlist chunk creation (default `20`, min `1`)
 * `ytdl_use_extractor_client_fallback`: set to `'true'` to add yt-dlp `--extractor-args youtube:player_client=tv,web` as a workaround for 403 download errors (default `'false'`)
 
+## Hardware Acceleration (Transcoding)
+
+* `ytdl_transcoding`: hardware acceleration mode used for ffmpeg video processing such as cropping. One of `'false'` (default, software only), `'amf'` (AMD AMF), `'nvenc'` (Nvidia NVENC), `'qsv'` (Intel Quicksync), or `'vaapi'` (Video Acceleration API). Also configurable in Settings under the Downloader tab.
+
+On startup the backend runs a non-blocking flight test that encodes a tiny generated clip with the configured hardware encoder. If the test fails (missing GPU passthrough, missing drivers, unsupported hardware), video processing automatically falls back to software encoding and a warning with the ffmpeg error is shown in the Settings Downloader tab.
+
+Notes:
+
+* Hardware acceleration requires the amd64 or arm64 image. The armhf/armel images ship a software-only ffmpeg build.
+* For `'vaapi'` and `'qsv'`, the entrypoint installs the userspace GPU drivers on first start (requires the container to start as root, the default, and network access). NVENC and AMF runtimes are provided by the host instead.
+* Hardware encoding is applied to video files in h264-compatible containers (mp4, mkv, mov, ts). Other formats keep using software encoding.
+
+### VAAPI / QSV (Intel and AMD GPUs)
+
+Pass the render device(s) into the container and add the `render`/`video` group IDs (find yours with `cat /etc/group | grep -E 'render|video' | cut -d: -f3`):
+
+```yaml
+environment:
+  ytdl_transcoding: 'vaapi' # or 'qsv' on Intel
+group_add:
+  - 44
+  - 106
+devices:
+  - /dev/dri/renderD128:/dev/dri/renderD128
+  - /dev/dri/card0:/dev/dri/card0
+```
+
+### NVENC (Nvidia GPUs)
+
+Requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host:
+
+```yaml
+environment:
+  ytdl_transcoding: 'nvenc'
+  NVIDIA_DRIVER_CAPABILITIES: 'compute,video,utility'
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu]
+```
+
+### AMF (AMD GPUs)
+
+AMF on Linux requires the AMD proprietary Vulkan/AMF runtime (`libamfrt64.so.1` from amdgpu-pro) to be available inside the container in addition to `/dev/dri` passthrough. Most AMD users on Linux should prefer `'vaapi'` instead.
+
 ## OIDC
 
 Only use this section if you want users to sign in through an external identity provider such as Authelia, Authentik, Keycloak, or another SSO provider. If you are happy with ytdl-material's built-in login, you do not need any OIDC settings.

@@ -263,7 +263,8 @@ const DEFAULT_CONFIG = {
         "download_rate_limit": "",
         "skip_join_only_videos": false,
         "use_ytdlp_impersonation": false,
-        "use_extractor_client_fallback": false
+        "use_extractor_client_fallback": false,
+        "transcoding": false
       },
       "Extra": {
         "title_top": "ytdl-material",

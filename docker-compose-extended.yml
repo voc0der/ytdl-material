@@ -49,6 +49,11 @@ services:
       # Caps the number of automatic playlist chunks that may be created.
       # ytdl_max_playlist_chunks: '20'
 
+      # Hardware acceleration for video processing (optional). One of amf, nvenc, qsv, vaapi.
+      # See docker-environment.md for the required GPU passthrough (devices/group_add or the
+      # NVIDIA container toolkit) that must accompany this setting.
+      # ytdl_transcoding: 'vaapi'
+
       # File creation mask before startup.
       # Common values: 022 for standard shared-read permissions, 002 for group-writable.
       # ytdl_umask: '022'

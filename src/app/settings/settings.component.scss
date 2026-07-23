@@ -215,3 +215,27 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+.transcoding-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #c62828;
+}
+
+.transcoding-warning-icon {
+    flex-shrink: 0;
+}
+
+.transcoding-pending {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    opacity: 0.75;
+}
+
+.transcoding-pending-icon {
+    flex-shrink: 0;
+}
