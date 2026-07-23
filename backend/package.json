@@ -75,7 +75,6 @@
     "xmlbuilder2": "^4.0.3"
   },
   "overrides": {
-    "brace-expansion": "5.0.6",
     "braces": "3.0.3",
     "cross-spawn": "7.0.6",
     "diff": "8.0.3",
