@@ -71,6 +71,18 @@ describe('Config', async function() {
         assert(!('use_extractor_client_fallback' in updated_config['YtdlMaterial']['Downloader']));
     });
 
+    it('Strips the retired allow advanced download setting on initialize', async function() {
+        const config_json = config_api.getConfigFile();
+        // stored as false, which is the value that changes behavior now that it is removed
+        config_json['YtdlMaterial']['Advanced']['allow_advanced_download'] = false;
+        config_api.setConfigFile(config_json);
+
+        config_api.initialize();
+
+        const updated_config = config_api.getConfigFile();
+        assert(!('allow_advanced_download' in updated_config['YtdlMaterial']['Advanced']));
+    });
+
     it('Leaves the config alone when no retired settings are stored', async function() {
         config_api.initialize();
         const before = JSON.stringify(config_api.getConfigFile());

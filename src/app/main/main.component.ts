@@ -213,8 +213,9 @@ export class MainComponent implements OnInit {
     this.youtubeAPIKey = this.youtubeSearchEnabled ? this.postsService.config['API']['youtube_API_key'] : null;
     this.sponsorBlockDownloadsEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_sponsorblock_API']);
     this.allowQualitySelect = this.postsService.config['Extra']['allow_quality_select'];
-    this.allowAdvancedDownload = this.postsService.config['Advanced']['allow_advanced_download']
-                                  && this.postsService.hasPermission('advanced_download');
+    // Advanced download mode is always available; access is governed by the per-user
+    // permission alone, not by a global on/off setting.
+    this.allowAdvancedDownload = this.postsService.hasPermission('advanced_download');
     this.useDefaultDownloadingAgent = this.postsService.config['Advanced']['use_default_downloading_agent'];
     this.customDownloadingAgent = this.postsService.config['Advanced']['custom_downloading_agent'];
 

@@ -821,14 +821,15 @@ describe('MainComponent', () => {
       expect(args[CROP_SETTINGS_INDEX]).toBeNull();
     });
 
-    it('does not restore advanced options from storage when the feature is off', async () => {
+    it('does not restore advanced options from storage without the user permission', async () => {
       localStorage.setItem('advancedMode', 'true');
       localStorage.setItem('customArgsEnabled', 'true');
       localStorage.setItem('customArgs', '--stale-arg');
-      (component as any).postsService.config['Advanced']['allow_advanced_download'] = false;
+      (component as any).postsService.hasPermission = (permission: string) => permission !== 'advanced_download';
 
       await component.loadConfig();
 
+      expect(component.allowAdvancedDownload).toBeFalse();
       expect(component.advancedMode).toBeFalse();
       expect(component.isAdvancedModeActive()).toBeFalse();
       expect(component.customArgsEnabled).toBeFalse();
@@ -839,13 +840,22 @@ describe('MainComponent', () => {
       localStorage.setItem('advancedMode', 'true');
       localStorage.setItem('customArgsEnabled', 'true');
       localStorage.setItem('customArgs', '--restored-arg');
-      (component as any).postsService.config['Advanced']['allow_advanced_download'] = true;
 
       await component.loadConfig();
 
       expect(component.advancedMode).toBeTrue();
       expect(component.customArgsEnabled).toBeTrue();
       expect(component.customArgs).toBe('--restored-arg');
+    });
+
+    it('is available on permission alone, with no global setting to enable', async () => {
+      // the removed allow_advanced_download setting must not be consulted, even if a stale
+      // copy is still present in a config that has not been migrated yet
+      (component as any).postsService.config['Advanced']['allow_advanced_download'] = false;
+
+      await component.loadConfig();
+
+      expect(component.allowAdvancedDownload).toBeTrue();
     });
   });
 });

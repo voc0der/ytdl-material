@@ -377,10 +377,6 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_multi_user_mode',
         'path': 'YtdlMaterial.Advanced.multi_user_mode'
     },
-    'ytdl_allow_advanced_download': {
-        'key': 'ytdl_allow_advanced_download',
-        'path': 'YtdlMaterial.Advanced.allow_advanced_download'
-    },
     'ytdl_use_cookies': {
         'key': 'ytdl_use_cookies',
         'path': 'YtdlMaterial.Advanced.use_cookies'

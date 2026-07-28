@@ -62,6 +62,13 @@ const RETIRED_CONFIG_ITEMS = [
             + ' causes the HTTP 403 download errors it was meant to prevent. yt-dlp now selects its own clients.'
             + ' If you still need to pin one, add it to your global custom args, for example:'
             + ' --extractor-args,,youtube:player_client=default'
+    },
+    {
+        path: 'YtdlMaterial.Advanced.allow_advanced_download',
+        disabled_warning: 'The \'allow advanced download\' setting has been removed. Advanced download options are'
+            + ' now always available from the Download button menu, so users who previously could not reach them'
+            + ' will see them. Access is still controlled by the \'advanced_download\' user permission, which can'
+            + ' be revoked per role under Settings if you want to keep it hidden.'
     }
 ];
 
@@ -81,7 +88,11 @@ function removeRetiredConfigItems() {
         const element_name = getElementNameInConfig(retired_item.path);
         if (!parent_object || !(element_name in parent_object)) continue;
 
-        if (parent_object[element_name] && retired_item.enabled_warning) logger.warn(retired_item.enabled_warning);
+        // Which stored value is worth warning about depends on the setting: removing an
+        // opt-in matters to whoever turned it on, removing an opt-out matters to whoever
+        // turned it off.
+        const stored_warning = parent_object[element_name] ? retired_item.enabled_warning : retired_item.disabled_warning;
+        if (stored_warning) logger.warn(stored_warning);
         delete parent_object[element_name];
         removed_any = true;
     }
@@ -387,7 +398,6 @@ const DEFAULT_CONFIG = {
         "use_default_downloading_agent": true,
         "custom_downloading_agent": "",
         "multi_user_mode": false,
-        "allow_advanced_download": false,
         "use_cookies": false,
         "jwt_expiration": 86400,
         "logger_level": "info"
