@@ -11,4 +11,12 @@ export type GetAllDownloadsRequest = {
      * Filters downloads to unfinished queue items
      */
     only_unfinished?: boolean;
+    /**
+     * Zero-based history page. Ignored when filtering by UID or requesting only unfinished downloads.
+     */
+    page?: number;
+    /**
+     * Number of history items to return. The server clamps this value to its hard maximum.
+     */
+    page_size?: number;
 };

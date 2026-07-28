@@ -25,6 +25,15 @@ const SUBSCRIPTION_REFRESH_PHASES = Object.freeze({
 });
 const SUBSCRIPTION_REFRESH_COUNT_WRITE_INTERVAL = 5;
 const SUBSCRIPTION_QUEUE_BATCH_SIZE = 50;
+const SUBSCRIPTION_EXPECTED_SIZE_FORMAT_FIELDS = Object.freeze([
+    'format_id',
+    'filesize',
+    'filesize_approx',
+    'duration',
+    'tbr',
+    'vbr',
+    'abr'
+]);
 const MATCH_FILTER_ARGS = new Set(['--match-filter', '--match-filters']);
 const BREAK_MATCH_FILTER_ARGS = new Set(['--break-match-filter', '--break-match-filters']);
 const NO_MATCH_FILTER_ARGS = new Set(['--no-match-filter', '--no-match-filters']);
@@ -1380,7 +1389,9 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
         const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
         if (prefetched_info && Array.isArray(file_to_download['formats'])) {
             // Keep subscription queue payloads small when full info is available.
-            file_to_download['formats'] = utils.stripPropertiesFromObject(file_to_download['formats'], ['format_id', 'filesize', 'filesize_approx']);
+            file_to_download['formats'] = file_to_download['formats']
+                .filter(format => !!format && typeof format === 'object')
+                .map(format => utils.stripPropertiesFromObject(format, SUBSCRIPTION_EXPECTED_SIZE_FORMAT_FIELDS, true));
         }
         await downloader_api.createDownload(file_to_download['webpage_url'], sub.type || 'video', effective_queue_context.base_download_options, user_uid, sub.id, sub.name, prefetched_info);
         effective_queue_context.queued_count += 1;

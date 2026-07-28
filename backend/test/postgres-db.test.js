@@ -40,6 +40,39 @@ describe('PostgreSQL backend integration points', function() {
     function createFakeMongoClientCtor(options = {}) {
         const databaseName = options.databaseName || 'ytdl_material';
         const clone = value => JSON.parse(JSON.stringify(value));
+        const getValueByPath = (record, fieldPath) => {
+            return fieldPath.split('.').reduce((value, pathPart) => {
+                return value && Object.prototype.hasOwnProperty.call(value, pathPart)
+                    ? value[pathPart]
+                    : undefined;
+            }, record);
+        };
+        const setValueByPath = (record, fieldPath, value) => {
+            const pathParts = fieldPath.split('.');
+            let currentRecord = record;
+            pathParts.forEach((pathPart, index) => {
+                if (index === pathParts.length - 1) {
+                    currentRecord[pathPart] = clone(value);
+                    return;
+                }
+                if (!currentRecord[pathPart]) currentRecord[pathPart] = {};
+                currentRecord = currentRecord[pathPart];
+            });
+        };
+        const applyProjection = (record, projection = null) => {
+            if (!projection) return clone(record);
+            const includedFields = Object.entries(projection)
+                .filter(([fieldPath, include]) => fieldPath !== '_id' && Number(include) === 1)
+                .map(([fieldPath]) => fieldPath);
+            if (includedFields.length === 0) return clone(record);
+
+            const projectedRecord = {};
+            includedFields.forEach(fieldPath => {
+                const value = getValueByPath(record, fieldPath);
+                if (value !== undefined) setValueByPath(projectedRecord, fieldPath, value);
+            });
+            return projectedRecord;
+        };
 
         class FakeMongoDatabase {
             constructor(initialCollections = {}, behavior = {}) {
@@ -108,9 +141,23 @@ describe('PostgreSQL backend integration points', function() {
                         const collection = database.collections.get(collectionName);
                         return collection && collection.docs.length > 0 ? clone(collection.docs[0]) : null;
                     },
-                    find: () => ({
-                        toArray: async () => clone((database.collections.get(collectionName) || { docs: [] }).docs)
-                    })
+                    find: () => {
+                        let projection = null;
+                        const cursor = {
+                            sort: () => cursor,
+                            skip: () => cursor,
+                            limit: () => cursor,
+                            project: nextProjection => {
+                                projection = clone(nextProjection);
+                                return cursor;
+                            },
+                            toArray: async () => {
+                                const docs = (database.collections.get(collectionName) || { docs: [] }).docs;
+                                return docs.map(doc => applyProjection(doc, projection));
+                            }
+                        };
+                        return cursor;
+                    }
                 };
             }
 
@@ -231,6 +278,56 @@ describe('PostgreSQL backend integration points', function() {
 
         assert.strictEqual(capturedQuery, 'SELECT doc FROM "download_queue" WHERE jsonb_extract_path(doc, VARIADIC $1::text[]) = $2::jsonb');
         assert.deepStrictEqual(capturedParams, [['finished'], 'false']);
+    });
+
+    it('projects selected PostgreSQL JSON fields before returning records', async function() {
+        let capturedQuery = null;
+        let capturedParams = null;
+        const fakePool = {
+            query: async (queryText, params) => {
+                capturedQuery = queryText;
+                capturedParams = params;
+                return {
+                    rows: [{
+                        doc: {
+                            uid: 'download-1',
+                            options: {playlistBatchId: 'batch-1'}
+                        }
+                    }]
+                };
+            }
+        };
+
+        const records = await postgres_store.getRecords(
+            fakePool,
+            {
+                download_queue: {
+                    primary_key: 'uid',
+                    field_types: {
+                        uid: 'text',
+                        timestamp_start: 'numeric'
+                    }
+                }
+            },
+            'download_queue',
+            null,
+            false,
+            {by: 'timestamp_start', order: -1},
+            [0, 20],
+            ['uid', 'options.playlistBatchId']
+        );
+
+        assert(capturedQuery.startsWith("SELECT jsonb_strip_nulls(jsonb_build_object('uid', doc #> '{uid}', 'options', jsonb_strip_nulls(jsonb_build_object('playlistBatchId', doc #> '{options,playlistBatchId}')))) AS doc"));
+        assert(capturedQuery.includes('ORDER BY CASE WHEN'));
+        assert(capturedQuery.includes('DESC NULLS LAST'));
+        assert(capturedQuery.endsWith(' OFFSET $2 LIMIT $3'));
+        assert(!capturedQuery.includes('prefetched_info'));
+        assert(!capturedQuery.includes("'error'"));
+        assert.deepStrictEqual(capturedParams, [['timestamp_start'], 0, 20]);
+        assert.deepStrictEqual(records, [{
+            uid: 'download-1',
+            options: {playlistBatchId: 'batch-1'}
+        }]);
     });
 
     it('serializes undefined update values as JSON null for PostgreSQL updates', async function() {
@@ -377,6 +474,46 @@ describe('PostgreSQL backend integration points', function() {
         assert(calls.some(call => call.name === 'updateRecord'));
         assert(calls.some(call => call.name === 'removeRecord'));
         assert(calls.some(call => call.name === 'getTableStats'));
+    });
+
+    it('uses an inclusion projection for MongoDB reads', async function() {
+        config_api.setConfigItem('ytdl_use_local_db', false);
+        config_api.setConfigItem('ytdl_remote_db_type', 'mongo');
+        config_api.setConfigItem('ytdl_mongodb_connection_string', 'mongodb://projection-db');
+
+        const heavyweightValue = 'captured output'.repeat(1000);
+        const { FakeMongoClient } = createFakeMongoClientCtor({
+            collectionsByConnectionString: {
+                'mongodb://projection-db': {
+                    download_queue: [{
+                        uid: 'download-1',
+                        error: heavyweightValue,
+                        prefetched_info: [{description: heavyweightValue}],
+                        options: {
+                            playlistBatchId: 'batch-1',
+                            additionalArgs: [heavyweightValue]
+                        }
+                    }]
+                }
+            }
+        });
+        db_api.setMongoClientCtor(FakeMongoClient);
+
+        const connected = await db_api.connectToDB(0, true);
+        const records = await db_api.getRecords(
+            'download_queue',
+            null,
+            false,
+            null,
+            null,
+            ['uid', 'options.playlistBatchId']
+        );
+
+        assert.strictEqual(connected, true);
+        assert.deepStrictEqual(records, [{
+            uid: 'download-1',
+            options: {playlistBatchId: 'batch-1'}
+        }]);
     });
 
     it('requires local DB mode to be disabled before DB-to-DB migration', async function() {

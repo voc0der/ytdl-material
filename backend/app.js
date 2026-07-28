@@ -2698,31 +2698,232 @@ app.get('/api/thumbnail/:path', optionalJwt, async (req, res) => {
 
 // Downloads management
 
+const DOWNLOADS_DEFAULT_PAGE_SIZE = 20;
+const DOWNLOADS_MAX_PAGE_SIZE = 100;
+const DOWNLOADS_MAX_UID_FILTER_SIZE = 100;
+const DOWNLOADS_MAX_ACTIVE_RESULTS = 100;
+const DOWNLOAD_LIST_PROJECTION_FIELDS = Object.freeze([
+    'uid',
+    'ui_uid',
+    'running',
+    'finished',
+    'paused',
+    'cancelled',
+    'finished_step',
+    'url',
+    'type',
+    'title',
+    'step_index',
+    'percent_complete',
+    'timestamp_start',
+    'error_type',
+    'error_summary',
+    'sub_id',
+    'sub_name',
+    'playlist_item_progress',
+    'file_uids',
+    'container.id',
+    'container.uid',
+    'duplicate_skip_only',
+    'duplicate_skip_count',
+    'options.playlistBatchId',
+    'options.playlistChunkRange',
+    'options.playlistChunkIndex',
+    'options.playlistChunkCount',
+    'options.playlistChunkTitle'
+]);
+
+function clampDownloadsInteger(value, fallback, minimum, maximum) {
+    if (value === null || value === undefined || value === '') return fallback;
+    const parsed_value = Number(value);
+    if (!Number.isFinite(parsed_value)) return fallback;
+    return Math.min(maximum, Math.max(minimum, Math.floor(parsed_value)));
+}
+
+function normalizeDownloadContainerForList(container = null) {
+    if (!container || typeof container !== 'object') return null;
+    if (container.uid) return {uid: container.uid};
+    if (container.id) return {id: container.id, uids: []};
+    return null;
+}
+
+function getDownloadErrorPlaceholder(error_type = null) {
+    const normalized_error_type = typeof error_type === 'string'
+        ? error_type.trim().slice(0, 100)
+        : '';
+    return normalized_error_type
+        ? `Download failed (${normalized_error_type}). Detailed output is unavailable for this legacy queue entry.`
+        : 'Download failed. Detailed output is unavailable for this legacy queue entry.';
+}
+
+async function attachDownloadListErrorState(downloads = [], scoped_filter = {}) {
+    if (!Array.isArray(downloads) || downloads.length === 0) return downloads;
+
+    const download_uids = downloads.map(download => download && download.uid).filter(Boolean);
+    if (download_uids.length === 0) {
+        return downloads.map(download => ({
+            ...download,
+            container: normalizeDownloadContainerForList(download.container),
+            error: null,
+            error_details_omitted: false
+        }));
+    }
+    const errored_downloads = await db_api.getRecords(
+        'download_queue',
+        {...scoped_filter, uid: {$in: download_uids}, error: {$ne: null}},
+        false,
+        null,
+        [0, download_uids.length],
+        ['uid']
+    );
+    const errored_uids = new Set(errored_downloads.map(download => download.uid));
+
+    return downloads.map(download => {
+        const normalized_download = {
+            ...download,
+            container: normalizeDownloadContainerForList(download.container)
+        };
+        const has_error_summary = typeof download.error_summary === 'string' && download.error_summary.trim() !== '';
+        if (errored_uids.has(download.uid) || has_error_summary) {
+            normalized_download.error = has_error_summary
+                ? download.error_summary
+                : getDownloadErrorPlaceholder(download.error_type);
+            normalized_download.error_details_omitted = true;
+        } else {
+            normalized_download.error = null;
+            normalized_download.error_details_omitted = false;
+        }
+        return normalized_download;
+    });
+}
+
+async function hasScopedDownload(download_uid, user_uid) {
+    if (typeof download_uid !== 'string' || download_uid.trim() === '') return false;
+    const downloads = await db_api.getRecords(
+        'download_queue',
+        {uid: download_uid, ...getScopedFilterByUser(user_uid)},
+        false,
+        null,
+        [0, 1],
+        ['uid']
+    );
+    return downloads.length > 0;
+}
+
 app.post('/api/downloads', optionalJwt, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const uids = req.body.uids;
     const only_unfinished = req.body.only_unfinished === true;
     const filter_obj = getScopedFilterByUser(user_uid);
+
+    if (uids !== null && uids !== undefined && !Array.isArray(uids)) {
+        res.status(400).send({error: 'Download UIDs must be provided as an array.'});
+        return;
+    }
+
     if (Array.isArray(uids)) {
         if (uids.length === 0) {
-            res.send({downloads: []});
+            res.send({downloads: [], total_count: 0, page: 0, page_size: 0});
             return;
         }
-        filter_obj['uid'] = {$in: uids};
-    } else if (only_unfinished) {
-        filter_obj['finished'] = false;
-    }
-    const downloads = await db_api.getRecords('download_queue', filter_obj);
+        const normalized_uids = [...new Set(
+            uids
+                .filter(uid => typeof uid === 'string')
+                .map(uid => uid.trim())
+                .filter(uid => uid !== '')
+        )];
+        if (normalized_uids.length > DOWNLOADS_MAX_UID_FILTER_SIZE) {
+            res.status(400).send({
+                error: `A maximum of ${DOWNLOADS_MAX_UID_FILTER_SIZE} download UIDs may be requested at once.`
+            });
+            return;
+        }
 
-    res.send({downloads: downloads});
+        if (normalized_uids.length === 0) {
+            res.send({downloads: [], total_count: 0, page: 0, page_size: 0});
+            return;
+        }
+        filter_obj['uid'] = {$in: normalized_uids};
+        const downloads = await db_api.getRecords(
+            'download_queue',
+            filter_obj,
+            false,
+            {by: 'timestamp_start', order: -1},
+            [0, normalized_uids.length],
+            DOWNLOAD_LIST_PROJECTION_FIELDS
+        );
+        const projected_downloads = await attachDownloadListErrorState(downloads, getScopedFilterByUser(user_uid));
+        res.send({
+            downloads: projected_downloads,
+            total_count: projected_downloads.length,
+            page: 0,
+            page_size: normalized_uids.length
+        });
+        return;
+    }
+
+    if (only_unfinished) {
+        filter_obj['finished'] = false;
+        const [downloads, total_count] = await Promise.all([
+            db_api.getRecords(
+                'download_queue',
+                filter_obj,
+                false,
+                {by: 'timestamp_start', order: -1},
+                [0, DOWNLOADS_MAX_ACTIVE_RESULTS],
+                DOWNLOAD_LIST_PROJECTION_FIELDS
+            ),
+            db_api.getRecords('download_queue', filter_obj, true)
+        ]);
+        const projected_downloads = await attachDownloadListErrorState(downloads, getScopedFilterByUser(user_uid));
+        res.send({
+            downloads: projected_downloads,
+            total_count: total_count,
+            page: 0,
+            page_size: DOWNLOADS_MAX_ACTIVE_RESULTS
+        });
+        return;
+    }
+
+    const page_size = clampDownloadsInteger(req.body.page_size, DOWNLOADS_DEFAULT_PAGE_SIZE, 1, DOWNLOADS_MAX_PAGE_SIZE);
+    const requested_page = clampDownloadsInteger(req.body.page, 0, 0, Number.MAX_SAFE_INTEGER);
+    const total_count = await db_api.getRecords('download_queue', filter_obj, true);
+    const last_page = total_count > 0 ? Math.floor((total_count - 1) / page_size) : 0;
+    const page = Math.min(requested_page, last_page);
+    const range_start = page * page_size;
+    const downloads = await db_api.getRecords(
+        'download_queue',
+        filter_obj,
+        false,
+        {by: 'timestamp_start', order: -1},
+        [range_start, range_start + page_size],
+        DOWNLOAD_LIST_PROJECTION_FIELDS
+    );
+    const projected_downloads = await attachDownloadListErrorState(downloads, getScopedFilterByUser(user_uid));
+
+    res.send({
+        downloads: projected_downloads,
+        total_count: total_count,
+        page: page,
+        page_size: page_size
+    });
 });
 
 app.post('/api/download', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const filter_obj = {uid: download_uid, ...getScopedFilterByUser(user_uid)};
-
-    const download = await db_api.getRecord('download_queue', filter_obj);
+    const scoped_filter = getScopedFilterByUser(user_uid);
+    const filter_obj = {uid: download_uid, ...scoped_filter};
+    const downloads = await db_api.getRecords(
+        'download_queue',
+        filter_obj,
+        false,
+        null,
+        [0, 1],
+        DOWNLOAD_LIST_PROJECTION_FIELDS
+    );
+    const projected_downloads = await attachDownloadListErrorState(downloads, scoped_filter);
+    const download = projected_downloads.length > 0 ? projected_downloads[0] : null;
 
     if (download) {
         res.send({download: download});
@@ -2740,13 +2941,27 @@ app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
     let success = true;
     if (clear_finished) success &= await db_api.removeAllRecords('download_queue', {finished: true, ...scoped_filter, error: null});
     if (clear_paused) {
-        const paused_downloads = await db_api.getRecords('download_queue', {paused: true, ...scoped_filter});
+        const paused_downloads = await db_api.getRecords(
+            'download_queue',
+            {paused: true, ...scoped_filter},
+            false,
+            null,
+            null,
+            ['uid']
+        );
         for (const paused_download of paused_downloads) {
             success &= await downloader_api.clearDownload(paused_download['uid']);
         }
     }
     if (clear_errors) {
-        const errored_downloads = await db_api.getRecords('download_queue', {error: {$ne: null}, ...scoped_filter});
+        const errored_downloads = await db_api.getRecords(
+            'download_queue',
+            {error: {$ne: null}, ...scoped_filter},
+            false,
+            null,
+            null,
+            ['uid']
+        );
         for (const errored_download of errored_downloads) {
             success &= await downloader_api.clearDownload(errored_download['uid']);
         }
@@ -2757,8 +2972,7 @@ app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
 app.post('/api/clearDownload', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const owned_download = await db_api.getRecord('download_queue', {uid: download_uid, ...getScopedFilterByUser(user_uid)});
-    if (!owned_download) {
+    if (!(await hasScopedDownload(download_uid, user_uid))) {
         res.send({success: false});
         return;
     }
@@ -2769,8 +2983,7 @@ app.post('/api/clearDownload', optionalJwt, async (req, res) => {
 app.post('/api/pauseDownload', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const owned_download = await db_api.getRecord('download_queue', {uid: download_uid, ...getScopedFilterByUser(user_uid)});
-    if (!owned_download) {
+    if (!(await hasScopedDownload(download_uid, user_uid))) {
         res.send({success: false});
         return;
     }
@@ -2781,7 +2994,14 @@ app.post('/api/pauseDownload', optionalJwt, async (req, res) => {
 app.post('/api/pauseAllDownloads', optionalJwt, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     let success = true;
-    const all_running_downloads = await db_api.getRecords('download_queue', {paused: false, finished: false, ...getScopedFilterByUser(user_uid)});
+    const all_running_downloads = await db_api.getRecords(
+        'download_queue',
+        {paused: false, finished: false, ...getScopedFilterByUser(user_uid)},
+        false,
+        null,
+        null,
+        ['uid']
+    );
     for (let i = 0; i < all_running_downloads.length; i++) {
         success &= await downloader_api.pauseDownload(all_running_downloads[i]['uid']);
     }
@@ -2791,8 +3011,7 @@ app.post('/api/pauseAllDownloads', optionalJwt, async (req, res) => {
 app.post('/api/resumeDownload', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const owned_download = await db_api.getRecord('download_queue', {uid: download_uid, ...getScopedFilterByUser(user_uid)});
-    if (!owned_download) {
+    if (!(await hasScopedDownload(download_uid, user_uid))) {
         res.send({success: false});
         return;
     }
@@ -2803,7 +3022,14 @@ app.post('/api/resumeDownload', optionalJwt, async (req, res) => {
 app.post('/api/resumeAllDownloads', optionalJwt, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     let success = true;
-    const all_paused_downloads = await db_api.getRecords('download_queue', {paused: true, ...getScopedFilterByUser(user_uid), error: null});
+    const all_paused_downloads = await db_api.getRecords(
+        'download_queue',
+        {paused: true, ...getScopedFilterByUser(user_uid), error: null},
+        false,
+        null,
+        null,
+        ['uid']
+    );
     for (let i = 0; i < all_paused_downloads.length; i++) {
         success &= await downloader_api.resumeDownload(all_paused_downloads[i]['uid']);
     }
@@ -2813,8 +3039,7 @@ app.post('/api/resumeAllDownloads', optionalJwt, async (req, res) => {
 app.post('/api/restartDownload', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const owned_download = await db_api.getRecord('download_queue', {uid: download_uid, ...getScopedFilterByUser(user_uid)});
-    if (!owned_download) {
+    if (!(await hasScopedDownload(download_uid, user_uid))) {
         res.send({success: false, new_download_uid: null});
         return;
     }
@@ -2825,8 +3050,7 @@ app.post('/api/restartDownload', optionalJwt, async (req, res) => {
 app.post('/api/cancelDownload', optionalJwt, async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const owned_download = await db_api.getRecord('download_queue', {uid: download_uid, ...getScopedFilterByUser(user_uid)});
-    if (!owned_download) {
+    if (!(await hasScopedDownload(download_uid, user_uid))) {
         res.send({success: false});
         return;
     }

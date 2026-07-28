@@ -17,9 +17,17 @@ export type Download = {
     percent_complete: number;
     timestamp_start: number;
     /**
-     * Error text, set if download fails.
+     * Bounded error summary, set if the download fails. Legacy entries may return a generic placeholder.
      */
     error?: string | null;
+    /**
+     * Bounded persisted diagnostic for newly recorded failures.
+     */
+    error_summary?: string | null;
+    /**
+     * Whether heavyweight legacy error output was omitted from the response.
+     */
+    error_details_omitted?: boolean;
     /**
      * Error type, may or may not be set in case of an error
      */

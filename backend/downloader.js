@@ -31,7 +31,31 @@ const YOUTUBE_CHANNEL_TAB_SEGMENTS = new Set(['featured', 'videos', 'shorts', 's
 const DEFAULT_PROGRESS_CHECK_INTERVAL_MS = 1000;
 const FAST_PROGRESS_CHECK_INTERVAL_MS = 250;
 const FAST_PROGRESS_SIZE_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const DOWNLOAD_QUEUE_CHECK_PROJECTION_FIELDS = Object.freeze([
+    'uid',
+    'timestamp_start',
+    'paused',
+    'finished',
+    'running',
+    'finished_step',
+    'step_index',
+    'sub_id',
+    'url',
+    'type',
+    'user_uid',
+    'options.playlistExclusive',
+    'options.playlistChunkRange',
+    'options.playlistBatchId',
+    'options.ui_uid',
+    'options.additionalArgs',
+    'options.customArgs',
+    'options.channelSearchPlaylist',
+    'options.concurrentQueueGroupKey',
+    'options.concurrentQueueGroupLimit'
+]);
 const ANSI_ESCAPE_SEQUENCE_REGEX = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH = 8 * 1024;
+const DOWNLOAD_ERROR_TRUNCATION_MARKER = '\n...[download error truncated]...\n';
 const DEFAULT_INVALID_FILENAME_CHARS = '\\/:*?"<>|';
 const METADATA_FIELDS_FOR_FILENAME_SANITIZATION = 'title,fulltitle,playlist_title,uploader,channel,series,chapter,album,artist';
 const DEFAULT_YTDLP_IMPERSONATION_ARG = '--impersonate=';
@@ -57,6 +81,76 @@ const SUBSCRIPTION_REFRESH_QUEUED_PHASE = 'queued';
 const SUBSCRIPTION_REFRESH_COMPLETE_PHASE = 'complete';
 let filename_sanitization_non_ytdlp_warned = false;
 let last_download_queue_start_at = 0;
+let check_downloads_in_progress = false;
+
+function truncateDownloadError(error_message = '') {
+    let normalized_message = error_message === null || error_message === undefined
+        ? ''
+        : String(error_message);
+
+    if (normalized_message.length > MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH) {
+        const available_length = MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH - DOWNLOAD_ERROR_TRUNCATION_MARKER.length;
+        const leading_length = Math.floor(available_length / 4);
+        const trailing_length = available_length - leading_length;
+        normalized_message = normalized_message.slice(0, leading_length)
+            + DOWNLOAD_ERROR_TRUNCATION_MARKER
+            + normalized_message.slice(-trailing_length);
+    }
+
+    normalized_message = normalized_message.replace(ANSI_ESCAPE_SEQUENCE_REGEX, '').trim();
+    if (normalized_message.length <= MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH) return normalized_message;
+
+    return normalized_message.slice(0, MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH);
+}
+exports.truncateDownloadError = truncateDownloadError;
+exports.MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH = MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH;
+exports.DOWNLOAD_ERROR_TRUNCATION_MARKER = DOWNLOAD_ERROR_TRUNCATION_MARKER.trim();
+
+function getCapturedOutputLength(output = null) {
+    if (output === null || output === undefined) return 0;
+    if (typeof output === 'string' || Buffer.isBuffer(output)) return output.length;
+    return String(output).length;
+}
+
+function formatDownloaderError(err, fallback_message = 'Downloader failed without an error message.') {
+    if (typeof err === 'string' || Buffer.isBuffer(err)) {
+        return truncateDownloadError(err) || fallback_message;
+    }
+
+    if (err && typeof err === 'object') {
+        // Execa's Error.message contains the command, stdout, and stderr. Persisting it
+        // duplicates captured media metadata and can make one queue record enormous.
+        // stderr contains yt-dlp's actionable diagnostic, so use it by itself when set.
+        const stderr = truncateDownloadError(err.stderr);
+        if (stderr) return stderr;
+
+        const short_message = truncateDownloadError(err.shortMessage);
+        if (short_message) return short_message;
+
+        const captured_stdout_length = getCapturedOutputLength(err.stdout);
+        if (err.message) {
+            let message = String(err.message);
+            if (captured_stdout_length > 0) {
+                const first_line_end = message.search(/\r?\n/);
+                if (first_line_end >= 0) message = message.slice(0, first_line_end);
+                message = `${message}\nCaptured stdout (${captured_stdout_length} characters) was omitted from this stored error.`;
+            }
+            return truncateDownloadError(message) || fallback_message;
+        }
+
+        if (captured_stdout_length > 0) {
+            return truncateDownloadError(
+                `The downloader produced no JSON error details. Captured stdout (${captured_stdout_length} characters) was omitted from this stored error.`
+            );
+        }
+    }
+
+    const primitive_message = truncateDownloadError(err);
+    return primitive_message && primitive_message !== '[object Object]'
+        ? primitive_message
+        : fallback_message;
+}
+exports.formatDownloaderError = formatDownloaderError;
 
 function asFiniteNumber(value, defaultValue = 0) {
     const numeric_value = Number(value);
@@ -1342,6 +1436,7 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
             running: false,
             finished_step: true,
             error: null,
+            error_summary: null,
             percent_complete: null,
             playlist_item_progress: null,
             finished: false,
@@ -1445,7 +1540,16 @@ exports.resumeDownload = async (download_uid) => {
 }
 
 exports.restartDownload = async (download_uid) => {
-    const download = await db_api.getRecord('download_queue', {uid: download_uid});
+    const downloads = await db_api.getRecords(
+        'download_queue',
+        {uid: download_uid},
+        false,
+        null,
+        [0, 1],
+        ['url', 'type', 'options', 'user_uid', 'sub_id', 'sub_name', 'prefetched_info', 'title']
+    );
+    const download = downloads.length > 0 ? downloads[0] : null;
+    if (!download) return false;
     await exports.clearDownload(download_uid);
     const new_download = await exports.createDownload(
         download['url'],
@@ -1481,15 +1585,53 @@ exports.cancelDownload = async (download_uid) => {
 }
 
 exports.clearDownload = async (download_uid) => {
-    const download = await db_api.getRecord('download_queue', {uid: download_uid});
+    const downloads = await db_api.getRecords(
+        'download_queue',
+        {uid: download_uid},
+        false,
+        null,
+        [0, 1],
+        [
+            'uid',
+            'sub_id',
+            'paused',
+            'finished',
+            'error_type',
+            'error_summary',
+            'type',
+            'user_uid',
+            'url',
+            'title',
+            'prefetched_info.0.webpage_url',
+            'prefetched_info.0.original_url',
+            'prefetched_info.0.url',
+            'prefetched_info.0.source_extractor',
+            'prefetched_info.0.extractor',
+            'prefetched_info.0.extractor_key',
+            'prefetched_info.0.ie_key',
+            'prefetched_info.0.source_id',
+            'prefetched_info.0.id',
+            'prefetched_info.0.display_id',
+            'prefetched_info.0.title'
+        ]
+    );
+    const download = downloads.length > 0 ? downloads[0] : null;
+    if (download && download['prefetched_info'] && !Array.isArray(download['prefetched_info'])) {
+        const first_prefetched_info = download['prefetched_info']['0'];
+        download['prefetched_info'] = first_prefetched_info ? [first_prefetched_info] : null;
+    }
     const should_archive_paused_subscription_skip = download && download['sub_id'] && download['paused'] && !download['finished'];
-    const should_archive_errored_subscription_skip = download && download['sub_id'] && download['error']
-        && isSkippableSubscriptionDownloadError(download['error'], download['error_type'])
-        && !isTransientSubscriptionDownloadError(download['error']);
+    const persisted_error_summary = download && typeof download['error_summary'] === 'string'
+        ? download['error_summary']
+        : '';
+    const should_archive_errored_subscription_skip = download && download['sub_id']
+        && (persisted_error_summary || download['error_type'])
+        && isSkippableSubscriptionDownloadError(persisted_error_summary, download['error_type'])
+        && !isTransientSubscriptionDownloadError(persisted_error_summary);
     if (should_archive_paused_subscription_skip) {
         await archiveSubscriptionDownloadBySource(download, 'after being cleared from the download queue');
     } else if (should_archive_errored_subscription_skip) {
-        await archiveSkippedSubscriptionDownload(download, download['error'], download['error_type']);
+        await archiveSkippedSubscriptionDownload(download, persisted_error_summary, download['error_type']);
     }
     return await db_api.removeRecord('download_queue', {uid: download_uid});
 }
@@ -1498,14 +1640,21 @@ async function handleDownloadError(download_uid, error_message, error_type = nul
     if (!download_uid) return;
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     if (!download || download['error']) return;
-    const is_skippable_subscription_error = download['sub_id'] && isSkippableSubscriptionDownloadError(error_message, error_type);
-    const is_transient_subscription_error = download['sub_id'] && isTransientSubscriptionDownloadError(error_message);
-    await archiveSkippedSubscriptionDownload(download, error_message, error_type);
+    const persisted_error_message = truncateDownloadError(error_message) || 'Unknown download error.';
+    const is_skippable_subscription_error = download['sub_id'] && isSkippableSubscriptionDownloadError(persisted_error_message, error_type);
+    const is_transient_subscription_error = download['sub_id'] && isTransientSubscriptionDownloadError(persisted_error_message);
+    await archiveSkippedSubscriptionDownload(download, persisted_error_message, error_type);
     if (!is_skippable_subscription_error) {
-        notifications_api.sendDownloadErrorNotification(download, download['user_uid'], error_message, error_type);
+        notifications_api.sendDownloadErrorNotification(download, download['user_uid'], persisted_error_message, error_type);
     }
-    await db_api.updateRecord('download_queue', {uid: download['uid']}, {error: error_message, finished: true, running: false, error_type: error_type});
-    await updateSubscriptionRefreshStatusForSkippedDownload(download, error_message, error_type);
+    await db_api.updateRecord('download_queue', {uid: download['uid']}, {
+        error: persisted_error_message,
+        error_summary: persisted_error_message,
+        finished: true,
+        running: false,
+        error_type: error_type
+    });
+    await updateSubscriptionRefreshStatusForSkippedDownload(download, persisted_error_message, error_type);
     if (is_transient_subscription_error) await db_api.removeRecord('download_queue', {uid: download['uid']});
 }
 
@@ -1577,16 +1726,11 @@ async function archiveSubscriptionDownloadBySource(download = null, reason = 'af
     }
 }
 
-function describeDownloadStepError(err = null) {
-    if (!err) return 'Unknown error';
-    if (typeof err === 'string') return err;
-    if (err.message) return err.message;
-    return String(err);
-}
-
 function runDownloadQueueStep(download_uid, step_description, step_runner, error_type) {
     Promise.resolve().then(() => step_runner(download_uid)).catch(async err => {
-        const error_message = `Unexpected error while ${step_description}: ${describeDownloadStepError(err)}`;
+        const error_message = truncateDownloadError(
+            `Unexpected error while ${step_description}: ${formatDownloaderError(err, 'Unknown error')}`
+        );
         logger.error(error_message);
         if (err && err.stack) logger.debug(err.stack);
         await handleDownloadError(download_uid, error_message, error_type);
@@ -1599,9 +1743,14 @@ exports.setupDownloads = async () => {
 }
 
 async function fixDownloadState() {
-    const downloads = await db_api.getRecords('download_queue');
-    downloads.sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
-    const running_downloads = downloads.filter(download => download['running'] && !download['finished'] && !download['error']);
+    const running_downloads = await db_api.getRecords(
+        'download_queue',
+        {running: true, finished: false, error: null},
+        false,
+        {by: 'timestamp_start', order: 1},
+        null,
+        ['uid', 'running', 'finished_step', 'step_index']
+    );
     for (let i = 0; i < running_downloads.length; i++) {
         await db_api.updateRecord('download_queue', {uid: running_downloads[i]['uid']}, getPausedDownloadUpdate(running_downloads[i]));
     }
@@ -1633,125 +1782,136 @@ function getResumedDownloadUpdate(download) {
 }
 
 async function checkDownloads() {
-    if (!should_check_downloads) return;
+    if (!should_check_downloads || check_downloads_in_progress) return;
+    check_downloads_in_progress = true;
 
-    const downloads = await db_api.getRecords('download_queue', {finished: false});
-    downloads.sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+    try {
+        const downloads = await db_api.getRecords(
+            'download_queue',
+            {finished: false},
+            false,
+            {by: 'timestamp_start', order: 1},
+            null,
+            DOWNLOAD_QUEUE_CHECK_PROJECTION_FIELDS
+        );
 
-    await mutex.runExclusive(async () => {
-        // avoid checking downloads unnecessarily, but double check that should_check_downloads is still true
-        const running_downloads = downloads.filter(download => !download['paused'] && !download['finished']);
-        if (running_downloads.length === 0) {
-            should_check_downloads = false;
-            logger.verbose('Disabling checking downloads as none are available.');
-        }
-        return;
-    });
-
-    let running_downloads_count = downloads.filter(download => download['running']).length;
-    const waiting_downloads = downloads.filter(download => !download['paused'] && download['finished_step'] && !download['finished']);
-    const running_downloads = downloads.filter(download => download['running']);
-    const running_capped_queue_group_counts = new Map();
-
-    for (const running_download of running_downloads) {
-        const capped_queue_group = getCappedQueueGroup(running_download);
-        if (!capped_queue_group) continue;
-
-        const existing_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
-        running_capped_queue_group_counts.set(capped_queue_group.key, existing_group_count + 1);
-    }
-
-    const running_exclusive_downloads = running_downloads
-        .filter(download => isExclusivePlaylistDownload(download))
-        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
-    const waiting_exclusive_downloads = waiting_downloads
-        .filter(download => isExclusivePlaylistDownload(download))
-        .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
-
-    let exclusive_playlist_group_key = null;
-    if (running_exclusive_downloads.length > 0) {
-        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(running_exclusive_downloads[0]);
-    } else if (waiting_exclusive_downloads.length > 0) {
-        exclusive_playlist_group_key = getExclusivePlaylistGroupKey(waiting_exclusive_downloads[0]);
-    }
-    let running_exclusive_group_count = exclusive_playlist_group_key
-        ? running_exclusive_downloads.filter(download => getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key).length
-        : 0;
-    const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
-    const minimum_sleep_between_downloads_ms = getMinimumSleepBetweenDownloadsMs();
-
-    for (let i = 0; i < waiting_downloads.length; i++) {
-        const waiting_download = waiting_downloads[i];
-        const waiting_download_is_exclusive = isExclusivePlaylistDownload(waiting_download);
-        const waiting_download_group_key = waiting_download_is_exclusive ? getExclusivePlaylistGroupKey(waiting_download) : null;
-
-        if (exclusive_playlist_group_key) {
-            if (!waiting_download_is_exclusive || waiting_download_group_key !== exclusive_playlist_group_key) {
-                continue;
+        await mutex.runExclusive(async () => {
+            // avoid checking downloads unnecessarily, but double check that should_check_downloads is still true
+            const running_downloads = downloads.filter(download => !download['paused'] && !download['finished']);
+            if (running_downloads.length === 0) {
+                should_check_downloads = false;
+                logger.verbose('Disabling checking downloads as none are available.');
             }
+            return;
+        });
 
-            const has_running_download_outside_group = running_downloads.some(download => {
-                if (!download['running']) return false;
-                if (!isExclusivePlaylistDownload(download)) return true;
-                return getExclusivePlaylistGroupKey(download) !== exclusive_playlist_group_key;
-            });
-            if (has_running_download_outside_group) {
-                continue;
-            }
+        let running_downloads_count = downloads.filter(download => download['running']).length;
+        const waiting_downloads = downloads.filter(download => !download['paused'] && download['finished_step'] && !download['finished']);
+        const running_downloads = downloads.filter(download => download['running']);
+        const running_capped_queue_group_counts = new Map();
 
-            if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
-                continue;
-            }
-        } else {
-            const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
-            if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
+        for (const running_download of running_downloads) {
+            const capped_queue_group = getCappedQueueGroup(running_download);
+            if (!capped_queue_group) continue;
+
+            const existing_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
+            running_capped_queue_group_counts.set(capped_queue_group.key, existing_group_count + 1);
         }
 
-        const capped_queue_group = getCappedQueueGroup(waiting_download);
-        if (capped_queue_group) {
-            const running_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
-            if (running_group_count >= capped_queue_group.limit) {
-                continue;
-            }
+        const running_exclusive_downloads = running_downloads
+            .filter(download => isExclusivePlaylistDownload(download))
+            .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+        const waiting_exclusive_downloads = waiting_downloads
+            .filter(download => isExclusivePlaylistDownload(download))
+            .sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
+
+        let exclusive_playlist_group_key = null;
+        if (running_exclusive_downloads.length > 0) {
+            exclusive_playlist_group_key = getExclusivePlaylistGroupKey(running_exclusive_downloads[0]);
+        } else if (waiting_exclusive_downloads.length > 0) {
+            exclusive_playlist_group_key = getExclusivePlaylistGroupKey(waiting_exclusive_downloads[0]);
         }
+        let running_exclusive_group_count = exclusive_playlist_group_key
+            ? running_exclusive_downloads.filter(download => getExclusivePlaylistGroupKey(download) === exclusive_playlist_group_key).length
+            : 0;
+        const exclusive_playlist_concurrency_limit = getExclusivePlaylistConcurrencyLimit();
+        const minimum_sleep_between_downloads_ms = getMinimumSleepBetweenDownloadsMs();
 
-        if (waiting_download['finished_step'] && !waiting_download['finished']) {
-            if (getRemainingSleepBeforeNextDownloadStartMs(minimum_sleep_between_downloads_ms) > 0) {
-                break;
+        for (let i = 0; i < waiting_downloads.length; i++) {
+            const waiting_download = waiting_downloads[i];
+            const waiting_download_is_exclusive = isExclusivePlaylistDownload(waiting_download);
+            const waiting_download_group_key = waiting_download_is_exclusive ? getExclusivePlaylistGroupKey(waiting_download) : null;
+
+            if (exclusive_playlist_group_key) {
+                if (!waiting_download_is_exclusive || waiting_download_group_key !== exclusive_playlist_group_key) {
+                    continue;
+                }
+
+                const has_running_download_outside_group = running_downloads.some(download => {
+                    if (!download['running']) return false;
+                    if (!isExclusivePlaylistDownload(download)) return true;
+                    return getExclusivePlaylistGroupKey(download) !== exclusive_playlist_group_key;
+                });
+                if (has_running_download_outside_group) {
+                    continue;
+                }
+
+                if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                    continue;
+                }
+            } else {
+                const max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+                if (hasReachedConcurrentDownloadLimit(max_concurrent_downloads, running_downloads_count)) break;
             }
 
-            if (waiting_download['sub_id']) {
-                const sub_missing = !(await db_api.getRecord('subscriptions', {id: waiting_download['sub_id']}));
-                if (sub_missing) {
-                    handleDownloadError(waiting_download['uid'], `Download failed as subscription with id '${waiting_download['sub_id']}' is missing!`, 'sub_id_missing');
+            const capped_queue_group = getCappedQueueGroup(waiting_download);
+            if (capped_queue_group) {
+                const running_group_count = running_capped_queue_group_counts.get(capped_queue_group.key) || 0;
+                if (running_group_count >= capped_queue_group.limit) {
                     continue;
                 }
             }
-            // move to next step
-            running_downloads_count++;
-            markDownloadQueueStart(minimum_sleep_between_downloads_ms);
-            if (waiting_download['step_index'] === 0) {
-                runDownloadQueueStep(waiting_download['uid'], 'getting download info', exports.collectInfo, 'info_retrieve_failed');
-            } else if (waiting_download['step_index'] === 1) {
-                runDownloadQueueStep(waiting_download['uid'], 'downloading file', exports.downloadQueuedFile, 'unknown_error');
-            }
 
-            if (capped_queue_group) {
-                const updated_group_count = (running_capped_queue_group_counts.get(capped_queue_group.key) || 0) + 1;
-                running_capped_queue_group_counts.set(capped_queue_group.key, updated_group_count);
-            }
+            if (waiting_download['finished_step'] && !waiting_download['finished']) {
+                if (getRemainingSleepBeforeNextDownloadStartMs(minimum_sleep_between_downloads_ms) > 0) {
+                    break;
+                }
 
-            if (exclusive_playlist_group_key && waiting_download_group_key === exclusive_playlist_group_key) {
-                running_exclusive_group_count++;
-                if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                if (waiting_download['sub_id']) {
+                    const sub_missing = !(await db_api.getRecord('subscriptions', {id: waiting_download['sub_id']}));
+                    if (sub_missing) {
+                        handleDownloadError(waiting_download['uid'], `Download failed as subscription with id '${waiting_download['sub_id']}' is missing!`, 'sub_id_missing');
+                        continue;
+                    }
+                }
+                // move to next step
+                running_downloads_count++;
+                markDownloadQueueStart(minimum_sleep_between_downloads_ms);
+                if (waiting_download['step_index'] === 0) {
+                    runDownloadQueueStep(waiting_download['uid'], 'getting download info', exports.collectInfo, 'info_retrieve_failed');
+                } else if (waiting_download['step_index'] === 1) {
+                    runDownloadQueueStep(waiting_download['uid'], 'downloading file', exports.downloadQueuedFile, 'unknown_error');
+                }
+
+                if (capped_queue_group) {
+                    const updated_group_count = (running_capped_queue_group_counts.get(capped_queue_group.key) || 0) + 1;
+                    running_capped_queue_group_counts.set(capped_queue_group.key, updated_group_count);
+                }
+
+                if (exclusive_playlist_group_key && waiting_download_group_key === exclusive_playlist_group_key) {
+                    running_exclusive_group_count++;
+                    if (running_exclusive_group_count >= exclusive_playlist_concurrency_limit) {
+                        break;
+                    }
+                }
+
+                if (minimum_sleep_between_downloads_ms > 0) {
                     break;
                 }
             }
-
-            if (minimum_sleep_between_downloads_ms > 0) {
-                break;
-            }
         }
+    } finally {
+        check_downloads_in_progress = false;
     }
 }
 exports.checkDownloads = checkDownloads;
@@ -1964,8 +2124,9 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
         if (!parsed_output) {
             const errored_download = await db_api.getRecord('download_queue', {uid: download_uid});
             if (errored_download && errored_download['paused']) return;
-            logger.error(err.toString());
-            await handleDownloadError(download_uid, err.toString(), 'unknown_error');
+            const error_message = formatDownloaderError(err);
+            logger.error(error_message);
+            await handleDownloadError(download_uid, error_message, 'unknown_error');
             resolve(false);
             return;
         } else if (parsed_output) {
@@ -2392,25 +2553,10 @@ function filterInfoLookupArgs(args = []) {
 }
 
 function describeInfoLookupError(err, downloader_fork = 'downloader') {
-    const details = [];
-    const addDetail = (detail) => {
-        if (detail === null || detail === undefined) return;
-        const detail_text = String(detail).trim();
-        if (detail_text && !details.includes(detail_text)) details.push(detail_text);
-    };
-
-    if (typeof err === 'string') {
-        addDetail(err);
-    } else if (err && typeof err === 'object') {
-        addDetail(err.message);
-        addDetail(err.stderr);
-        addDetail(err.stdout ? `stdout: ${err.stdout}` : null);
-    } else {
-        addDetail(err);
-    }
-
-    if (details.length > 0) return details.join('\n\n');
-    return `${downloader_fork} returned no JSON output and did not provide stderr.`;
+    return formatDownloaderError(
+        err,
+        `${downloader_fork} returned no JSON output and did not provide stderr.`
+    );
 }
 
 exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options = {}) => {

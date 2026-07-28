@@ -712,8 +712,10 @@ export class PostsService {
         return this.http.post<GetAllSubscriptionsResponse>(this.path + 'getSubscriptions', {}, this.httpOptions);
     }
 
-    getCurrentDownloads(uids: Array<string> = null, only_unfinished = false) {
+    getCurrentDownloads(uids: Array<string> = null, only_unfinished = false, page?: number, page_size?: number) {
         const body: GetAllDownloadsRequest = {uids: uids, only_unfinished: only_unfinished};
+        if (page !== undefined && page !== null) body.page = page;
+        if (page_size !== undefined && page_size !== null) body.page_size = page_size;
         return this.http.post<GetAllDownloadsResponse>(this.path + 'downloads', body, this.httpOptions);
     }
 

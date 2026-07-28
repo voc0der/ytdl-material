@@ -833,7 +833,7 @@ paths:
         - Auth query parameter: []
   /api/downloads:
     post:
-      summary: Get info for all downloads
+      summary: Get a bounded page of download summaries
       tags:
         - downloader
       responses:
@@ -849,7 +849,7 @@ paths:
             schema:
               $ref: '#/components/schemas/GetAllDownloadsRequest'
       operationId: post-api-downloads
-      description: Retrieves all downloads recorded by the server and their status.
+      description: Retrieves a newest-first, server-paginated page of download summaries and their status.
       security:
         - Auth query parameter: []
   /api/download:
@@ -1829,6 +1829,15 @@ components:
         only_unfinished:
           type: boolean
           description: Filters downloads to unfinished queue items
+        page:
+          type: integer
+          minimum: 0
+          description: Zero-based history page. Ignored when filtering by UID or requesting only unfinished downloads.
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Number of history items to return. The server clamps this value to its hard maximum.
     GetAllDownloadsResponse:
       type: object
       properties:
@@ -1836,6 +1845,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Download'
+        total_count:
+          type: integer
+          minimum: 0
+          description: Total number of scoped downloads matching the request.
+        page:
+          type: integer
+          minimum: 0
+          description: Zero-based page actually returned by the server.
+        page_size:
+          type: integer
+          minimum: 0
+          description: Page size actually applied by the server.
     ClearDownloadsRequest:
       type: object
       properties:
@@ -2828,8 +2849,15 @@ components:
           type: number
         error:
           type: string
-          description: Error text, set if download fails.
+          description: Bounded error summary, set if the download fails. Legacy entries may return a generic placeholder.
           nullable: true
+        error_summary:
+          type: string
+          description: Bounded persisted diagnostic for newly recorded failures.
+          nullable: true
+        error_details_omitted:
+          type: boolean
+          description: Whether heavyweight legacy error output was omitted from the response.
         error_type:
           type: string
           description: Error type, may or may not be set in case of an error

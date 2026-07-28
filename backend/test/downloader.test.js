@@ -176,6 +176,34 @@ describe('Downloader', function() {
         assert.strictEqual(failed_download.error_type, 'info_retrieve_failed');
     });
 
+    it('Get file info persists stderr without captured stdout or duplicated Execa output', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const returned_download = await downloader_api.createDownload(url, 'video', options);
+        const captured_stdout = `CAPTURED_STDOUT_SHOULD_NOT_BE_STORED:${'x'.repeat(20000)}`;
+        const actionable_stderr = 'ERROR: [youtube] test-id: Video unavailable';
+        const execa_error = new Error(`Command failed with exit code 1\n${captured_stdout}\n${actionable_stderr}`);
+        execa_error.stdout = captured_stdout;
+        execa_error.stderr = actionable_stderr;
+
+        youtubedl_api.runYoutubeDL = async () => ({
+            callback: Promise.resolve({parsed_output: null, err: execa_error})
+        });
+
+        try {
+            const info = await _originalGetVideoInfoByURL(url, [], returned_download.uid);
+            assert.strictEqual(info, null);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+
+        const failed_download = await db_api.getRecord('download_queue', {uid: returned_download.uid});
+        assert(failed_download.error.includes(actionable_stderr));
+        assert(!failed_download.error.includes('CAPTURED_STDOUT_SHOULD_NOT_BE_STORED'));
+        assert(!failed_download.error.includes('Command failed with exit code 1'));
+        assert(failed_download.error.length <= downloader_api.MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH);
+        assert.strictEqual(failed_download.error_summary, failed_download.error);
+    });
+
     it('Get file info uses yt-dlp when an audio language is requested', async function() {
         let captured_fork = null;
         const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
@@ -385,6 +413,43 @@ describe('Downloader', function() {
         assert(success);
     });
 
+    it('Download failure persists a bounded stderr diagnostic', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const returned_download = await downloader_api.createDownload(url, 'video', options);
+        const captured_stdout = `CAPTURED_DOWNLOAD_STDOUT_SHOULD_NOT_BE_STORED:${'j'.repeat(20000)}`;
+        const oversized_stderr = `ERROR: actionable download failure\n${'detail '.repeat(3000)}\nFINAL ERROR DETAIL`;
+        const execa_error = new Error(`Command failed with exit code 1\n${captured_stdout}\n${oversized_stderr}`);
+        execa_error.stdout = captured_stdout;
+        execa_error.stderr = oversized_stderr;
+
+        await db_api.updateRecord('download_queue', {uid: returned_download.uid}, {
+            args: [],
+            finished_step: true,
+            step_index: 1
+        });
+        youtubedl_api.runYoutubeDL = async () => ({
+            child_process: null,
+            callback: Promise.resolve({parsed_output: null, err: execa_error})
+        });
+
+        try {
+            const success = await downloader_api.downloadQueuedFile(returned_download.uid);
+            assert.strictEqual(success, false);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+
+        const failed_download = await db_api.getRecord('download_queue', {uid: returned_download.uid});
+        assert.strictEqual(failed_download.error_type, 'unknown_error');
+        assert.strictEqual(failed_download.error.length, downloader_api.MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH);
+        assert(failed_download.error.includes('ERROR: actionable download failure'));
+        assert(failed_download.error.includes('FINAL ERROR DETAIL'));
+        assert(failed_download.error.includes(downloader_api.DOWNLOAD_ERROR_TRUNCATION_MARKER));
+        assert(!failed_download.error.includes('CAPTURED_DOWNLOAD_STDOUT_SHOULD_NOT_BE_STORED'));
+        assert(!failed_download.error.includes('Command failed with exit code 1'));
+        assert.strictEqual(failed_download.error_summary, failed_download.error);
+    });
+
     it('Archives no-output subscription downloads so future refreshes skip them', async function() {
         const prefetched_info = [{
             _type: 'url',
@@ -591,11 +656,15 @@ describe('Downloader', function() {
         const original_max_concurrent_downloads = config_api.getConfigItem('ytdl_max_concurrent_downloads');
         const original_collect_info = downloader_api.collectInfo;
         const returned_download = await downloader_api.createDownload(`${url}&throwing_collect_info=1`, 'video', {ui_uid: uuid()});
+        const captured_stdout = `QUEUE_STEP_STDOUT_SHOULD_NOT_BE_STORED:${'x'.repeat(20000)}`;
 
         try {
             config_api.setConfigItem('ytdl_max_concurrent_downloads', 1);
             downloader_api.collectInfo = () => {
-                throw new Error('synthetic collectInfo failure');
+                const queue_step_error = new Error(`Command failed\n${captured_stdout}`);
+                queue_step_error.stdout = captured_stdout;
+                queue_step_error.stderr = 'synthetic collectInfo failure';
+                throw queue_step_error;
             };
 
             await downloader_api.checkDownloads();
@@ -614,11 +683,15 @@ describe('Downloader', function() {
         assert.strictEqual(updated_download.running, false);
         assert.strictEqual(updated_download.error_type, 'info_retrieve_failed');
         assert(updated_download.error.includes('synthetic collectInfo failure'));
+        assert(!updated_download.error.includes('QUEUE_STEP_STDOUT_SHOULD_NOT_BE_STORED'));
+        assert.strictEqual(updated_download.error_summary, updated_download.error);
     });
 
     it('fixDownloadState only pauses downloads that were actively running', async function() {
+        const original_get_records = db_api.getRecords;
         const running_download = await downloader_api.createDownload(`${url}&running_recovery=1`, 'video', {ui_uid: uuid()});
         const waiting_download = await downloader_api.createDownload(`${url}&waiting_recovery=1`, 'video', {ui_uid: uuid()});
+        let recovery_query_args = null;
 
         await db_api.updateRecord('download_queue', {uid: running_download['uid']}, {
             step_index: 1,
@@ -626,11 +699,28 @@ describe('Downloader', function() {
             running: true
         });
 
-        await downloader_api.fixDownloadState();
+        db_api.getRecords = async (...args) => {
+            recovery_query_args = args;
+            return await original_get_records(...args);
+        };
+
+        try {
+            await downloader_api.fixDownloadState();
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
 
         const recovered_running_download = await db_api.getRecord('download_queue', {uid: running_download['uid']});
         const recovered_waiting_download = await db_api.getRecord('download_queue', {uid: waiting_download['uid']});
 
+        assert.deepStrictEqual(recovery_query_args, [
+            'download_queue',
+            {running: true, finished: false, error: null},
+            false,
+            {by: 'timestamp_start', order: 1},
+            null,
+            ['uid', 'running', 'finished_step', 'step_index']
+        ]);
         assert.strictEqual(recovered_running_download.paused, true);
         assert.strictEqual(recovered_running_download.running, false);
         assert.strictEqual(recovered_running_download.finished_step, true);
@@ -640,6 +730,101 @@ describe('Downloader', function() {
         assert.strictEqual(recovered_waiting_download.running, false);
         assert.strictEqual(recovered_waiting_download.finished_step, true);
         assert.strictEqual(recovered_waiting_download.step_index, 0);
+    });
+
+    it('Does not overlap download queue checks', async function() {
+        const original_get_records = db_api.getRecords;
+        let release_first_query;
+        let mark_first_query_started;
+        let queue_query_count = 0;
+        const first_query_started = new Promise(resolve => {
+            mark_first_query_started = resolve;
+        });
+        const first_query_release = new Promise(resolve => {
+            release_first_query = resolve;
+        });
+
+        await downloader_api.createDownload(`${url}&overlapping_queue_checks=1`, 'video', {ui_uid: uuid()}, null, null, null, null, true);
+        db_api.getRecords = async (...args) => {
+            if (args[0] === 'download_queue' && args[1] && args[1].finished === false) {
+                queue_query_count += 1;
+                if (queue_query_count === 1) {
+                    mark_first_query_started();
+                    await first_query_release;
+                }
+            }
+            return await original_get_records(...args);
+        };
+
+        try {
+            const first_check = downloader_api.checkDownloads();
+            await first_query_started;
+            await downloader_api.checkDownloads();
+            assert.strictEqual(queue_query_count, 1);
+            release_first_query();
+            await first_check;
+        } finally {
+            release_first_query();
+            db_api.getRecords = original_get_records;
+        }
+    });
+
+    it('Queries only scheduler fields while checking the download queue', async function() {
+        const original_get_records = db_api.getRecords;
+        const heavy_prefetched_info = [{
+            id: 'heavy-prefetched-info',
+            formats: [{format_id: 'heavy', url: 'x'.repeat(20000)}]
+        }];
+        const queued_download = await downloader_api.createDownload(
+            `${url}&projected_queue_check=1`,
+            'video',
+            {
+                ui_uid: uuid(),
+                concurrentQueueGroupKey: 'projection-test',
+                concurrentQueueGroupLimit: 1
+            },
+            null,
+            null,
+            null,
+            heavy_prefetched_info,
+            true
+        );
+        await db_api.updateRecord('download_queue', {uid: queued_download.uid}, {
+            args: ['--heavy-arg', 'y'.repeat(20000)],
+            error: `legacy-heavy-error:${'z'.repeat(20000)}`,
+            playlist_item_progress: [{title: 'heavy-progress', detail: 'p'.repeat(20000)}]
+        });
+
+        let queue_query_args = null;
+        let projected_download = null;
+        db_api.getRecords = async (...args) => {
+            const records = await original_get_records(...args);
+            if (args[0] === 'download_queue' && args[1] && args[1].finished === false) {
+                queue_query_args = args;
+                projected_download = records.find(download => download.uid === queued_download.uid);
+            }
+            return records;
+        };
+
+        try {
+            await downloader_api.checkDownloads();
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
+
+        assert(queue_query_args);
+        assert.deepStrictEqual(queue_query_args[3], {by: 'timestamp_start', order: 1});
+        assert(Array.isArray(queue_query_args[5]));
+        assert(!queue_query_args[5].includes('prefetched_info'));
+        assert(!queue_query_args[5].includes('args'));
+        assert(!queue_query_args[5].includes('error'));
+        assert(!queue_query_args[5].includes('playlist_item_progress'));
+        assert(projected_download);
+        assert.strictEqual(projected_download.prefetched_info, undefined);
+        assert.strictEqual(projected_download.args, undefined);
+        assert.strictEqual(projected_download.error, undefined);
+        assert.strictEqual(projected_download.playlist_item_progress, undefined);
+        assert.strictEqual(projected_download.options.concurrentQueueGroupKey, 'projection-test');
     });
 
     it('Restart download preserves subscription metadata', async function() {

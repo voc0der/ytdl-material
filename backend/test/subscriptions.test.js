@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, path, fs, uuid, db_api, subscriptions_api, archive_api, youtubedl_api, config_api } = require('./test-shared');
+const { assert, path, fs, uuid, db_api, utils, subscriptions_api, archive_api, youtubedl_api, config_api } = require('./test-shared');
 
 describe('Subscriptions', function() {
     const downloader_api = require('../downloader');
@@ -739,6 +739,84 @@ describe('Subscriptions', function() {
         } finally {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
         }
+    });
+    it('Compacts prefetched subscription formats while retaining expected-size fields', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'compacted_formats_sub',
+            timerange: 'now-7days'
+        });
+        const fake_output = {
+            webpage_url: 'https://www.youtube.com/watch?v=compacted-formats',
+            _filename: 'subscriptions/channels/compacted_formats_sub/Compacted formats.mp4',
+            title: 'Compacted formats',
+            extractor: 'youtube',
+            id: 'compacted-formats',
+            format_id: '137+140',
+            duration: 10,
+            formats: [
+                {
+                    format_id: '137',
+                    filesize: null,
+                    filesize_approx: null,
+                    duration: 10,
+                    tbr: 800,
+                    vbr: 750,
+                    abr: 0,
+                    url: `https://media.example/video?payload=${'v'.repeat(20000)}`,
+                    fragments: Array.from({length: 100}, (_, index) => ({path: `fragment-${index}`}))
+                },
+                {
+                    format_id: '140',
+                    filesize: 500,
+                    filesize_approx: 600,
+                    duration: 10,
+                    tbr: 128,
+                    vbr: 0,
+                    abr: 128,
+                    url: `https://media.example/audio?payload=${'a'.repeat(20000)}`
+                }
+            ]
+        };
+
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers = {}) => {
+            if (typeof line_handlers.onStdoutLine === 'function') {
+                line_handlers.onStdoutLine(JSON.stringify(fake_output));
+            }
+            return {
+                child_process: {pid: 4321},
+                callback: Promise.resolve({err: null})
+            };
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            const started = await subscriptions_api.getVideosForSub(sub.id);
+            assert.strictEqual(started, true);
+
+            const completed = await waitForCondition(async () => {
+                const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+                return !!(refreshed_sub && !refreshed_sub.downloading);
+            });
+            assert.strictEqual(completed, true);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const queued_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.strictEqual(queued_downloads.length, 1);
+
+        const prefetched_info = queued_downloads[0].prefetched_info;
+        assert(Array.isArray(prefetched_info));
+        assert.strictEqual(prefetched_info.length, 1);
+        assert.deepStrictEqual(
+            Object.keys(prefetched_info[0].formats[0]).sort(),
+            ['abr', 'duration', 'filesize', 'filesize_approx', 'format_id', 'tbr', 'vbr'].sort()
+        );
+        assert.strictEqual(prefetched_info[0].formats[0].url, undefined);
+        assert.strictEqual(prefetched_info[0].formats[0].fragments, undefined);
+        assert.strictEqual(utils.getExpectedFileSize(prefetched_info), 1000500);
     });
     it('Applies global custom args when discovering subscription videos', async function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;

@@ -142,6 +142,9 @@ const tables = {
             url: 'text'
         },
         indexes: [
+            { keys: { timestamp_start: -1 } },
+            { keys: { user_uid: 1, timestamp_start: -1 } },
+            { keys: { user_uid: 1, finished: 1, timestamp_start: -1 } },
             { keys: { finished: 1, paused: 1, finished_step: 1, timestamp_start: 1 } },
             { keys: { user_uid: 1, finished: 1, paused: 1 } },
             { keys: { sub_id: 1, error: 1, finished: 1 } },
@@ -823,34 +826,112 @@ function compareLocalSortValues(sort, record_a, record_b) {
     return 0;
 }
 
-exports.getRecords = async (table, filter_obj = null, return_count = false, sort = null, range = null) => {
+function normalizeProjectionFields(projection_fields = null) {
+    if (projection_fields === null || projection_fields === undefined) return null;
+    if (!Array.isArray(projection_fields) || projection_fields.length === 0) {
+        throw new Error('Projection fields must be a non-empty array.');
+    }
+
+    const normalized_fields = [];
+    const seen_fields = new Set();
+    for (const field_path of projection_fields) {
+        validateMongoFieldPath(field_path);
+        if (field_path === '_id') {
+            throw new Error("The internal MongoDB '_id' field cannot be projected.");
+        }
+        if (seen_fields.has(field_path)) continue;
+        seen_fields.add(field_path);
+        normalized_fields.push(field_path);
+    }
+    return normalized_fields;
+}
+
+function getOwnValueByPath(record, path_parts = []) {
+    let current_value = record;
+    for (const path_part of path_parts) {
+        if (current_value === null || current_value === undefined || typeof current_value !== 'object') {
+            return {found: false, value: undefined};
+        }
+        if (!Object.prototype.hasOwnProperty.call(current_value, path_part)) {
+            return {found: false, value: undefined};
+        }
+        current_value = current_value[path_part];
+    }
+    return {found: true, value: current_value};
+}
+
+function setProjectedValue(target, path_parts = [], value) {
+    let current_target = target;
+    for (let index = 0; index < path_parts.length - 1; index++) {
+        const path_part = path_parts[index];
+        if (!Object.prototype.hasOwnProperty.call(current_target, path_part)) {
+            current_target[path_part] = {};
+        }
+        current_target = current_target[path_part];
+    }
+    current_target[path_parts[path_parts.length - 1]] = value;
+}
+
+function projectLocalRecord(record, projection_fields = null) {
+    if (!projection_fields) return record;
+
+    const projected_record = {};
+    for (const field_path of projection_fields) {
+        const path_parts = field_path.split('.');
+        const projected_value = getOwnValueByPath(record, path_parts);
+        if (!projected_value.found) continue;
+        setProjectedValue(projected_record, path_parts, projected_value.value);
+    }
+    return projected_record;
+}
+
+exports.getRecords = async (table, filter_obj = null, return_count = false, sort = null, range = null, projection_fields = null) => {
+    const normalized_projection_fields = return_count ? null : normalizeProjectionFields(projection_fields);
+    const normalized_range = Array.isArray(range) && range.length === 2
+        ? [
+            Math.max(0, Number(range[0]) || 0),
+            Math.max(0, Number(range[1]) || 0)
+        ]
+        : null;
+
     // local db override
     if (using_local_db) {
         let cursor = filter_obj ? exports.applyFilterLocalDB(local_db.get(table), filter_obj, 'filter').value() : local_db.get(table).value();
         if (sort) {
             cursor = cursor.sort((a, b) => compareLocalSortValues(sort, a, b));
         }
-        if (range) {
-            cursor = cursor.slice(range[0], range[1]);
+        if (normalized_range) {
+            cursor = cursor.slice(normalized_range[0], normalized_range[1]);
         }
-        return !return_count ? cursor : cursor.length;
+        if (return_count) return cursor.length;
+        return normalized_projection_fields
+            ? cursor.map(record => projectLocalRecord(record, normalized_projection_fields))
+            : cursor;
     }
 
     if (getActiveDBType() === DB_TYPES.postgres) {
-        return await postgres_store.getRecords(postgres_pool, tables, table, filter_obj, return_count, sort, range);
+        return await postgres_store.getRecords(postgres_pool, tables, table, filter_obj, return_count, sort, normalized_range, normalized_projection_fields);
     }
 
     const collection = mongo_database.collection(table);
     if (return_count) {
         return await collection.countDocuments(filter_obj || {});
     }
+    if (normalized_range && normalized_range[1] <= normalized_range[0]) return [];
 
     const cursor = filter_obj ? collection.find(filter_obj) : collection.find();
     if (sort) {
         cursor.sort({[sort['by']]: sort['order']});
     }
-    if (range) {
-        cursor.skip(range[0]).limit(range[1] - range[0]);
+    if (normalized_range) {
+        cursor.skip(normalized_range[0]).limit(normalized_range[1] - normalized_range[0]);
+    }
+    if (normalized_projection_fields) {
+        const mongo_projection = {_id: 0};
+        for (const field_path of normalized_projection_fields) {
+            mongo_projection[field_path] = 1;
+        }
+        cursor.project(mongo_projection);
     }
 
     return await cursor.toArray();

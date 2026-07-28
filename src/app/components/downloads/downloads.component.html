@@ -104,23 +104,34 @@
       <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
     </mat-table>
 
-    <mat-paginator [ngClass]="uids ? 'rounded-bottom' : null" [pageSizeOptions]="pageSizeOptions" [pageSize]="pageSize" (page)="pageChangeEvent($event)"
+    <mat-paginator [ngClass]="uids ? 'rounded-bottom' : null" [length]="downloads_total_count" [pageIndex]="pageIndex"
+      [pageSizeOptions]="pageSizeOptions" [pageSize]="pageSize" (page)="pageChangeEvent($event)"
       showFirstLastButtons
       aria-label="Select page of downloads">
     </mat-paginator>
   </div>
   @if (!uids) {
     <div class="downloads-action-button-div">
-      <button class="downloads-action-button" [disabled]="!running_download_exists" mat-stroked-button (click)="pauseAllDownloads()"><ng-container i18n="Pause all downloads">Pause all downloads</ng-container></button>
-      <button class="downloads-action-button" [disabled]="!paused_download_exists" mat-stroked-button (click)="resumeAllDownloads()"><ng-container i18n="Resume all downloads">Resume all downloads</ng-container></button>
-      <button class="downloads-action-button" [disabled]="!failed_download_exists" mat-stroked-button (click)="retryFailedDownloads()"><ng-container i18n="Retry all failed downloads">Retry all failed</ng-container></button>
+      <button class="downloads-action-button" mat-stroked-button (click)="pauseAllDownloads()"><ng-container i18n="Pause all downloads">Pause all downloads</ng-container></button>
+      <button class="downloads-action-button" mat-stroked-button (click)="resumeAllDownloads()"><ng-container i18n="Resume all downloads">Resume all downloads</ng-container></button>
+      <button class="downloads-action-button" [disabled]="!failed_download_exists" mat-stroked-button
+        matTooltip="Retry failed on this page" i18n-matTooltip="Retry failed downloads on current page"
+        (click)="retryFailedDownloads()"><ng-container i18n="Retry failed downloads on current page">Retry failed on this page</ng-container></button>
       <button class="downloads-action-button" color="warn" mat-stroked-button (click)="clearDownloadsByType()"><ng-container i18n="Clear downloads">Clear downloads</ng-container></button>
     </div>
   }
 </div>
 
-@if ((!downloads || downloads.length === 0) && downloads_retrieved && !uids) {
+@if ((!downloads || downloads.length === 0) && downloads_retrieved && !uids && !downloads_load_error) {
   <div>
     <h4 style="text-align: center; margin-top: 10px;" i18n="No downloads label">No downloads available!</h4>
+  </div>
+}
+
+@if ((!downloads || downloads.length === 0) && downloads_retrieved && !uids && downloads_load_error) {
+  <div>
+    <h4 style="text-align: center; margin-top: 10px;" i18n="Downloads loading error">
+      Unable to load downloads. Retrying automatically…
+    </h4>
   </div>
 }

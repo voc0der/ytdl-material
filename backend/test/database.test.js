@@ -241,6 +241,59 @@ describe('Database', async function() {
                     ]);
                 });
 
+                it('Projects only selected fields after sorting and ranging local records', async function() {
+                    const heavyweight_error = 'large captured process output'.repeat(1000);
+                    await db_api.insertRecordsIntoTable('test', [
+                        {
+                            uid: 'projection-older',
+                            timestamp_start: 1,
+                            error: heavyweight_error,
+                            prefetched_info: [{description: heavyweight_error}],
+                            options: {
+                                playlistBatchId: 'batch-older',
+                                additionalArgs: [heavyweight_error]
+                            }
+                        },
+                        {
+                            uid: 'projection-newer',
+                            timestamp_start: 2,
+                            error: heavyweight_error,
+                            prefetched_info: [{description: heavyweight_error}],
+                            container: {
+                                id: 'playlist-1',
+                                uids: Array(1000).fill('file-uid')
+                            },
+                            options: {
+                                playlistBatchId: 'batch-newer',
+                                playlistChunkRange: '1-10',
+                                additionalArgs: [heavyweight_error]
+                            }
+                        }
+                    ]);
+
+                    const projected_records = await db_api.getRecords(
+                        'test',
+                        null,
+                        false,
+                        {by: 'timestamp_start', order: -1},
+                        [0, 1],
+                        ['uid', 'timestamp_start', 'container.id', 'options.playlistBatchId', 'options.playlistChunkRange']
+                    );
+
+                    assert.deepStrictEqual(projected_records, [{
+                        uid: 'projection-newer',
+                        timestamp_start: 2,
+                        container: {id: 'playlist-1'},
+                        options: {
+                            playlistBatchId: 'batch-newer',
+                            playlistChunkRange: '1-10'
+                        }
+                    }]);
+                    assert.strictEqual(Object.prototype.hasOwnProperty.call(projected_records[0], 'error'), false);
+                    assert.strictEqual(Object.prototype.hasOwnProperty.call(projected_records[0], 'prefetched_info'), false);
+                    assert.strictEqual(Object.prototype.hasOwnProperty.call(projected_records[0].options, 'additionalArgs'), false);
+                });
+
                 it.skip('Query speed', async function() {
                     this.timeout(120000); 
                     const NUM_RECORDS_TO_ADD = 300004; // max batch ops is 1000

@@ -306,6 +306,41 @@ function buildRangeClause(range = null, params = []) {
     return ` OFFSET ${offsetPlaceholder} LIMIT ${limitPlaceholder}`;
 }
 
+function buildProjectionTree(projectionFields = []) {
+    const root = {children: new Map(), included: false};
+    for (const fieldPath of projectionFields) {
+        const pathParts = getFieldPathParts(fieldPath);
+        let currentNode = root;
+        for (const pathPart of pathParts) {
+            if (!currentNode.children.has(pathPart)) {
+                currentNode.children.set(pathPart, {children: new Map(), included: false});
+            }
+            currentNode = currentNode.children.get(pathPart);
+        }
+        currentNode.included = true;
+    }
+    return root;
+}
+
+function buildProjectionObjectExpression(projectionNode, pathParts = [], docRef = 'doc') {
+    const objectParts = [];
+    for (const [fieldName, childNode] of projectionNode.children.entries()) {
+        const childPathParts = [...pathParts, fieldName];
+        const valueExpression = childNode.included
+            ? `${docRef} #> ${toPathLiteral(childPathParts)}`
+            : buildProjectionObjectExpression(childNode, childPathParts, docRef);
+        objectParts.push(`'${fieldName}', ${valueExpression}`);
+    }
+
+    if (objectParts.length === 0) return "'{}'::jsonb";
+    return `jsonb_strip_nulls(jsonb_build_object(${objectParts.join(', ')}))`;
+}
+
+function buildProjectionExpression(projectionFields = null, docRef = 'doc') {
+    if (!Array.isArray(projectionFields) || projectionFields.length === 0) return docRef;
+    return buildProjectionObjectExpression(buildProjectionTree(projectionFields), [], docRef);
+}
+
 function extractDocKey(tableMeta = {}, doc = {}) {
     const primaryKey = getPrimaryKey(tableMeta);
     if (!primaryKey || !doc || typeof doc !== 'object') return null;
@@ -649,7 +684,7 @@ async function getRecord(pool, tables, tableName, filterObj = null) {
     return records.length > 0 ? records[0] : null;
 }
 
-async function getRecords(pool, tables, tableName, filterObj = null, returnCount = false, sort = null, range = null) {
+async function getRecords(pool, tables, tableName, filterObj = null, returnCount = false, sort = null, range = null, projectionFields = null) {
     const tableMeta = tables[tableName];
     const tableIdentifier = quoteIdentifier(tableName);
     const params = [];
@@ -662,7 +697,10 @@ async function getRecords(pool, tables, tableName, filterObj = null, returnCount
 
     const sortClause = buildSortClause(tableMeta, sort, params);
     const rangeClause = buildRangeClause(range, params);
-    const result = await pool.query(`SELECT doc FROM ${tableIdentifier} WHERE ${whereClause}${sortClause}${rangeClause}`, params);
+    const selectExpression = Array.isArray(projectionFields) && projectionFields.length > 0
+        ? `${buildProjectionExpression(projectionFields)} AS doc`
+        : 'doc';
+    const result = await pool.query(`SELECT ${selectExpression} FROM ${tableIdentifier} WHERE ${whereClause}${sortClause}${rangeClause}`, params);
     return result.rows.map(row => row.doc);
 }
 

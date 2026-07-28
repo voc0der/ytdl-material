@@ -8,8 +8,8 @@ import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MatSort } from '@angular/material/sort';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { Download, RestartDownloadResponse, SuccessObject } from 'api-types';
-import { forkJoin, of } from 'rxjs';
+import { Download, GetAllDownloadsResponse, RestartDownloadResponse, SuccessObject } from 'api-types';
+import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
@@ -26,10 +26,18 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   @Input() uids: string[] = null;
 
   downloads_check_interval = 1000;
+  downloads_idle_check_interval = 10000;
+  downloads_error_retry_interval = 5000;
+  downloads_max_error_retry_interval = 30000;
   raw_downloads: Download[] = [];
   downloads: Download[] = [];
   finished_downloads = [];
-  interval_id = null;
+  interval_id: number = null;
+  private downloads_request_subscription: Subscription = null;
+  private service_initialized_subscription: Subscription = null;
+  private downloads_polling_active = false;
+  private downloads_poll_error_count = 0;
+  private component_destroyed = false;
 
   keys = Object.keys;
 
@@ -41,6 +49,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'downloads_page_size';
   readonly pageSizeOptions = [5, 10, 20];
   pageSize = 10;
+  pageIndex = 0;
+  downloads_total_count = 0;
 
   STEP_INDEX_TO_LABEL = {
       0: $localize`Creating download`,
@@ -106,6 +116,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   ]
 
   downloads_retrieved = false;
+  downloads_load_error = false;
 
   innerWidth: number;
 
@@ -138,47 +149,150 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     if (this.postsService.initialized) {
       this.getCurrentDownloadsRecurring();
     } else {
-      this.postsService.service_initialized
+      this.service_initialized_subscription = this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
-        .subscribe(() => this.getCurrentDownloadsRecurring());
+        .subscribe(() => {
+          if (!this.component_destroyed) this.getCurrentDownloadsRecurring();
+        });
     }
   }
 
   getCurrentDownloadsRecurring(): void {
+    if (this.component_destroyed) return;
     if (!this.postsService.config['Extra']['enable_downloads_manager']) {
       this.router.navigate(['/home']);
       return;
     }
+
+    if (this.downloads_polling_active) return;
+    this.downloads_polling_active = true;
+    this.downloads_poll_error_count = 0;
     this.getCurrentDownloads();
-    this.interval_id = setInterval(() => {
-      this.getCurrentDownloads();
-    }, this.downloads_check_interval);
   }
 
   ngOnDestroy(): void {
-    if (this.interval_id) { clearInterval(this.interval_id) }
+    this.component_destroyed = true;
+    this.downloads_polling_active = false;
+    this.clearDownloadsPollTimer();
+    if (this.downloads_request_subscription) {
+      this.downloads_request_subscription.unsubscribe();
+      this.downloads_request_subscription = null;
+    }
+    if (this.service_initialized_subscription) {
+      this.service_initialized_subscription.unsubscribe();
+      this.service_initialized_subscription = null;
+    }
     if (this.playlist_progress_dialog_ref) {
       this.playlist_progress_dialog_ref.close();
     }
   }
 
   getCurrentDownloads(): void {
-    this.postsService.getCurrentDownloads(this.uids).subscribe(res => {
-      if (res['downloads'] !== null && res['downloads'] !== undefined) {
-        this.raw_downloads = this.combineDownloads(this.raw_downloads, res['downloads']);
-        this.raw_downloads.sort(this.sort_downloads);
-        this.downloads = this.groupDownloadsForDisplay(this.raw_downloads);
-        this.downloads.sort(this.sort_downloads);
-        this.dataSource.data = this.downloads;
-        this.dataSource.paginator = this.paginator;
-        this.dataSource.sort = this.sort;
-        this.refreshOpenPlaylistProgressDialog();
-        this.paused_download_exists = !!this.raw_downloads.find(download => download['paused'] && !download['error']);
-        this.running_download_exists = !!this.raw_downloads.find(download => !download['paused'] && !download['finished']);
-        this.failed_download_exists = this.raw_downloads.some(download => this.isFailedDownload(download));
+    if (this.component_destroyed) return;
+    this.clearDownloadsPollTimer();
+
+    // A slow downloads response must finish before another one can be requested.
+    if (this.downloads_request_subscription && !this.downloads_request_subscription.closed) return;
+
+    const request_subscription = new Subscription();
+    this.downloads_request_subscription = request_subscription;
+    const downloads_request = this.uids
+      ? this.postsService.getCurrentDownloads(this.uids)
+      : this.postsService.getCurrentDownloads(null, false, this.pageIndex, this.pageSize);
+    const current_request = downloads_request.subscribe({
+      next: res => {
+        this.downloads_load_error = false;
+        if (res['downloads'] !== null && res['downloads'] !== undefined) {
+          this.raw_downloads = this.combineDownloads(this.raw_downloads, res['downloads']);
+          this.raw_downloads.sort(this.sort_downloads);
+          this.downloads = this.groupDownloadsForDisplay(this.raw_downloads);
+          this.downloads.sort(this.sort_downloads);
+          this.dataSource.data = this.downloads;
+          // History pages are already sliced by the server. Exact-UID embeds retain
+          // their existing client-side paginator because the API returns all matches.
+          this.dataSource.paginator = this.uids ? this.paginator : null;
+          this.dataSource.sort = this.sort;
+          this.refreshOpenPlaylistProgressDialog();
+          this.paused_download_exists = !!this.raw_downloads.find(download => download['paused'] && !download['error']);
+          this.running_download_exists = !!this.raw_downloads.find(download => !download['paused'] && !download['finished']);
+          this.failed_download_exists = this.raw_downloads.some(download => this.isFailedDownload(download));
+          this.applyDownloadsPaginationResponse(res, res['downloads'].length);
+        }
+        this.downloads_retrieved = true;
+      },
+      error: () => {
+        // Keep the polling chain alive without surfacing an unhandled RxJS error.
+        this.downloads_retrieved = true;
+        this.downloads_load_error = true;
+        this.finishCurrentDownloadsRequest(request_subscription, false);
+      },
+      complete: () => {
+        this.finishCurrentDownloadsRequest(request_subscription, true);
       }
-      this.downloads_retrieved = true;
     });
+    request_subscription.add(current_request);
+  }
+
+  private finishCurrentDownloadsRequest(request_subscription: Subscription, succeeded: boolean): void {
+    if (this.downloads_request_subscription !== request_subscription) return;
+
+    this.downloads_request_subscription = null;
+    request_subscription.unsubscribe();
+    if (!this.downloads_polling_active || this.component_destroyed) return;
+
+    let next_poll_delay = this.running_download_exists
+      ? this.downloads_check_interval
+      : this.downloads_idle_check_interval;
+    if (succeeded) {
+      this.downloads_poll_error_count = 0;
+    } else {
+      this.downloads_poll_error_count += 1;
+      const backoff_multiplier = Math.pow(2, Math.min(this.downloads_poll_error_count - 1, 10));
+      next_poll_delay = Math.min(
+        this.downloads_error_retry_interval * backoff_multiplier,
+        this.downloads_max_error_retry_interval
+      );
+    }
+
+    this.interval_id = window.setTimeout(() => {
+      this.interval_id = null;
+      this.getCurrentDownloads();
+    }, next_poll_delay);
+  }
+
+  private clearDownloadsPollTimer(): void {
+    if (this.interval_id === null) return;
+    window.clearTimeout(this.interval_id);
+    this.interval_id = null;
+  }
+
+  private applyDownloadsPaginationResponse(res: GetAllDownloadsResponse, returned_download_count: number): void {
+    const total_count = Number(res && res['total_count']);
+    this.downloads_total_count = Number.isFinite(total_count) && total_count >= 0
+      ? Math.floor(total_count)
+      : returned_download_count;
+
+    if (this.uids) return;
+
+    const returned_page = Number(res && res['page']);
+    if (Number.isFinite(returned_page) && returned_page >= 0) {
+      this.pageIndex = Math.floor(returned_page);
+    }
+
+    const returned_page_size = Number(res && res['page_size']);
+    if (Number.isFinite(returned_page_size) && returned_page_size > 0) {
+      this.pageSize = Math.floor(returned_page_size);
+    }
+  }
+
+  private refreshCurrentDownloadsImmediately(): void {
+    this.clearDownloadsPollTimer();
+    if (this.downloads_request_subscription) {
+      const stale_request = this.downloads_request_subscription;
+      this.downloads_request_subscription = null;
+      stale_request.unsubscribe();
+    }
+    this.getCurrentDownloads();
   }
 
   clearDownloadsByType(): void {
@@ -301,8 +415,10 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   pageChangeEvent(event: PageEvent): void {
+    this.pageIndex = Number.isFinite(Number(event.pageIndex)) ? Math.max(0, Math.floor(Number(event.pageIndex))) : 0;
     this.pageSize = event.pageSize;
     localStorage.setItem(this.pageSizeStorageKey, `${this.pageSize}`);
+    if (!this.uids) this.refreshCurrentDownloadsImmediately();
   }
 
   cancelDownload(download: Download): void {
@@ -326,9 +442,10 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   watchContent(download: Download): void {
-    const container = download['container'];
+    const container = download && download['container'];
+    if (!container) return;
     sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
-    const is_playlist = container['uids']; // hacky, TODO: fix
+    const is_playlist = !!container['id'] && !container['uid'];
     if (is_playlist) {
       this.router.navigate(['/player', {playlist_id: container['id'], type: download['type']}]);
     } else {
