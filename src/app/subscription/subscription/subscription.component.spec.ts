@@ -1,4 +1,4 @@
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, of, Subject } from 'rxjs';
 
 import { SubscriptionComponent } from './subscription.component';
 
@@ -104,6 +104,150 @@ describe('SubscriptionComponent', () => {
 
     expect(component.subscription.file_count).toBe(2);
     expect(postsService.files_changed.next).toHaveBeenCalledWith(true);
+  });
+
+  it('should not publish a file change while initially loading subscription metadata', () => {
+    spyOn(postsService.files_changed, 'next');
+    postsService.getSubscription.and.returnValue(of({
+      subscription: {
+        id: 'sub-1',
+        name: 'Test subscription',
+        file_count: 400,
+        downloading: false
+      }
+    }));
+
+    component.getSubscription();
+
+    expect(component.subscription.file_count).toBe(400);
+    expect(postsService.files_changed.next).not.toHaveBeenCalled();
+  });
+
+  it('should not overlap lightweight subscription status requests', () => {
+    const first_response = new Subject<any>();
+    postsService.getSubscription.and.returnValues(
+      first_response.asObservable(),
+      of({
+        subscription: {
+          id: 'sub-1',
+          name: 'Test subscription',
+          file_count: 1,
+          downloading: false
+        }
+      })
+    );
+
+    component.getSubscription(true);
+    component.getSubscription(true);
+
+    expect(postsService.getSubscription).toHaveBeenCalledTimes(1);
+
+    first_response.next({
+      subscription: {
+        id: 'sub-1',
+        name: 'Test subscription',
+        file_count: 1,
+        downloading: true
+      }
+    });
+    first_response.complete();
+    component.getSubscription(true);
+
+    expect(postsService.getSubscription).toHaveBeenCalledTimes(2);
+  });
+
+  it('should discard outdated responses across rapid subscription route changes', () => {
+    const first_a_response = new Subject<any>();
+    const b_response = new Subject<any>();
+    const second_a_response = new Subject<any>();
+    postsService.getSubscription.and.returnValues(
+      first_a_response.asObservable(),
+      b_response.asObservable(),
+      second_a_response.asObservable()
+    );
+
+    component.id = 'sub-1';
+    component.getSubscription(true);
+    component.id = 'sub-2';
+    component.subscription = null;
+    component.getSubscription(true);
+    component.id = 'sub-1';
+    component.subscription = null;
+    component.getSubscription(true);
+
+    second_a_response.next({
+      subscription: {
+        id: 'sub-1',
+        name: 'Current first subscription',
+        file_count: 3,
+        downloading: false
+      }
+    });
+    second_a_response.complete();
+    first_a_response.next({
+      subscription: {
+        id: 'sub-1',
+        name: 'Outdated first subscription',
+        file_count: 1,
+        downloading: false
+      }
+    });
+    first_a_response.complete();
+    b_response.next({
+      subscription: {
+        id: 'sub-2',
+        name: 'Outdated second subscription',
+        file_count: 2,
+        downloading: false
+      }
+    });
+    b_response.complete();
+
+    expect(postsService.getSubscription).toHaveBeenCalledTimes(3);
+    expect(component.subscription.id).toBe('sub-1');
+    expect(component.subscription.name).toBe('Current first subscription');
+  });
+
+  it('should poll idle subscriptions less often while keeping active refreshes responsive', () => {
+    component.subscription = {
+      id: 'sub-1',
+      name: 'Test subscription',
+      file_count: 1,
+      downloading: false,
+      refresh_status: {
+        phase: 'complete',
+        active: false,
+        pending_download_count: 0,
+        running_download_count: 0
+      }
+    } as any;
+    const get_subscription_spy = spyOn(component, 'getSubscription');
+    (component as any).last_subscription_request_at = Date.now();
+
+    (component as any).pollSubscription();
+    expect(get_subscription_spy).not.toHaveBeenCalled();
+
+    component.subscription.refresh_status.active = true;
+    component.subscription.refresh_status.phase = 'collecting';
+    (component as any).last_subscription_request_at = Date.now() - 1001;
+    (component as any).pollSubscription();
+
+    expect(get_subscription_spy).toHaveBeenCalledWith(true);
+  });
+
+  it('should refresh subscription status immediately after starting a check', () => {
+    component.subscription = {
+      id: 'sub-1',
+      name: 'Test subscription',
+      file_count: 1,
+      downloading: false
+    } as any;
+    postsService.checkSubscription.and.returnValue(of({success: true}));
+    const get_subscription_spy = spyOn(component, 'getSubscription');
+
+    component.checkSubscription();
+
+    expect(get_subscription_spy).toHaveBeenCalledWith(true);
   });
 
   it('should describe collecting progress when totals are known', () => {

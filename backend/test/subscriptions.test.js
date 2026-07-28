@@ -416,6 +416,138 @@ describe('Subscriptions', function() {
         assert.strictEqual(stored_sub['refresh_status']['skipped_count'], 2);
         assert.strictEqual(stored_sub['refresh_status']['phase'], 'complete');
     });
+    it('Projects heavyweight queue records while retrieving subscription status', async function() {
+        const original_get_records = db_api.getRecords;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'projected_status_sub'});
+        const refresh_started_at = Date.now() - 1000;
+        const pending_uid = uuid();
+
+        await db_api.insertRecordIntoTable('subscriptions', {
+            ...sub,
+            refresh_status: {
+                active: false,
+                phase: 'queued',
+                discovered_count: 2,
+                total_count: 2,
+                new_items_count: 2,
+                queued_count: 2,
+                started_at: refresh_started_at
+            }
+        });
+        await archive_api.addToArchive('youtube', 'archived-pending-video', 'video', 'Archived pending video', null, sub.id);
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: pending_uid,
+            url: 'https://example.com/not-a-source-url',
+            type: 'video',
+            title: 'Archived pending video',
+            sub_id: sub.id,
+            running: false,
+            finished: false,
+            error: null,
+            prefetched_info: [{
+                extractor: 'youtube',
+                id: 'archived-pending-video',
+                title: 'Archived pending video',
+                formats: [{
+                    manifest: 'unused-heavy-format-data'
+                }]
+            }],
+            unused_heavy_payload: 'unused-heavy-queue-data'
+        });
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: uuid(),
+            url: 'https://www.youtube.com/watch?v=skipped-video',
+            type: 'video',
+            title: 'Skipped video',
+            sub_id: sub.id,
+            running: false,
+            finished: true,
+            error: 'Join this channel to get access to members-only content',
+            error_summary: 'Join this channel to get access to members-only content',
+            error_type: 'join_only',
+            timestamp_start: Date.now(),
+            prefetched_info: [{
+                formats: [{
+                    manifest: 'unused-heavy-finished-data'
+                }]
+            }],
+            unused_heavy_payload: 'unused-heavy-finished-queue-data'
+        });
+
+        const captured_calls = [];
+        try {
+            db_api.getRecords = async (...args) => {
+                captured_calls.push(args);
+                return await original_get_records(...args);
+            };
+
+            const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+
+            assert(refreshed_sub);
+            assert.strictEqual(refreshed_sub['refresh_status']['pending_download_count'], 0);
+            assert.strictEqual(refreshed_sub['refresh_status']['skipped_count'], 2);
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
+
+        const pending_read = captured_calls.find(call =>
+            call[0] === 'download_queue'
+            && call[1] && call[1].finished === false
+            && call[2] === false
+        );
+        const skipped_read = captured_calls.find(call =>
+            call[0] === 'download_queue'
+            && call[1] && call[1].finished === true
+            && call[1].error
+            && call[2] === false
+        );
+        const archive_read = captured_calls.find(call => call[0] === 'archives');
+
+        assert(pending_read);
+        assert(pending_read[5].includes('prefetched_info.0.id'));
+        assert(!pending_read[5].includes('prefetched_info'));
+        assert(!pending_read[5].includes('unused_heavy_payload'));
+        assert(skipped_read);
+        assert.deepStrictEqual(skipped_read[5], [
+            'error',
+            'error_summary',
+            'error_type',
+            'timestamp_start'
+        ]);
+        assert(archive_read);
+        assert.deepStrictEqual(archive_read[5], ['extractor', 'id']);
+    });
+    it('Uses Mongo-compatible nested array projections for pending subscription downloads', async function() {
+        const original_get_records = db_api.getRecords;
+        const original_is_using_mongo_db = db_api.isUsingMongoDB;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'mongo_projection_sub'});
+        const captured_calls = [];
+
+        await db_api.insertRecordIntoTable('subscriptions', sub);
+
+        try {
+            db_api.isUsingMongoDB = () => true;
+            db_api.getRecords = async (...args) => {
+                captured_calls.push(args);
+                return await original_get_records(...args);
+            };
+
+            const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
+            assert(refreshed_sub);
+        } finally {
+            db_api.getRecords = original_get_records;
+            db_api.isUsingMongoDB = original_is_using_mongo_db;
+        }
+
+        const pending_read = captured_calls.find(call =>
+            call[0] === 'download_queue'
+            && call[1] && call[1].finished === false
+            && call[2] === false
+        );
+        assert(pending_read);
+        assert(pending_read[5].includes('prefetched_info.id'));
+        assert(!pending_read[5].includes('prefetched_info.0.id'));
+    });
     it('Update subscription', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
         const sub_update = Object.assign({}, new_sub, {name: 'updated_name'});

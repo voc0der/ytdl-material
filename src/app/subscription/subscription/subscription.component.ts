@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
 import { Subscription, SubscriptionRefreshStatus } from 'api-types';
 import { saveAs } from 'file-saver';
-import { filter, take } from 'rxjs/operators';
+import { filter, finalize, take } from 'rxjs/operators';
 
 @Component({
     selector: 'app-subscription',
@@ -16,6 +16,8 @@ import { filter, take } from 'rxjs/operators';
 })
 export class SubscriptionComponent implements OnInit, OnDestroy {
 
+  private readonly active_poll_interval_ms = 1000;
+  private readonly idle_poll_interval_ms = 10000;
   id = null;
   subscription: Subscription = null;
   use_youtubedl_archive = false;
@@ -24,12 +26,20 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   sub_interval = null;
   check_clicked = false;
   cancel_clicked = false;
+  private active_subscription_request: {id: string | null; token: number} | null = null;
+  private subscription_request_sequence = 0;
+  private last_subscription_request_at = 0;
 
   constructor(private postsService: PostsService, private route: ActivatedRoute, private router: Router, private dialog: MatDialog) { }
 
   ngOnInit() {
     this.route.params.subscribe(params => {
-      this.id = params['id'];
+      const next_id = params['id'];
+      if (next_id !== this.id) {
+        this.subscription = null;
+        this.last_subscription_request_at = 0;
+      }
+      this.id = next_id;
 
       if (this.sub_interval) { clearInterval(this.sub_interval); }
 
@@ -38,7 +48,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         .subscribe(() => {
           this.getConfig();
           this.getSubscription();
-          this.sub_interval = setInterval(() => this.getSubscription(true), 1000);
+          this.sub_interval = setInterval(() => this.pollSubscription(), this.active_poll_interval_ms);
         });
     });
   }
@@ -55,7 +65,20 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   }
 
   getSubscription(low_cost = false) {
-    this.postsService.getSubscription(this.id, null, false).subscribe(res => {
+    const requested_id = this.id as string | null;
+    if (this.active_subscription_request?.id === requested_id) return;
+
+    const request_token = ++this.subscription_request_sequence;
+    this.active_subscription_request = {id: requested_id, token: request_token};
+    this.last_subscription_request_at = Date.now();
+    this.postsService.getSubscription(requested_id, null, false)
+      .pipe(finalize(() => {
+        if (this.active_subscription_request?.token === request_token) {
+          this.active_subscription_request = null;
+        }
+      }))
+      .subscribe(res => {
+      if (requested_id !== this.id || this.active_subscription_request?.token !== request_token) return;
       const next_subscription = res['subscription'] as Subscription;
       const current_video_count = this.getSubscriptionFileCount(this.subscription);
       const next_video_count = this.getSubscriptionFileCount(next_subscription);
@@ -67,12 +90,25 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
           videos: this.subscription.videos
         };
         return;
-      } else if (next_video_count > current_video_count) {
+      } else if (this.subscription && next_video_count > current_video_count) {
         // only when files are added so we don't reload files when one is deleted
         this.postsService.files_changed.next(true);
       }
       this.subscription = next_subscription;
-    });
+    }, err => console.error(err));
+  }
+
+  private pollSubscription(): void {
+    const refresh_status = this.getRefreshStatus();
+    const poll_interval = !this.subscription
+      || this.hasActiveRefresh()
+      || (refresh_status?.pending_download_count ?? 0) > 0
+      || (refresh_status?.running_download_count ?? 0) > 0
+      ? this.active_poll_interval_ms
+      : this.idle_poll_interval_ms;
+
+    if ((Date.now() - this.last_subscription_request_at) < poll_interval) return;
+    this.getSubscription(true);
   }
 
   private getSubscriptionFileCount(subscription: Subscription | null): number {
@@ -117,6 +153,8 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         this.postsService.openSnackBar('Failed to check subscription!');
         return;
       }
+      this.last_subscription_request_at = 0;
+      this.getSubscription(true);
     }, err => {
       console.error(err);
       this.check_clicked = false;
@@ -132,6 +170,8 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         this.postsService.openSnackBar('Failed to cancel check subscription!');
         return;
       }
+      this.last_subscription_request_at = 0;
+      this.getSubscription(true);
     }, err => {
       console.error(err);
       this.cancel_clicked = false;

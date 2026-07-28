@@ -586,4 +586,34 @@ describe('Files', function() {
             db_api.getRecords = original_get_records;
         }
     });
+
+    it('caps paginated file queries at the largest supported page size', async function() {
+        const original_get_records = db_api.getRecords;
+        const captured_ranges = [];
+
+        try {
+            db_api.getRecords = async (table, filter_obj, return_count, sort, range) => {
+                captured_ranges.push({return_count, range});
+                return return_count ? 400 : [];
+            };
+
+            const result = await files_api.getAllFiles(
+                {by: 'registered', order: -1},
+                [20, 1020],
+                null,
+                'both',
+                false,
+                'network-chuck',
+                null
+            );
+
+            assert.deepStrictEqual(captured_ranges, [
+                {return_count: false, range: [20, 270]},
+                {return_count: true, range: undefined}
+            ]);
+            assert.strictEqual(result.file_count, 400);
+        } finally {
+            db_api.getRecords = original_get_records;
+        }
+    });
 });

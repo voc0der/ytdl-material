@@ -1100,7 +1100,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   getRequestedFileRange(cache_mode = false, append = false): number[] {
     if (this.autoPaginationEnabled) {
-      const auto_page_batch_size = this.getAutoPageBatchSize();
+      const auto_page_batch_size = this.getAutoPageBatchSize(append);
       const auto_page_columns = this.getAutoPageColumns();
       if (append) {
         const start = this.paged_data?.length ?? 0;
@@ -1497,13 +1497,19 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
   }
 
-  getAutoPageBatchSize(): number {
+  getAutoPageBatchSize(append = false): number {
     const columns = this.getAutoPageColumns();
     const row_height = this.getAutoCardRowHeight();
     const viewport_height = this.getViewportHeight();
-    const grid_top = this.getVisibleGridTopOffset();
-    const estimated_grid_top = typeof grid_top === 'number' ? grid_top : viewport_height * 0.3;
-    const available_height = Math.max(row_height, viewport_height - estimated_grid_top);
+    const raw_grid_top = this.getVisibleGridTopOffset();
+    const grid_top = Number.isFinite(raw_grid_top)
+      ? Math.max(0, Math.min(viewport_height, raw_grid_top))
+      : viewport_height * 0.3;
+    // Once scrolling has started, the grid top becomes increasingly negative. Using that
+    // document-relative value made every append request grow with the full scroll depth.
+    const available_height = append
+      ? viewport_height
+      : Math.max(row_height, viewport_height - grid_top);
     const visible_rows = Math.max(1, Math.ceil(available_height / row_height));
     return columns * (visible_rows + this.autoPageBufferRows);
   }

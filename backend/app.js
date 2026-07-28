@@ -1863,6 +1863,7 @@ app.post('/api/getSubscription', optionalJwt, async (req, res) => {
     }
 
     subscription = JSON.parse(JSON.stringify(subscription));
+    if (!include_videos) delete subscription['videos'];
 
     // get sub videos
     if (subscription.name) {

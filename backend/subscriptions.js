@@ -34,11 +34,57 @@ const SUBSCRIPTION_EXPECTED_SIZE_FORMAT_FIELDS = Object.freeze([
     'vbr',
     'abr'
 ]);
+const SUBSCRIPTION_PENDING_DOWNLOAD_BASE_PROJECTION_FIELDS = Object.freeze([
+    'uid',
+    'url',
+    'title',
+    'type',
+    'running',
+    'finished'
+]);
+const SUBSCRIPTION_PENDING_DOWNLOAD_PREFETCHED_INFO_FIELDS = Object.freeze([
+    'webpage_url',
+    'original_url',
+    'url',
+    'source_extractor',
+    'extractor',
+    'extractor_key',
+    'ie_key',
+    'source_id',
+    'id',
+    'display_id',
+    'title'
+]);
+const SUBSCRIPTION_ARCHIVE_PROJECTION_FIELDS = Object.freeze([
+    'extractor',
+    'id'
+]);
+const SUBSCRIPTION_SKIPPED_DOWNLOAD_PROJECTION_FIELDS = Object.freeze([
+    'error',
+    'error_summary',
+    'error_type',
+    'timestamp_start'
+]);
 const MATCH_FILTER_ARGS = new Set(['--match-filter', '--match-filters']);
 const BREAK_MATCH_FILTER_ARGS = new Set(['--break-match-filter', '--break-match-filters']);
 const NO_MATCH_FILTER_ARGS = new Set(['--no-match-filter', '--no-match-filters']);
 const JOIN_ONLY_AVAILABILITY_VALUES = new Set(['subscriber_only']);
 const active_subscription_refresh_trackers = new Map();
+
+function getSubscriptionPendingDownloadProjectionFields() {
+    // MongoDB find projections cannot address an array by numeric index. Projecting
+    // the selected fields across the array keeps the payload narrow and returns the
+    // normal array shape; local/PostgreSQL projections use the explicit first item.
+    const prefetched_info_path = db_api.isUsingMongoDB()
+        ? 'prefetched_info'
+        : 'prefetched_info.0';
+    return [
+        ...SUBSCRIPTION_PENDING_DOWNLOAD_BASE_PROJECTION_FIELDS,
+        ...SUBSCRIPTION_PENDING_DOWNLOAD_PREFETCHED_INFO_FIELDS.map(
+            field => `${prefetched_info_path}.${field}`
+        )
+    ];
+}
 
 function shouldRestrictToUser(user_uid) {
     return config_api.getConfigItem('ytdl_multi_user_mode') && user_uid !== null && user_uid !== undefined;
@@ -228,9 +274,14 @@ function getSubscriptionFileArchiveKey(file_obj = null, type = 'video') {
 function getSubscriptionDownloadArchiveKey(download = null, type = 'video') {
     if (!download || typeof download !== 'object') return null;
 
-    const prefetched_info_items = Array.isArray(download.prefetched_info)
-        ? download.prefetched_info.filter(info_item => !!info_item && typeof info_item === 'object')
-        : [];
+    const projected_prefetched_info = download.prefetched_info && !Array.isArray(download.prefetched_info)
+        ? download.prefetched_info['0']
+        : null;
+    const prefetched_info_items = (
+        Array.isArray(download.prefetched_info)
+            ? download.prefetched_info
+            : [projected_prefetched_info]
+    ).filter(info_item => !!info_item && typeof info_item === 'object');
     const candidates = [
         ...prefetched_info_items,
         {
@@ -745,10 +796,24 @@ async function removeArchivedPendingSubscriptionDownloads(sub, pending_downloads
 
     const effective_pending_downloads = Array.isArray(pending_downloads)
         ? pending_downloads
-        : await db_api.getRecords('download_queue', {sub_id: sub.id, finished: false});
+        : await db_api.getRecords(
+            'download_queue',
+            {sub_id: sub.id, finished: false},
+            false,
+            null,
+            null,
+            getSubscriptionPendingDownloadProjectionFields()
+        );
     if (effective_pending_downloads.length === 0) return 0;
 
-    const archive_items = await db_api.getRecords('archives', getSubscriptionArchiveFilter(sub));
+    const archive_items = await db_api.getRecords(
+        'archives',
+        getSubscriptionArchiveFilter(sub),
+        false,
+        null,
+        null,
+        SUBSCRIPTION_ARCHIVE_PROJECTION_FIELDS
+    );
     const archived_output_keys = new Set(
         archive_items
             .map(archive_item => getArchiveKey(archive_item.extractor, archive_item.id))
@@ -815,7 +880,8 @@ function countSkippedSubscriptionDownloads(downloads = [], refresh_started_at = 
     if (!Array.isArray(downloads)) return 0;
     const normalized_refresh_started_at = normalizeNullableCount(refresh_started_at);
     return downloads.filter(download => {
-        if (!downloader_api.isSkippableSubscriptionDownloadError(download && download.error, download && download.error_type)) return false;
+        const error_message = download && (download.error_summary || download.error);
+        if (!downloader_api.isSkippableSubscriptionDownloadError(error_message, download && download.error_type)) return false;
         const download_started_at = normalizeNullableCount(download && download.timestamp_start);
         return normalized_refresh_started_at === null || download_started_at === null || download_started_at >= normalized_refresh_started_at;
     }).length;
@@ -1753,7 +1819,14 @@ exports.getSubscription = async (subID, user_uid = null) => {
         db_api.getRecords('download_queue', {running: true, sub_id: subID}, true),
         db_api.getRecords('download_queue', {sub_id: subID, finished: false}, true),
         db_api.getRecords('download_queue', {sub_id: subID, running: true, finished: false}, true),
-        db_api.getRecords('download_queue', {sub_id: subID, finished: true, error: {$ne: null}})
+        db_api.getRecords(
+            'download_queue',
+            {sub_id: subID, finished: true, error: {$ne: null}},
+            false,
+            null,
+            null,
+            SUBSCRIPTION_SKIPPED_DOWNLOAD_PROJECTION_FIELDS
+        )
     ]);
     if (!sub['downloading']) sub['downloading'] = current_downloads > 0;
 

@@ -9,6 +9,7 @@ const archive_api = require('./archive');
 const utils = require('./utils')
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
+const FILE_LIST_MAX_RANGE_SIZE = 250;
 const PLAYER_SUBTITLE_SIDECAR_BASE_SUFFIX = '.player-subtitles';
 const MEDIA_EXTENSIONS_BY_TYPE = {
     audio: ['mp3'],
@@ -24,6 +25,17 @@ function shouldRestrictToUser(user_uid) {
 function escapeRegex(text = '') {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+function normalizeFileListRange(range = null) {
+    if (!Array.isArray(range) || range.length !== 2) return null;
+
+    const raw_start = Number(range[0]);
+    const raw_end = Number(range[1]);
+    const start = Number.isFinite(raw_start) ? Math.max(0, Math.floor(raw_start)) : 0;
+    const end = Number.isFinite(raw_end) ? Math.max(start, Math.floor(raw_end)) : start;
+    return [start, Math.min(end, start + FILE_LIST_MAX_RANGE_SIZE)];
+}
+exports.normalizeFileListRange = normalizeFileListRange;
 
 function getExpectedMediaExtension(type = 'video') {
     return type === 'audio' ? '.mp3' : '.mp4';
@@ -1548,7 +1560,8 @@ exports.getAllFiles = async (sort, range, text_search, file_type_filter, favorit
     if (file_type_filter === 'audio_only') filter_obj['isAudio'] = true;
     else if (file_type_filter === 'video_only') filter_obj['isAudio'] = false;
 
-    const files = await db_api.getRecords('files', filter_obj, false, sort, range);
+    const normalized_range = normalizeFileListRange(range);
+    const files = await db_api.getRecords('files', filter_obj, false, sort, normalized_range);
     const file_count = await db_api.getRecords('files', filter_obj, true);
 
     return {files, file_count};

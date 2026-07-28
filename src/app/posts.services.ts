@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { THEMES_CONFIG } from '../themes';
 import { Router, ActivatedRouteSnapshot } from '@angular/router';
 
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
@@ -197,9 +197,9 @@ export class PostsService {
     settings_changed = new BehaviorSubject<boolean>(false);
     open_create_default_admin_dialog = new BehaviorSubject<boolean>(false);
 
-    files_changed = new BehaviorSubject<boolean>(false);
-    playlists_changed = new BehaviorSubject<boolean>(false);
-    categories_changed = new BehaviorSubject<boolean>(false);
+    files_changed = new Subject<boolean>();
+    playlists_changed = new Subject<boolean>();
+    categories_changed = new Subject<boolean>();
 
     // app status
     initialized = false;

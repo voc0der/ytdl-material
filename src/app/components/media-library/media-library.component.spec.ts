@@ -363,6 +363,62 @@ describe('MediaLibraryComponent', () => {
     expect(component.getAutoPageBatchSize()).toBe(20);
   });
 
+  it('should keep appended auto batches viewport-sized after the grid scrolls above the viewport', () => {
+    postsServiceStub.card_size = 'medium';
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    let grid_top = -840;
+    (component as any).videoGridContainerElement = {
+      getBoundingClientRect: () => ({ top: grid_top, width: 941 })
+    };
+    component.autoPaginationEnabled = true;
+    component.paged_data = Array.from({length: 20}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+
+    expect(component.getAutoPageBatchSize(true)).toBe(24);
+    expect(component.getRequestedFileRange(false, true)).toEqual([20, 44]);
+
+    grid_top = -3000;
+    component.paged_data = Array.from({length: 44}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+
+    expect(component.getAutoPageBatchSize(true)).toBe(24);
+    expect(component.getRequestedFileRange(false, true)).toEqual([44, 68]);
+  });
+
+  it('should keep subscription auto-pagination requests scoped and bounded', () => {
+    component.sub_id = 'network-chuck';
+    component.autoPaginationEnabled = true;
+    component.file_count = 400;
+    component.paged_data = Array.from({length: 24}, (_, index) => ({
+      uid: `file-${index + 1}`,
+      duration: 12
+    })) as any;
+    spyOn(component, 'getAutoPageBatchSize').and.returnValue(24);
+    spyOn(component, 'getAutoPageColumns').and.returnValue(4);
+    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.and.returnValue(of({
+      files: [],
+      file_count: 400
+    }));
+
+    component.loadMoreAutoFiles();
+
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
+      { by: 'registered', order: -1 },
+      [24, 48],
+      null,
+      'both',
+      false,
+      'network-chuck',
+      false,
+      []
+    );
+  });
+
   it('should window auto-loaded video rows instead of rendering every loaded row', () => {
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
