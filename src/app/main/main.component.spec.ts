@@ -649,4 +649,203 @@ describe('MainComponent', () => {
 
     expect(open_dialog_spy).toHaveBeenCalled();
   });
+
+  describe('advanced download mode', () => {
+    const ADVANCED_STORAGE_KEYS = [
+      'advancedMode', 'customArgsEnabled', 'replaceArgs', 'customOutputEnabled',
+      'youtubeAuthEnabled', 'customArgs', 'customOutput', 'youtubeUsername'
+    ];
+
+    // downloadFile(url, type, quality, qualityConfig, customArgs, additionalArgs,
+    //              customOutput, username, password, cropFileSettings, ...)
+    const CUSTOM_ARGS_INDEX = 4;
+    const ADDITIONAL_ARGS_INDEX = 5;
+    const CUSTOM_OUTPUT_INDEX = 6;
+    const USERNAME_INDEX = 7;
+    const PASSWORD_INDEX = 8;
+    const CROP_SETTINGS_INDEX = 9;
+
+    beforeEach(() => {
+      for (const key of ADVANCED_STORAGE_KEYS) localStorage.removeItem(key);
+      component.allowAdvancedDownload = true;
+      component.url = 'https://www.youtube.com/watch?v=advancedmode';
+    });
+
+    afterEach(() => {
+      for (const key of ADVANCED_STORAGE_KEYS) localStorage.removeItem(key);
+    });
+
+    function fillAdvancedOptions(): void {
+      component.customArgsEnabled = true;
+      component.customArgs = '--write-thumbnail';
+      component.customOutputEnabled = true;
+      component.customOutput = 'custom/path';
+      component.youtubeAuthEnabled = true;
+      component.youtubeUsername = 'user';
+      component.youtubePassword = 'secret';
+      component.cropFile = true;
+      component.cropFileStart = 10;
+      component.cropFileEnd = 40;
+    }
+
+    it('starts closed and is not active until opened', () => {
+      expect(component.advancedMode).toBeFalse();
+      expect(component.isAdvancedModeActive()).toBeFalse();
+    });
+
+    it('opens and closes through the download menu toggle', () => {
+      component.toggleAdvancedMode();
+      expect(component.advancedMode).toBeTrue();
+      expect(component.isAdvancedModeActive()).toBeTrue();
+      expect(localStorage.getItem('advancedMode')).toBe('true');
+
+      component.toggleAdvancedMode();
+      expect(component.advancedMode).toBeFalse();
+      expect(localStorage.getItem('advancedMode')).toBe('false');
+    });
+
+    it('is never active when the feature is not permitted', () => {
+      component.advancedMode = true;
+      component.allowAdvancedDownload = false;
+
+      expect(component.isAdvancedModeActive()).toBeFalse();
+    });
+
+    it('refuses to open when the feature is not permitted', () => {
+      component.allowAdvancedDownload = false;
+
+      component.toggleAdvancedMode();
+
+      expect(component.advancedMode).toBeFalse();
+    });
+
+    it('clears every advanced option when closed', () => {
+      component.toggleAdvancedMode();
+      fillAdvancedOptions();
+
+      component.closeAdvancedMode();
+
+      expect(component.customArgsEnabled).toBeFalse();
+      expect(component.customArgs).toBeNull();
+      expect(component.replaceArgs).toBeFalse();
+      expect(component.customOutputEnabled).toBeFalse();
+      expect(component.customOutput).toBeNull();
+      expect(component.youtubeAuthEnabled).toBeFalse();
+      expect(component.youtubeUsername).toBeNull();
+      expect(component.youtubePassword).toBeNull();
+      expect(component.cropFile).toBeFalse();
+      expect(component.cropFileStart).toBeNull();
+      expect(component.cropFileEnd).toBeNull();
+    });
+
+    it('passes advanced options through the download request while open', () => {
+      const download_file_spy = spyOn((component as any).postsService, 'downloadFile')
+        .and.returnValue(of({download: {uid: 'queued-advanced'}}));
+      component.toggleAdvancedMode();
+      fillAdvancedOptions();
+
+      component.downloadClicked();
+
+      expect(download_file_spy).toHaveBeenCalled();
+      const args = download_file_spy.calls.argsFor(0);
+      // customArgs is only used to replace args; otherwise they are additional
+      expect(args[CUSTOM_ARGS_INDEX]).toBeNull();
+      expect(args[ADDITIONAL_ARGS_INDEX]).toBe('--write-thumbnail');
+      expect(args[CUSTOM_OUTPUT_INDEX]).toBe('custom/path');
+      expect(args[USERNAME_INDEX]).toBe('user');
+      expect(args[PASSWORD_INDEX]).toBe('secret');
+      expect(args[CROP_SETTINGS_INDEX]).toEqual({cropFileStart: 10, cropFileEnd: 40});
+    });
+
+    it('sends custom args as replacement args when replace is checked', () => {
+      const download_file_spy = spyOn((component as any).postsService, 'downloadFile')
+        .and.returnValue(of({download: {uid: 'queued-replace'}}));
+      component.toggleAdvancedMode();
+      fillAdvancedOptions();
+      component.replaceArgs = true;
+
+      component.downloadClicked();
+
+      const args = download_file_spy.calls.argsFor(0);
+      expect(args[CUSTOM_ARGS_INDEX]).toBe('--write-thumbnail');
+      expect(args[ADDITIONAL_ARGS_INDEX]).toBeNull();
+    });
+
+    it('sends no advanced options once advanced mode is closed', () => {
+      const download_file_spy = spyOn((component as any).postsService, 'downloadFile')
+        .and.returnValue(of({download: {uid: 'queued-closed'}}));
+      component.toggleAdvancedMode();
+      fillAdvancedOptions();
+      component.closeAdvancedMode();
+
+      component.downloadClicked();
+
+      const args = download_file_spy.calls.argsFor(0);
+      expect(args[CUSTOM_ARGS_INDEX]).toBeNull();
+      expect(args[ADDITIONAL_ARGS_INDEX]).toBeNull();
+      expect(args[CUSTOM_OUTPUT_INDEX]).toBeNull();
+      expect(args[USERNAME_INDEX]).toBeNull();
+      expect(args[PASSWORD_INDEX]).toBeNull();
+      expect(args[CROP_SETTINGS_INDEX]).toBeNull();
+    });
+
+    it('ignores stale advanced values that were never cleared', () => {
+      const download_file_spy = spyOn((component as any).postsService, 'downloadFile')
+        .and.returnValue(of({download: {uid: 'queued-stale'}}));
+      // simulates values surviving in component state without the panel being open
+      fillAdvancedOptions();
+      component.advancedMode = false;
+
+      component.downloadClicked();
+
+      const args = download_file_spy.calls.argsFor(0);
+      expect(args[ADDITIONAL_ARGS_INDEX]).toBeNull();
+      expect(args[CUSTOM_OUTPUT_INDEX]).toBeNull();
+      expect(args[USERNAME_INDEX]).toBeNull();
+      expect(args[PASSWORD_INDEX]).toBeNull();
+      expect(args[CROP_SETTINGS_INDEX]).toBeNull();
+    });
+
+    it('keeps the simulated command in sync with what a download would send', () => {
+      const generate_args_spy = spyOn((component as any).postsService, 'generateArgs')
+        .and.returnValue(of({args: []}));
+      fillAdvancedOptions();
+      component.advancedMode = false;
+
+      component.getSimulatedOutput();
+
+      const args = generate_args_spy.calls.argsFor(0);
+      expect(args[CUSTOM_ARGS_INDEX]).toBeNull();
+      expect(args[ADDITIONAL_ARGS_INDEX]).toBeNull();
+      expect(args[CUSTOM_OUTPUT_INDEX]).toBeNull();
+      expect(args[CROP_SETTINGS_INDEX]).toBeNull();
+    });
+
+    it('does not restore advanced options from storage when the feature is off', async () => {
+      localStorage.setItem('advancedMode', 'true');
+      localStorage.setItem('customArgsEnabled', 'true');
+      localStorage.setItem('customArgs', '--stale-arg');
+      (component as any).postsService.config['Advanced']['allow_advanced_download'] = false;
+
+      await component.loadConfig();
+
+      expect(component.advancedMode).toBeFalse();
+      expect(component.isAdvancedModeActive()).toBeFalse();
+      expect(component.customArgsEnabled).toBeFalse();
+      expect(component.customArgs).toBeNull();
+    });
+
+    it('restores advanced options from storage when advanced mode was left open', async () => {
+      localStorage.setItem('advancedMode', 'true');
+      localStorage.setItem('customArgsEnabled', 'true');
+      localStorage.setItem('customArgs', '--restored-arg');
+      (component as any).postsService.config['Advanced']['allow_advanced_download'] = true;
+
+      await component.loadConfig();
+
+      expect(component.advancedMode).toBeTrue();
+      expect(component.customArgsEnabled).toBeTrue();
+      expect(component.customArgs).toBe('--restored-arg');
+    });
+  });
 });

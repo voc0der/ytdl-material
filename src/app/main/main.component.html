@@ -1,6 +1,6 @@
 <br/>
 <div class="big demo-basic">
-  <mat-card id="card" style="margin-right: 20px; margin-left: 20px;" [ngClass]="(allowAdvancedDownload) ? 'no-border-radius-bottom' : 'border-radius-both'">
+  <mat-card id="card" style="margin-right: 20px; margin-left: 20px;" [ngClass]="isAdvancedModeActive() ? 'no-border-radius-bottom' : 'border-radius-both'">
     <mat-card-content style="padding: 0px 8px 0px 8px;">
       <div style="position: relative; margin-right: 15px; margin-top: 20px;">
         <form class="example-form">
@@ -132,6 +132,12 @@
                 <span i18n="Main download button option for autoplay">Autoplay</span>
               </button>
             }
+            @if (allowAdvancedDownload) {
+              <button mat-menu-item (click)="toggleAdvancedMode()" [disabled]="!!current_download">
+                <mat-icon>{{advancedMode ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
+                <span i18n="Main download button option for advanced mode">Advanced</span>
+              </button>
+            }
             @if (hasAdditionalDownloadMenuActions()) {
               <mat-divider></mat-divider>
             }
@@ -162,17 +168,19 @@
     </mat-card-actions>
   </mat-card>
 </div>
-@if (allowAdvancedDownload) {
+@if (isAdvancedModeActive()) {
   <div class="big demo-basic">
     <form style="margin-left: 20px; margin-right: 20px;">
-      <mat-expansion-panel class="big no-border-radius-top">
-        <mat-expansion-panel-header>
-          <mat-panel-title>
-            <ng-container i18n="Advanced download mode panel">
-                        Advanced
-                    </ng-container>
-          </mat-panel-title>
-        </mat-expansion-panel-header>
+      <mat-card class="big no-border-radius-top advanced-panel">
+        <div class="advanced-panel-header">
+          <span class="advanced-panel-title" i18n="Advanced download mode panel">Advanced</span>
+          <button type="button" class="advanced-panel-close" mat-icon-button (click)="closeAdvancedMode()"
+            matTooltip="Close advanced mode and clear these options"
+            i18n-matTooltip="Close advanced mode tooltip"
+            aria-label="Close advanced mode" i18n-aria-label="Close advanced mode label">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
         @if (this.simulatedOutput) {
           <p>
             <ng-container i18n="Simulated command label">
@@ -267,7 +275,7 @@
               </div>
             </div>
           </div>
-        </mat-expansion-panel>
+        </mat-card>
       </form>
     </div>
   }

@@ -43,6 +43,7 @@ export class MainComponent implements OnInit {
   cropFile = false;
   cropFileStart = null;
   cropFileEnd = null;
+  advancedMode = false;
   urlError = false;
   path: string | string[] = '';
   url = '';
@@ -222,7 +223,11 @@ export class MainComponent implements OnInit {
     localStorage.setItem('cached_filemanager_enabled', this.fileManagerEnabled.toString());
     this.cachedFileManagerEnabled = this.fileManagerEnabled;
 
-    if (this.allowAdvancedDownload) {
+    this.advancedMode = this.allowAdvancedDownload && localStorage.getItem('advancedMode') === 'true';
+
+    // Advanced options only exist while advanced mode is open. Restoring them otherwise
+    // would leave hidden options silently applied to every download.
+    if (this.isAdvancedModeActive()) {
       if (localStorage.getItem('customArgsEnabled') !== null) {
         this.customArgsEnabled = localStorage.getItem('customArgsEnabled') === 'true';
       }
@@ -353,6 +358,83 @@ export class MainComponent implements OnInit {
     return this.sponsorBlockDownloadsEnabled || this.hasPlaylistUrlInInput() || this.hasChannelSearchPlaylistUrlInInput();
   }
 
+  // Advanced options apply only while the panel is open and the feature is permitted.
+  // Everything that reads an advanced field goes through this so a hidden panel can
+  // never contribute args to a download.
+  isAdvancedModeActive(): boolean {
+    return this.allowAdvancedDownload && this.advancedMode;
+  }
+
+  toggleAdvancedMode(): void {
+    this.setAdvancedMode(!this.advancedMode);
+  }
+
+  closeAdvancedMode(): void {
+    this.setAdvancedMode(false);
+  }
+
+  private setAdvancedMode(next_value: boolean): void {
+    if (!this.allowAdvancedDownload) next_value = false;
+    this.advancedMode = next_value;
+    localStorage.setItem('advancedMode', next_value.toString());
+
+    // Closing the panel clears the options rather than hiding them, so what the user
+    // sees and what gets downloaded cannot drift apart.
+    if (!next_value) this.resetAdvancedOptions();
+
+    this.argsChanged();
+  }
+
+  private resetAdvancedOptions(): void {
+    this.customArgsEnabled = false;
+    this.customArgs = null;
+    this.replaceArgs = false;
+    this.customOutputEnabled = false;
+    this.customOutput = null;
+    this.youtubeAuthEnabled = false;
+    this.youtubeUsername = null;
+    this.youtubePassword = null;
+    this.cropFile = false;
+    this.cropFileStart = null;
+    this.cropFileEnd = null;
+
+    localStorage.setItem('customArgsEnabled', 'false');
+    localStorage.setItem('replaceArgs', 'false');
+    localStorage.setItem('customOutputEnabled', 'false');
+    localStorage.setItem('youtubeAuthEnabled', 'false');
+  }
+
+  // Single source of truth for the advanced values a download should use. Shared by the
+  // real download and the simulated command so the preview cannot disagree with reality.
+  getAdvancedDownloadOptions(): {
+    customArgs: string,
+    additionalArgs: string,
+    customOutput: string,
+    youtubeUsername: string,
+    youtubePassword: string,
+    cropFileSettings: {cropFileStart: number, cropFileEnd: number}
+  } {
+    if (!this.isAdvancedModeActive()) {
+      return {
+        customArgs: null,
+        additionalArgs: null,
+        customOutput: null,
+        youtubeUsername: null,
+        youtubePassword: null,
+        cropFileSettings: null
+      };
+    }
+
+    return {
+      customArgs: (this.customArgsEnabled && this.replaceArgs ? this.customArgs : null),
+      additionalArgs: (this.customArgsEnabled && !this.replaceArgs ? this.customArgs : null),
+      customOutput: (this.customOutputEnabled ? this.customOutput : null),
+      youtubeUsername: (this.youtubeAuthEnabled && this.youtubeUsername ? this.youtubeUsername : null),
+      youtubePassword: (this.youtubeAuthEnabled && this.youtubePassword ? this.youtubePassword : null),
+      cropFileSettings: (this.cropFile ? {cropFileStart: this.cropFileStart, cropFileEnd: this.cropFileEnd} : null)
+    };
+  }
+
   hasPlaylistUrlInInput(): boolean {
     return this.getPlaylistDownloadUrl(this.url || '') !== null;
   }
@@ -402,14 +484,11 @@ export class MainComponent implements OnInit {
     this.urlError = false;
 
     // get common args
-    const customArgs = (this.customArgsEnabled && this.replaceArgs ? this.customArgs : null);
-    const additionalArgs = (this.customArgsEnabled && !this.replaceArgs ? this.customArgs : null);
-    const customOutput = (this.customOutputEnabled ? this.customOutput : null);
-    const youtubeUsername = (this.youtubeAuthEnabled && this.youtubeUsername ? this.youtubeUsername : null);
-    const youtubePassword = (this.youtubeAuthEnabled && this.youtubePassword ? this.youtubePassword : null);
+    const {customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings}
+      = this.getAdvancedDownloadOptions();
 
     // set advanced inputs
-    if (this.allowAdvancedDownload) {
+    if (this.isAdvancedModeActive()) {
       if (customArgs) {
         localStorage.setItem('customArgs', customArgs);
       }
@@ -427,15 +506,6 @@ export class MainComponent implements OnInit {
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
     const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
     const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
-
-    let cropFileSettings = null;
-
-    if (this.cropFile) {
-      cropFileSettings = {
-        cropFileStart: this.cropFileStart,
-        cropFileEnd: this.cropFileEnd
-      }
-    }
 
     const selected_quality = this.selectedQuality;
     const selected_audio_language = selectedAudioLanguage;
@@ -844,12 +914,10 @@ export class MainComponent implements OnInit {
     const urls = this.getURLArray(this.url);
     if (urls.length > 1) return;
 
-    // this function should be very similar to downloadClicked()
-    const customArgs = (this.customArgsEnabled && this.replaceArgs ? this.customArgs : null);
-    const additionalArgs = (this.customArgsEnabled && !this.replaceArgs ? this.customArgs : null);
-    const customOutput = (this.customOutputEnabled ? this.customOutput : null);
-    const youtubeUsername = (this.youtubeAuthEnabled && this.youtubeUsername ? this.youtubeUsername : null);
-    const youtubePassword = (this.youtubeAuthEnabled && this.youtubePassword ? this.youtubePassword : null);
+    // shares getAdvancedDownloadOptions() with downloadClicked() so the previewed command
+    // always matches what an actual download would run
+    const {customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings}
+      = this.getAdvancedDownloadOptions();
 
     const type = this.audioOnly ? 'audio' : 'video';
 
@@ -857,15 +925,6 @@ export class MainComponent implements OnInit {
     const selectedAudioLanguage = this.getSelectedAudioLanguage();
     const selectedSubtitleLanguage = this.audioOnly ? null : this.getSelectedSubtitleLanguage();
     const selectedSubtitleType = this.audioOnly ? null : this.getSelectedSubtitleType();
-
-    let cropFileSettings = null;
-
-    if (this.cropFile) {
-      cropFileSettings = {
-        cropFileStart: this.cropFileStart,
-        cropFileEnd: this.cropFileEnd
-      }
-    }
 
     this.postsService.generateArgs(this.url, type as FileType, (customQualityConfiguration || this.selectedQuality === '' || typeof this.selectedQuality !== 'string' ? null : this.selectedQuality),
       customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, false, selectedAudioLanguage, selectedSubtitleLanguage, selectedSubtitleType).subscribe(res => {

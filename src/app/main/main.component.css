@@ -175,6 +175,30 @@ mat-form-field.mat-mdc-form-field {
     border-radius: 0px 0px 16px 16px;
 }
 
+.advanced-panel {
+    padding-top: 8px;
+}
+
+.advanced-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.advanced-panel-title {
+    font-size: 15px;
+    opacity: 0.75;
+}
+
+.advanced-panel-close {
+    opacity: 0.55;
+}
+
+.advanced-panel-close:hover {
+    opacity: 1;
+}
+
 .url-input {
     padding-right: 25px;
     overflow-y: hidden;
