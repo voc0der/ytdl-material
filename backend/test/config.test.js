@@ -59,5 +59,25 @@ describe('Config', async function() {
         assert(changes[2]['key'] === 'test_prop4' && changes[2]['old_value'] === false && changes[2]['new_value'] === true);
         assert(changes[3]['key'] === 'test_prop6' && changes[3]['old_value'] === false && changes[3]['new_value'] === true);
     });
+
+    it('Strips the retired extractor client fallback setting on initialize', async function() {
+        const config_json = config_api.getConfigFile();
+        config_json['YtdlMaterial']['Downloader']['use_extractor_client_fallback'] = true;
+        config_api.setConfigFile(config_json);
+
+        config_api.initialize();
+
+        const updated_config = config_api.getConfigFile();
+        assert(!('use_extractor_client_fallback' in updated_config['YtdlMaterial']['Downloader']));
+    });
+
+    it('Leaves the config alone when no retired settings are stored', async function() {
+        config_api.initialize();
+        const before = JSON.stringify(config_api.getConfigFile());
+
+        config_api.initialize();
+
+        assert.strictEqual(JSON.stringify(config_api.getConfigFile()), before);
+    });
 });
 

@@ -997,7 +997,6 @@ async function getSubscriptionInfo(sub) {
     downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
     downloadConfig = utils.injectArgs(downloadConfig, ['--playlist-end', '1']);
     downloadConfig = downloader_api.appendYtDlpImpersonationArgs(downloadConfig, downloader_fork);
-    downloadConfig = downloader_api.appendExtractorClientFallbackArgs(downloadConfig, downloader_fork);
     let useCookies = config_api.getConfigItem('ytdl_use_cookies');
     if (useCookies) {
         if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
@@ -1493,7 +1492,6 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     }
 
     downloadConfig = downloader_api.appendYtDlpImpersonationArgs(downloadConfig, default_downloader);
-    downloadConfig = downloader_api.appendExtractorClientFallbackArgs(downloadConfig, default_downloader);
 
     downloadConfig = utils.filterArgs(downloadConfig, ['--write-comments']);
 

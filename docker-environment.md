@@ -95,7 +95,14 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 * `ytdl_min_sleep_between_downloads`: minimum seconds to wait before starting the next queued download step (default `0`, disabled)
 * `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads and reuse existing files in playlists instead of downloading them again (default `'false'`)
 * `ytdl_max_playlist_chunks`: cap automatic playlist chunk creation (default `20`, min `1`)
-* `ytdl_use_extractor_client_fallback`: set to `'true'` to add yt-dlp `--extractor-args youtube:player_client=tv,web` as a workaround for 403 download errors (default `'false'`)
+
+`ytdl_use_extractor_client_fallback` has been removed. It always applied a fixed yt-dlp client list (`--extractor-args youtube:player_client=tv,web`), which no longer works and eventually caused the HTTP 403 download errors it was meant to prevent. yt-dlp now picks its own clients. If you need to pin one, set it yourself in **Settings → Downloader → Global custom args** (args are delimited by `,,`):
+
+```
+--extractor-args,,youtube:player_client=default
+```
+
+Anything you set there takes precedence and is never overwritten. See the [wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for how to pick a client.
 * `ytdl_js_runtimes`: pin the JavaScript runtime yt-dlp uses to solve YouTube's JS challenge, passed through as `--js-runtimes` (for example `deno` or `node`). Leave empty to let yt-dlp auto-detect an installed runtime, which is the default and is recommended. Pinning a runtime that is not installed causes downloads to fail with `unable to download video data: HTTP Error 403: Forbidden`; run `yt-dlp -v` and check the `JS Challenge Providers` line to see which runtimes are actually available (default empty)
 
 ## OIDC
