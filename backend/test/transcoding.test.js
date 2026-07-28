@@ -41,6 +41,44 @@ describe('Transcoding', function() {
         }
     });
 
+    it('describeHardwareSkipReason explains why software encoding was chosen', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            config_api.setConfigItem('ytdl_transcoding', false);
+            assert(transcoding_api.describeHardwareSkipReason('.mp4').includes('disabled'));
+
+            config_api.setConfigItem('ytdl_transcoding', 'nvenc');
+            // ineligible container is reported ahead of any flight test state
+            const ext_reason = transcoding_api.describeHardwareSkipReason('.webm');
+            assert(ext_reason.includes('.webm'));
+            assert(ext_reason.includes('hardware-eligible'));
+
+            // eligible container, but no flight test has passed in this process
+            const flight_reason = transcoding_api.describeHardwareSkipReason('.mp4');
+            assert(flight_reason !== null);
+            assert(flight_reason.includes('flight test'));
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+        }
+    });
+
+    it('getHardwareFfmpegSettings and describeHardwareSkipReason always agree', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            for (const mode of [false, 'nvenc', 'vaapi', 'garbage']) {
+                config_api.setConfigItem('ytdl_transcoding', mode);
+                for (const ext of ['.mp4', '.webm', '.mkv', '']) {
+                    const settings = transcoding_api.getHardwareFfmpegSettings(ext);
+                    const skip_reason = transcoding_api.describeHardwareSkipReason(ext);
+                    // exactly one of the two must be non-null, or the log would lie
+                    assert((settings === null) === (skip_reason !== null));
+                }
+            }
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+        }
+    });
+
     it('runFlightTest with transcoding disabled', async function() {
         const original_value = config_api.getConfigItem('ytdl_transcoding');
         try {

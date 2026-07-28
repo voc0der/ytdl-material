@@ -463,11 +463,24 @@ exports.createEdgeNGrams = (str) => {
 
 exports.cropFile = async (file_path, start, end, ext) => {
     const hardware_settings = transcoding_api.getHardwareFfmpegSettings(ext);
-    const crop_success = await cropFileAttempt(file_path, start, end, ext, hardware_settings);
+    const start_time = Date.now();
+
+    // Cropping re-encodes and can run for minutes with no other output, so announce it up
+    // front. Without this a long crop is indistinguishable from a hung download.
+    logger.info(`Cropping '${file_path}' using ${hardware_settings
+        ? `${hardware_settings.label} hardware encoding (${hardware_settings.video_encoder})`
+        : 'software encoding'}. This can take a while for large files.`);
+
+    let crop_success = await cropFileAttempt(file_path, start, end, ext, hardware_settings);
     if (!crop_success && hardware_settings) {
         logger.warn(`Hardware-accelerated crop failed for '${file_path}'. Retrying with software processing.`);
-        return await cropFileAttempt(file_path, start, end, ext, null);
+        crop_success = await cropFileAttempt(file_path, start, end, ext, null);
     }
+
+    const elapsed_seconds = ((Date.now() - start_time) / 1000).toFixed(1);
+    if (crop_success) logger.info(`Cropping for '${file_path}' complete in ${elapsed_seconds}s.`);
+    else logger.error(`Cropping for '${file_path}' failed after ${elapsed_seconds}s.`);
+
     return crop_success;
 }
 
@@ -491,8 +504,12 @@ function cropFileAttempt(file_path, start, end, ext, hardware_settings) {
             base_ffmpeg_call = base_ffmpeg_call.videoCodec(hardware_settings.video_encoder);
         }
         base_ffmpeg_call
+            // the resolved command line is the only definitive record of which encoder ran
+            .on('start', (command_line) => {
+                logger.debug(`ffmpeg crop command: ${command_line}`);
+            })
             .on('end', () => {
-                logger.verbose(`Cropping for '${file_path}' complete.`);
+                logger.verbose(`Cropping attempt for '${file_path}' finished.`);
                 fs.unlinkSync(file_path);
                 fs.moveSync(temp_file_path, file_path);
                 resolve(true);

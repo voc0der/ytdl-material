@@ -76,17 +76,37 @@ exports.getTranscodingMode = () => {
     return exports.normalizeTranscodingMode(config_api.getConfigItem('ytdl_transcoding'));
 }
 
+// Explains why hardware encoding will not be used for the given extension, or null when it
+// will be. Falling back to software is silent by nature, so callers use this to say why.
+exports.describeHardwareSkipReason = (ext) => {
+    const mode = exports.getTranscodingMode();
+    if (!mode) return 'hardware transcoding is disabled';
+    if (!HW_ELIGIBLE_EXTS.includes((ext || '').toLowerCase())) {
+        return `'${ext}' is not a hardware-eligible container (${HW_ELIGIBLE_EXTS.join(', ')})`;
+    }
+    if (!flight_test_status.checked) return 'the hardware flight test has not finished yet';
+    if (!flight_test_status.available) {
+        return `the hardware flight test failed${flight_test_status.error ? ` (${flight_test_status.error})` : ''}`;
+    }
+    if (flight_test_status.mode !== mode) {
+        return `the flight test ran for '${flight_test_status.mode}' but the configured mode is now '${mode}'`;
+    }
+    return null;
+}
+
 // Returns the ffmpeg settings needed to hardware encode a file with the given extension,
 // or null if the file should use software processing instead
 exports.getHardwareFfmpegSettings = (ext) => {
+    const skip_reason = exports.describeHardwareSkipReason(ext);
+    if (skip_reason) {
+        logger.debug(`Using software encoding because ${skip_reason}.`);
+        return null;
+    }
     const mode = exports.getTranscodingMode();
-    if (!mode) return null;
-    if (!HW_ELIGIBLE_EXTS.includes((ext || '').toLowerCase())) return null;
-    // hardware encoding is only used once the flight test confirmed it works
-    if (!flight_test_status.checked || !flight_test_status.available || flight_test_status.mode !== mode) return null;
     const mode_info = TRANSCODING_MODES[mode];
     return {
         mode: mode,
+        label: mode_info.label,
         input_options: [...mode_info.input_options],
         video_filters: [...mode_info.video_filters],
         video_encoder: mode_info.video_encoder
