@@ -90,6 +90,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_use_extractor_client_fallback',
         'path': 'YtdlMaterial.Downloader.use_extractor_client_fallback'
     },
+    'ytdl_js_runtimes': {
+        'key': 'ytdl_js_runtimes',
+        'path': 'YtdlMaterial.Downloader.js_runtimes'
+    },
 
     // Extra
     'ytdl_title_top': {
@@ -460,6 +464,8 @@ const YTDL_ARGS_WITH_VALUES = [
     '--max-sleep-interval',
     '-f',
     '--format',
+    '-S',
+    '--format-sort',
     '--merge-output-format',
     '--sub-format',
     '--sub-lang',

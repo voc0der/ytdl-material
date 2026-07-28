@@ -35,12 +35,22 @@ function hasArg(args = [], target_arg = '') {
     return args.some(arg => typeof arg === 'string' && (arg === target_arg || arg.startsWith(`${target_arg}=`)));
 }
 
+// yt-dlp needs a JavaScript runtime to solve YouTube's JS challenge (nsig/signature
+// deciphering). Getting this wrong is not a loud failure: extraction still succeeds and
+// yt-dlp only fails later with "unable to download video data: HTTP Error 403: Forbidden".
+// Pinning a runtime that isn't installed causes exactly that, so by default we pass no
+// --js-runtimes flag at all and let yt-dlp auto-detect whatever is present.
 function ensureJavascriptRuntimeArgs(args = [], youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
     if (!Array.isArray(args)) return [];
     if (youtubedl_fork !== 'yt-dlp') return args;
     if (hasArg(args, '--js-runtimes')) return args;
-    return ['--js-runtimes', 'node', ...args];
+
+    const configured_runtimes = config_api.getConfigItem('ytdl_js_runtimes');
+    if (typeof configured_runtimes !== 'string' || !configured_runtimes.trim()) return args;
+
+    return ['--js-runtimes', configured_runtimes.trim(), ...args];
 }
+exports.ensureJavascriptRuntimeArgs = ensureJavascriptRuntimeArgs;
 
 function getYoutubeDLEnv() {
     return {
@@ -169,6 +179,7 @@ exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl
     const runtime_args = ensureJavascriptRuntimeArgs(args, selected_fork);
     const base_args = getYoutubeDLRuntimeBaseArgs(selected_fork);
     logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
+    logger.debug(`${selected_fork} streaming args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, url, ...runtime_args], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getYoutubeDLRuntimeEnv(selected_fork)
@@ -250,6 +261,7 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
     const base_args = getYoutubeDLRuntimeBaseArgs(youtubedl_fork);
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
+    logger.debug(`${youtubedl_fork} args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     const child_process = execa(youtubedl_path, [...base_args, url, ...runtime_args], {
         maxBuffer: Infinity,
         stdin: 'ignore',

@@ -202,6 +202,13 @@
               <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_ytdlp_impersonation']"><ng-container i18n="Use yt-dlp browser impersonation setting">Use yt-dlp browser impersonation</ng-container></mat-checkbox>
             </div>
             }
+            <div class="col-12 mt-3 mb-2">
+              <mat-form-field class="text-field" color="accent">
+                <mat-label i18n="JavaScript runtimes">JavaScript runtimes</mat-label>
+                <input matInput [(ngModel)]="new_config['Downloader']['js_runtimes']" placeholder="deno">
+                <mat-hint><ng-container i18n="JavaScript runtimes setting input hint">Optional. Pins the runtime yt-dlp uses to solve YouTube's JS challenge (--js-runtimes). Leave empty to auto-detect, which is recommended. Pinning a runtime that is not installed causes downloads to fail with HTTP 403.</ng-container></mat-hint>
+              </mat-form-field>
+            </div>
           </div>
         </div>
       }

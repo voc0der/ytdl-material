@@ -1108,6 +1108,35 @@ describe('Subscriptions', function() {
         assert.strictEqual(success, false);
         assert.strictEqual(fs.existsSync(metadata_path), false);
     });
+    it('Applies the extractor client fallback to subscription download args', async function() {
+        const original_fallback = config_api.getConfigItem('ytdl_use_extractor_client_fallback');
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        try {
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', true);
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+
+            const args = await subscriptions_api.generateArgsForSubscription(new_sub, null);
+            const extractor_args_index = args.indexOf('--extractor-args');
+            assert(extractor_args_index !== -1);
+            assert.strictEqual(args[extractor_args_index + 1], 'youtube:player_client=tv,web');
+        } finally {
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', original_fallback);
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
+    it('Omits the extractor client fallback from subscription args when disabled', async function() {
+        const original_fallback = config_api.getConfigItem('ytdl_use_extractor_client_fallback');
+        try {
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', false);
+
+            const args = await subscriptions_api.generateArgsForSubscription(new_sub, null);
+            assert(!args.includes('--extractor-args'));
+        } finally {
+            config_api.setConfigItem('ytdl_use_extractor_client_fallback', original_fallback);
+        }
+    });
+
     it('Fresh uploads', async function() {
 
     });

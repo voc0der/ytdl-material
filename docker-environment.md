@@ -96,6 +96,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 * `ytdl_warn_on_duplicate`: set to `'true'` to warn on duplicate downloads and reuse existing files in playlists instead of downloading them again (default `'false'`)
 * `ytdl_max_playlist_chunks`: cap automatic playlist chunk creation (default `20`, min `1`)
 * `ytdl_use_extractor_client_fallback`: set to `'true'` to add yt-dlp `--extractor-args youtube:player_client=tv,web` as a workaround for 403 download errors (default `'false'`)
+* `ytdl_js_runtimes`: pin the JavaScript runtime yt-dlp uses to solve YouTube's JS challenge, passed through as `--js-runtimes` (for example `deno` or `node`). Leave empty to let yt-dlp auto-detect an installed runtime, which is the default and is recommended. Pinning a runtime that is not installed causes downloads to fail with `unable to download video data: HTTP Error 403: Forbidden`; run `yt-dlp -v` and check the `JS Challenge Providers` line to see which runtimes are actually available (default empty)
 
 ## OIDC
 

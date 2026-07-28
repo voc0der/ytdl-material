@@ -1293,6 +1293,7 @@ async function getPlaylistChunkingMetadata(url, options = {}) {
     }
 
     probe_args = appendYtDlpImpersonationArgs(probe_args, downloader_fork);
+    probe_args = appendExtractorClientFallbackArgs(probe_args, downloader_fork);
 
     logger.debug(`Probing playlist metadata for automatic chunking: ${url}`);
     try {
@@ -2441,9 +2442,17 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 
         if (qualityPath) {
             if (should_preserve_selected_format_args) {
+                // An explicit per-download selection (quality, height, or audio language) wins
+                // over any format args coming from custom args.
                 downloadConfig = stripArgsWithValues(downloadConfig, ['-f', '--format', '-S', '--format-sort', '--merge-output-format']);
+                downloadConfig.push(...qualityPath);
+            } else {
+                // Nothing was selected for this download, so qualityPath is only a default.
+                // Appending it wholesale would emit a second -f that silently overrides the
+                // user's custom args, since yt-dlp honors the last one. Only fill in the
+                // format args custom args did not already set.
+                downloadConfig.push(...omitAlreadySpecifiedArgs(downloadConfig, qualityPath));
             }
-            downloadConfig.push(...qualityPath);
         }
 
         if (subtitlePath) {
@@ -2493,7 +2502,10 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
     // filter out incompatible args
     downloadConfig = filterArgs(downloadConfig, is_audio);
 
-    if (!simulated) logger.verbose(`${default_downloader} args being used (${downloadConfig.length} args)`);
+    if (!simulated) {
+        logger.verbose(`${default_downloader} args being used (${downloadConfig.length} args)`);
+        logger.debug(`${default_downloader} generated args: ${utils.redactCommandArgsForLogging(downloadConfig).join(' ')}`);
+    }
     return downloadConfig;
 }
 
@@ -2634,6 +2646,35 @@ function stripArgsWithValues(args = [], args_to_strip = []) {
         cleaned_args.push(arg);
     }
     return cleaned_args;
+}
+
+// yt-dlp accepts several spellings of the same option, so a flag is "already specified"
+// if any of its aliases is present.
+const EQUIVALENT_ARG_FLAGS = [
+    ['-f', '--format'],
+    ['-S', '--format-sort']
+];
+
+function getEquivalentArgFlags(flag) {
+    return EQUIVALENT_ARG_FLAGS.find(aliases => aliases.includes(flag)) || [flag];
+}
+
+// Returns the flag/value pairs of candidate_args whose flag is not already present in
+// existing_args. Used to apply default format args without overriding user-supplied ones.
+function omitAlreadySpecifiedArgs(existing_args = [], candidate_args = []) {
+    if (!Array.isArray(existing_args) || !Array.isArray(candidate_args)) return [];
+
+    const kept_args = [];
+    for (let i = 0; i < candidate_args.length; i += 2) {
+        const flag = candidate_args[i];
+        const value = candidate_args[i + 1];
+        const already_specified = getEquivalentArgFlags(flag).some(alias => hasArg(existing_args, alias));
+        if (already_specified) continue;
+
+        kept_args.push(flag);
+        if (value !== undefined) kept_args.push(value);
+    }
+    return kept_args;
 }
 
 function stripFlagArgs(args = [], args_to_strip = []) {

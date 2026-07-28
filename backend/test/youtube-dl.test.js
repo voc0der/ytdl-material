@@ -107,5 +107,57 @@ describe('youtube-dl', function() {
             config_api.setConfigItem('ytdl_default_downloader', original_fork);
         }
     });
+
+    describe('JavaScript runtime args', function() {
+        let original_runtimes = null;
+        let original_fork = null;
+
+        beforeEach(function() {
+            original_runtimes = config_api.getConfigItem('ytdl_js_runtimes');
+            original_fork = config_api.getConfigItem('ytdl_default_downloader');
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+        });
+
+        afterEach(function() {
+            config_api.setConfigItem('ytdl_js_runtimes', original_runtimes);
+            config_api.setConfigItem('ytdl_default_downloader', original_fork);
+        });
+
+        it('Does not pin a runtime by default so yt-dlp auto-detects', function() {
+            config_api.setConfigItem('ytdl_js_runtimes', '');
+            const args = youtubedl_api.ensureJavascriptRuntimeArgs(['-f', 'best'], 'yt-dlp');
+            assert(!args.includes('--js-runtimes'));
+            assert.deepStrictEqual(args, ['-f', 'best']);
+        });
+
+        it('Pins the configured runtime when one is set', function() {
+            config_api.setConfigItem('ytdl_js_runtimes', 'deno');
+            const args = youtubedl_api.ensureJavascriptRuntimeArgs(['-f', 'best'], 'yt-dlp');
+            assert.deepStrictEqual(args, ['--js-runtimes', 'deno', '-f', 'best']);
+        });
+
+        it('Trims whitespace and ignores a blank configured runtime', function() {
+            config_api.setConfigItem('ytdl_js_runtimes', '  deno  ');
+            assert.deepStrictEqual(
+                youtubedl_api.ensureJavascriptRuntimeArgs([], 'yt-dlp'),
+                ['--js-runtimes', 'deno']
+            );
+
+            config_api.setConfigItem('ytdl_js_runtimes', '   ');
+            assert.deepStrictEqual(youtubedl_api.ensureJavascriptRuntimeArgs([], 'yt-dlp'), []);
+        });
+
+        it('Leaves an explicitly supplied --js-runtimes untouched', function() {
+            config_api.setConfigItem('ytdl_js_runtimes', 'deno');
+            const args = youtubedl_api.ensureJavascriptRuntimeArgs(['--js-runtimes', 'node'], 'yt-dlp');
+            assert.deepStrictEqual(args, ['--js-runtimes', 'node']);
+        });
+
+        it('Does not add runtime args for non yt-dlp forks', function() {
+            config_api.setConfigItem('ytdl_js_runtimes', 'deno');
+            const args = youtubedl_api.ensureJavascriptRuntimeArgs(['-f', 'best'], 'youtube-dl');
+            assert(!args.includes('--js-runtimes'));
+        });
+    });
 });
 

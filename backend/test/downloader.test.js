@@ -396,6 +396,49 @@ describe('Downloader', function() {
         }
     });
 
+    it('Generate args lets global custom args set the format without a duplicate -f', async function() {
+        const original_global_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '-f,,bestvideo*+bestaudio/best');
+
+            const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
+            const format_flags = args.filter(arg => arg === '-f' || arg === '--format');
+            assert.strictEqual(format_flags.length, 1);
+            assert.strictEqual(args[args.indexOf('-f') + 1], 'bestvideo*+bestaudio/best');
+        } finally {
+            config_api.setConfigItem('ytdl_custom_args', original_global_args);
+        }
+    });
+
+    it('Generate args still applies default format args custom args did not set', async function() {
+        const original_global_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '-f,,bestvideo*+bestaudio/best');
+
+            const args = await downloader_api.generateArgs(url, 'video', {ui_uid: uuid()}, null, true);
+            // custom args supplied no --merge-output-format, so the default should still land
+            assert(args.includes('--merge-output-format'));
+            assert.strictEqual(args[args.indexOf('--merge-output-format') + 1], 'mp4');
+        } finally {
+            config_api.setConfigItem('ytdl_custom_args', original_global_args);
+        }
+    });
+
+    it('Generate args lets an explicit height selection override global custom args', async function() {
+        const original_global_args = config_api.getConfigItem('ytdl_custom_args');
+        try {
+            config_api.setConfigItem('ytdl_custom_args', '-f,,bestvideo*+bestaudio/best');
+
+            const args = await downloader_api.generateArgs(url, 'video', {selectedHeight: '720', ui_uid: uuid()}, null, true);
+            const format_flags = args.filter(arg => arg === '-f' || arg === '--format');
+            assert.strictEqual(format_flags.length, 1);
+            assert(!args.includes('bestvideo*+bestaudio/best'));
+            assert(args[args.indexOf('-f') + 1].includes('height=720'));
+        } finally {
+            config_api.setConfigItem('ytdl_custom_args', original_global_args);
+        }
+    });
+
     it('Download file', async function() {
         this.timeout(300000);
         await downloader_api.setupDownloads();
