@@ -461,20 +461,42 @@ exports.createEdgeNGrams = (str) => {
 
 // ffmpeg helper functions
 
+function describeCropProcessing(hardware_settings) {
+    if (!hardware_settings) return 'software encoding';
+    const decode_label = hardware_settings.hardware_decode ? 'hardware decoding' : 'software decoding';
+    return `${hardware_settings.label} (${hardware_settings.video_encoder}) with ${decode_label}`;
+}
+
 exports.cropFile = async (file_path, start, end, ext) => {
-    const hardware_settings = transcoding_api.getHardwareFfmpegSettings(ext);
     const start_time = Date.now();
+
+    // Degrade one step at a time rather than straight to software. A GPU that cannot decode
+    // a particular source can usually still encode it, so a failed hardware decode should
+    // cost the hardware encode too only if that fails as well.
+    const attempts = [];
+    const full_settings = transcoding_api.getHardwareFfmpegSettings(ext);
+    if (full_settings) {
+        attempts.push(full_settings);
+        if (full_settings.hardware_decode) {
+            attempts.push(transcoding_api.getHardwareFfmpegSettings(ext, {allow_hardware_decode: false}));
+        }
+    }
+    attempts.push(null);
 
     // Cropping re-encodes and can run for minutes with no other output, so announce it up
     // front. Without this a long crop is indistinguishable from a hung download.
-    logger.info(`Cropping '${file_path}' using ${hardware_settings
-        ? `${hardware_settings.label} hardware encoding (${hardware_settings.video_encoder})`
-        : 'software encoding'}. This can take a while for large files.`);
+    logger.info(`Cropping '${file_path}' using ${describeCropProcessing(attempts[0])}. This can take a while for large files.`);
 
-    let crop_success = await cropFileAttempt(file_path, start, end, ext, hardware_settings);
-    if (!crop_success && hardware_settings) {
-        logger.warn(`Hardware-accelerated crop failed for '${file_path}'. Retrying with software processing.`);
-        crop_success = await cropFileAttempt(file_path, start, end, ext, null);
+    let crop_success = false;
+    for (let i = 0; i < attempts.length; i++) {
+        crop_success = await cropFileAttempt(file_path, start, end, ext, attempts[i]);
+        if (crop_success) {
+            if (i > 0) logger.info(`Cropping for '${file_path}' succeeded using ${describeCropProcessing(attempts[i])}.`);
+            break;
+        }
+        if (i + 1 < attempts.length) {
+            logger.warn(`Crop using ${describeCropProcessing(attempts[i])} failed for '${file_path}'. Retrying with ${describeCropProcessing(attempts[i + 1])}.`);
+        }
     }
 
     const elapsed_seconds = ((Date.now() - start_time) / 1000).toFixed(1);

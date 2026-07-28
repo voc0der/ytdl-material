@@ -109,7 +109,22 @@ Anything you set there takes precedence and is never overwritten. See the [wiki]
 
 * `ytdl_transcoding`: hardware acceleration mode used for ffmpeg video processing such as cropping. One of `'false'` (default, software only), `'amf'` (AMD AMF), `'nvenc'` (Nvidia NVENC), `'qsv'` (Intel Quicksync), or `'vaapi'` (Video Acceleration API). Also configurable in Settings under the Downloader tab.
 
-On startup the backend runs a non-blocking flight test that encodes a tiny generated clip with the configured hardware encoder. If the test fails (missing GPU passthrough, missing drivers, unsupported hardware), video processing automatically falls back to software encoding and a warning with the ffmpeg error is shown in the Settings Downloader tab.
+On startup the backend runs two non-blocking flight tests:
+
+1. **Encode** — encodes a tiny generated clip with the configured hardware encoder. If this fails (missing GPU passthrough, missing drivers, unsupported hardware), video processing falls back entirely to software and a warning with the ffmpeg error is shown in the Settings Downloader tab.
+2. **Decode** — encodes a small real clip in software, then decodes it back through the hardware pipeline (`-hwaccel`). Decoding is a separate GPU capability from encoding, so it is never assumed. If this fails, encoding still uses the GPU and only decoding falls back to the CPU.
+
+Decoding is usually the expensive half for 4K or AV1 sources, so enabling it is where most of the speedup comes from. AMF is encode-only and does not attempt hardware decoding.
+
+At runtime, a crop degrades one step at a time: hardware decode + hardware encode, then software decode + hardware encode, then fully software. A GPU too old to decode a given codec is therefore no slower than before.
+
+To confirm what is actually being used:
+
+```bash
+docker logs <container> 2>&1 | grep -E 'flight test|Cropping|software encoding'
+```
+
+Each crop logs the encoder and whether decoding is on the GPU. At `debug` log level the resolved ffmpeg command line is logged too, which is the definitive record of which encoder ran.
 
 Notes:
 

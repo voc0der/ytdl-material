@@ -79,6 +79,59 @@ describe('Transcoding', function() {
         }
     });
 
+    it('every mode declares both encode and decode option sets', function() {
+        for (const [mode, mode_info] of Object.entries(transcoding_api.TRANSCODING_MODES)) {
+            assert(Array.isArray(mode_info.input_options), `${mode} is missing input_options`);
+            assert(Array.isArray(mode_info.decode_input_options), `${mode} is missing decode_input_options`);
+            assert(Array.isArray(mode_info.video_filters), `${mode} is missing video_filters`);
+            assert(typeof mode_info.video_encoder === 'string' && mode_info.video_encoder);
+
+            // decode acceleration must be requested through -hwaccel, and must not pin frames
+            // to GPU memory since the filter chains and encoders here expect system memory
+            if (mode_info.decode_input_options.length > 0) {
+                assert(mode_info.decode_input_options.includes('-hwaccel'), `${mode} decode options must use -hwaccel`);
+                assert(!mode_info.decode_input_options.includes('-hwaccel_output_format'),
+                    `${mode} must not pin decoded frames to GPU memory`);
+            }
+        }
+    });
+
+    it('hardware decode stays off until its own flight test passes', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            config_api.setConfigItem('ytdl_transcoding', 'nvenc');
+            const status = transcoding_api.getStatus();
+            // encode may or may not be available in CI, but decode must never be assumed
+            assert(status.decode_available === false);
+
+            const settings = transcoding_api.getHardwareFfmpegSettings('.mp4');
+            if (settings) {
+                assert(settings.hardware_decode === false);
+                assert(!settings.input_options.includes('-hwaccel'));
+            }
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+        }
+    });
+
+    it('runFlightTest reports decode availability without claiming encode failed', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            config_api.setConfigItem('ytdl_transcoding', 'nvenc');
+            await transcoding_api.runFlightTest();
+            const status = transcoding_api.getStatus();
+
+            assert(status.checked === true);
+            assert(status.in_progress === false);
+            // decode can only be available if encode was, never the other way around
+            if (status.decode_available) assert(status.available === true);
+            // a decode failure must not be recorded as an encode failure
+            if (status.available === false) assert(status.decode_available === false);
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+        }
+    });
+
     it('runFlightTest with transcoding disabled', async function() {
         const original_value = config_api.getConfigItem('ytdl_transcoding');
         try {
