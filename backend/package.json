@@ -29,7 +29,7 @@
     "archiver": "^8.0.0",
     "async": "^3.2.3",
     "async-mutex": "^0.5.0",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.3.0",
     "command-exists": "^1.2.9",
