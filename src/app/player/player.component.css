@@ -7,8 +7,11 @@
 }
 
 .video-player {
-    margin: 0 auto;
-    min-width: 300px;
+    display: block;
+    margin: 0;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
 }
 
 .video-player:focus {
