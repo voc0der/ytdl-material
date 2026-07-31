@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, utils } = require('./test-shared');
+const { assert, fs, path, exec, utils } = require('./test-shared');
 
 describe('Utils', async function() {
     it('Strip properties', async function() {
@@ -126,5 +126,93 @@ describe('Utils', async function() {
         };
         const expected = (1500 * 1000 / 8) * 12;
         assert.strictEqual(utils.getExpectedFileSize(info), expected);
+    });
+
+    describe('snipFile', function() {
+        const snip_dir = path.join(__dirname, 'tmp-snip-test');
+        const source_path = path.join(snip_dir, 'snip-source.mp4');
+
+        async function probeDuration(file_path) {
+            const { stdout } = await exec(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${file_path}"`);
+            return parseFloat(stdout.trim());
+        }
+
+        beforeEach(async function() {
+            this.timeout(60000);
+            await fs.ensureDir(snip_dir);
+            // The checked-in sample is only a second long, which is too short to trim.
+            await exec(`ffmpeg -y -v error -f lavfi -i testsrc=duration=6:size=128x96:rate=10 -pix_fmt yuv420p "${source_path}"`);
+        });
+
+        afterEach(async function() {
+            await fs.remove(snip_dir);
+        });
+
+        it('writes the trimmed range to a new file and leaves the source alone', async function() {
+            this.timeout(60000);
+            const output_path = path.join(snip_dir, 'snip-output.mp4');
+            const source_duration_before = await probeDuration(source_path);
+
+            const success = await utils.snipFile(source_path, output_path, 1, 3, '.mp4');
+
+            assert.strictEqual(success, true);
+            assert.strictEqual(fs.existsSync(output_path), true);
+            assert.strictEqual(fs.existsSync(source_path), true, 'the source file must not be consumed');
+
+            const output_duration = await probeDuration(output_path);
+            assert.ok(Math.abs(output_duration - 2) < 0.5, `expected roughly 2s, got ${output_duration}s`);
+
+            const source_duration_after = await probeDuration(source_path);
+            assert.ok(Math.abs(source_duration_after - source_duration_before) < 0.01, 'the source duration must be unchanged');
+        });
+
+        it('reports failure and leaves no output behind when the source cannot be read', async function() {
+            this.timeout(60000);
+            const output_path = path.join(snip_dir, 'missing-output.mp4');
+
+            const success = await utils.snipFile(path.join(snip_dir, 'does-not-exist.mp4'), output_path, 1, 3, '.mp4');
+
+            assert.strictEqual(success, false);
+            assert.strictEqual(fs.existsSync(output_path), false);
+        });
+
+        it('reports progress while snipping', async function() {
+            this.timeout(60000);
+            const output_path = path.join(snip_dir, 'progress-output.mp4');
+            const reported = [];
+
+            const success = await utils.snipFile(source_path, output_path, 0, 5, '.mp4', (percent) => reported.push(percent));
+
+            assert.strictEqual(success, true);
+            assert.ok(reported.every(percent => percent >= 0 && percent <= 100), 'progress must stay within 0-100');
+        });
+    });
+
+    describe('cropFile', function() {
+        const crop_dir = path.join(__dirname, 'tmp-crop-test');
+        const crop_path = path.join(crop_dir, 'crop-source.mp4');
+
+        beforeEach(async function() {
+            this.timeout(60000);
+            await fs.ensureDir(crop_dir);
+            await exec(`ffmpeg -y -v error -f lavfi -i testsrc=duration=6:size=128x96:rate=10 -pix_fmt yuv420p "${crop_path}"`);
+        });
+
+        afterEach(async function() {
+            await fs.remove(crop_dir);
+        });
+
+        it('replaces the original file in place', async function() {
+            this.timeout(60000);
+            const success = await utils.cropFile(crop_path, 1, 3, '.mp4');
+
+            assert.strictEqual(success, true);
+            assert.strictEqual(fs.existsSync(crop_path), true);
+            assert.strictEqual(fs.existsSync(`${crop_path}.cropped.mp4`), false, 'the temp file must be cleaned up');
+
+            const { stdout } = await exec(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${crop_path}"`);
+            const duration = parseFloat(stdout.trim());
+            assert.ok(Math.abs(duration - 2) < 0.5, `expected roughly 2s, got ${duration}s`);
+        });
     });
 });

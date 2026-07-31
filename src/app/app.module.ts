@@ -20,6 +20,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSliderModule } from '@angular/material/slider';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
@@ -187,6 +188,7 @@ registerLocaleData(es, 'es');
         MatMenuModule,
         MatDialogModule,
         MatSlideToggleModule,
+        MatSliderModule,
         MatAutocompleteModule,
         MatTabsModule,
         MatTooltipModule,

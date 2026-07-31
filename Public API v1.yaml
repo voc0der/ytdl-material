@@ -602,6 +602,50 @@ paths:
           description: OK
       security:
         - Auth query parameter: []
+  /api/snipFile:
+    post:
+      tags:
+        - files
+      summary: Create a new file from a range of an existing file
+      description: >-
+        Starts an asynchronous snip job. The source file is left untouched and a new file
+        is registered once the job completes. Poll /api/getSnipStatus with the returned
+        job_uid for progress.
+      operationId: post-api-snipFile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SnipFileRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnipFileResponse'
+      security:
+        - Auth query parameter: []
+  /api/getSnipStatus:
+    post:
+      tags:
+        - files
+      summary: Get the status of a snip job
+      operationId: post-api-getSnipStatus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetSnipStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSnipStatusResponse'
+      security:
+        - Auth query parameter: []
   /api/deleteAllFiles:
     post:
       tags:
@@ -2044,6 +2088,61 @@ components:
       properties:
         success:
           type: boolean
+        file:
+          $ref: '#/components/schemas/DatabaseFile'
+    SnipFileRequest:
+      required:
+        - uid
+        - start
+        - end
+      type: object
+      properties:
+        uid:
+          type: string
+          description: UID of the file to snip
+        start:
+          type: number
+          description: Start of the range to keep, in seconds
+        end:
+          type: number
+          description: End of the range to keep, in seconds
+    SnipFileResponse:
+      required:
+        - success
+      type: object
+      properties:
+        success:
+          type: boolean
+        job_uid:
+          type: string
+          description: Handle used to poll /api/getSnipStatus
+        error:
+          type: string
+    GetSnipStatusRequest:
+      required:
+        - job_uid
+      type: object
+      properties:
+        job_uid:
+          type: string
+    GetSnipStatusResponse:
+      required:
+        - success
+      type: object
+      properties:
+        success:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - snipping
+            - complete
+            - failed
+        percent:
+          type: number
+          description: Progress of the snip, 0-100
+        error:
+          type: string
         file:
           $ref: '#/components/schemas/DatabaseFile'
     UpdateFileRequest:

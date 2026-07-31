@@ -467,12 +467,10 @@ function describeCropProcessing(hardware_settings) {
     return `${hardware_settings.label} (${hardware_settings.video_encoder}) with ${decode_label}`;
 }
 
-exports.cropFile = async (file_path, start, end, ext) => {
-    const start_time = Date.now();
-
-    // Degrade one step at a time rather than straight to software. A GPU that cannot decode
-    // a particular source can usually still encode it, so a failed hardware decode should
-    // cost the hardware encode too only if that fails as well.
+// Degrade one step at a time rather than straight to software. A GPU that cannot decode
+// a particular source can usually still encode it, so a failed hardware decode should
+// cost the hardware encode too only if that fails as well.
+function buildCropAttempts(ext) {
     const attempts = [];
     const full_settings = transcoding_api.getHardwareFfmpegSettings(ext);
     if (full_settings) {
@@ -482,34 +480,78 @@ exports.cropFile = async (file_path, start, end, ext) => {
         }
     }
     attempts.push(null);
+    return attempts;
+}
+
+/**
+ * Trim source_path down to [start, end) and write the result to output_path, walking the
+ * hardware->software ladder. The source is never modified; callers that want an in-place
+ * crop are responsible for swapping the files themselves.
+ */
+async function runCropLadder(source_path, output_path, start, end, ext, verb, on_progress = null) {
+    const start_time = Date.now();
+    const attempts = buildCropAttempts(ext);
 
     // Cropping re-encodes and can run for minutes with no other output, so announce it up
     // front. Without this a long crop is indistinguishable from a hung download.
-    logger.info(`Cropping '${file_path}' using ${describeCropProcessing(attempts[0])}. This can take a while for large files.`);
+    logger.info(`${verb} '${source_path}' using ${describeCropProcessing(attempts[0])}. This can take a while for large files.`);
 
     let crop_success = false;
     for (let i = 0; i < attempts.length; i++) {
-        crop_success = await cropFileAttempt(file_path, start, end, ext, attempts[i]);
+        crop_success = await cropFileAttempt(source_path, output_path, start, end, attempts[i], on_progress);
         if (crop_success) {
-            if (i > 0) logger.info(`Cropping for '${file_path}' succeeded using ${describeCropProcessing(attempts[i])}.`);
+            if (i > 0) logger.info(`${verb} for '${source_path}' succeeded using ${describeCropProcessing(attempts[i])}.`);
             break;
         }
         if (i + 1 < attempts.length) {
-            logger.warn(`Crop using ${describeCropProcessing(attempts[i])} failed for '${file_path}'. Retrying with ${describeCropProcessing(attempts[i + 1])}.`);
+            logger.warn(`${verb} using ${describeCropProcessing(attempts[i])} failed for '${source_path}'. Retrying with ${describeCropProcessing(attempts[i + 1])}.`);
         }
     }
 
     const elapsed_seconds = ((Date.now() - start_time) / 1000).toFixed(1);
-    if (crop_success) logger.info(`Cropping for '${file_path}' complete in ${elapsed_seconds}s.`);
-    else logger.error(`Cropping for '${file_path}' failed after ${elapsed_seconds}s.`);
+    if (crop_success) logger.info(`${verb} for '${source_path}' complete in ${elapsed_seconds}s.`);
+    else logger.error(`${verb} for '${source_path}' failed after ${elapsed_seconds}s.`);
 
     return crop_success;
 }
 
-function cropFileAttempt(file_path, start, end, ext, hardware_settings) {
+exports.cropFile = async (file_path, start, end, ext) => {
+    const temp_file_path = `${file_path}.cropped${ext}`;
+    const crop_success = await runCropLadder(file_path, temp_file_path, start, end, ext, 'Cropping');
+    if (!crop_success) return false;
+
+    // Only swap once ffmpeg has produced a complete file, so a failure leaves the original intact.
+    fs.unlinkSync(file_path);
+    fs.moveSync(temp_file_path, file_path);
+    return true;
+}
+
+/**
+ * Non-destructive counterpart to cropFile: writes the trimmed range to its own file and
+ * leaves the source untouched, so an already-downloaded file can be snipped without
+ * losing the original.
+ * @param {string} source_path file to snip
+ * @param {string} output_path where the snipped file should be written
+ * @param {number} start seconds
+ * @param {number} end seconds
+ * @param {string} ext container extension, used to pick hardware settings
+ * @param {function} [on_progress] called with a 0-100 percentage as ffmpeg reports it
+ */
+exports.snipFile = async (source_path, output_path, start, end, ext, on_progress = null) => {
+    const snip_success = await runCropLadder(source_path, output_path, start, end, ext, 'Snipping', on_progress);
+    if (!snip_success) {
+        try {
+            fs.removeSync(output_path);
+        } catch (e) {
+            // Non-fatal, the ladder already removes its own partial output.
+        }
+    }
+    return snip_success;
+}
+
+function cropFileAttempt(source_path, output_path, start, end, hardware_settings, on_progress = null) {
     return new Promise(resolve => {
-        const temp_file_path = `${file_path}.cropped${ext}`;
-        let base_ffmpeg_call = ffmpeg(file_path);
+        let base_ffmpeg_call = ffmpeg(source_path);
         if (start) {
             base_ffmpeg_call = base_ffmpeg_call.seekOutput(start);
         }
@@ -525,27 +567,31 @@ function cropFileAttempt(file_path, start, end, ext, hardware_settings) {
             }
             base_ffmpeg_call = base_ffmpeg_call.videoCodec(hardware_settings.video_encoder);
         }
+        if (on_progress) {
+            base_ffmpeg_call = base_ffmpeg_call.on('progress', (progress) => {
+                const percent = Number(progress && progress.percent);
+                if (Number.isFinite(percent)) on_progress(Math.min(100, Math.max(0, percent)));
+            });
+        }
         base_ffmpeg_call
             // the resolved command line is the only definitive record of which encoder ran
             .on('start', (command_line) => {
                 logger.debug(`ffmpeg crop command: ${command_line}`);
             })
             .on('end', () => {
-                logger.verbose(`Cropping attempt for '${file_path}' finished.`);
-                fs.unlinkSync(file_path);
-                fs.moveSync(temp_file_path, file_path);
+                logger.verbose(`Cropping attempt for '${source_path}' finished.`);
                 resolve(true);
             })
             .on('error', (err) => {
-                logger.error(`Failed to crop ${file_path}.`);
+                logger.error(`Failed to crop ${source_path}.`);
                 logger.error(err);
                 try {
-                    fs.removeSync(temp_file_path);
+                    fs.removeSync(output_path);
                 } catch (e) {
                     // Non-fatal.
                 }
                 resolve(false);
-            }).save(temp_file_path);
+            }).save(output_path);
     });
 }
 

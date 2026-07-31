@@ -1098,6 +1098,152 @@ exports.registerFileDB = async (file_path, type, user_uid = null, category = nul
     return file_obj;
 }
 
+// A snip shorter than this is almost certainly a mis-drag rather than an intentional
+// selection, and ffmpeg can emit a zero-frame file for a sub-frame range.
+const MIN_SNIP_DURATION_SECONDS = 1;
+exports.MIN_SNIP_DURATION_SECONDS = MIN_SNIP_DURATION_SECONDS;
+
+function formatSnipTimestamp(seconds) {
+    const total_seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    const hours = Math.floor(total_seconds / 3600);
+    const minutes = Math.floor((total_seconds % 3600) / 60);
+    const remaining_seconds = total_seconds % 60;
+    const padded_minutes = String(minutes).padStart(2, '0');
+    const padded_seconds = String(remaining_seconds).padStart(2, '0');
+    return hours > 0 ? `${hours}.${padded_minutes}.${padded_seconds}` : `${padded_minutes}.${padded_seconds}`;
+}
+
+/**
+ * Pick a path for the snip next to its source. Staying in the same directory keeps the
+ * snip inside whatever per-user or per-subscription folder the source lives in, which is
+ * what the rest of the file APIs assume.
+ */
+function generateSnipPath(source_path, start, end) {
+    const parsed_source = path.parse(source_path);
+    const suffix = ` [snip ${formatSnipTimestamp(start)}-${formatSnipTimestamp(end)}]`;
+    let candidate_path = path.join(parsed_source.dir, `${parsed_source.name}${suffix}${parsed_source.ext}`);
+
+    // Two snips of the same range would otherwise collide and the second would overwrite
+    // the first's sidecars.
+    let collision_index = 2;
+    while (fs.existsSync(candidate_path)) {
+        candidate_path = path.join(parsed_source.dir, `${parsed_source.name}${suffix} (${collision_index})${parsed_source.ext}`);
+        collision_index++;
+    }
+    return candidate_path;
+}
+
+/**
+ * Copy the source's info JSON next to the snip so registerFileDB can build a full file
+ * object from it. The id is rewritten so the snip does not land in the same duplicate
+ * group as the file it came from.
+ */
+function writeSnipInfoJson(source_path, snip_path, type, start, end) {
+    const source_json = utils.getJSON(source_path, type);
+    if (!source_json) return false;
+
+    const snip_json = JSON.parse(JSON.stringify(source_json));
+    const range_label = `${formatSnipTimestamp(start)}-${formatSnipTimestamp(end)}`;
+    if (snip_json['id']) snip_json['id'] = `${snip_json['id']}-snip-${Math.floor(start)}-${Math.floor(end)}`;
+    if (snip_json['title']) snip_json['title'] = `${snip_json['title']} [snip ${range_label}]`;
+    snip_json['duration'] = end - start;
+    snip_json['_snip_source_path'] = source_path;
+
+    // The parent's chapters and SponsorBlock ranges describe the original timeline, so they
+    // would be wrong for the snipped file.
+    delete snip_json['chapters'];
+    delete snip_json['sponsorblock_chapters'];
+
+    const snip_json_path = `${utils.removeFileExtension(snip_path)}.info.json`;
+    fs.writeFileSync(snip_json_path, JSON.stringify(snip_json));
+    return true;
+}
+
+function copySnipThumbnail(source_path, snip_path) {
+    const source_thumbnail = utils.getDownloadedThumbnail(source_path);
+    if (!source_thumbnail) return;
+    const thumbnail_ext = path.extname(source_thumbnail);
+    try {
+        fs.copySync(source_thumbnail, `${utils.removeFileExtension(snip_path)}${thumbnail_ext}`);
+    } catch (e) {
+        // A snip without a thumbnail is still usable.
+        logger.warn(`Could not copy thumbnail for snip of '${source_path}': ${e.message}`);
+    }
+}
+
+/**
+ * Check a requested snip range on its own, without needing the file record. Returns
+ * {valid, error} so the caller can surface the reason to the user.
+ */
+exports.validateSnipRange = (start, end, source_duration = null) => {
+    const numeric_start = Number(start);
+    const numeric_end = Number(end);
+    if (!Number.isFinite(numeric_start) || !Number.isFinite(numeric_end)) {
+        return {valid: false, error: 'Snip range must be numeric'};
+    }
+    if (numeric_start < 0) return {valid: false, error: 'Snip cannot start before the beginning of the file'};
+    if (numeric_end - numeric_start < MIN_SNIP_DURATION_SECONDS) {
+        return {valid: false, error: `Snip must be at least ${MIN_SNIP_DURATION_SECONDS} second(s) long`};
+    }
+
+    const numeric_duration = Number(source_duration);
+    if (Number.isFinite(numeric_duration) && numeric_duration > 0 && numeric_start >= numeric_duration) {
+        return {valid: false, error: 'Snip cannot start after the end of the file'};
+    }
+
+    return {valid: true, error: null};
+}
+
+/**
+ * Produce a new file containing only [start, end) of an existing file. The source file is
+ * left untouched.
+ * @param {string} file_uid uid of the file to snip
+ * @param {number} start seconds
+ * @param {number} end seconds
+ * @param {string} [user_uid] restricts lookup to this user when multi-user mode is on
+ * @param {function} [on_progress] called with a 0-100 percentage
+ * @returns {object} {success, error, file}
+ */
+exports.snipFile = async (file_uid, start, end, user_uid = null, on_progress = null) => {
+    const source_file = await exports.getVideo(file_uid, user_uid);
+    if (!source_file) return {success: false, error: 'File could not be found'};
+
+    const numeric_start = Number(start);
+    const numeric_end = Number(end);
+    const range_check = exports.validateSnipRange(numeric_start, numeric_end, source_file['duration']);
+    if (!range_check.valid) return {success: false, error: range_check.error};
+
+    const source_path = source_file['path'];
+    if (!source_path || !fs.existsSync(source_path)) {
+        return {success: false, error: 'Source file is missing from disk'};
+    }
+
+    const type = source_file['isAudio'] ? 'audio' : 'video';
+    const ext = path.extname(source_path);
+    const snip_path = generateSnipPath(source_path, numeric_start, numeric_end);
+
+    const snip_success = await utils.snipFile(source_path, snip_path, numeric_start, numeric_end, ext, on_progress);
+    if (!snip_success) return {success: false, error: 'Failed to snip file'};
+
+    if (!writeSnipInfoJson(source_path, snip_path, type, numeric_start, numeric_end)) {
+        // Without metadata registerFileDB cannot build a file object, so clean up rather
+        // than leaving an orphaned media file on disk.
+        fs.removeSync(snip_path);
+        return {success: false, error: 'Source file is missing its metadata, so it cannot be snipped'};
+    }
+    copySnipThumbnail(source_path, snip_path);
+
+    // cropFileSettings is what registerFileDB uses to derive the trimmed duration.
+    const file_obj = await exports.registerFileDB(snip_path, type, source_file['user_uid'] || null, source_file['category'] || null, source_file['sub_id'] || null, {cropFileStart: numeric_start, cropFileEnd: numeric_end});
+    if (!file_obj) {
+        fs.removeSync(snip_path);
+        return {success: false, error: 'Failed to register the snipped file'};
+    }
+
+    logger.info(`Created snip '${file_obj['uid']}' from '${file_uid}' covering ${numeric_start}s-${numeric_end}s.`);
+    return {success: true, file: file_obj};
+}
+
 async function registerFileDBManual(file_object) {
     // add additional info
     file_object['uid'] = uuid();

@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-const { assert, fs, path, files_api, config_api, db_api } = require('./test-shared');
+const { assert, fs, path, exec, utils, files_api, config_api, db_api } = require('./test-shared');
 
 describe('Files', function() {
     const fixture_dir = path.join(__dirname, 'tmp-files-test');
@@ -615,5 +615,162 @@ describe('Files', function() {
         } finally {
             db_api.getRecords = original_get_records;
         }
+    });
+
+    describe('snipFile', function() {
+        const snip_dir = path.join(__dirname, 'tmp-snip-files-test');
+        const snip_source_path = path.join(snip_dir, 'snip-me.mp4');
+        const snip_source_info_path = path.join(snip_dir, 'snip-me.info.json');
+        const snip_source_thumbnail_path = path.join(snip_dir, 'snip-me.jpg');
+
+        const source_record = {
+            uid: 'snip-source-uid',
+            path: snip_source_path,
+            isAudio: false,
+            duration: 6,
+            user_uid: null,
+            sub_id: null,
+            category: null
+        };
+
+        let original_get_video = null;
+        let original_include_metadata = null;
+
+        beforeEach(async function() {
+            this.timeout(60000);
+            await fs.ensureDir(snip_dir);
+            await exec(`ffmpeg -y -v error -f lavfi -i testsrc=duration=6:size=128x96:rate=10 -pix_fmt yuv420p "${snip_source_path}"`);
+            await fs.writeJSON(snip_source_info_path, {
+                id: 'snip-me',
+                title: 'Snip Me',
+                thumbnail: 'https://example.com/thumb.jpg',
+                duration: 6,
+                webpage_url: 'https://www.youtube.com/watch?v=snipme',
+                uploader: 'Uploader',
+                upload_date: '20200101',
+                description: 'Fixture description',
+                view_count: 1,
+                height: 96,
+                abr: null,
+                extractor: 'youtube',
+                chapters: [{title: 'Intro', start_time: 0, end_time: 6}]
+            });
+            await fs.writeFile(snip_source_thumbnail_path, 'not-a-real-jpeg');
+
+            original_include_metadata = config_api.getConfigItem('ytdl_include_metadata');
+            config_api.setConfigItem('ytdl_include_metadata', true);
+
+            original_get_video = files_api.getVideo;
+            files_api.getVideo = async () => JSON.parse(JSON.stringify(source_record));
+        });
+
+        afterEach(async function() {
+            files_api.getVideo = original_get_video;
+            config_api.setConfigItem('ytdl_include_metadata', original_include_metadata);
+            const registered = await db_api.getRecords('files', {url: 'https://www.youtube.com/watch?v=snipme'});
+            for (const file of registered) {
+                await db_api.removeAllRecords('files', {uid: file.uid});
+            }
+            await fs.remove(snip_dir);
+        });
+
+        it('registers a new trimmed file without touching the source', async function() {
+            this.timeout(60000);
+            const result = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(result.success, true, result.error);
+            assert(result.file, 'a file record should be returned');
+            assert.strictEqual(result.file.duration, 2);
+            assert.notStrictEqual(result.file.path, snip_source_path);
+            assert.strictEqual(fs.existsSync(result.file.path), true);
+            assert.strictEqual(fs.existsSync(snip_source_path), true, 'the source file must survive');
+
+            const { stdout } = await exec(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${result.file.path}"`);
+            assert.ok(Math.abs(parseFloat(stdout.trim()) - 2) < 0.5);
+        });
+
+        it('gives the snip its own duplicate identity and drops the source timeline metadata', async function() {
+            this.timeout(60000);
+            const result = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(result.success, true, result.error);
+            assert.notStrictEqual(result.file.duplicate_key, undefined);
+
+            const snip_info = await fs.readJSON(`${utils.removeFileExtension(result.file.path)}.info.json`);
+            assert.strictEqual(snip_info.id, 'snip-me-snip-1-3');
+            assert.strictEqual(snip_info.chapters, undefined, 'parent chapters describe the untrimmed timeline');
+            assert.ok(snip_info.title.includes('snip'));
+        });
+
+        it('copies the thumbnail alongside the snip', async function() {
+            this.timeout(60000);
+            const result = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(result.success, true, result.error);
+            assert.strictEqual(fs.existsSync(`${utils.removeFileExtension(result.file.path)}.jpg`), true);
+        });
+
+        it('does not collide when the same range is snipped twice', async function() {
+            this.timeout(60000);
+            const first = await files_api.snipFile('snip-source-uid', 1, 3);
+            const second = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(first.success, true, first.error);
+            assert.strictEqual(second.success, true, second.error);
+            assert.notStrictEqual(first.file.path, second.file.path);
+            assert.strictEqual(fs.existsSync(first.file.path), true, 'the first snip must not be overwritten');
+        });
+
+        it('refuses a selection shorter than the minimum and writes nothing', async function() {
+            this.timeout(60000);
+            const files_before = (await fs.readdir(snip_dir)).length;
+            const result = await files_api.snipFile('snip-source-uid', 2, 2);
+
+            assert.strictEqual(result.success, false);
+            assert.ok(result.error.includes('at least'));
+            assert.strictEqual((await fs.readdir(snip_dir)).length, files_before);
+        });
+
+        it('refuses to snip when the source file is missing from disk', async function() {
+            this.timeout(60000);
+            await fs.remove(snip_source_path);
+            const result = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(result.success, false);
+            assert.strictEqual(result.error, 'Source file is missing from disk');
+        });
+    });
+
+    describe('validateSnipRange', function() {
+        it('accepts a well-formed range', function() {
+            assert.deepStrictEqual(files_api.validateSnipRange(5, 20, 100), {valid: true, error: null});
+        });
+
+        it('rejects a zero-length selection', function() {
+            const result = files_api.validateSnipRange(10, 10, 100);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.error.includes('at least'));
+        });
+
+        it('rejects an inverted selection', function() {
+            assert.strictEqual(files_api.validateSnipRange(20, 5, 100).valid, false);
+        });
+
+        it('rejects a negative start', function() {
+            assert.strictEqual(files_api.validateSnipRange(-5, 10, 100).valid, false);
+        });
+
+        it('rejects non-numeric bounds', function() {
+            assert.strictEqual(files_api.validateSnipRange('abc', 10, 100).valid, false);
+            assert.strictEqual(files_api.validateSnipRange(1, null, 100).valid, false);
+        });
+
+        it('rejects a start past the end of the file', function() {
+            assert.strictEqual(files_api.validateSnipRange(150, 200, 100).valid, false);
+        });
+
+        it('allows an unknown source duration', function() {
+            assert.strictEqual(files_api.validateSnipRange(5, 20, null).valid, true);
+        });
     });
 });

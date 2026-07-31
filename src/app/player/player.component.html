@@ -42,6 +42,30 @@
                 </div>
               }
             </vg-player>
+            @if (snip_mode) {
+              <div class="snip-panel">
+                <div class="snip-header">
+                  <span class="snip-title"><mat-icon class="snip-title-icon">content_cut</mat-icon><ng-container i18n="Snip panel title">Snip</ng-container></span>
+                  <span class="snip-range">{{formatSnipTimestamp(snip_start)}} &ndash; {{formatSnipTimestamp(snip_end)}}</span>
+                  <span class="snip-length" [class.invalid]="!snipSelectionValid()">{{formatSnipTimestamp(getSnipSelectionLength())}}</span>
+                </div>
+                <mat-slider class="snip-slider" [min]="0" [max]="getSnipDuration()" [step]="0.1" [disabled]="snip_in_progress" [displayWith]="formatSnipTimestamp" discrete>
+                  <input matSliderStartThumb [value]="snip_start" (valueChange)="onSnipStartChange($event)" [attr.aria-label]="'Snip start'" i18n-aria-label="Snip start knob label">
+                  <input matSliderEndThumb [value]="snip_end" (valueChange)="onSnipEndChange($event)" [attr.aria-label]="'Snip end'" i18n-aria-label="Snip end knob label">
+                </mat-slider>
+                @if (snip_in_progress) {
+                  <div class="snip-progress">
+                    <mat-progress-bar mode="determinate" [value]="snip_percent"></mat-progress-bar>
+                    <span class="snip-progress-label" i18n="Snip progress label">Snipping&hellip; {{snip_percent}}%</span>
+                  </div>
+                }
+                <div class="snip-actions">
+                  <button mat-button [disabled]="snip_in_progress" (click)="exitSnipMode()" i18n="Cancel snip button">Cancel</button>
+                  <button mat-button [disabled]="snip_in_progress || !snipSelectionValid()" (click)="previewSnip()" i18n="Preview snip button">Preview</button>
+                  <button mat-flat-button color="accent" [disabled]="snip_in_progress || !snipSelectionValid()" (click)="confirmSnip()" i18n="Create snip button">Create snip</button>
+                </div>
+              </div>
+            }
           </div>
           <div class="player-toolbar-section">
             <div class="container-fluid player-toolbar-container">

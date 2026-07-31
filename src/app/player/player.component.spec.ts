@@ -732,4 +732,87 @@ describe('PlayerComponent', () => {
     component.onPlayerMouseLeave();
     expect(component.chapterTimelineVisible).toBeFalse();
   });
+
+  describe('snip mode', () => {
+    beforeEach(() => {
+      component.currentFile = { uid: 'file-uid', duration: 120 } as DatabaseFile;
+      component.api = {
+        seekTime: jasmine.createSpy('seekTime'),
+        play: jasmine.createSpy('play'),
+        pause: jasmine.createSpy('pause')
+      } as unknown as VgApiService;
+      postsServiceStub.hasPermission = jasmine.createSpy('hasPermission').and.returnValue(true);
+      component.snip_mode = true;
+      component.snip_start = 10;
+      component.snip_end = 40;
+    });
+
+    it('keeps the start knob to the left of the end knob', () => {
+      component.onSnipStartChange(80);
+
+      expect(component.snip_start).toBe(80);
+      expect(component.snip_end).toBeGreaterThan(component.snip_start);
+    });
+
+    it('keeps the end knob to the right of the start knob', () => {
+      component.onSnipEndChange(5);
+
+      expect(component.snip_end).toBe(5);
+      expect(component.snip_start).toBeLessThan(component.snip_end);
+    });
+
+    it('never lets the knobs select a zero-length range', () => {
+      component.onSnipStartChange(40);
+      expect(component.getSnipSelectionLength()).toBeGreaterThanOrEqual(1);
+
+      component.onSnipEndChange(component.snip_start);
+      expect(component.getSnipSelectionLength()).toBeGreaterThanOrEqual(1);
+    });
+
+    it('clamps the knobs to the bounds of the media', () => {
+      component.onSnipStartChange(-30);
+      expect(component.snip_start).toBe(0);
+
+      component.onSnipEndChange(9999);
+      expect(component.snip_end).toBe(120);
+    });
+
+    it('treats a zero-length selection as invalid and refuses to submit it', () => {
+      component.snip_start = 30;
+      component.snip_end = 30;
+
+      expect(component.snipSelectionValid()).toBeFalse();
+
+      postsServiceStub.snipFile = jasmine.createSpy('snipFile');
+      component.confirmSnip();
+      expect(postsServiceStub.snipFile).not.toHaveBeenCalled();
+    });
+
+    it('submits a valid selection and reports failure without hanging', () => {
+      component.snip_start = 10;
+      component.snip_end = 40;
+      postsServiceStub.snipFile = jasmine.createSpy('snipFile').and.returnValue({
+        subscribe: (next: (res: any) => void) => {
+          next({ success: false, error: 'nope' });
+          return { unsubscribe() {} };
+        }
+      });
+
+      component.confirmSnip();
+
+      expect(postsServiceStub.snipFile).toHaveBeenCalledWith('file-uid', 10, 40);
+      expect(component.snip_in_progress).toBeFalse();
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('nope');
+    });
+
+    it('seeks to the knob being dragged so the edge can be previewed', () => {
+      component.onSnipStartChange(25);
+      expect(component.api.seekTime).toHaveBeenCalledWith(25);
+    });
+
+    it('does not offer snipping on media too short to trim', () => {
+      component.currentFile = { uid: 'file-uid', duration: 0.5 } as DatabaseFile;
+      expect(component.canSnipCurrentFile()).toBeFalse();
+    });
+  });
 });

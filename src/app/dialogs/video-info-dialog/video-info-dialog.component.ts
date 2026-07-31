@@ -23,12 +23,17 @@ export class VideoInfoDialogComponent implements OnInit {
   initialized = false;
   retrieving_file = false;
   write_access = false;
+  // Snipping needs a player to scrub in, so it is only offered when the dialog was opened
+  // from one. The player reads snip_requested back off this instance once the dialog closes.
+  allow_snip = false;
+  snip_requested = false;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, public postsService: PostsService, private datePipe: DatePipe) { }
 
   ngOnInit(): void {
     this.filesize = filesize;
     if (this.data) {
+      this.allow_snip = !!this.data.allow_snip;
       this.initializeFile(this.data.file);
     }
     this.postsService.reloadCategories();
@@ -95,8 +100,16 @@ export class VideoInfoDialogComponent implements OnInit {
     return option.uid === value.uid;
   }
 
-  metadataChanged(): boolean { 
+  metadataChanged(): boolean {
     return JSON.stringify(this.file) !== JSON.stringify(this.new_file);
+  }
+
+  canSnip(): boolean {
+    return this.allow_snip && this.initialized && this.write_access && this.postsService.hasPermission('filemanager');
+  }
+
+  requestSnip(): void {
+    this.snip_requested = true;
   }
 
   toggleFavorite(): void {

@@ -89,5 +89,10 @@
 
 <mat-dialog-actions>
   <button mat-button mat-dialog-close><ng-container i18n="Close video info button">Close</ng-container></button>
+  @if (canSnip()) {
+    <button mat-button mat-dialog-close (click)="requestSnip()" matTooltip="Select a range of this video to save as a new file" i18n-matTooltip="Snip button tooltip">
+      <mat-icon class="snip-icon">content_cut</mat-icon><ng-container i18n="Snip video button">Snip</ng-container>
+    </button>
+  }
   <button mat-button [disabled]="!metadataChanged()" (click)="saveChanges()"><ng-container i18n="Save video info button">Save</ng-container></button>
 </mat-dialog-actions>

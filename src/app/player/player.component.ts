@@ -39,6 +39,11 @@ export interface IChapter {
 const AUTOPLAY_STORAGE_KEY = 'player_autoplay_enabled';
 const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 
+// Mirrors files_api.MIN_SNIP_DURATION_SECONDS. A shorter selection is almost always a
+// mis-drag, and ffmpeg can emit a zero-frame file for a sub-frame range.
+const MIN_SNIP_DURATION_SECONDS = 1;
+const SNIP_STATUS_POLL_INTERVAL_MS = 1000;
+
 @Component({
     selector: 'app-player',
     templateUrl: './player.component.html',
@@ -104,6 +109,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   pending_autoplay_advance = false;
   autoplay_queue_file_objs: DatabaseFile[] = [];
   playbackTime = 0;
+
+  // snip mode
+  snip_mode = false;
+  snip_start = 0;
+  snip_end = 0;
+  snip_in_progress = false;
+  snip_percent = 0;
+  snip_poll_timer: ReturnType<typeof setTimeout> | null = null;
+
   currentChapters: IChapter[] = [];
   chapterTimelineVisible = false;
   chapterDropdownOpen = false;
@@ -164,6 +178,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subtitleTrackRefreshToken += 1;
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
+    this.clearSnipPoll();
     if (this.subtitleTrackActivationTimer) {
       clearTimeout(this.subtitleTrackActivationTimer);
       this.subtitleTrackActivationTimer = null;
@@ -511,6 +526,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const dialogRef = this.dialog.open(VideoInfoDialogComponent, {
       data: {
         file: file_obj,
+        allow_snip: this.canSnipCurrentFile(),
       },
       minWidth: '50vw'
     });
@@ -520,12 +536,167 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       else if (this.db_playlist) {
         const idx = this.getPlaylistFileIndexUID(original_uid);
         this.file_objs[idx] = dialogRef.componentInstance.file;
-      } 
+      }
       if (this.db_file) {
         this.patchAutoplayQueueFile(dialogRef.componentInstance.file);
       }
       this.syncCurrentFileMetadata();
+      if (dialogRef.componentInstance.snip_requested) this.enterSnipMode();
     });
+  }
+
+  canSnipCurrentFile(): boolean {
+    // A snip needs a real registered file to trim and a duration to lay the track out over.
+    return !!this.currentFile?.uid && this.getSnipDuration() > MIN_SNIP_DURATION_SECONDS
+      && this.postsService.hasPermission('filemanager');
+  }
+
+  getSnipDuration(): number {
+    const media_duration = Number(this.mediaElement?.nativeElement?.duration);
+    if (Number.isFinite(media_duration) && media_duration > 0) return media_duration;
+    const file_duration = Number(this.currentFile?.duration ?? this.db_file?.duration ?? 0);
+    return Number.isFinite(file_duration) && file_duration > 0 ? file_duration : 0;
+  }
+
+  enterSnipMode(): void {
+    if (!this.canSnipCurrentFile()) return;
+    const duration = this.getSnipDuration();
+    // Seed the selection around where they were watching rather than the whole file, since
+    // the point of snipping is usually the moment they just saw.
+    const current_time = Math.min(Math.max(this.playbackTime, 0), Math.max(duration - MIN_SNIP_DURATION_SECONDS, 0));
+    this.snip_start = current_time;
+    this.snip_end = Math.min(duration, Math.max(current_time + 30, current_time + MIN_SNIP_DURATION_SECONDS));
+    this.snip_mode = true;
+    this.snip_percent = 0;
+    if (this.api) this.api.pause();
+    this.cdr.detectChanges();
+  }
+
+  exitSnipMode(): void {
+    this.snip_mode = false;
+    this.snip_in_progress = false;
+    this.snip_percent = 0;
+    this.clearSnipPoll();
+    this.cdr.detectChanges();
+  }
+
+  clearSnipPoll(): void {
+    if (this.snip_poll_timer) {
+      clearTimeout(this.snip_poll_timer);
+      this.snip_poll_timer = null;
+    }
+  }
+
+  /**
+   * Keep the knobs from crossing. The slider enforces this while dragging, but the
+   * handlers below also run for programmatic changes, so clamp here as the single source
+   * of truth.
+   */
+  onSnipStartChange(value: number): void {
+    const duration = this.getSnipDuration();
+    const clamped = Math.min(Math.max(Number(value) || 0, 0), Math.max(duration - MIN_SNIP_DURATION_SECONDS, 0));
+    this.snip_start = clamped;
+    if (this.snip_end - this.snip_start < MIN_SNIP_DURATION_SECONDS) {
+      this.snip_end = Math.min(duration, this.snip_start + MIN_SNIP_DURATION_SECONDS);
+    }
+    this.seekWithinSnip(this.snip_start);
+  }
+
+  onSnipEndChange(value: number): void {
+    const duration = this.getSnipDuration();
+    const clamped = Math.min(Math.max(Number(value) || 0, MIN_SNIP_DURATION_SECONDS), duration);
+    this.snip_end = clamped;
+    if (this.snip_end - this.snip_start < MIN_SNIP_DURATION_SECONDS) {
+      this.snip_start = Math.max(0, this.snip_end - MIN_SNIP_DURATION_SECONDS);
+    }
+    this.seekWithinSnip(this.snip_end);
+  }
+
+  seekWithinSnip(time: number): void {
+    // Scrubbing a knob should preview that edge, which is the whole reason to pick the
+    // range against the video rather than in a number field.
+    if (!this.api || this.snip_in_progress) return;
+    this.api.seekTime(time);
+    this.playbackTime = time;
+  }
+
+  getSnipSelectionLength(): number {
+    return Math.max(0, this.snip_end - this.snip_start);
+  }
+
+  snipSelectionValid(): boolean {
+    return this.getSnipSelectionLength() >= MIN_SNIP_DURATION_SECONDS;
+  }
+
+  // An arrow property rather than a method: mat-slider's displayWith calls this detached
+  // from the component, so a prototype method would lose `this`.
+  formatSnipTimestamp = (seconds: number): string => this.formatChapterTimestamp(seconds);
+
+  previewSnip(): void {
+    if (!this.api || !this.snipSelectionValid()) return;
+    this.api.seekTime(this.snip_start);
+    this.api.play();
+  }
+
+  confirmSnip(): void {
+    if (!this.snipSelectionValid() || this.snip_in_progress) return;
+    const file_uid = this.currentFile?.uid;
+    if (!file_uid) return;
+
+    this.snip_in_progress = true;
+    this.snip_percent = 0;
+    if (this.api) this.api.pause();
+
+    this.postsService.snipFile(file_uid, this.snip_start, this.snip_end).subscribe(res => {
+      if (!res?.success || !res.job_uid) {
+        this.failSnip(res?.error);
+        return;
+      }
+      this.pollSnipStatus(res.job_uid);
+    }, err => {
+      console.error(err);
+      this.failSnip();
+    });
+  }
+
+  pollSnipStatus(job_uid: string): void {
+    this.clearSnipPoll();
+    this.postsService.getSnipStatus(job_uid).subscribe(res => {
+      if (this.destroyed) return;
+      if (!res?.success) {
+        this.failSnip(res?.error);
+        return;
+      }
+
+      this.snip_percent = Math.round(Number(res.percent) || 0);
+
+      if (res.status === 'complete') {
+        this.snip_in_progress = false;
+        this.snip_mode = false;
+        this.clearSnipPoll();
+        this.postsService.openSnackBar($localize`Snip created successfully.`);
+        this.cdr.detectChanges();
+        return;
+      }
+      if (res.status === 'failed') {
+        this.failSnip(res.error);
+        return;
+      }
+
+      this.cdr.detectChanges();
+      this.snip_poll_timer = setTimeout(() => this.pollSnipStatus(job_uid), SNIP_STATUS_POLL_INTERVAL_MS);
+    }, err => {
+      console.error(err);
+      this.failSnip();
+    });
+  }
+
+  failSnip(error: string = null): void {
+    this.snip_in_progress = false;
+    this.snip_percent = 0;
+    this.clearSnipPoll();
+    this.postsService.openSnackBar(error || $localize`Failed to snip video.`);
+    this.cdr.detectChanges();
   }
 
   getPlaylistFileIndexUID(uid: string): number {
