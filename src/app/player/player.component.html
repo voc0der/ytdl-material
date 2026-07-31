@@ -50,8 +50,8 @@
                   <span class="snip-length" [class.invalid]="!snipSelectionValid()">{{formatSnipTimestamp(getSnipSelectionLength())}}</span>
                 </div>
                 <mat-slider class="snip-slider" [min]="0" [max]="getSnipDuration()" [step]="0.1" [disabled]="snip_in_progress" [displayWith]="formatSnipTimestamp" discrete>
-                  <input matSliderStartThumb [value]="snip_start" (valueChange)="onSnipStartChange($event)" [attr.aria-label]="'Snip start'" i18n-aria-label="Snip start knob label">
-                  <input matSliderEndThumb [value]="snip_end" (valueChange)="onSnipEndChange($event)" [attr.aria-label]="'Snip end'" i18n-aria-label="Snip end knob label">
+                  <input matSliderStartThumb [value]="snip_start" (valueChange)="onSnipStartChange($event)" aria-label="Snip start" i18n-aria-label="Snip start knob label">
+                  <input matSliderEndThumb [value]="snip_end" (valueChange)="onSnipEndChange($event)" aria-label="Snip end" i18n-aria-label="Snip end knob label">
                 </mat-slider>
                 @if (snip_in_progress) {
                   <div class="snip-progress">

@@ -191,8 +191,12 @@ const concurrentStreams = {};
 // Snipping re-encodes and can run for minutes, far longer than a request should stay open,
 // so jobs are tracked here and the client polls for the result. These are deliberately
 // in-memory: a snip that was interrupted by a restart is not worth resuming.
-const snipJobs = {};
+// A null-prototype map so a job_uid like '__proto__' cannot resolve to an inherited value.
+const snipJobs = Object.create(null);
 const SNIP_JOB_RETENTION_MS = 30 * 60 * 1000;
+// Each snip is a full re-encode, so an unbounded queue would let one client saturate the
+// server's CPU.
+const MAX_ACTIVE_SNIP_JOBS = 3;
 
 function pruneSnipJobs() {
     const now = Date.now();
@@ -200,6 +204,10 @@ function pruneSnipJobs() {
         const job = snipJobs[job_uid];
         if (job['finished'] && now - job['finished'] > SNIP_JOB_RETENTION_MS) delete snipJobs[job_uid];
     }
+}
+
+function countActiveSnipJobs() {
+    return Object.keys(snipJobs).filter(job_uid => snipJobs[job_uid]['status'] === 'snipping').length;
 }
 const OPENAPI_SPEC_PATH_CANDIDATES = [
     path.resolve(__dirname, '..', 'Public API v1.yaml'),
@@ -2141,6 +2149,11 @@ app.post('/api/snipFile', optionalJwt, async (req, res) => {
 
     pruneSnipJobs();
 
+    if (countActiveSnipJobs() >= MAX_ACTIVE_SNIP_JOBS) {
+        res.send({success: false, error: 'Too many snips are already running. Please wait for one to finish.'});
+        return;
+    }
+
     const job_uid = uuid();
     snipJobs[job_uid] = {
         uid: job_uid,
@@ -2182,7 +2195,7 @@ app.post('/api/snipFile', optionalJwt, async (req, res) => {
 app.post('/api/getSnipStatus', optionalJwt, async (req, res) => {
     const job_uid = req.body.job_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
-    const job = snipJobs[job_uid];
+    const job = typeof job_uid === 'string' ? snipJobs[job_uid] : null;
 
     if (!job) {
         res.send({success: false, error: 'Snip job could not be found'});

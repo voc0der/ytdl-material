@@ -805,10 +805,21 @@ describe('PlayerComponent', () => {
       expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('nope');
     });
 
-    it('seeks to the knob being dragged so the edge can be previewed', () => {
+    it('seeks to the knob being dragged so the edge can be previewed', fakeAsync(() => {
       component.onSnipStartChange(25);
+      tick(200);
       expect(component.api.seekTime).toHaveBeenCalledWith(25);
-    });
+    }));
+
+    it('coalesces seeks while a knob is being dragged', fakeAsync(() => {
+      component.onSnipStartChange(20);
+      component.onSnipStartChange(25);
+      component.onSnipStartChange(30);
+      tick(200);
+
+      expect(component.api.seekTime).toHaveBeenCalledTimes(1);
+      expect(component.api.seekTime).toHaveBeenCalledWith(30);
+    }));
 
     it('does not offer snipping on media too short to trim', () => {
       component.currentFile = { uid: 'file-uid', duration: 0.5 } as DatabaseFile;

@@ -186,6 +186,20 @@ describe('Utils', async function() {
             assert.strictEqual(success, true);
             assert.ok(reported.every(percent => percent >= 0 && percent <= 100), 'progress must stay within 0-100');
         });
+
+        it('measures progress against the snipped range, not the length of the source', async function() {
+            this.timeout(60000);
+            const output_path = path.join(snip_dir, 'scaled-progress-output.mp4');
+            const reported = [];
+
+            // A 1s range out of a 6s source: measuring against the source would cap this
+            // near 17%, so anything approaching 100 proves it scales to the request.
+            const success = await utils.snipFile(source_path, output_path, 4, 5, '.mp4', (percent) => reported.push(percent));
+
+            assert.strictEqual(success, true);
+            assert.ok(reported.length > 0, 'at least one progress event should be reported');
+            assert.ok(Math.max(...reported) > 50, `progress should approach 100, peaked at ${Math.max(...reported)}`);
+        });
     });
 
     describe('cropFile', function() {

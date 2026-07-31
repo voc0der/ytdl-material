@@ -1114,32 +1114,67 @@ function formatSnipTimestamp(seconds) {
 }
 
 /**
- * Pick a path for the snip next to its source. Staying in the same directory keeps the
- * snip inside whatever per-user or per-subscription folder the source lives in, which is
- * what the rest of the file APIs assume.
+ * Pick a path for the snip next to its source and claim it. Staying in the same directory
+ * keeps the snip inside whatever per-user or per-subscription folder the source lives in,
+ * which is what the rest of the file APIs assume.
+ *
+ * The path is reserved by creating the file exclusively rather than just testing for
+ * absence, so two snips of the same range running at once cannot pick the same name and
+ * clobber each other's sidecars. ffmpeg is invoked with -y and overwrites the placeholder.
  */
 function generateSnipPath(source_path, start, end) {
     const parsed_source = path.parse(source_path);
     const suffix = ` [snip ${formatSnipTimestamp(start)}-${formatSnipTimestamp(end)}]`;
-    let candidate_path = path.join(parsed_source.dir, `${parsed_source.name}${suffix}${parsed_source.ext}`);
 
-    // Two snips of the same range would otherwise collide and the second would overwrite
-    // the first's sidecars.
-    let collision_index = 2;
-    while (fs.existsSync(candidate_path)) {
-        candidate_path = path.join(parsed_source.dir, `${parsed_source.name}${suffix} (${collision_index})${parsed_source.ext}`);
-        collision_index++;
+    for (let collision_index = 1; collision_index < 1000; collision_index++) {
+        const disambiguator = collision_index === 1 ? '' : ` (${collision_index})`;
+        const candidate_path = path.join(parsed_source.dir, `${parsed_source.name}${suffix}${disambiguator}${parsed_source.ext}`);
+        try {
+            fs.closeSync(fs.openSync(candidate_path, 'wx'));
+            return candidate_path;
+        } catch (e) {
+            if (e.code !== 'EEXIST') throw e;
+        }
     }
-    return candidate_path;
+    return null;
 }
 
 /**
- * Copy the source's info JSON next to the snip so registerFileDB can build a full file
- * object from it. The id is rewritten so the snip does not land in the same duplicate
- * group as the file it came from.
+ * Rebuild an info JSON from the file's database record. Sidecars are deleted on download
+ * when ytdl_include_metadata is off, so the source of a snip often has no JSON to copy.
  */
-function writeSnipInfoJson(source_path, snip_path, type, start, end) {
-    const source_json = utils.getJSON(source_path, type);
+function buildInfoJsonFromRecord(source_file) {
+    if (!source_file) return null;
+
+    // The DB stores upload_date already formatted as YYYY-MM-DD, but registerFileDB runs
+    // it back through formatDateString, which expects the raw YYYYMMDD form.
+    const stored_upload_date = typeof source_file['upload_date'] === 'string' ? source_file['upload_date'] : '';
+    const raw_upload_date = stored_upload_date.replace(/-/g, '');
+
+    return {
+        id: source_file['source_id'] || source_file['id'] || null,
+        title: source_file['title'] || source_file['id'] || 'Snip',
+        webpage_url: source_file['url'] || '',
+        uploader: source_file['uploader'] || '',
+        upload_date: raw_upload_date.length === 8 ? raw_upload_date : '',
+        description: source_file['description'] || '',
+        view_count: source_file['view_count'] || 0,
+        height: source_file['height'] ?? null,
+        abr: source_file['abr'] ?? null,
+        thumbnail: source_file['thumbnailURL'] || '',
+        duration: source_file['duration'] || 0,
+        extractor: source_file['source_extractor'] || undefined
+    };
+}
+
+/**
+ * Write the snip's info JSON next to it so registerFileDB can build a full file object.
+ * Prefers the source's own sidecar and falls back to its database record. The id is
+ * rewritten either way so the snip does not land in the same duplicate group as the file
+ * it came from.
+ */
+function writeSnipInfoJson(source_path, snip_path, type, start, end, source_file = null) {
+    const source_json = utils.getJSON(source_path, type) || buildInfoJsonFromRecord(source_file);
     if (!source_json) return false;
 
     const snip_json = JSON.parse(JSON.stringify(source_json));
@@ -1221,11 +1256,12 @@ exports.snipFile = async (file_uid, start, end, user_uid = null, on_progress = n
     const type = source_file['isAudio'] ? 'audio' : 'video';
     const ext = path.extname(source_path);
     const snip_path = generateSnipPath(source_path, numeric_start, numeric_end);
+    if (!snip_path) return {success: false, error: 'Could not find a free filename for the snip'};
 
     const snip_success = await utils.snipFile(source_path, snip_path, numeric_start, numeric_end, ext, on_progress);
     if (!snip_success) return {success: false, error: 'Failed to snip file'};
 
-    if (!writeSnipInfoJson(source_path, snip_path, type, numeric_start, numeric_end)) {
+    if (!writeSnipInfoJson(source_path, snip_path, type, numeric_start, numeric_end, source_file)) {
         // Without metadata registerFileDB cannot build a file object, so clean up rather
         // than leaving an orphaned media file on disk.
         fs.removeSync(snip_path);

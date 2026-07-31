@@ -549,6 +549,20 @@ exports.snipFile = async (source_path, output_path, start, end, ext, on_progress
     return snip_success;
 }
 
+/**
+ * ffmpeg reports progress as a HH:MM:SS.ss timemark. Output-side seeking restarts output
+ * timestamps at zero, so this counts up from 0 to the length of the trimmed range.
+ */
+function parseTimemarkSeconds(timemark) {
+    if (typeof timemark === 'number') return Number.isFinite(timemark) ? timemark : null;
+    if (typeof timemark !== 'string' || timemark === '') return null;
+
+    const parts = timemark.split(':').map(Number);
+    if (parts.some(part => !Number.isFinite(part))) return null;
+
+    return parts.reduce((total, part) => (total * 60) + part, 0);
+}
+
 function cropFileAttempt(source_path, output_path, start, end, hardware_settings, on_progress = null) {
     return new Promise(resolve => {
         let base_ffmpeg_call = ffmpeg(source_path);
@@ -567,10 +581,17 @@ function cropFileAttempt(source_path, output_path, start, end, hardware_settings
             }
             base_ffmpeg_call = base_ffmpeg_call.videoCodec(hardware_settings.video_encoder);
         }
-        if (on_progress) {
+        // fluent-ffmpeg only fills in progress.percent when it has ffprobe data for the
+        // input, and even then it measures against the *input* duration, which for a short
+        // snip of a long file would never climb past a few percent. We know the length of
+        // the range we asked for, so derive the percentage from that instead.
+        const target_duration = Number(end) - Number(start);
+        if (on_progress && Number.isFinite(target_duration) && target_duration > 0) {
             base_ffmpeg_call = base_ffmpeg_call.on('progress', (progress) => {
-                const percent = Number(progress && progress.percent);
-                if (Number.isFinite(percent)) on_progress(Math.min(100, Math.max(0, percent)));
+                const elapsed_seconds = parseTimemarkSeconds(progress && progress.timemark);
+                if (elapsed_seconds === null) return;
+                const percent = (elapsed_seconds / target_duration) * 100;
+                on_progress(Math.min(100, Math.max(0, percent)));
             });
         }
         base_ffmpeg_call

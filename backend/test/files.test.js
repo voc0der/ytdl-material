@@ -731,6 +731,33 @@ describe('Files', function() {
             assert.strictEqual((await fs.readdir(snip_dir)).length, files_before);
         });
 
+        it('falls back to the database record when the source has no info JSON', async function() {
+            this.timeout(60000);
+            // Sidecars are deleted on download when ytdl_include_metadata is off, so a
+            // snip has to be able to work without one.
+            await fs.remove(snip_source_info_path);
+            files_api.getVideo = async () => Object.assign(JSON.parse(JSON.stringify(source_record)), {
+                id: 'snip-me',
+                title: 'Snip Me',
+                url: 'https://www.youtube.com/watch?v=snipme',
+                uploader: 'Uploader',
+                upload_date: '2020-01-01',
+                description: 'From the database',
+                view_count: 7,
+                height: 96,
+                source_id: 'snip-me',
+                source_extractor: 'youtube'
+            });
+
+            const result = await files_api.snipFile('snip-source-uid', 1, 3);
+
+            assert.strictEqual(result.success, true, result.error);
+            assert.strictEqual(result.file.duration, 2);
+            assert.strictEqual(result.file.title, 'Snip Me [snip 00.01-00.03]');
+            assert.strictEqual(result.file.upload_date, '2020-01-01', 'the stored date must survive the round trip');
+            assert.strictEqual(result.file.uploader, 'Uploader');
+        });
+
         it('refuses to snip when the source file is missing from disk', async function() {
             this.timeout(60000);
             await fs.remove(snip_source_path);

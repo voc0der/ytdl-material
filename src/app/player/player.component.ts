@@ -43,6 +43,7 @@ const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 // mis-drag, and ffmpeg can emit a zero-frame file for a sub-frame range.
 const MIN_SNIP_DURATION_SECONDS = 1;
 const SNIP_STATUS_POLL_INTERVAL_MS = 1000;
+const SNIP_SEEK_DEBOUNCE_MS = 80;
 
 @Component({
     selector: 'app-player',
@@ -117,6 +118,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   snip_in_progress = false;
   snip_percent = 0;
   snip_poll_timer: ReturnType<typeof setTimeout> | null = null;
+  snip_seek_timer: ReturnType<typeof setTimeout> | null = null;
 
   currentChapters: IChapter[] = [];
   chapterTimelineVisible = false;
@@ -585,6 +587,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.snip_poll_timer);
       this.snip_poll_timer = null;
     }
+    if (this.snip_seek_timer) {
+      clearTimeout(this.snip_seek_timer);
+      this.snip_seek_timer = null;
+    }
   }
 
   /**
@@ -614,10 +620,17 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   seekWithinSnip(time: number): void {
     // Scrubbing a knob should preview that edge, which is the whole reason to pick the
-    // range against the video rather than in a number field.
+    // range against the video rather than in a number field. valueChange fires on every
+    // pixel of a drag, so coalesce them: seeking a large file on each event makes
+    // scrubbing stutter.
     if (!this.api || this.snip_in_progress) return;
-    this.api.seekTime(time);
     this.playbackTime = time;
+    if (this.snip_seek_timer) clearTimeout(this.snip_seek_timer);
+    this.snip_seek_timer = setTimeout(() => {
+      this.snip_seek_timer = null;
+      if (this.destroyed || !this.api) return;
+      this.api.seekTime(time);
+    }, SNIP_SEEK_DEBOUNCE_MS);
   }
 
   getSnipSelectionLength(): number {
