@@ -34,7 +34,7 @@
     "body-parser": "^2.3.0",
     "command-exists": "^1.2.9",
     "compression": "^1.8.1",
-    "config": "^4.4.2",
+    "config": "^5.0.0",
     "execa": "^10.0.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
