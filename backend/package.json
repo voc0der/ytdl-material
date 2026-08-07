@@ -34,7 +34,7 @@
     "body-parser": "^2.3.0",
     "command-exists": "^1.2.9",
     "compression": "^1.8.1",
-    "config": "^4.4.2",
+    "config": "^5.0.0",
     "execa": "^10.0.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.1",
@@ -75,16 +75,16 @@
     "xmlbuilder2": "^4.0.3"
   },
   "overrides": {
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "braces": "3.0.3",
     "cross-spawn": "7.0.6",
     "diff": "8.0.3",
     "form-data": "4.0.6",
     "got": "11.8.6",
-    "js-yaml": "4.3.0",
-    "serialize-javascript": "7.0.5",
-    "undici": "6.27.0",
-    "ws": "8.21.0"
+    "js-yaml": "4.3.1",
+    "serialize-javascript": "7.0.7",
+    "undici": "6.28.0",
+    "ws": "8.21.3"
   },
   "devDependencies": {
     "pg-mem": "^3.0.14"
