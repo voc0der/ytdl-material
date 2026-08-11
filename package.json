@@ -22,17 +22,17 @@
   },
   "private": true,
   "dependencies": {
-    "@angular/animations": "^22.1.0",
+    "@angular/animations": "^22.1.1",
     "@angular/cdk": "^22.1.0",
-    "@angular/common": "^22.1.0",
-    "@angular/compiler": "^22.1.0",
-    "@angular/core": "^22.1.0",
-    "@angular/forms": "^22.1.0",
-    "@angular/localize": "^22.1.0",
+    "@angular/common": "^22.1.1",
+    "@angular/compiler": "^22.1.1",
+    "@angular/core": "^22.1.1",
+    "@angular/forms": "^22.1.1",
+    "@angular/localize": "^22.1.1",
     "@angular/material": "^22.1.0",
-    "@angular/platform-browser": "^22.1.0",
-    "@angular/platform-browser-dynamic": "^22.1.0",
-    "@angular/router": "^22.1.0",
+    "@angular/platform-browser": "^22.1.1",
+    "@angular/platform-browser-dynamic": "^22.1.1",
+    "@angular/router": "^22.1.1",
     "@fontsource/material-icons": "^5.3.0",
     "@ngneat/content-loader": "^7.0.0",
     "@videogular/ngx-videogular": "^20.0.0",
@@ -55,17 +55,17 @@
     "@angular-devkit/core": "^22.1.1",
     "@angular/build": "^22.1.1",
     "@angular/cli": "^22.1.1",
-    "@angular/compiler-cli": "^22.1.0",
-    "@angular/language-service": "^22.1.0",
+    "@angular/compiler-cli": "^22.1.1",
+    "@angular/language-service": "^22.1.1",
     "@eslint/js": "^10.0.1",
     "@types/core-js": "^2.5.2",
     "@types/file-saver": "^2.0.1",
     "@types/jasmine": "^6.0.0",
-    "@types/node": "^26.1.2",
-    "@typescript-eslint/eslint-plugin": "^8.66.0",
-    "@typescript-eslint/parser": "^8.66.0",
+    "@types/node": "^26.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
     "ajv": "^8.20.0",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "globals": "^17.8.0",
     "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "~6.3.0",
@@ -80,21 +80,21 @@
     "ts-node": "~10.9.2"
   },
   "overrides": {
-    "@babel/core": "7.29.6",
-    "@hono/node-server": "2.0.12",
+    "@babel/core": "7.29.7",
+    "@hono/node-server": "2.1.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@angular/build": {
-      "picomatch": "4.0.4"
+      "picomatch": "4.0.5"
     },
     "@angular-devkit/build-angular": {
-      "picomatch": "4.0.4",
+      "picomatch": "4.0.5",
       "http-proxy-middleware": {
         "micromatch": {
           "picomatch": "2.3.2"
         }
       },
       "webpack-dev-server": {
-        ".": "5.2.4",
+        ".": "5.2.6",
         "chokidar": {
           "anymatch": {
             "picomatch": "2.3.2"
@@ -106,26 +106,26 @@
       }
     },
     "@angular-devkit/core": {
-      "ajv": "8.18.0",
-      "picomatch": "4.0.4"
+      "ajv": "8.20.0",
+      "picomatch": "4.0.5"
     },
-    "esbuild": "0.28.1",
-    "express-rate-limit": "8.6.0",
+    "esbuild": "0.28.2",
+    "express-rate-limit": "8.6.2",
     "ngx-avatars": {
       "@angular/common": "21.2.0",
       "@angular/core": "21.2.0"
     },
-    "flatted": "3.4.2",
+    "flatted": "3.4.4",
     "hono": "4.13.1",
-    "immutable": "5.1.8",
+    "immutable": "5.1.9",
     "js-yaml": "4.3.1",
     "postcss": "8.5.26",
-    "serialize-javascript": "7.0.7",
+    "serialize-javascript": "7.1.0",
     "tar": "7.5.22",
     "tmp": "0.2.7",
-    "undici": "7.28.0",
-    "uuid": "14.0.0",
-    "vite": "7.3.5",
+    "undici": "7.29.0",
+    "uuid": "14.0.1",
+    "vite": "7.3.6",
     "ws": "8.21.3"
   }
 }
