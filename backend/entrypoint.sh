@@ -94,8 +94,10 @@ install_transcoding_drivers() {
             ;;
     esac
 
-    # Skip if a VA driver is already present (from a previous start or a derived image)
-    if ls /usr/lib/*/dri/*_drv_video.so >/dev/null 2>&1; then
+    # Skip if both the DRM bridge and a VA driver are already present (from a previous
+    # start or a derived image). A driver alone cannot open /dev/dri devices.
+    if dpkg-query -W -f='${Status}' libva-drm2 2>/dev/null | grep -q 'ok installed' && \
+        ls /usr/lib/*/dri/*_drv_video.so >/dev/null 2>&1; then
         echo "[entrypoint] VAAPI/QSV userspace drivers are already installed"
         return
     fi
@@ -111,6 +113,7 @@ install_transcoding_drivers() {
         echo "[entrypoint] WARNING: apt-get update failed; hardware acceleration drivers were not installed."
         return
     fi
+    apt-get install -y --no-install-recommends libva-drm2 || echo "[entrypoint] WARNING: libva-drm2 could not be installed"
     apt-get install -y --no-install-recommends mesa-va-drivers || echo "[entrypoint] WARNING: mesa-va-drivers could not be installed"
     apt-get install -y --no-install-recommends intel-media-va-driver-non-free || \
         apt-get install -y --no-install-recommends intel-media-va-driver || \
@@ -134,7 +137,9 @@ if [ "$(id -u)" = "0" ]; then
     # Running as root - fix permissions and drop privileges
     echo "[entrypoint] Running as root, fixing permissions (this may take a while)"
     find . \! -user "$runtime_uid" -exec chown "$runtime_uid:$runtime_gid" '{}' + || echo "WARNING! Could not change directory ownership. If you manage permissions externally this is fine, otherwise you may experience issues when downloading or deleting videos."
-    exec gosu "$runtime_uid:$runtime_gid" "$@"
+    # Docker's group_add values exist in the process' supplementary group list, not
+    # necessarily in /etc/group. Preserve that kernel-level list while changing UID/GID.
+    exec setpriv --reuid "$runtime_uid" --regid "$runtime_gid" --keep-groups -- "$@"
 else
     # Already running as non-root user
     echo "[entrypoint] Running as non-root user (UID=$(id -u), GID=$(id -g))"

@@ -80,9 +80,10 @@ RUN npm config set strict-ssl false && \
 
 # Final image
 FROM base
-RUN npm install -g pm2 && \
+RUN command -v setpriv >/dev/null && \
+    npm install -g pm2 && \
     apt update && \
-    apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
+    apt install -y --no-install-recommends python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
     pip install --break-system-packages pycryptodomex && \
     apt remove -y --purge build-essential && \
     apt autoremove -y --purge && \

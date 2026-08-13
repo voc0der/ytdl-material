@@ -129,7 +129,7 @@ Each crop logs the encoder and whether decoding is on the GPU. At `debug` log le
 Notes:
 
 * Hardware acceleration requires the amd64 or arm64 image. The armhf/armel images ship a software-only ffmpeg build.
-* For `'vaapi'` and `'qsv'`, the entrypoint installs the userspace GPU drivers on first start (requires the container to start as root, the default, and network access). NVENC and AMF runtimes are provided by the host instead.
+* For `'vaapi'` and `'qsv'`, the entrypoint installs `libva-drm2` and the userspace GPU drivers on first start (requires the container to start as root, the default, and network access). These packages are not installed when hardware transcoding is disabled. NVENC and AMF runtimes are provided by the host instead.
 * Hardware encoding is applied to video files in h264-compatible containers (mp4, mkv, mov, ts). Other formats keep using software encoding.
 
 ### VAAPI / QSV (Intel and AMD GPUs)
