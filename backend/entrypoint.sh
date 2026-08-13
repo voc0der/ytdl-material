@@ -81,8 +81,7 @@ install_ytdlp_impersonation_dependencies() {
 }
 
 install_transcoding_drivers() {
-    local transcoding_mode
-    transcoding_mode="$(resolve_runtime_env "" ytdl_transcoding YTDL_TRANSCODING | tr '[:upper:]' '[:lower:]')"
+    local transcoding_mode="$1"
 
     # Only VAAPI/QSV need userspace drivers inside the container.
     # NVENC (libcuda) and AMF (libamfrt) runtimes come from the host via the container runtime.
@@ -126,20 +125,46 @@ install_transcoding_drivers() {
     rm -rf /var/lib/apt/lists/*
 }
 
+resolve_runtime_home() {
+    local passwd_name
+    local passwd_uid
+    local passwd_home
+
+    while IFS=: read -r passwd_name _ passwd_uid _ _ passwd_home _; do
+        if [ "$passwd_name" = "$1" ] || [ "$passwd_uid" = "$1" ]; then
+            printf '%s' "${passwd_home:-/}"
+            return
+        fi
+    done < /etc/passwd
+
+    printf '/'
+}
+
 runtime_uid="$(resolve_runtime_env 1000 ytdl_uid uid UID)"
 runtime_gid="$(resolve_runtime_env 1000 ytdl_gid gid GID)"
+transcoding_mode="$(resolve_runtime_env "" ytdl_transcoding YTDL_TRANSCODING | tr '[:upper:]' '[:lower:]')"
 
 install_ytdlp_impersonation_dependencies
-install_transcoding_drivers
+install_transcoding_drivers "$transcoding_mode"
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then
     # Running as root - fix permissions and drop privileges
     echo "[entrypoint] Running as root, fixing permissions (this may take a while)"
     find . \! -user "$runtime_uid" -exec chown "$runtime_uid:$runtime_gid" '{}' + || echo "WARNING! Could not change directory ownership. If you manage permissions externally this is fine, otherwise you may experience issues when downloading or deleting videos."
-    # Docker's group_add values exist in the process' supplementary group list, not
-    # necessarily in /etc/group. Preserve that kernel-level list while changing UID/GID.
-    exec setpriv --reuid "$runtime_uid" --regid "$runtime_gid" --keep-groups -- "$@"
+    case "$transcoding_mode" in
+        vaapi|qsv|intel|quicksync)
+            # Docker's group_add values exist in the process' supplementary group list,
+            # not necessarily in /etc/group. Preserve that kernel-level list for DRI
+            # access while matching gosu's HOME resolution behavior.
+            export HOME="$(resolve_runtime_home "$runtime_uid")"
+            exec setpriv --reuid "$runtime_uid" --regid "$runtime_gid" --keep-groups -- "$@"
+            ;;
+        *)
+            # Keep the established privilege-drop behavior for every other configuration.
+            exec gosu "$runtime_uid:$runtime_gid" "$@"
+            ;;
+    esac
 else
     # Already running as non-root user
     echo "[entrypoint] Running as non-root user (UID=$(id -u), GID=$(id -g))"
