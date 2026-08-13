@@ -130,6 +130,7 @@ Notes:
 
 * Hardware acceleration requires the amd64 or arm64 image. The armhf/armel images ship a software-only ffmpeg build.
 * For `'vaapi'` and `'qsv'`, the entrypoint installs `libva-drm2` and the userspace GPU drivers on first start (requires the container to start as root, the default, and network access). These packages are not installed when hardware transcoding is disabled. NVENC and AMF runtimes are provided by the host instead.
+* After selecting VAAPI or QSV in the UI for the first time, restart the container once so the root entrypoint can install the required userspace packages before the next flight test.
 * Hardware encoding is applied to video files in h264-compatible containers (mp4, mkv, mov, ts). Other formats keep using software encoding.
 
 ### VAAPI / QSV (Intel and AMD GPUs)
