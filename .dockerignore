@@ -8,3 +8,4 @@ subscriptions
 users
 backend/test
 backend/tmp-progress-sanitize
+docker-utils/container-repro.sh

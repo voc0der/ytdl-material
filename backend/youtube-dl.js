@@ -15,20 +15,73 @@ const is_windows = process.platform === 'win32';
 const STREAMING_ERROR_BUFFER_LIMIT = 20000;
 const DEFAULT_YTDLP_IMPERSONATION_PATH = path.join('appdata', 'ytdlp-impersonation', 'python');
 
+// The version check and the download must read the same source. Tags are created before
+// the release that publishes the binary, so resolving versions from /tags while downloading
+// from /releases/latest can record a version the binary on disk does not have -- and since
+// the next check then sees recorded == latest, it never corrects itself.
 exports.youtubedl_forks = {
     'youtube-dl': {
         'download_url': 'https://github.com/ytdl-org/youtube-dl/releases/latest/download/youtube-dl',
-        'tags_url': 'https://api.github.com/repos/ytdl-org/youtube-dl/tags'
+        'releases_url': 'https://api.github.com/repos/ytdl-org/youtube-dl/releases/latest'
     },
     'youtube-dlc': {
         'download_url': 'https://github.com/blackjack4494/yt-dlc/releases/latest/download/youtube-dlc',
-        'tags_url': 'https://api.github.com/repos/blackjack4494/yt-dlc/tags'
+        'releases_url': 'https://api.github.com/repos/blackjack4494/yt-dlc/releases/latest'
     },
     'yt-dlp': {
         'download_url': 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
-        'tags_url': 'https://api.github.com/repos/yt-dlp/yt-dlp/tags'
+        'releases_url': 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest'
     }
 }
+
+// yt-dlp publishes three update channels from separate repositories. Stable can lag by
+// weeks, so when YouTube breaks a client mid-cycle the only fix is a newer channel until
+// upstream cuts a release. Each repo publishes identically named assets and tags, so the
+// existing download/version-compare logic works unchanged against any of them.
+exports.YTDLP_UPDATE_CHANNELS = {
+    'stable': 'yt-dlp/yt-dlp',
+    'nightly': 'yt-dlp/yt-dlp-nightly-builds',
+    'master': 'yt-dlp/yt-dlp-master-builds'
+};
+const DEFAULT_YTDLP_UPDATE_CHANNEL = 'stable';
+
+// Returns the configured channel, or null when an explicit value is not recognized.
+// Null is deliberately not "fall back to stable": a typo while running nightly would
+// silently downgrade to a stable build that may be the exact thing the user moved off.
+// Callers skip the update instead, leaving the working binary in place.
+function getYtDlpUpdateChannel() {
+    const configured_channel = config_api.getConfigItem('ytdl_ytdlp_update_channel');
+    if (configured_channel === null || configured_channel === undefined || String(configured_channel).trim() === '') {
+        return DEFAULT_YTDLP_UPDATE_CHANNEL;
+    }
+
+    const normalized_channel = String(configured_channel).trim().toLowerCase();
+    if (exports.YTDLP_UPDATE_CHANNELS[normalized_channel]) return normalized_channel;
+
+    return null;
+}
+exports.getYtDlpUpdateChannel = getYtDlpUpdateChannel;
+
+// Both URLs must resolve to the same channel. Mixing them (e.g. nightly binary, stable
+// releases) makes the version comparison in checkForYoutubeDLUpdate compare unrelated
+// series, which redownloads the binary on every check.
+function getYoutubeDLSourceUrls(youtubedl_fork) {
+    const fork_config = exports.youtubedl_forks[youtubedl_fork];
+    if (!fork_config) throw new Error(`Unsupported downloader fork: ${youtubedl_fork}`);
+    if (youtubedl_fork !== 'yt-dlp') return {download_url: fork_config['download_url'], releases_url: fork_config['releases_url']};
+
+    const channel = getYtDlpUpdateChannel();
+    if (!channel) {
+        throw new Error(`Unknown yt-dlp update channel '${config_api.getConfigItem('ytdl_ytdlp_update_channel')}'. Valid channels: ${Object.keys(exports.YTDLP_UPDATE_CHANNELS).join(', ')}.`);
+    }
+
+    const repo = exports.YTDLP_UPDATE_CHANNELS[channel];
+    return {
+        download_url: `https://github.com/${repo}/releases/latest/download/yt-dlp`,
+        releases_url: `https://api.github.com/repos/${repo}/releases/latest`
+    };
+}
+exports.getYoutubeDLSourceUrls = getYoutubeDLSourceUrls;
 
 function hasArg(args = [], target_arg = '') {
     if (!Array.isArray(args) || !target_arg) return false;
@@ -347,6 +400,13 @@ exports.checkForYoutubeDLUpdate = async (youtubedl_fork = config_api.getConfigIt
     const selected_fork = youtubedl_fork;
     const output_file_path = getYoutubeDLPath(selected_fork);
 
+    // Refuse to guess at a misspelled channel. Falling back to stable here could silently
+    // downgrade a user who moved to nightly specifically to escape a broken stable build.
+    if (selected_fork === 'yt-dlp' && !getYtDlpUpdateChannel()) {
+        logger.error(`Skipping yt-dlp update: unknown update channel '${config_api.getConfigItem('ytdl_ytdlp_update_channel')}'. Valid channels: ${Object.keys(exports.YTDLP_UPDATE_CHANNELS).join(', ')}. The existing binary has been left in place.`);
+        return;
+    }
+
     let current_app_details = fs.existsSync(CONSTS.DETAILS_BIN_PATH)
         ? fs.readJSONSync(CONSTS.DETAILS_BIN_PATH)
         : {};
@@ -388,20 +448,7 @@ async function downloadLatestYoutubeDLBinaryGeneric(youtubedl_fork, new_version,
     const file_ext = is_windows ? '.exe' : '';
 
     // build the URL
-    let download_url = null;
-    switch (youtubedl_fork) {
-        case 'youtube-dl':
-            download_url = `https://github.com/ytdl-org/youtube-dl/releases/latest/download/youtube-dl${file_ext}`;
-            break;
-        case 'youtube-dlc':
-            download_url = `https://github.com/blackjack4494/yt-dlc/releases/latest/download/youtube-dlc${file_ext}`;
-            break;
-        case 'yt-dlp':
-            download_url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp${file_ext}`;
-            break;
-        default:
-            throw new Error(`Unsupported downloader fork: ${youtubedl_fork}`);
-    }
+    const download_url = `${getYoutubeDLSourceUrls(youtubedl_fork)['download_url']}${file_ext}`;
     const output_path = custom_output_path || getYoutubeDLPath(youtubedl_fork);
 
     try {
@@ -421,17 +468,17 @@ async function downloadLatestYoutubeDLBinaryGeneric(youtubedl_fork, new_version,
 } 
 
 exports.getLatestUpdateVersion = async (youtubedl_fork) => {
-    const tags_url = exports.youtubedl_forks[youtubedl_fork]['tags_url'];
+    const releases_url = getYoutubeDLSourceUrls(youtubedl_fork)['releases_url'];
     return new Promise(resolve => {
-        fetch(tags_url, {method: 'Get'})
+        fetch(releases_url, {method: 'Get'})
         .then(async res => res.json())
         .then(async (json) => {
-            if (!json || !json[0]) {
+            if (!json || !json['tag_name']) {
                 logger.error(`Failed to check ${youtubedl_fork} version for an update.`)
                 resolve(null);
                 return;
             }
-            const latest_update_version = json[0]['name'];
+            const latest_update_version = json['tag_name'];
             resolve(latest_update_version);
         })
         .catch(err => {

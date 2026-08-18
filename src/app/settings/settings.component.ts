@@ -33,6 +33,9 @@ type VersionInfoWithDownloader = {
   downloader_info?: Record<string, DownloaderVersionInfo>;
 };
 
+// Keep in sync with YTDLP_UPDATE_CHANNELS in backend/youtube-dl.js.
+const YTDLP_UPDATE_CHANNELS = ['stable', 'nightly', 'master'];
+
 @Component({
     selector: 'app-settings',
     templateUrl: './settings.component.html',
@@ -133,9 +136,48 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  getDownloaderLabel(downloader: string): string {
+  // yt-dlp's update channel is folded into the downloader select rather than living in its
+  // own control, so the option encodes both as 'yt-dlp@<channel>' ('yt-dlp' means stable).
+  get selectedDownloader(): string {
+    const fork = this.new_config?.['Advanced']?.['default_downloader'] ?? 'yt-dlp';
+    if (fork !== 'yt-dlp') return fork;
+
+    const stored_channel = this.new_config?.['Advanced']?.['ytdlp_update_channel'];
+    const channel = this.normalizeYtdlpChannel(stored_channel);
+    // An unrecognized channel matches no option, so the select renders empty rather than
+    // claiming stable -- the backend skips updating entirely in that state, it does not
+    // fall back. Picking any option repairs the stored value.
+    if (channel === null) return `yt-dlp@${String(stored_channel).trim()}`;
+    return channel === 'stable' ? 'yt-dlp' : `yt-dlp@${channel}`;
+  }
+
+  set selectedDownloader(value: string) {
+    const [fork, channel] = (value ?? '').split('@');
+    this.new_config['Advanced']['default_downloader'] = fork;
+    // Leave the stored channel alone for the other forks; it only applies to yt-dlp.
+    if (fork === 'yt-dlp') this.new_config['Advanced']['ytdlp_update_channel'] = channel || 'stable';
+  }
+
+  // Mirrors getYtDlpUpdateChannel in backend/youtube-dl.js: blank means stable, values are
+  // trimmed and lowercased (env vars such as 'NIGHTLY' are valid), anything else is null.
+  private normalizeYtdlpChannel(channel: string): string | null {
+    const normalized = (channel ?? '').trim().toLowerCase();
+    if (!normalized) return 'stable';
+    return YTDLP_UPDATE_CHANNELS.includes(normalized) ? normalized : null;
+  }
+
+  getDownloaderLabel(downloader: string, channel?: string): string {
     const details = this.downloaderInfo[downloader];
-    return details?.loaded && details.version ? `${downloader} (${details.version})` : downloader;
+    const version = details?.loaded && details.version ? details.version : null;
+    if (!channel) return version ? `${downloader} (${version})` : downloader;
+
+    // The reported version describes whichever binary is currently installed, so only
+    // annotate the channel that is actually in use. Compare against the saved config,
+    // not the pending one, or the version appears to follow an unsaved selection.
+    const installed_channel = this.normalizeYtdlpChannel(this.initial_config?.['Advanced']?.['ytdlp_update_channel']);
+    return version && installed_channel === channel
+      ? `${downloader} ${channel} (${version})`
+      : `${downloader} ${channel}`;
   }
 
   settingsSame(): boolean {

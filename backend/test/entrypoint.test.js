@@ -12,7 +12,9 @@ function writeStub(binDir, name, body) {
     fs.writeFileSync(stubPath, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
 }
 
-function runEntrypoint({
+const realPython = spawnSync('sh', ['-c', 'command -v python3'], { encoding: 'utf8' }).stdout.trim();
+
+function runEntrypointDetailed({
     transcodingMode,
     storedTranscodingMode = false,
     storedConfig,
@@ -23,7 +25,11 @@ function runEntrypoint({
     vaDriverPresent = false,
     intelDriverPresent = false,
     runtimeUid,
-    runtimeGid
+    runtimeGid,
+    impersonation = false,
+    updateChannel,
+    impersonationAlreadyPresent = false,
+    installedChannelMarker
 } = {}) {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-entrypoint-'));
     const binDir = path.join(tempDir, 'bin');
@@ -52,6 +58,24 @@ function runEntrypoint({
     writeStub(binDir, 'setpriv', 'printf "setpriv %s\\n" "$*" >> "$ENTRYPOINT_CALLS"');
     writeStub(binDir, 'npm', 'printf "npm %s\\n" "$*" >> "$ENTRYPOINT_CALLS"');
 
+    // python3 is used for three different things here: `-m pip` installs, `-I -` config
+    // reads, and `- <path>` import probes. Only pip is faked; the other two delegate to the
+    // real interpreter so config parsing is genuinely exercised.
+    const impersonationMarker = path.join(tempDir, 'impersonation-installed');
+    if (impersonationAlreadyPresent) fs.writeFileSync(impersonationMarker, '');
+    writeStub(binDir, 'python3', [
+        'case "$1" in',
+        '  -m) printf "pip %s\\n" "$*" >> "$ENTRYPOINT_CALLS"; : > "$ENTRYPOINT_IMPERSONATION_MARKER"; exit 0 ;;',
+        '  -I) exec "$ENTRYPOINT_REAL_PYTHON" "$@" ;;',
+        'esac',
+        'if [ "$1" = "-" ]; then',
+        '  cat >/dev/null',
+        '  [ -f "$ENTRYPOINT_IMPERSONATION_MARKER" ] && exit 0',
+        '  exit 1',
+        'fi',
+        'exec "$ENTRYPOINT_REAL_PYTHON" "$@"'
+    ].join('\n'));
+
     const env = {
         ...process.env,
         PATH: `${binDir}:${process.env.PATH}`,
@@ -62,9 +86,15 @@ function runEntrypoint({
         ENTRYPOINT_PACKAGES: installedPackages.join(' '),
         ENTRYPOINT_VA_DRIVER: String(vaDriverPresent),
         ENTRYPOINT_INTEL_DRIVER: String(intelDriverPresent),
+        ENTRYPOINT_REAL_PYTHON: realPython,
+        ENTRYPOINT_IMPERSONATION_MARKER: impersonationMarker,
         UID: '1000',
         GID: '1000'
     };
+    delete env.ytdl_ytdlp_update_channel;
+    delete env.YTDL_YTDLP_UPDATE_CHANNEL;
+    delete env.ytdl_ytdlp_impersonation_python_path;
+    delete env.YTDL_YTDLP_IMPERSONATION_PYTHON_PATH;
     delete env.ytdl_uid;
     delete env.uid;
     delete env.ytdl_gid;
@@ -78,6 +108,14 @@ function runEntrypoint({
     if (runtimeUid !== undefined) env.ytdl_uid = runtimeUid;
     if (runtimeGid !== undefined) env.ytdl_gid = runtimeGid;
     if (transcodingMode !== undefined) env.ytdl_transcoding = transcodingMode;
+    if (impersonation) env.ytdl_enable_ytdlp_impersonation_dependencies = 'true';
+    if (updateChannel !== undefined) env.ytdl_ytdlp_update_channel = updateChannel;
+
+    const impersonationTarget = path.join(tempDir, 'appdata', 'ytdlp-impersonation', 'python');
+    if (installedChannelMarker !== undefined) {
+        fs.mkdirSync(impersonationTarget, { recursive: true });
+        fs.writeFileSync(path.join(impersonationTarget, '.ytdl-material-channel'), installedChannelMarker);
+    }
 
     const result = spawnSync('bash', [entrypointPath, 'npm', 'start'], {
         encoding: 'utf8',
@@ -86,9 +124,17 @@ function runEntrypoint({
     });
 
     const calls = fs.existsSync(callsPath) ? fs.readFileSync(callsPath, 'utf8') : '';
+    const storedChannel = fs.existsSync(path.join(impersonationTarget, '.ytdl-material-channel'))
+        ? fs.readFileSync(path.join(impersonationTarget, '.ytdl-material-channel'), 'utf8')
+        : null;
+    const stdout = result.stdout || '';
     fs.rmSync(tempDir, { recursive: true, force: true });
     assert.strictEqual(result.status, 0, result.stderr || result.stdout);
-    return calls;
+    return { calls, stdout, storedChannel };
+}
+
+function runEntrypoint(options) {
+    return runEntrypointDetailed(options).calls;
 }
 
 describe('Docker entrypoint', function() {
@@ -295,5 +341,81 @@ describe('Docker entrypoint', function() {
         assert(calls.includes('npm start'), calls);
         assert(!calls.includes('gosu'), calls);
         assert(!calls.includes('setpriv'), calls);
+    });
+});
+
+describe('Docker entrypoint yt-dlp impersonation channel', function() {
+    it('installs the stable release when no channel is configured', function() {
+        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true });
+
+        assert(calls.includes('pip -m pip install'), calls);
+        assert(!calls.includes('--pre'), calls);
+        assert.strictEqual(storedChannel, 'stable');
+    });
+
+    it('installs the nightly pre-release when the channel is nightly', function() {
+        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightly' });
+
+        assert(calls.includes('--pre'), calls);
+        assert.strictEqual(storedChannel, 'nightly');
+    });
+
+    it('normalizes case and whitespace in the channel environment value', function() {
+        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true, updateChannel: '  NIGHTLY  ' });
+
+        assert(calls.includes('--pre'), calls);
+        assert.strictEqual(storedChannel, 'nightly');
+    });
+
+    it('reads the channel from persisted settings when no environment value is set', function() {
+        const { calls, storedChannel } = runEntrypointDetailed({
+            impersonation: true,
+            storedConfig: { YtdlMaterial: { Downloader: { transcoding: false }, Advanced: { ytdlp_update_channel: 'nightly' } } }
+        });
+
+        assert(calls.includes('--pre'), calls);
+        assert.strictEqual(storedChannel, 'nightly');
+    });
+
+    it('warns and falls back to nightly for master, which PyPI does not publish', function() {
+        const { calls, stdout } = runEntrypointDetailed({ impersonation: true, updateChannel: 'master' });
+
+        assert(stdout.includes("PyPI has no 'master' channel"), stdout);
+        assert(calls.includes('--pre'), calls);
+    });
+
+    it('skips the install entirely for an unrecognized channel', function() {
+        const { calls, stdout } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightlyy' });
+
+        assert(stdout.includes("unknown ytdl_ytdlp_update_channel 'nightlyy'"), stdout);
+        assert(!calls.includes('pip -m pip install'), calls);
+    });
+
+    it('reinstalls when the configured channel differs from the installed one', function() {
+        const { calls } = runEntrypointDetailed({
+            impersonation: true,
+            updateChannel: 'nightly',
+            impersonationAlreadyPresent: true,
+            installedChannelMarker: 'stable'
+        });
+
+        assert(calls.includes('--pre'), calls);
+    });
+
+    it('does not reinstall when the installed channel already matches', function() {
+        const { calls } = runEntrypointDetailed({
+            impersonation: true,
+            updateChannel: 'nightly',
+            impersonationAlreadyPresent: true,
+            installedChannelMarker: 'nightly'
+        });
+
+        assert(!calls.includes('pip -m pip install'), calls);
+    });
+
+    it('does not touch impersonation dependencies when the feature is disabled', function() {
+        const { calls } = runEntrypointDetailed({ updateChannel: 'nightly' });
+
+        assert(!calls.includes('pip'), calls);
     });
 });

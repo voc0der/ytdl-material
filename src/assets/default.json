@@ -121,7 +121,8 @@
       "jwt_expiration": 86400,
       "logger_level": "debug",
       "use_cookies": false,
-      "default_downloader": "yt-dlp"
+      "default_downloader": "yt-dlp",
+      "ytdlp_update_channel": "stable"
     }
   }
 }

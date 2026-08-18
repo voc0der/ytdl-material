@@ -365,6 +365,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_default_downloader',
         'path': 'YtdlMaterial.Advanced.default_downloader'
     },
+    'ytdl_ytdlp_update_channel': {
+        'key': 'ytdl_ytdlp_update_channel',
+        'path': 'YtdlMaterial.Advanced.ytdlp_update_channel'
+    },
     'ytdl_use_default_downloading_agent': {
         'key': 'ytdl_use_default_downloading_agent',
         'path': 'YtdlMaterial.Advanced.use_default_downloading_agent'

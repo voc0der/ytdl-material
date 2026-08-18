@@ -41,3 +41,38 @@ Open the `ytdl-material` directory in Visual Studio Code.
 Navigate to the `ytdl-material` directory and run `npm run build`. Restart the backend.
 
 Simply restart the backend.
+
+# Reproducing a user's container
+
+Most bug reports are "downloads fail in Docker", and the useful first move is to stand up
+the reporter's environment rather than reason about it. `docker-utils/container-repro.sh` does that:
+
+```bash
+docker-utils/container-repro.sh --channel stable --download          # does a real download 403?
+docker-utils/container-repro.sh --channel nightly --download         # does a newer yt-dlp fix it?
+docker-utils/container-repro.sh --local --channel nightly            # test uncommitted backend changes
+docker-utils/container-repro.sh --uid 1026 --gid 100 --keep          # NAS-style ids, leave it running
+```
+
+It boots a throwaway container, waits for the yt-dlp update check, then asserts the app
+runs as the configured UID/GID, that the channel was applied, and that the installed yt-dlp
+matches that channel's latest upstream tag. `--download` additionally attempts a real
+download and distinguishes an HTTP 403 from other failures.
+
+`--local` mounts the working tree's `backend/*.js` over `/app` in the published image, so
+backend changes can be exercised without rebuilding. The entrypoint logs `chown: ...
+Read-only file system` warnings for those mounts; that is expected.
+
+This is intentionally not part of CI. The download check depends on YouTube's current
+behavior, so it would fail for reasons unrelated to any given change.
+
+## Things worth knowing before debugging a 403
+
+- **The image tag does not control yt-dlp.** `voc0der/ytdl-material:nightly` versions the
+  app; yt-dlp is downloaded separately, and defaults to the latest *stable* release. Use
+  `ytdl_ytdlp_update_channel` to move it. See `docker-environment.md`.
+- **403s are format-dependent.** Stable `2026.07.04` returns 403 for higher-resolution
+  formats (e.g. `400+251`) while lower-resolution ones (e.g. `395+251`) still succeed, so
+  "it works for me" does not disprove a report. Always reproduce with the reporter's URL.
+- **Running the backend test suite rewrites `backend/appdata/default.json`**, stripping
+  retired keys and self-healing missing ones. Check `git diff` on it before committing.

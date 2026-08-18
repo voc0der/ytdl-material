@@ -104,6 +104,21 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 
 Anything you set there takes precedence and is never overwritten. See the [wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for how to pick a client.
 * `ytdl_js_runtimes`: pin the JavaScript runtime yt-dlp uses to solve YouTube's JS challenge, passed through as `--js-runtimes` (for example `deno` or `node`). Leave empty to let yt-dlp auto-detect an installed runtime, which is the default and is recommended. Pinning a runtime that is not installed causes downloads to fail with `unable to download video data: HTTP Error 403: Forbidden`; run `yt-dlp -v` and check the `JS Challenge Providers` line to see which runtimes are actually available (default empty)
+* `ytdl_ytdlp_update_channel`: which yt-dlp release channel to download and auto-update from. One of `'stable'` (default), `'nightly'`, or `'master'`. Also selectable in **Settings → Advanced** from the downloader dropdown. Only affects the `yt-dlp` downloader; `youtube-dl` and `youtube-dlc` always use their own upstreams. Values are case-insensitive and trimmed. An unrecognized value is **rejected**, not corrected: the update is skipped and the existing binary is left alone, so a typo cannot silently downgrade you from nightly back to a stable build you deliberately moved off. The error names the valid channels
+
+  This is separate from the ytdl-material image tag. Running `voc0der/ytdl-material:nightly` still downloads **stable** yt-dlp unless you set this variable — the image tag versions the app, this variable versions the downloader.
+
+  When YouTube changes something mid-cycle, yt-dlp usually ships the fix to nightly first, and stable can lag by weeks. If downloads suddenly fail with `unable to download video data: HTTP Error 403: Forbidden` and yt-dlp is already up to date on stable, switching to `'nightly'` is the usual fix:
+
+  ```yaml
+  environment:
+    ytdl_default_downloader: yt-dlp
+    ytdl_ytdlp_update_channel: nightly
+  ```
+
+  Changing the channel takes effect on the next update check, which runs at startup — restart the container after changing it. Switching back to `'stable'` downgrades the binary to the current stable release on the next check, since the updater replaces the binary whenever the installed version differs from the channel's latest.
+
+  With `ytdl_use_ytdlp_impersonation` enabled, downloads run yt-dlp from the pip install rather than the downloaded binary, so the entrypoint installs the matching channel there too (`--pre` for nightly). PyPI does not publish a `master` channel, so `'master'` installs the nightly pre-release for impersonation and logs a warning saying so. Changing channels reinstalls those dependencies on the next start.
 
 ## Hardware Acceleration (Transcoding)
 

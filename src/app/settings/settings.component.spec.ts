@@ -118,3 +118,120 @@ describe('SettingsComponent.deleteOrphanFiles', () => {
     expect(message.toLowerCase()).toContain('failed');
   });
 });
+
+describe('SettingsComponent downloader + yt-dlp channel selection', () => {
+  let component: SettingsComponent;
+
+  const buildComponent = (): SettingsComponent => {
+    const posts_service_mock: any = {
+      initialized: false,
+      service_initialized: of(false),
+      config: null,
+      openSnackBar: jasmine.createSpy('openSnackBar')
+    };
+    const snack_bar_mock: any = {open: () => {}};
+    const sanitizer_mock: any = {};
+    const dialog_mock: any = {open: () => ({close: () => {}})};
+    const router_mock: any = {navigate: () => {}};
+    const route_mock: any = {snapshot: {paramMap: {get: () => null}}};
+
+    return new SettingsComponent(
+      posts_service_mock,
+      snack_bar_mock,
+      sanitizer_mock,
+      dialog_mock,
+      router_mock,
+      route_mock
+    );
+  };
+
+  beforeEach(() => {
+    component = buildComponent();
+    component.new_config = {Advanced: {default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable'}};
+    component.initial_config = {Advanced: {default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable'}};
+    component.downloaderInfo = {
+      'yt-dlp': {downloader: 'yt-dlp', version: '2026.07.04', binary_exists: true, loaded: true}
+    };
+  });
+
+  it('represents stable yt-dlp as a bare value', () => {
+    expect(component.selectedDownloader).toBe('yt-dlp');
+  });
+
+  it('encodes the non-stable channels into the selected value', () => {
+    for (const channel of ['nightly', 'master']) {
+      component.new_config['Advanced']['ytdlp_update_channel'] = channel;
+      expect(component.selectedDownloader).toBe(`yt-dlp@${channel}`);
+    }
+  });
+
+  it('treats a missing or blank channel as stable', () => {
+    for (const channel of [undefined, null, '', '   ']) {
+      component.new_config['Advanced']['ytdlp_update_channel'] = channel;
+      expect(component.selectedDownloader).toBe('yt-dlp');
+    }
+  });
+
+  it('normalizes case and whitespace so an env value like NIGHTLY displays correctly', () => {
+    for (const channel of ['NIGHTLY', '  nightly  ', 'Nightly']) {
+      component.new_config['Advanced']['ytdlp_update_channel'] = channel;
+      expect(component.selectedDownloader).toBe('yt-dlp@nightly');
+    }
+  });
+
+  it('matches no option for an unrecognized channel rather than claiming stable', () => {
+    // The backend skips updating entirely in this state, so showing 'stable' would be a
+    // lie. An unmatched value leaves the select empty until the user picks a real channel.
+    component.new_config['Advanced']['ytdlp_update_channel'] = 'nightlyy';
+    expect(component.selectedDownloader).toBe('yt-dlp@nightlyy');
+    expect(component.selectedDownloader).not.toBe('yt-dlp');
+  });
+
+  it('annotates no channel with a version when the installed channel is unrecognized', () => {
+    component.initial_config['Advanced']['ytdlp_update_channel'] = 'nightlyy';
+    for (const channel of ['stable', 'nightly', 'master']) {
+      expect(component.getDownloaderLabel('yt-dlp', channel)).toBe(`yt-dlp ${channel}`);
+    }
+  });
+
+  it('writes both the fork and the channel when a channel option is picked', () => {
+    component.selectedDownloader = 'yt-dlp@nightly';
+    expect(component.new_config['Advanced']['default_downloader']).toBe('yt-dlp');
+    expect(component.new_config['Advanced']['ytdlp_update_channel']).toBe('nightly');
+  });
+
+  it('resets to stable when the bare yt-dlp option is picked', () => {
+    component.new_config['Advanced']['ytdlp_update_channel'] = 'nightly';
+    component.selectedDownloader = 'yt-dlp';
+    expect(component.new_config['Advanced']['ytdlp_update_channel']).toBe('stable');
+  });
+
+  it('leaves the stored channel alone for the other forks', () => {
+    component.new_config['Advanced']['ytdlp_update_channel'] = 'nightly';
+    component.selectedDownloader = 'youtube-dl';
+    expect(component.new_config['Advanced']['default_downloader']).toBe('youtube-dl');
+    expect(component.new_config['Advanced']['ytdlp_update_channel']).toBe('nightly');
+    expect(component.selectedDownloader).toBe('youtube-dl');
+  });
+
+  it('annotates only the installed channel with the version', () => {
+    expect(component.getDownloaderLabel('yt-dlp', 'stable')).toBe('yt-dlp stable (2026.07.04)');
+    expect(component.getDownloaderLabel('yt-dlp', 'nightly')).toBe('yt-dlp nightly');
+    expect(component.getDownloaderLabel('yt-dlp', 'master')).toBe('yt-dlp master');
+  });
+
+  it('follows the saved config, not an unsaved selection, when annotating', () => {
+    component.initial_config['Advanced']['ytdlp_update_channel'] = 'nightly';
+    component.new_config['Advanced']['ytdlp_update_channel'] = 'stable';
+    expect(component.getDownloaderLabel('yt-dlp', 'nightly')).toBe('yt-dlp nightly (2026.07.04)');
+    expect(component.getDownloaderLabel('yt-dlp', 'stable')).toBe('yt-dlp stable');
+  });
+
+  it('keeps the unchannelled label format for the other forks', () => {
+    component.downloaderInfo['youtube-dl'] = {
+      downloader: 'youtube-dl', version: '2021.12.17', binary_exists: true, loaded: true
+    };
+    expect(component.getDownloaderLabel('youtube-dl')).toBe('youtube-dl (2021.12.17)');
+    expect(component.getDownloaderLabel('youtube-dlc')).toBe('youtube-dlc');
+  });
+});

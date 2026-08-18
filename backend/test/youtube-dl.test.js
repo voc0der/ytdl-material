@@ -159,5 +159,97 @@ describe('youtube-dl', function() {
             assert(!args.includes('--js-runtimes'));
         });
     });
+
 });
 
+
+// Deliberately a sibling of the 'youtube-dl' suite rather than a child: that suite's
+// beforeEach runs a real checkForYoutubeDLUpdate, which downloads a binary and burns
+// GitHub's unauthenticated rate limit. These are pure URL/channel resolution checks and
+// must not touch the network.
+describe('yt-dlp update channel', function() {
+    let original_channel = null;
+
+    beforeEach(function() {
+        original_channel = config_api.getConfigItem('ytdl_ytdlp_update_channel');
+    });
+
+    afterEach(function() {
+        config_api.setConfigItem('ytdl_ytdlp_update_channel', original_channel);
+    });
+
+    it('Defaults to stable when unset or blank', function() {
+        for (const blank_value of ['', '   ', null, undefined]) {
+            config_api.setConfigItem('ytdl_ytdlp_update_channel', blank_value);
+            assert.strictEqual(youtubedl_api.getYtDlpUpdateChannel(), 'stable');
+            assert.strictEqual(
+                youtubedl_api.getYoutubeDLSourceUrls('yt-dlp')['download_url'],
+                'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp'
+            );
+        }
+    });
+
+    it('Points both URLs at the matching repo for each channel', function() {
+        for (const [channel, repo] of Object.entries(youtubedl_api.YTDLP_UPDATE_CHANNELS)) {
+            config_api.setConfigItem('ytdl_ytdlp_update_channel', channel);
+            const urls = youtubedl_api.getYoutubeDLSourceUrls('yt-dlp');
+            assert.strictEqual(urls['download_url'], `https://github.com/${repo}/releases/latest/download/yt-dlp`);
+            assert.strictEqual(urls['releases_url'], `https://api.github.com/repos/${repo}/releases/latest`);
+        }
+    });
+
+    it('Resolves the version and the binary from the same release', function() {
+        // A tag exists before the release that publishes its binary. Reading versions from
+        // /tags while downloading from /releases/latest records a version the binary does
+        // not have, and the next check sees recorded == latest and never corrects it.
+        for (const channel of Object.keys(youtubedl_api.YTDLP_UPDATE_CHANNELS)) {
+            config_api.setConfigItem('ytdl_ytdlp_update_channel', channel);
+            const urls = youtubedl_api.getYoutubeDLSourceUrls('yt-dlp');
+            assert(urls['releases_url'].endsWith('/releases/latest'), `${channel} version source must be a release`);
+            assert(!urls['releases_url'].includes('/tags'), `${channel} version source must not be the tags API`);
+        }
+    });
+
+    it('Normalizes case and surrounding whitespace', function() {
+        for (const channel_value of ['NIGHTLY', '  nightly  ', 'Nightly']) {
+            config_api.setConfigItem('ytdl_ytdlp_update_channel', channel_value);
+            assert.strictEqual(youtubedl_api.getYtDlpUpdateChannel(), 'nightly');
+        }
+    });
+
+    it('Rejects an unrecognized channel instead of downgrading to stable', function() {
+        config_api.setConfigItem('ytdl_ytdlp_update_channel', 'nightlyy');
+        assert.strictEqual(youtubedl_api.getYtDlpUpdateChannel(), null);
+        assert.throws(() => youtubedl_api.getYoutubeDLSourceUrls('yt-dlp'), /Unknown yt-dlp update channel/);
+    });
+
+    it('Skips the update entirely when the channel is unrecognized', async function() {
+        config_api.setConfigItem('ytdl_ytdlp_update_channel', 'nightlyy');
+
+        let update_called = false;
+        const original_update = youtubedl_api.updateYoutubeDL;
+        const original_get_latest = youtubedl_api.getLatestUpdateVersion;
+        try {
+            youtubedl_api.updateYoutubeDL = async () => { update_called = true; };
+            youtubedl_api.getLatestUpdateVersion = async () => { throw new Error('must not reach the network'); };
+            await youtubedl_api.checkForYoutubeDLUpdate('yt-dlp');
+            assert(!update_called, 'a misspelled channel must leave the existing binary alone');
+        } finally {
+            youtubedl_api.updateYoutubeDL = original_update;
+            youtubedl_api.getLatestUpdateVersion = original_get_latest;
+        }
+    });
+
+    it('Leaves non yt-dlp forks on their own upstreams', function() {
+        config_api.setConfigItem('ytdl_ytdlp_update_channel', 'nightly');
+        for (const fork of ['youtube-dl', 'youtube-dlc']) {
+            const urls = youtubedl_api.getYoutubeDLSourceUrls(fork);
+            assert.strictEqual(urls['download_url'], youtubedl_api.youtubedl_forks[fork]['download_url']);
+            assert.strictEqual(urls['releases_url'], youtubedl_api.youtubedl_forks[fork]['releases_url']);
+        }
+    });
+
+    it('Throws for an unsupported fork', function() {
+        assert.throws(() => youtubedl_api.getYoutubeDLSourceUrls('not-a-fork'), /Unsupported downloader fork/);
+    });
+});

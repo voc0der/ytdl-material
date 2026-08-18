@@ -617,10 +617,12 @@
             <div class="col-12 mt-3">
               <mat-form-field>
                 <mat-label><ng-container i18n="Default downloader select label">Select a downloader</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Advanced']['default_downloader']">
+                <mat-select color="accent" [(ngModel)]="selectedDownloader">
                   <mat-option value="youtube-dl">{{ getDownloaderLabel('youtube-dl') }}</mat-option>
                   <mat-option value="youtube-dlc">{{ getDownloaderLabel('youtube-dlc') }}</mat-option>
-                  <mat-option value="yt-dlp">{{ getDownloaderLabel('yt-dlp') }}</mat-option>
+                  <mat-option value="yt-dlp">{{ getDownloaderLabel('yt-dlp', 'stable') }}</mat-option>
+                  <mat-option value="yt-dlp@nightly">{{ getDownloaderLabel('yt-dlp', 'nightly') }}</mat-option>
+                  <mat-option value="yt-dlp@master">{{ getDownloaderLabel('yt-dlp', 'master') }}</mat-option>
                 </mat-select>
                 <mat-hint i18n="Restart required hint">Restart required.</mat-hint>
               </mat-form-field>

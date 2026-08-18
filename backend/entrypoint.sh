@@ -44,9 +44,52 @@ sys.exit(1 if missing else 0)
 PY
 }
 
+# Impersonation mode runs `python3 -m yt_dlp` out of this pip target instead of the
+# downloaded binary, so the yt-dlp update channel has to be honored here too. Otherwise the
+# UI reports whatever channel the binary is on while downloads run stable PyPI yt-dlp.
+resolve_ytdlp_update_channel() {
+    local env_channel
+    local env_name
+
+    for env_name in ytdl_ytdlp_update_channel YTDL_YTDLP_UPDATE_CHANNEL; do
+        if printenv "$env_name" >/dev/null 2>&1; then
+            env_channel="$(printenv "$env_name")"
+            printf '%s' "$env_channel" | tr '[:upper:]' '[:lower:]' | \
+                sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+            return
+        fi
+    done
+
+    if [ ! -r appdata/default.json ]; then
+        return
+    fi
+
+    python3 -I - <<'PY'
+import json
+import sys
+try:
+    with open('appdata/default.json', encoding='utf-8') as config_file:
+        config = json.load(config_file)
+    if 'YtdlMaterial' in config:
+        root = config.get('YtdlMaterial') or {}
+    else:
+        root = config.get('YoutubeDLMaterial') or {}
+    channel = root.get('Advanced', {}).get('ytdlp_update_channel')
+    if channel is not None:
+        sys.stdout.write(str(channel).strip().lower())
+except (AttributeError, OSError, TypeError, ValueError):
+    # The backend will report malformed config with its normal startup diagnostics.
+    pass
+PY
+}
+
 install_ytdlp_impersonation_dependencies() {
     local enabled
     local target_path
+    local channel
+    local pip_pre_args
+    local channel_marker
+    local installed_channel
 
     enabled="$(resolve_runtime_env false \
         ytdl_enable_ytdlp_impersonation_dependencies \
@@ -62,21 +105,53 @@ install_ytdlp_impersonation_dependencies() {
         ytdl_ytdlp_impersonation_python_path \
         YTDL_YTDLP_IMPERSONATION_PYTHON_PATH)"
 
-    if python_target_has_ytdlp_impersonation "$target_path"; then
-        echo "[entrypoint] yt-dlp impersonation dependencies are already installed"
+    channel="$(resolve_ytdlp_update_channel)"
+    [ -z "$channel" ] && channel="stable"
+
+    case "$channel" in
+        stable)
+            pip_pre_args=""
+            ;;
+        nightly)
+            pip_pre_args="--pre"
+            ;;
+        master)
+            # PyPI only carries stable releases and nightly pre-releases; master builds are
+            # published to GitHub only. Nightly is the closest available, and saying so is
+            # better than silently running something the user did not pick.
+            echo "[entrypoint] WARNING: PyPI has no 'master' channel for yt-dlp. Impersonation mode will use the nightly pre-release instead."
+            pip_pre_args="--pre"
+            ;;
+        *)
+            # Match the backend: an unrecognized channel is a config error, not a reason to
+            # quietly install stable over a deliberately chosen newer build.
+            echo "[entrypoint] ERROR: unknown ytdl_ytdlp_update_channel '${channel}'. Valid channels: stable, nightly, master. Skipping the impersonation dependency install and leaving any existing install untouched."
+            return
+            ;;
+    esac
+
+    # yt_dlp being importable is not enough to skip the install: switching channels has to
+    # reinstall, and the module alone cannot tell us which channel produced it.
+    channel_marker="${target_path}/.ytdl-material-channel"
+    installed_channel="$(cat "$channel_marker" 2>/dev/null || true)"
+
+    if python_target_has_ytdlp_impersonation "$target_path" && [ "$installed_channel" = "$channel" ]; then
+        echo "[entrypoint] yt-dlp impersonation dependencies are already installed (channel: ${channel})"
         export PYTHONPATH="${target_path}${PYTHONPATH:+:${PYTHONPATH}}"
         return
     fi
 
-    echo "[entrypoint] Installing optional yt-dlp impersonation dependencies"
+    echo "[entrypoint] Installing optional yt-dlp impersonation dependencies (channel: ${channel})"
     mkdir -p "$target_path"
-    python3 -m pip install --upgrade --target "$target_path" "yt-dlp[default,curl-cffi]" yt-dlp-ejs
+    # shellcheck disable=SC2086 # pip_pre_args is intentionally unquoted: empty or --pre
+    python3 -m pip install --upgrade $pip_pre_args --target "$target_path" "yt-dlp[default,curl-cffi]" yt-dlp-ejs
 
     if ! python_target_has_ytdlp_impersonation "$target_path"; then
         echo "[entrypoint] ERROR: yt-dlp impersonation dependencies were not available after installation."
         exit 1
     fi
 
+    printf '%s' "$channel" > "$channel_marker" 2>/dev/null || true
     export PYTHONPATH="${target_path}${PYTHONPATH:+:${PYTHONPATH}}"
 }
 

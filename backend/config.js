@@ -395,6 +395,7 @@ const DEFAULT_CONFIG = {
       },
       "Advanced": {
         "default_downloader": "yt-dlp",
+        "ytdlp_update_channel": "stable",
         "use_default_downloading_agent": true,
         "custom_downloading_agent": "",
         "multi_user_mode": false,
