@@ -800,4 +800,71 @@ describe('Files', function() {
             assert.strictEqual(files_api.validateSnipRange(5, 20, null).valid, true);
         });
     });
+    describe('embedded subtitle extraction', function() {
+        const subtitle_dir = path.join(__dirname, 'tmp-subtitle-test');
+        const subtitle_source_path = path.join(subtitle_dir, 'subtitled.mp4');
+
+        // Builds a real video carrying one embedded English subtitle track. The extraction
+        // path shells out to ffmpeg, so there is nothing meaningful to assert against a stub.
+        beforeEach(async function() {
+            this.timeout(60000);
+            await fs.ensureDir(subtitle_dir);
+            const srt_path = path.join(subtitle_dir, 'source.srt');
+            await fs.writeFile(srt_path, '1\n00:00:00,000 --> 00:00:02,000\nhello world\n\n2\n00:00:02,000 --> 00:00:03,000\nsecond line\n');
+            await exec(`ffmpeg -y -v error -f lavfi -i testsrc=duration=3:size=128x96:rate=10 -i "${srt_path}" `
+                + `-c:v libx264 -pix_fmt yuv420p -c:s mov_text -metadata:s:s:0 language=eng "${subtitle_source_path}"`);
+        });
+
+        afterEach(async function() {
+            await fs.remove(subtitle_dir);
+        });
+
+        it('extractSubtitleSidecar writes a WEBVTT sidecar for an embedded track', async function() {
+            this.timeout(60000);
+
+            const sidecar_path = await files_api.extractSubtitleSidecar(subtitle_source_path, 0);
+
+            assert.strictEqual(sidecar_path, files_api.getSubtitleSidecarPath(subtitle_source_path, 0));
+            assert.strictEqual(await fs.pathExists(sidecar_path), true);
+
+            const contents = await fs.readFile(sidecar_path, 'utf8');
+            assert.ok(contents.startsWith('WEBVTT'), `expected a WEBVTT sidecar, got: ${contents.slice(0, 40)}`);
+            assert.ok(contents.includes('hello world'), 'the sidecar should carry the embedded cue text');
+        });
+
+        it('extractSubtitleSidecar returns null and leaves nothing behind for a track that does not exist', async function() {
+            this.timeout(60000);
+
+            const sidecar_path = await files_api.extractSubtitleSidecar(subtitle_source_path, 5);
+
+            assert.strictEqual(sidecar_path, null);
+            assert.strictEqual(await fs.pathExists(files_api.getSubtitleSidecarPath(subtitle_source_path, 5)), false);
+        });
+
+        it('ensureSubtitleSidecarForFile probes the embedded track and produces its sidecar', async function() {
+            this.timeout(60000);
+
+            const sidecar_path = await files_api.ensureSubtitleSidecarForFile({
+                path: subtitle_source_path,
+                isAudio: false
+            }, 0);
+
+            assert.notStrictEqual(sidecar_path, null, 'the embedded track should be discovered by probing');
+            assert.strictEqual(await fs.pathExists(sidecar_path), true);
+            assert.ok((await fs.readFile(sidecar_path, 'utf8')).startsWith('WEBVTT'));
+        });
+
+        it('ensureSubtitleSidecarForFile returns null when the file carries no subtitle streams', async function() {
+            this.timeout(60000);
+            const bare_path = path.join(subtitle_dir, 'no-subs.mp4');
+            await exec(`ffmpeg -y -v error -f lavfi -i testsrc=duration=1:size=128x96:rate=10 -pix_fmt yuv420p "${bare_path}"`);
+
+            const sidecar_path = await files_api.ensureSubtitleSidecarForFile({
+                path: bare_path,
+                isAudio: false
+            }, 0);
+
+            assert.strictEqual(sidecar_path, null);
+        });
+    });
 });

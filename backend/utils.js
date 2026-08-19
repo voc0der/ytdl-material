@@ -1,7 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { Readable } = require('stream');
-const ffmpeg = require('fluent-ffmpeg');
 const archiver = require('archiver');
 const ProgressBar = require('progress');
 const winston = require('winston');
@@ -550,70 +549,66 @@ exports.snipFile = async (source_path, output_path, start, end, ext, on_progress
 }
 
 /**
- * ffmpeg reports progress as a HH:MM:SS.ss timemark. Output-side seeking restarts output
- * timestamps at zero, so this counts up from 0 to the length of the trimmed range.
+ * Assemble the ffmpeg arguments for one crop attempt.
+ *
+ * Argument order is load-bearing: input options have to precede -i to apply to the input,
+ * and -ss has to follow it so the seek is applied output-side. Output-side seeking is what
+ * restarts the output timestamps at zero, which the progress maths below depends on.
  */
-function parseTimemarkSeconds(timemark) {
-    if (typeof timemark === 'number') return Number.isFinite(timemark) ? timemark : null;
-    if (typeof timemark !== 'string' || timemark === '') return null;
-
-    const parts = timemark.split(':').map(Number);
-    if (parts.some(part => !Number.isFinite(part))) return null;
-
-    return parts.reduce((total, part) => (total * 60) + part, 0);
+function buildCropArgs(source_path, output_path, start, end, hardware_settings) {
+    const args = ['-y'];
+    if (hardware_settings && hardware_settings.input_options.length > 0) {
+        args.push(...hardware_settings.input_options);
+    }
+    args.push('-i', source_path);
+    if (start) {
+        args.push('-ss', String(start));
+    }
+    if (end) {
+        args.push('-t', String(end - start));
+    }
+    if (hardware_settings) {
+        if (hardware_settings.video_filters.length > 0) {
+            args.push('-vf', hardware_settings.video_filters.join(','));
+        }
+        args.push('-c:v', hardware_settings.video_encoder);
+    }
+    args.push(output_path);
+    return args;
 }
 
-function cropFileAttempt(source_path, output_path, start, end, hardware_settings, on_progress = null) {
-    return new Promise(resolve => {
-        let base_ffmpeg_call = ffmpeg(source_path);
-        if (start) {
-            base_ffmpeg_call = base_ffmpeg_call.seekOutput(start);
-        }
-        if (end) {
-            base_ffmpeg_call = base_ffmpeg_call.duration(end - start);
-        }
-        if (hardware_settings) {
-            if (hardware_settings.input_options.length > 0) {
-                base_ffmpeg_call = base_ffmpeg_call.inputOptions(hardware_settings.input_options);
-            }
-            if (hardware_settings.video_filters.length > 0) {
-                base_ffmpeg_call = base_ffmpeg_call.videoFilters(hardware_settings.video_filters);
-            }
-            base_ffmpeg_call = base_ffmpeg_call.videoCodec(hardware_settings.video_encoder);
-        }
-        // fluent-ffmpeg only fills in progress.percent when it has ffprobe data for the
-        // input, and even then it measures against the *input* duration, which for a short
-        // snip of a long file would never climb past a few percent. We know the length of
-        // the range we asked for, so derive the percentage from that instead.
-        const target_duration = Number(end) - Number(start);
-        if (on_progress && Number.isFinite(target_duration) && target_duration > 0) {
-            base_ffmpeg_call = base_ffmpeg_call.on('progress', (progress) => {
-                const elapsed_seconds = parseTimemarkSeconds(progress && progress.timemark);
-                if (elapsed_seconds === null) return;
-                const percent = (elapsed_seconds / target_duration) * 100;
-                on_progress(Math.min(100, Math.max(0, percent)));
-            });
-        }
-        base_ffmpeg_call
-            // the resolved command line is the only definitive record of which encoder ran
-            .on('start', (command_line) => {
-                logger.debug(`ffmpeg crop command: ${command_line}`);
-            })
-            .on('end', () => {
-                logger.verbose(`Cropping attempt for '${source_path}' finished.`);
-                resolve(true);
-            })
-            .on('error', (err) => {
-                logger.error(`Failed to crop ${source_path}.`);
-                logger.error(err);
-                try {
-                    fs.removeSync(output_path);
-                } catch (e) {
-                    // Non-fatal.
-                }
-                resolve(false);
-            }).save(output_path);
+async function cropFileAttempt(source_path, output_path, start, end, hardware_settings, on_progress = null) {
+    const args = buildCropArgs(source_path, output_path, start, end, hardware_settings);
+
+    // ffmpeg measures progress against the *input* position, which for a short snip of a
+    // long file would never climb past a few percent. We know the length of the range we
+    // asked for, so derive the percentage from that instead.
+    const target_duration = Number(end) - Number(start);
+    const report_progress = on_progress && Number.isFinite(target_duration) && target_duration > 0;
+
+    // the resolved command line is the only definitive record of which encoder ran
+    logger.debug(`ffmpeg crop command: ffmpeg ${args.join(' ')}`);
+
+    const {success, error} = await transcoding_api.runFfmpeg(args, {
+        on_progress_seconds: report_progress ? (elapsed_seconds) => {
+            const percent = (elapsed_seconds / target_duration) * 100;
+            on_progress(Math.min(100, Math.max(0, percent)));
+        } : null
     });
+
+    if (success) {
+        logger.verbose(`Cropping attempt for '${source_path}' finished.`);
+        return true;
+    }
+
+    logger.error(`Failed to crop ${source_path}.`);
+    logger.error(error);
+    try {
+        fs.removeSync(output_path);
+    } catch (e) {
+        // Non-fatal.
+    }
+    return false;
 }
 
 /**

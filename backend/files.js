@@ -1,12 +1,12 @@
 const fs = require('fs-extra')
 const path = require('path')
-const ffmpeg = require('fluent-ffmpeg');
 const { v4: uuid } = require('uuid');
 
 const config_api = require('./config');
 const db_api = require('./db');
 const archive_api = require('./archive');
 const utils = require('./utils')
+const transcoding_api = require('./transcoding');
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
 const FILE_LIST_MAX_RANGE_SIZE = 250;
@@ -543,26 +543,22 @@ async function probeEmbeddedSubtitleTracks(file_path = '') {
     if (typeof file_path !== 'string' || file_path.trim() === '') return [];
     if (!(await fs.pathExists(file_path))) return [];
 
-    return await new Promise(resolve => {
-        ffmpeg.ffprobe(file_path, (err, metadata) => {
-            if (err || !metadata || !Array.isArray(metadata.streams)) {
-                if (err) logger.debug(`Failed to probe subtitle streams for '${file_path}': ${err}`);
-                resolve([]);
-                return;
-            }
+    const streams = await transcoding_api.probeStreams(file_path);
+    if (!streams) {
+        logger.debug(`Failed to probe subtitle streams for '${file_path}'.`);
+        return [];
+    }
 
-            const subtitle_streams = metadata.streams.filter(stream => stream && stream.codec_type === 'subtitle');
-            resolve(subtitle_streams.map((stream, track_index) => {
-                const normalized_language = normalizeSubtitleLanguage(stream?.tags?.language) || 'und';
-                return {
-                    index: track_index,
-                    language: normalized_language,
-                    label: getSubtitleTrackLabel(stream, normalized_language, track_index),
-                    kind: 'subtitles',
-                    default: !!(stream?.disposition && stream.disposition.default === 1) || track_index === 0
-                };
-            }));
-        });
+    const subtitle_streams = streams.filter(stream => stream && stream.codec_type === 'subtitle');
+    return subtitle_streams.map((stream, track_index) => {
+        const normalized_language = normalizeSubtitleLanguage(stream?.tags?.language) || 'und';
+        return {
+            index: track_index,
+            language: normalized_language,
+            label: getSubtitleTrackLabel(stream, normalized_language, track_index),
+            kind: 'subtitles',
+            default: !!(stream?.disposition && stream.disposition.default === 1) || track_index === 0
+        };
     });
 }
 
@@ -614,29 +610,30 @@ async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) 
         logger.warn(`Failed to remove stale subtitle sidecar '${subtitle_sidecar_path}'.`);
     }
 
-    return await new Promise(resolve => {
-        ffmpeg(file_path)
-            .outputOptions(['-map', `0:s:${subtitle_track_index}`])
-            .format('webvtt')
-            .on('end', async () => {
-                try {
-                    await fs.chmod(subtitle_sidecar_path, 0o644);
-                } catch (e) {
-                    // Non-fatal.
-                }
-                resolve(subtitle_sidecar_path);
-            })
-            .on('error', async (err) => {
-                try {
-                    await fs.remove(subtitle_sidecar_path);
-                } catch (e) {
-                    // Non-fatal.
-                }
-                logger.warn(`Failed to extract subtitle sidecar for '${file_path}': ${err}`);
-                resolve(null);
-            })
-            .save(subtitle_sidecar_path);
-    });
+    const {success, error} = await transcoding_api.runFfmpeg([
+        '-y',
+        '-i', file_path,
+        '-map', `0:s:${subtitle_track_index}`,
+        '-f', 'webvtt',
+        subtitle_sidecar_path
+    ]);
+
+    if (!success) {
+        try {
+            await fs.remove(subtitle_sidecar_path);
+        } catch (e) {
+            // Non-fatal.
+        }
+        logger.warn(`Failed to extract subtitle sidecar for '${file_path}': ${error}`);
+        return null;
+    }
+
+    try {
+        await fs.chmod(subtitle_sidecar_path, 0o644);
+    } catch (e) {
+        // Non-fatal.
+    }
+    return subtitle_sidecar_path;
 }
 exports.extractSubtitleSidecar = extractSubtitleSidecar;
 

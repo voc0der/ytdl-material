@@ -251,6 +251,115 @@ function getPrimaryErrorLine(stderr) {
     const first_line = (stderr || '').trim().split('\n')[0] || '';
     return first_line.substring(0, 300);
 }
+exports.getPrimaryErrorLine = getPrimaryErrorLine;
+
+/**
+ * Run ffmpeg to completion.
+ *
+ * Resolves {success, error} rather than rejecting, so callers walking a hardware->software
+ * ladder can test each rung without wrapping every attempt in try/catch.
+ *
+ * Progress comes from `-progress pipe:1`, which emits machine-readable `key=value` lines on
+ * stdout. That is deliberately not the human-readable stderr status line: the stderr format
+ * is presentational and has changed between ffmpeg releases, while `-progress` is a stable
+ * contract intended for exactly this.
+ *
+ * @param {string[]} args ffmpeg arguments, excluding the binary itself
+ * @param {function} [on_progress_seconds] called with output position in seconds as it advances
+ */
+function runFfmpeg(args, {on_progress_seconds = null} = {}) {
+    return new Promise(resolve => {
+        const ffmpeg_binary = process.env.FFMPEG_PATH || 'ffmpeg';
+        // -hide_banner -v error keeps stderr to just the failure, so getPrimaryErrorLine
+        // reports the actual problem instead of the version banner ffmpeg leads with.
+        const full_args = ['-hide_banner', '-v', 'error'];
+        if (on_progress_seconds) full_args.push('-progress', 'pipe:1', '-nostats');
+        full_args.push(...args);
+        let stderr = '';
+        let stdout_remainder = '';
+        let finished = false;
+
+        const finish = (success, error) => {
+            if (finished) return;
+            finished = true;
+            resolve({success: success, error: error});
+        };
+
+        let ffmpeg_process = null;
+        try {
+            ffmpeg_process = spawn(ffmpeg_binary, full_args);
+        } catch (err) {
+            finish(false, err.message);
+            return;
+        }
+
+        if (on_progress_seconds) {
+            ffmpeg_process.stdout.on('data', data => {
+                // A chunk can split mid-line, so carry the tail over to the next one.
+                const text = stdout_remainder + data.toString();
+                const lines = text.split('\n');
+                stdout_remainder = lines.pop();
+                for (const line of lines) {
+                    const [key, value] = line.split('=');
+                    if (key !== 'out_time_us' && key !== 'out_time_ms') continue;
+                    const parsed = Number(value);
+                    if (!Number.isFinite(parsed) || parsed < 0) continue;
+                    // out_time_ms is a misnomer upstream: both fields are microseconds.
+                    on_progress_seconds(parsed / 1000000);
+                }
+            });
+        }
+
+        ffmpeg_process.stderr.on('data', data => stderr += data.toString());
+        ffmpeg_process.on('error', err => finish(false, err.message));
+        ffmpeg_process.on('close', code => {
+            if (code === 0) finish(true, null);
+            else finish(false, getPrimaryErrorLine(stderr) || `ffmpeg exited with code ${code}`);
+        });
+    });
+}
+exports.runFfmpeg = runFfmpeg;
+
+/**
+ * Read stream metadata for a file with ffprobe. Resolves null when the file cannot be
+ * probed, so callers can treat "no usable metadata" and "probe failed" the same way.
+ * @returns {Promise<object[]|null>} the `streams` array, or null
+ */
+function probeStreams(file_path) {
+    return new Promise(resolve => {
+        const ffprobe_binary = process.env.FFPROBE_PATH || 'ffprobe';
+        const args = ['-v', 'quiet', '-print_format', 'json', '-show_streams', file_path];
+        let stdout = '';
+        let finished = false;
+
+        const finish = (streams) => {
+            if (finished) return;
+            finished = true;
+            resolve(streams);
+        };
+
+        let ffprobe_process = null;
+        try {
+            ffprobe_process = spawn(ffprobe_binary, args);
+        } catch (err) {
+            finish(null);
+            return;
+        }
+
+        ffprobe_process.stdout.on('data', data => stdout += data.toString());
+        ffprobe_process.on('error', () => finish(null));
+        ffprobe_process.on('close', code => {
+            if (code !== 0) return finish(null);
+            try {
+                const parsed = JSON.parse(stdout);
+                finish(Array.isArray(parsed.streams) ? parsed.streams : null);
+            } catch (e) {
+                finish(null);
+            }
+        });
+    });
+}
+exports.probeStreams = probeStreams;
 
 function runFfmpegFlightTest(args) {
     return new Promise(resolve => {
