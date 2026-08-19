@@ -1,7 +1,13 @@
-// jsdom implements localStorage as an accessor bound to its own window wrapper. Vitest copies
-// the property descriptor onto globalThis, where that internal binding no longer resolves, so
-// the getter yields undefined even though 'localStorage' in window is true. PostsService reads
-// localStorage while constructing, so install a working in-memory Storage when that happens.
+// Give the specs a plain, stable Storage for localStorage and sessionStorage.
+//
+// jsdom implements both as accessors bound to its own window wrapper. Vitest copies the
+// property descriptors onto globalThis, where that internal binding no longer resolves the
+// same way, and what comes back varies by environment: locally the getter yields undefined
+// (so PostsService fails on construction), while on CI it returns an object whose identity is
+// not stable across reads, so a vi.spyOn installed on one read is missing on the next.
+//
+// Installing unconditionally rather than only when the getter looks broken keeps the two
+// environments identical, which is the only way specs that spy on storage can be reliable.
 
 function createStorage(): Storage {
   const entries = new Map<string, string>();
@@ -27,22 +33,10 @@ function createStorage(): Storage {
   } as Storage;
 }
 
-function isUsable(name: string): boolean {
-  try {
-    const existing = (globalThis as any)[name];
-    return !!existing && typeof existing.getItem === 'function';
-  } catch {
-    // jsdom throws for an opaque origin rather than returning undefined.
-    return false;
-  }
-}
-
 for (const name of ['localStorage', 'sessionStorage'] as const) {
-  if (!isUsable(name)) {
-    Object.defineProperty(globalThis, name, {
-      value: createStorage(),
-      configurable: true,
-      writable: true
-    });
-  }
+  Object.defineProperty(globalThis, name, {
+    value: createStorage(),
+    configurable: true,
+    writable: true
+  });
 }

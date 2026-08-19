@@ -176,6 +176,7 @@
             ],
             "buildTarget": ":build:testing",
             "runner": "vitest",
+            "isolate": true,
             "setupFiles": [
               "src/test-setup.ts"
             ],
