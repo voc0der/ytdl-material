@@ -67,7 +67,6 @@
     "read-last-lines": "^1.8.0",
     "redis": "^6.2.1",
     "rxjs": "^7.8.2",
-    "shortid": "^2.2.17",
     "tree-kill": "^1.2.2",
     "unzipper": "^0.12.5",
     "uuid": "^14.0.2",
@@ -83,9 +82,6 @@
     "got": "11.8.6",
     "js-yaml": "4.3.1",
     "serialize-javascript": "7.1.0",
-    "shortid": {
-      "nanoid": "3.3.18"
-    },
     "undici": "6.28.0",
     "ws": "8.21.3"
   },
