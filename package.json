@@ -75,13 +75,13 @@
     "karma-cli": "~2.0.0",
     "karma-coverage-istanbul-reporter": "~3.0.2",
     "karma-jasmine": "~5.1.0",
-    "karma-jasmine-html-reporter": "2.2.0",
+    "karma-jasmine-html-reporter": "2.3.0",
     "openapi-typescript-codegen": "^0.31.0",
     "ts-node": "~10.9.2"
   },
   "overrides": {
     "@babel/core": "7.29.7",
-    "@hono/node-server": "2.1.0",
+    "@hono/node-server": "2.1.1",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@angular/build": {
       "picomatch": "4.0.5"
@@ -116,7 +116,7 @@
       "@angular/core": "21.2.0"
     },
     "flatted": "3.4.4",
-    "hono": "4.13.1",
+    "hono": "4.13.3",
     "immutable": "5.1.9",
     "js-yaml": "4.3.1",
     "nanoid": "3.3.18",
@@ -125,7 +125,7 @@
     "tar": "7.5.22",
     "tmp": "0.2.7",
     "undici": "7.29.0",
-    "uuid": "14.0.1",
+    "uuid": "14.0.2",
     "vite": "7.3.6",
     "ws": "8.21.3"
   }
