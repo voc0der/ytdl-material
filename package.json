@@ -86,25 +86,6 @@
     "@angular/build": {
       "picomatch": "4.0.5"
     },
-    "@angular-devkit/build-angular": {
-      "picomatch": "4.0.5",
-      "http-proxy-middleware": {
-        "micromatch": {
-          "picomatch": "2.3.2"
-        }
-      },
-      "webpack-dev-server": {
-        ".": "5.2.6",
-        "chokidar": {
-          "anymatch": {
-            "picomatch": "2.3.2"
-          },
-          "readdirp": {
-            "picomatch": "2.3.2"
-          }
-        }
-      }
-    },
     "@angular-devkit/core": {
       "ajv": "8.20.0",
       "picomatch": "4.0.5"
@@ -121,11 +102,7 @@
     "js-yaml": "4.3.1",
     "nanoid": "3.3.18",
     "postcss": "8.5.26",
-    "serialize-javascript": "7.1.0",
-    "tar": "7.5.22",
     "tmp": "0.2.7",
-    "undici": "7.29.0",
-    "uuid": "14.0.2",
     "vite": "7.3.6",
     "ws": "8.21.3"
   }
