@@ -3,13 +3,19 @@
   "compilerOptions": {
     "outDir": "../out-tsc/spec",
     "baseUrl": "",
+    // vitest ships its global type declarations inside its own package rather than
+    // @types, so the root typeRoots restriction has to be widened for them to resolve.
+    "typeRoots": [
+      "../node_modules/@types",
+      "../node_modules"
+    ],
     "types": [
-      "jasmine",
-      "node"
+      "node",
+      "vitest/globals"
     ]
   },
   "files": [
-    "test.ts",
+    "test-setup.ts",
     "polyfills.ts"
   ],
   "include": [

@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { EditCategoryDialogComponent } from './edit-category-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('EditCategoryDialogComponent', () => {
   let component: EditCategoryDialogComponent;
   let fixture: ComponentFixture<EditCategoryDialogComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ EditCategoryDialogComponent ]
     })
     .compileComponents();

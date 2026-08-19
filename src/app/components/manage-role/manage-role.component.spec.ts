@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { ManageRoleComponent } from './manage-role.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('ManageRoleComponent', () => {
   let component: ManageRoleComponent;
   let fixture: ComponentFixture<ManageRoleComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ ManageRoleComponent ]
     })
     .compileComponents();

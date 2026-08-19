@@ -18,10 +18,12 @@ For setup and local run instructions, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 - Run `npm run lint`
 - Run `npx tsc -p src/tsconfig.app.json --noEmit`
 - Run `npx tsc -p src/tsconfig.spec.json --noEmit`
-- Run `CHROMIUM_BIN="$(command -v chromium || command -v chromium-browser)" npm run test:headless`
+- Run `npm run test:headless`
 - Run `npx ng build --configuration production`
 - If backend JavaScript changed, run `node --check` on each touched backend file
 
 ## Notes
 
-- The repo test defaults use `Chromium` / `ChromiumHeadless` instead of Chrome-branded launchers.
+- Frontend tests run on Vitest in a jsdom environment, so no browser install is needed.
+- Component specs call `configureTestBed()` from `src/testing/test-bed.ts` rather than
+  `TestBed.configureTestingModule` directly, which is what supplies the shared service stubs.

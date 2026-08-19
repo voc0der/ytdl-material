@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { TaskSettingsComponent } from './task-settings.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('TaskSettingsComponent', () => {
   let component: TaskSettingsComponent;
   let fixture: ComponentFixture<TaskSettingsComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
+    await configureTestBed({
       declarations: [ TaskSettingsComponent ]
     })
     .compileComponents();

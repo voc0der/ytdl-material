@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { NotificationsListComponent } from './notifications-list.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('NotificationsListComponent', () => {
   let component: NotificationsListComponent;
   let fixture: ComponentFixture<NotificationsListComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
+    await configureTestBed({
       declarations: [ NotificationsListComponent ]
     })
     .compileComponents();

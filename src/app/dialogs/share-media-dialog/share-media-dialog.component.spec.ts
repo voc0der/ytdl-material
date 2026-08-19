@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { ShareMediaDialogComponent } from './share-media-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('ShareMediaDialogComponent', () => {
   let component: ShareMediaDialogComponent;
   let fixture: ComponentFixture<ShareMediaDialogComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ ShareMediaDialogComponent ]
     })
     .compileComponents();

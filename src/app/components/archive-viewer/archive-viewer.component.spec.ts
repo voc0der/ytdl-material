@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ArchiveViewerComponent } from './archive-viewer.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('ArchiveViewerComponent', () => {
   let component: ArchiveViewerComponent;
   let fixture: ComponentFixture<ArchiveViewerComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
+    await configureTestBed({
       declarations: [ ArchiveViewerComponent ]
     })
     .compileComponents();

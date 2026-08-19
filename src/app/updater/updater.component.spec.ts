@@ -1,3 +1,4 @@
+import type { MockedObject } from "vitest";
 import { of, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
@@ -20,16 +21,24 @@ function getNextPatchVersion(tag: string): string {
 
 describe('UpdaterComponent', () => {
   let component: UpdaterComponent;
-  let postsService: jasmine.SpyObj<PostsService>;
-  let dialog: jasmine.SpyObj<MatDialog>;
+  let postsService: MockedObject<PostsService>;
+  let dialog: MockedObject<MatDialog>;
   const currentVersionTag = CURRENT_VERSION;
   const currentVersionWithoutPrefix = stripVersionPrefix(CURRENT_VERSION);
   const nextPatchVersion = getNextPatchVersion(CURRENT_VERSION);
 
   beforeEach(() => {
-    postsService = jasmine.createSpyObj<PostsService>('PostsService', ['getAvailableRelease', 'getVersionInfo', 'updateServer']);
-    postsService.getVersionInfo.and.returnValue(of({ version_info: { tag: currentVersionTag } } as any));
-    dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
+    postsService = {
+      getAvailableRelease: vi.fn().mockName("PostsService.getAvailableRelease"),
+      getVersionInfo: vi.fn().mockName("PostsService.getVersionInfo"),
+      updateServer: vi.fn().mockName("PostsService.updateServer")
+      // Only the methods the component touches are stubbed. jasmine.SpyObj allowed a
+      // partial like this directly; MockedObject requires the whole surface, so cast.
+    } as unknown as MockedObject<PostsService>;
+    postsService.getVersionInfo.mockReturnValue(of({ version_info: { tag: currentVersionTag } } as any));
+    dialog = {
+      open: vi.fn().mockName("MatDialog.open")
+    } as unknown as MockedObject<MatDialog>;
     component = new UpdaterComponent(postsService, dialog);
   });
 
@@ -38,20 +47,20 @@ describe('UpdaterComponent', () => {
   });
 
   it('falls back to the current version when no releases are available', () => {
-    postsService.getAvailableRelease.and.returnValue(of([]));
+    postsService.getAvailableRelease.mockReturnValue(of([]));
 
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe(currentVersionTag);
-    expect(component.hasStableVersions).toBeFalse();
-    expect(component.showCurrentVersionOption).toBeTrue();
+    expect(component.hasStableVersions).toBe(false);
+    expect(component.showCurrentVersionOption).toBe(true);
     expect(component.currentVersionOptionValue).toBe(currentVersionTag);
-    expect(component.canUpdateSelectedVersion()).toBeFalse();
-    expect(component.versionsLoaded).toBeTrue();
+    expect(component.canUpdateSelectedVersion()).toBe(false);
+    expect(component.versionsLoaded).toBe(true);
   });
 
   it('falls back to the current version when no stable release exists', () => {
-    postsService.getAvailableRelease.and.returnValue(of([
+    postsService.getAvailableRelease.mockReturnValue(of([
       { tag_name: `${nextPatchVersion}-rc1` },
       { tag_name: `${nextPatchVersion}-rc0` }
     ]));
@@ -59,13 +68,13 @@ describe('UpdaterComponent', () => {
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe(currentVersionTag);
-    expect(component.hasStableVersions).toBeFalse();
-    expect(component.showCurrentVersionOption).toBeTrue();
-    expect(component.canUpdateSelectedVersion()).toBeFalse();
+    expect(component.hasStableVersions).toBe(false);
+    expect(component.showCurrentVersionOption).toBe(true);
+    expect(component.canUpdateSelectedVersion()).toBe(false);
   });
 
   it('selects the latest stable release when one exists', () => {
-    postsService.getAvailableRelease.and.returnValue(of([
+    postsService.getAvailableRelease.mockReturnValue(of([
       { tag_name: nextPatchVersion },
       { tag_name: currentVersionTag }
     ]));
@@ -73,51 +82,51 @@ describe('UpdaterComponent', () => {
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe(nextPatchVersion);
-    expect(component.hasStableVersions).toBeTrue();
-    expect(component.showCurrentVersionOption).toBeFalse();
-    expect(component.canUpdateSelectedVersion()).toBeTrue();
-    expect(component.isSelectedVersionUpgrade()).toBeTrue();
+    expect(component.hasStableVersions).toBe(true);
+    expect(component.showCurrentVersionOption).toBe(false);
+    expect(component.canUpdateSelectedVersion()).toBe(true);
+    expect(component.isSelectedVersionUpgrade()).toBe(true);
   });
 
   it('treats equivalent tags with and without a v prefix as the same release', () => {
-    postsService.getAvailableRelease.and.returnValue(of([
+    postsService.getAvailableRelease.mockReturnValue(of([
       { tag_name: currentVersionWithoutPrefix }
     ]));
 
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe(currentVersionWithoutPrefix);
-    expect(component.hasStableVersions).toBeTrue();
-    expect(component.showCurrentVersionOption).toBeFalse();
-    expect(component.canUpdateSelectedVersion()).toBeFalse();
-    expect(component.isCurrentVersion(currentVersionWithoutPrefix)).toBeTrue();
+    expect(component.hasStableVersions).toBe(true);
+    expect(component.showCurrentVersionOption).toBe(false);
+    expect(component.canUpdateSelectedVersion()).toBe(false);
+    expect(component.isCurrentVersion(currentVersionWithoutPrefix)).toBe(true);
   });
 
   it('loads the runtime nightly tag before selecting available versions', () => {
-    postsService.getAvailableRelease.and.returnValue(of([
+    postsService.getAvailableRelease.mockReturnValue(of([
       { tag_name: nextPatchVersion },
       { tag_name: currentVersionTag }
     ]));
-    postsService.getVersionInfo.and.returnValue(of({ version_info: { tag: 'nightly' } } as any));
+    postsService.getVersionInfo.mockReturnValue(of({ version_info: { tag: 'nightly' } } as any));
 
     component.ngOnInit();
 
     expect(postsService.getVersionInfo).toHaveBeenCalled();
     expect(component.selectedVersion).toBe('nightly');
-    expect(component.hasStableVersions).toBeTrue();
-    expect(component.showCurrentVersionOption).toBeTrue();
+    expect(component.hasStableVersions).toBe(true);
+    expect(component.showCurrentVersionOption).toBe(true);
     expect(component.currentVersionOptionValue).toBe('nightly');
-    expect(component.canUpdateSelectedVersion()).toBeFalse();
+    expect(component.canUpdateSelectedVersion()).toBe(false);
 
     component.selectedVersion = nextPatchVersion;
 
-    expect(component.canUpdateSelectedVersion()).toBeTrue();
-    expect(component.isSelectedVersionDowngrade()).toBeTrue();
+    expect(component.canUpdateSelectedVersion()).toBe(true);
+    expect(component.isSelectedVersionDowngrade()).toBe(true);
   });
 
   it('uses the cached runtime version tag when version info is already loaded', () => {
     postsService.version_info = { tag: 'nightly' } as any;
-    postsService.getAvailableRelease.and.returnValue(of([
+    postsService.getAvailableRelease.mockReturnValue(of([
       { tag_name: nextPatchVersion },
       { tag_name: currentVersionTag }
     ]));
@@ -130,13 +139,13 @@ describe('UpdaterComponent', () => {
   });
 
   it('falls back to the current version when the release request fails', () => {
-    postsService.getAvailableRelease.and.returnValue(throwError(() => new Error('request failed')));
+    postsService.getAvailableRelease.mockReturnValue(throwError(() => new Error('request failed')));
 
     component.getAvailableVersions();
 
     expect(component.selectedVersion).toBe(currentVersionTag);
-    expect(component.hasStableVersions).toBeFalse();
-    expect(component.showCurrentVersionOption).toBeTrue();
-    expect(component.versionsLoaded).toBeTrue();
+    expect(component.hasStableVersions).toBe(false);
+    expect(component.showCurrentVersionOption).toBe(true);
+    expect(component.versionsLoaded).toBe(true);
   });
 });

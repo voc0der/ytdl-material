@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { VideoInfoDialogComponent } from './video-info-dialog.component';
 import { PostsService } from 'app/posts.services';
 import { DatePipe } from '@angular/common';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('VideoInfoDialogComponent', () => {
   let component: VideoInfoDialogComponent;
@@ -16,8 +17,8 @@ describe('VideoInfoDialogComponent', () => {
     postsServiceStub = {
       categories: null,
       user: null,
-      reloadCategories: jasmine.createSpy('reloadCategories'),
-      getFile: jasmine.createSpy('getFile').and.returnValue(of({
+      reloadCategories: vi.fn().mockName('reloadCategories'),
+      getFile: vi.fn().mockName('getFile').mockReturnValue(of({
         file: {
           uid: 'uid-1',
           title: 'Mac Miller - Self Care',
@@ -40,10 +41,10 @@ describe('VideoInfoDialogComponent', () => {
           favorite: false
         }
       })),
-      updateFile: jasmine.createSpy('updateFile').and.returnValue(of({}))
+      updateFile: vi.fn().mockName('updateFile').mockReturnValue(of({}))
     };
 
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [VideoInfoDialogComponent],
       providers: [
         DatePipe,
@@ -69,7 +70,7 @@ describe('VideoInfoDialogComponent', () => {
       ],
       schemas: [NO_ERRORS_SCHEMA]
     })
-    .compileComponents();
+      .compileComponents();
   }));
 
   beforeEach(() => {

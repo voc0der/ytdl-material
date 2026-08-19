@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { UpdateProgressDialogComponent } from './update-progress-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('UpdateProgressDialogComponent', () => {
   let component: UpdateProgressDialogComponent;
   let fixture: ComponentFixture<UpdateProgressDialogComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ UpdateProgressDialogComponent ]
     })
     .compileComponents();

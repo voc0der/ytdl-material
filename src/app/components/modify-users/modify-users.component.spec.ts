@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { ModifyUsersComponent } from './modify-users.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('ModifyUsersComponent', () => {
   let component: ModifyUsersComponent;
   let fixture: ComponentFixture<ModifyUsersComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ ModifyUsersComponent ]
     })
     .compileComponents();

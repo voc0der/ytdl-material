@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { TwitchChatComponent } from './twitch-chat.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('TwitchChatComponent', () => {
   let component: TwitchChatComponent;
   let fixture: ComponentFixture<TwitchChatComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ TwitchChatComponent ]
     })
     .compileComponents();

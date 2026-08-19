@@ -4,12 +4,10 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
-import {
-  MediaLibraryNavigationStateService,
-  PLAYER_NAVIGATOR_STORAGE_KEY
-} from 'app/media-library-navigation-state.service';
+import { MediaLibraryNavigationStateService, PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
 import { MediaLibraryComponent } from './media-library.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('MediaLibraryComponent', () => {
   let component: MediaLibraryComponent;
@@ -45,30 +43,30 @@ describe('MediaLibraryComponent', () => {
       isLoggedIn: false,
       token: '',
       auth_token: '',
-      removePlaylist: jasmine.createSpy('removePlaylist').and.returnValue(of({
+      removePlaylist: vi.fn().mockName('removePlaylist').mockReturnValue(of({
         success: true,
         playlist_removed: true,
         failed_file_count: 0
       })),
-      openSnackBar: jasmine.createSpy('openSnackBar'),
-      getAllFiles: jasmine.createSpy('getAllFiles').and.returnValue(of({files: [], file_count: 0})),
-      getPlaylists: jasmine.createSpy('getPlaylists').and.returnValue(of({playlists: []})),
+      openSnackBar: vi.fn().mockName('openSnackBar'),
+      getAllFiles: vi.fn().mockName('getAllFiles').mockReturnValue(of({ files: [], file_count: 0 })),
+      getPlaylists: vi.fn().mockName('getPlaylists').mockReturnValue(of({ playlists: [] })),
       files_changed: new BehaviorSubject(false),
       playlists_changed: new BehaviorSubject(false),
       categories_changed: new BehaviorSubject(false)
     };
     routerStub = {
       url: '/home',
-      navigate: jasmine.createSpy('navigate'),
-      createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue('/player'),
-      serializeUrl: jasmine.createSpy('serializeUrl').and.returnValue('/player')
+      navigate: vi.fn().mockName('navigate'),
+      createUrlTree: vi.fn().mockName('createUrlTree').mockReturnValue('/player'),
+      serializeUrl: vi.fn().mockName('serializeUrl').mockReturnValue('/player')
     };
     dialogStub = {
-      open: jasmine.createSpy('open')
+      open: vi.fn().mockName('open')
     };
 
-    TestBed.configureTestingModule({
-      declarations: [ MediaLibraryComponent ],
+    configureTestBed({
+      declarations: [MediaLibraryComponent],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: Router, useValue: routerStub },
@@ -76,7 +74,7 @@ describe('MediaLibraryComponent', () => {
       ],
       schemas: [NO_ERRORS_SCHEMA]
     })
-    .compileComponents();
+      .compileComponents();
   }));
 
   beforeEach(() => {
@@ -96,14 +94,14 @@ describe('MediaLibraryComponent', () => {
     fixture = TestBed.createComponent(MediaLibraryComponent);
     component = fixture.componentInstance;
 
-    expect(component.autoPaginationEnabled).toBeTrue();
+    expect(component.autoPaginationEnabled).toBe(true);
     expect(localStorage.getItem(component.pageSizeStorageKey)).toBe(`${component.autoPageSizeOption}`);
   });
 
   it('should request the first auto-pagination batch from the server', () => {
-    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
-    spyOn(component, 'getAutoPageColumns').and.returnValue(3);
-    postsServiceStub.getAllFiles.and.returnValue(of({
+    vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(12);
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(3);
+    postsServiceStub.getAllFiles.mockReturnValue(of({
       files: [
         { uid: 'file-1', duration: 12 },
         { uid: 'file-2', duration: 18 }
@@ -114,23 +112,14 @@ describe('MediaLibraryComponent', () => {
 
     component.getAllFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
-      { by: 'registered', order: -1 },
-      [0, 12],
-      null,
-      'both',
-      false,
-      null,
-      false,
-      []
-    );
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 12], null, 'both', false, null, false, []);
     expect(component.paged_data.length).toBe(2);
     expect(component.file_count).toBe(40);
   });
 
   it('should append the next auto-pagination batch without duplicating files', () => {
-    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
-    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
+    vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(12);
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(2);
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
     component.file_count = 50;
@@ -138,8 +127,8 @@ describe('MediaLibraryComponent', () => {
       { uid: 'file-1', duration: 12 } as any,
       { uid: 'file-2', duration: 18 } as any
     ];
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.returnValue(of({
+    postsServiceStub.getAllFiles.mockClear();
+    postsServiceStub.getAllFiles.mockReturnValue(of({
       files: [
         { uid: 'file-2', duration: 18 },
         { uid: 'file-3', duration: 24 }
@@ -149,34 +138,26 @@ describe('MediaLibraryComponent', () => {
 
     component.loadMoreAutoFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
-      { by: 'registered', order: -1 },
-      [2, 14],
-      null,
-      'both',
-      false,
-      null,
-      false,
-      []
-    );
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [2, 14], null, 'both', false, null, false, []);
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2', 'file-3']);
   });
 
   it('should keep the current library visible when a background refresh fails', () => {
-    spyOn(console, 'error');
+    vi.spyOn(console, 'error').mockReturnValue(undefined);
     component.normal_files_received = true;
     component.paged_data = [
       { uid: 'file-1', duration: 12 } as any
     ];
-    postsServiceStub.getAllFiles.and.returnValue(throwError(() => new Error('refresh failed')));
+    postsServiceStub.getAllFiles.mockReturnValue(throwError(() => new Error('refresh failed')));
 
     try {
       component.getAllFiles();
 
-      expect(component.normal_files_received).toBeTrue();
+      expect(component.normal_files_received).toBe(true);
       expect(component.paged_data.map(file => file.uid)).toEqual(['file-1']);
-    } finally {
-      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+    finally {
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [], file_count: 0 }));
     }
   });
 
@@ -186,20 +167,11 @@ describe('MediaLibraryComponent', () => {
       { uid: 'cat-sports', name: 'Sports', show_as_filter: false }
     ];
     component.selectedFilters = ['category:cat-music', 'category:cat-sports', 'favorited'];
-    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.mockClear();
 
     component.getAllFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
-      { by: 'registered', order: -1 },
-      [0, 10],
-      null,
-      'both',
-      true,
-      null,
-      false,
-      ['cat-music']
-    );
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 10], null, 'both', true, null, false, ['cat-music']);
   });
 
   it('should expose only categories marked as library filters', () => {
@@ -218,7 +190,7 @@ describe('MediaLibraryComponent', () => {
     const first_response = new Subject<any>();
     const second_response = new Subject<any>();
     let request_count = 0;
-    postsServiceStub.getAllFiles.and.callFake(() => {
+    postsServiceStub.getAllFiles.mockImplementation(() => {
       request_count += 1;
       return request_count === 1 ? first_response.asObservable() : second_response.asObservable();
     });
@@ -253,8 +225,9 @@ describe('MediaLibraryComponent', () => {
 
       expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
       expect(component.file_count).toBe(2);
-    } finally {
-      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+    finally {
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [], file_count: 0 }));
     }
   });
 
@@ -266,8 +239,8 @@ describe('MediaLibraryComponent', () => {
     component.paged_data = [
       { uid: 'file-1', duration: 12 } as any
     ];
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.returnValue(refresh_response.asObservable());
+    postsServiceStub.getAllFiles.mockClear();
+    postsServiceStub.getAllFiles.mockReturnValue(refresh_response.asObservable());
 
     try {
       component.getAllFiles();
@@ -286,8 +259,9 @@ describe('MediaLibraryComponent', () => {
 
       expect(component.paged_data.map(file => file.uid)).toEqual(['file-2']);
       expect(component.file_count).toBe(1);
-    } finally {
-      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+    finally {
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [], file_count: 0 }));
     }
   });
 
@@ -301,8 +275,8 @@ describe('MediaLibraryComponent', () => {
     component.paged_data = [
       { uid: 'file-1', duration: 12 } as any
     ];
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.callFake(() => {
+    postsServiceStub.getAllFiles.mockClear();
+    postsServiceStub.getAllFiles.mockImplementation(() => {
       call_count += 1;
       return call_count === 1 ? append_response.asObservable() : refresh_response.asObservable();
     });
@@ -327,26 +301,27 @@ describe('MediaLibraryComponent', () => {
       refresh_response.complete();
 
       expect(component.paged_data.map(file => file.uid)).toEqual(['file-3']);
-      expect(component.autoPageLoadInProgress).toBeFalse();
+      expect(component.autoPageLoadInProgress).toBe(false);
 
-      postsServiceStub.getAllFiles.calls.reset();
-      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 5}));
+      postsServiceStub.getAllFiles.mockClear();
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [], file_count: 5 }));
       component.loadMoreAutoFiles();
       expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
-    } finally {
-      postsServiceStub.getAllFiles.and.returnValue(of({files: [], file_count: 0}));
+    }
+    finally {
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [], file_count: 0 }));
     }
   });
 
   it('should persist auto page size selection and reset paging', () => {
-    spyOn(localStorage, 'setItem');
+    vi.spyOn(localStorage, 'setItem').mockReturnValue(undefined);
     component.manualPageIndex = 4;
-    spyOn(component, 'getAllFiles');
-    spyOn(component, 'getAutoPageBatchSize').and.returnValue(12);
+    vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+    vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(12);
 
     component.pageSizeOptionChanged(component.autoPageSizeOption);
 
-    expect(component.autoPaginationEnabled).toBeTrue();
+    expect(component.autoPaginationEnabled).toBe(true);
     expect(component.manualPageIndex).toBe(0);
     expect(localStorage.setItem).toHaveBeenCalledWith(component.pageSizeStorageKey, 'auto');
     expect(component.getAllFiles).toHaveBeenCalled();
@@ -371,7 +346,7 @@ describe('MediaLibraryComponent', () => {
       getBoundingClientRect: () => ({ top: grid_top, width: 941 })
     };
     component.autoPaginationEnabled = true;
-    component.paged_data = Array.from({length: 20}, (_, index) => ({
+    component.paged_data = Array.from({ length: 20 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
@@ -380,7 +355,7 @@ describe('MediaLibraryComponent', () => {
     expect(component.getRequestedFileRange(false, true)).toEqual([20, 44]);
 
     grid_top = -3000;
-    component.paged_data = Array.from({length: 44}, (_, index) => ({
+    component.paged_data = Array.from({ length: 44 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
@@ -393,44 +368,35 @@ describe('MediaLibraryComponent', () => {
     component.sub_id = 'network-chuck';
     component.autoPaginationEnabled = true;
     component.file_count = 400;
-    component.paged_data = Array.from({length: 24}, (_, index) => ({
+    component.paged_data = Array.from({ length: 24 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(component, 'getAutoPageBatchSize').and.returnValue(24);
-    spyOn(component, 'getAutoPageColumns').and.returnValue(4);
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.returnValue(of({
+    vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(24);
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(4);
+    postsServiceStub.getAllFiles.mockClear();
+    postsServiceStub.getAllFiles.mockReturnValue(of({
       files: [],
       file_count: 400
     }));
 
     component.loadMoreAutoFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith(
-      { by: 'registered', order: -1 },
-      [24, 48],
-      null,
-      'both',
-      false,
-      'network-chuck',
-      false,
-      []
-    );
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [24, 48], null, 'both', false, 'network-chuck', false, []);
   });
 
   it('should window auto-loaded video rows instead of rendering every loaded row', () => {
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
-    component.paged_data = Array.from({length: 12}, (_, index) => ({
+    component.paged_data = Array.from({ length: 12 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
-    spyOn(component, 'getAutoCardRowHeight').and.returnValue(200);
-    spyOn(component, 'getViewportHeight').and.returnValue(400);
-    spyOn(component, 'getViewportScrollTop').and.returnValue(0);
-    spyOn(component, 'getVideoGridDocumentTop').and.returnValue(0);
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(2);
+    vi.spyOn(component, 'getAutoCardRowHeight').mockReturnValue(200);
+    vi.spyOn(component, 'getViewportHeight').mockReturnValue(400);
+    vi.spyOn(component, 'getViewportScrollTop').mockReturnValue(0);
+    vi.spyOn(component, 'getVideoGridDocumentTop').mockReturnValue(0);
 
     component.rebuildVideoRows();
 
@@ -444,16 +410,16 @@ describe('MediaLibraryComponent', () => {
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
     component.file_count = 20;
-    component.paged_data = Array.from({length: 6}, (_, index) => ({
+    component.paged_data = Array.from({ length: 6 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(component, 'getAutoPageColumns').and.returnValue(2);
-    spyOn(component, 'getAutoCardRowHeight').and.returnValue(200);
-    spyOn(component, 'getViewportHeight').and.returnValue(800);
-    spyOn(component, 'getViewportScrollTop').and.returnValue(0);
-    spyOn(component, 'getVideoGridDocumentTop').and.returnValue(0);
-    const load_more_spy = spyOn(component, 'loadMoreAutoFiles');
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(2);
+    vi.spyOn(component, 'getAutoCardRowHeight').mockReturnValue(200);
+    vi.spyOn(component, 'getViewportHeight').mockReturnValue(800);
+    vi.spyOn(component, 'getViewportScrollTop').mockReturnValue(0);
+    vi.spyOn(component, 'getVideoGridDocumentTop').mockReturnValue(0);
+    const load_more_spy = vi.spyOn(component, 'loadMoreAutoFiles').mockReturnValue(undefined);
 
     component.rebuildVideoRows();
     flushMicrotasks();
@@ -488,16 +454,16 @@ describe('MediaLibraryComponent', () => {
       playlistLibraryItems: [],
       playlistLibraryReceived: false
     });
-    postsServiceStub.getAllFiles.calls.reset();
+    postsServiceStub.getAllFiles.mockClear();
 
     fixture.detectChanges();
 
     expect(postsServiceStub.getAllFiles).not.toHaveBeenCalled();
-    expect(component.autoPaginationEnabled).toBeTrue();
+    expect(component.autoPaginationEnabled).toBe(true);
     expect(component.search_text).toBe('cats');
     expect(component.selectedFilters).toEqual(['favorited']);
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2']);
-    expect(component.normal_files_received).toBeTrue();
+    expect(component.normal_files_received).toBe(true);
   });
 
   it('should refetch files instead of restoring stale cached library data after background file changes', () => {
@@ -527,8 +493,8 @@ describe('MediaLibraryComponent', () => {
       playlistLibraryItems: [],
       playlistLibraryReceived: false
     });
-    postsServiceStub.getAllFiles.calls.reset();
-    postsServiceStub.getAllFiles.and.returnValue(of({
+    postsServiceStub.getAllFiles.mockClear();
+    postsServiceStub.getAllFiles.mockReturnValue(of({
       files: [
         { uid: 'file-3', duration: 24 }
       ],
@@ -544,21 +510,15 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should capture the visible anchor from rendered card positions', () => {
-    const manualComponent = new MediaLibraryComponent(
-      postsServiceStub,
-      routerStub,
-      dialogStub,
-      TestBed.inject(NgZone),
-      navigationStateService
-    );
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
-    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+    manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
-    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
+    vi.spyOn(manualComponent, 'getAutoPageColumns').mockReturnValue(2);
+    vi.spyOn(manualComponent, 'getViewportScrollTop').mockReturnValue(500);
 
     const anchor_slots = [
       {
@@ -591,24 +551,18 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should correct restored scroll using the rendered anchor element position', () => {
-    const manualComponent = new MediaLibraryComponent(
-      postsServiceStub,
-      routerStub,
-      dialogStub,
-      TestBed.inject(NgZone),
-      navigationStateService
-    );
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.file_count = 4;
-    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+    manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
-    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
-    spyOn(manualComponent, 'scheduleVirtualVideoWindowUpdate');
-    const set_scroll_spy = spyOn<any>(manualComponent, 'setViewportScrollTop');
+    vi.spyOn(manualComponent, 'getAutoPageColumns').mockReturnValue(2);
+    vi.spyOn(manualComponent, 'getViewportScrollTop').mockReturnValue(500);
+    vi.spyOn(manualComponent, 'scheduleVirtualVideoWindowUpdate').mockReturnValue(undefined);
+    const set_scroll_spy = vi.spyOn(manualComponent as any, 'setViewportScrollTop').mockReturnValue(undefined);
 
     const anchor_element = {
       getAttribute: () => 'file-3',
@@ -645,29 +599,23 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should keep the clicked file uid as the anchor when the rendered lookup misses', () => {
-    const manualComponent = new MediaLibraryComponent(
-      postsServiceStub,
-      routerStub,
-      dialogStub,
-      TestBed.inject(NgZone),
-      navigationStateService
-    );
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
-    manualComponent.paged_data = Array.from({length: 4}, (_, index) => ({
+    manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    spyOn(manualComponent, 'getAutoPageColumns').and.returnValue(2);
-    spyOn(manualComponent, 'getViewportScrollTop').and.returnValue(500);
-    spyOn(manualComponent, 'getVideoGridDocumentTop').and.returnValue(100);
+    vi.spyOn(manualComponent, 'getAutoPageColumns').mockReturnValue(2);
+    vi.spyOn(manualComponent, 'getViewportScrollTop').mockReturnValue(500);
+    vi.spyOn(manualComponent, 'getVideoGridDocumentTop').mockReturnValue(100);
 
     (manualComponent as any).scrollListenerTarget = window;
     (manualComponent as any).videoGridContainerElement = {
       querySelectorAll: () => [{
-        getAttribute: () => 'file-1',
-        getBoundingClientRect: () => ({ top: 0, bottom: 200 })
-      }]
+          getAttribute: () => 'file-1',
+          getBoundingClientRect: () => ({ top: 0, bottom: 200 })
+        }]
     };
 
     const anchor = (manualComponent as any).getNavigationRestoreAnchor('file-3', null);
@@ -678,11 +626,11 @@ describe('MediaLibraryComponent', () => {
   it('should rebuild cached auto rows when the grid container becomes available', () => {
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
-    component.paged_data = Array.from({length: 8}, (_, index) => ({
+    component.paged_data = Array.from({ length: 8 }, (_, index) => ({
       uid: `file-${index + 1}`,
       duration: 12
     })) as any;
-    const column_spy = spyOn(component, 'getAutoPageColumns').and.returnValues(4, 2);
+    const column_spy = vi.spyOn(component, 'getAutoPageColumns').mockReturnValueOnce(4).mockReturnValueOnce(2);
 
     component.rebuildVideoRows();
     expect(component.videoRows[0].items.length).toBe(4);
@@ -706,13 +654,13 @@ describe('MediaLibraryComponent', () => {
       { uid: 'file-1', duration: 12, isAudio: false } as any,
       { uid: 'file-2', duration: 18, isAudio: false } as any
     ];
-    spyOn(component, 'getViewportScrollTop').and.returnValue(500);
+    vi.spyOn(component, 'getViewportScrollTop').mockReturnValue(500);
     (component as any).scrollListenerTarget = window;
     (component as any).videoGridContainerElement = {
       querySelectorAll: () => [{
-        getAttribute: () => 'file-1',
-        getBoundingClientRect: () => ({ top: 140, bottom: 340 })
-      }]
+          getAttribute: () => 'file-1',
+          getBoundingClientRect: () => ({ top: 140, bottom: 340 })
+        }]
     };
 
     component.navigateToFile(component.paged_data[0], false);
@@ -742,7 +690,7 @@ describe('MediaLibraryComponent', () => {
     component.paged_data = [
       { uid: 'file-1', duration: 12, isAudio: false } as any
     ];
-    const window_open_spy = spyOn(window, 'open');
+    const window_open_spy = vi.spyOn(window, 'open').mockReturnValue(undefined);
 
     component.navigateToFile(component.paged_data[0], true);
 
@@ -760,9 +708,9 @@ describe('MediaLibraryComponent', () => {
     } as any;
     component.playlists = [playlist];
     component.playlistLibraryItems = [playlist];
-    dialogStub.open.and.returnValue({ afterClosed: () => of('playlist_only') });
-    const get_all_files_spy = spyOn(component, 'getAllFiles');
-    const get_all_playlists_spy = spyOn(component, 'getAllPlaylists');
+    dialogStub.open.mockReturnValue({ afterClosed: () => of('playlist_only') });
+    const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+    const get_all_playlists_spy = vi.spyOn(component, 'getAllPlaylists').mockReturnValue(undefined);
 
     component.deletePlaylist({ file: playlist, index: 0 });
 
@@ -782,14 +730,14 @@ describe('MediaLibraryComponent', () => {
     } as any;
     component.playlists = [playlist];
     component.playlistLibraryItems = [playlist];
-    postsServiceStub.removePlaylist.and.returnValue(of({
+    postsServiceStub.removePlaylist.mockReturnValue(of({
       success: false,
       playlist_removed: true,
       failed_file_count: 2
     }));
-    dialogStub.open.and.returnValue({ afterClosed: () => of('playlist_and_files') });
-    const get_all_files_spy = spyOn(component, 'getAllFiles');
-    spyOn(component, 'getAllPlaylists');
+    dialogStub.open.mockReturnValue({ afterClosed: () => of('playlist_and_files') });
+    const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+    vi.spyOn(component, 'getAllPlaylists').mockReturnValue(undefined);
 
     component.deletePlaylist({ file: playlist, index: 0 });
 

@@ -76,7 +76,18 @@
               ]
             },
             "es": {
-              "localize": ["es"]
+              "localize": [
+                "es"
+              ]
+            },
+            "testing": {
+              "aot": false,
+              "polyfills": [
+                "zone.js",
+                "zone.js/testing",
+                "zone.js/plugins/vitest-patch",
+                "src/polyfills.ts"
+              ]
             }
           },
           "defaultConfiguration": ""
@@ -157,26 +168,18 @@
           }
         },
         "test": {
-          "builder": "@angular/build:karma",
+          "builder": "@angular/build:unit-test",
           "options": {
-            "main": "src/test.ts",
-            "karmaConfig": "./karma.conf.js",
-            "polyfills": [
-              "src/polyfills.ts"
-            ],
             "tsConfig": "src/tsconfig.spec.json",
-            "scripts": [],
-            "styles": [
-              "src/styles.scss",
-              "src/bootstrap.min.css"
+            "reporters": [
+              "default"
             ],
-            "assets": [
-              "src/assets",
-              "src/favicon.ico",
-              "src/backend/audio",
-              "src/backend/video",
-              "src/backend"
-            ]
+            "buildTarget": ":build:testing",
+            "runner": "vitest",
+            "setupFiles": [
+              "src/test-setup.ts"
+            ],
+            "runnerConfig": true
           }
         }
       }

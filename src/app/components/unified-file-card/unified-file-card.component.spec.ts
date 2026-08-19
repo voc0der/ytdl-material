@@ -4,13 +4,14 @@ import { By } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 
 import { UnifiedFileCardComponent } from './unified-file-card.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('UnifiedFileCardComponent', () => {
   let component: UnifiedFileCardComponent;
   let fixture: ComponentFixture<UnifiedFileCardComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ UnifiedFileCardComponent ],
       providers: [
         { provide: MatDialog, useValue: {} }

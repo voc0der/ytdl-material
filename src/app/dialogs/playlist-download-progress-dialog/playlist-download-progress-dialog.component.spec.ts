@@ -5,13 +5,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { PlaylistDownloadProgressDialogComponent } from './playlist-download-progress-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('PlaylistDownloadProgressDialogComponent', () => {
   let component: PlaylistDownloadProgressDialogComponent;
   let fixture: ComponentFixture<PlaylistDownloadProgressDialogComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
+    await configureTestBed({
       declarations: [PlaylistDownloadProgressDialogComponent],
       imports: [MatDialogModule, MatProgressBarModule, MatTooltipModule],
       providers: [

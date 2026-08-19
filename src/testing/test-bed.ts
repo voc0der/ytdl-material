@@ -1,30 +1,22 @@
-// This file is required by karma.conf.js and loads recursively all the .spec and framework files
+// Shared TestBed configuration for component specs.
+//
+// The unit-test builder compiles each spec as its own bundle, so a setup file that patched
+// TestBed.configureTestingModule globally (as the karma setup did) could not reach them, and
+// a class token registered from a separate bundle is not the same object the spec injects.
+// Specs therefore call configureTestBed() and get the shared stubs, module imports and
+// schemas merged into their own module definition.
 
-import 'zone.js';
-import 'zone.js/testing';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { getTestBed, TestBed } from '@angular/core/testing';
 import { DatePipe } from '@angular/common';
-import {
-  BrowserDynamicTestingModule,
-  platformBrowserDynamicTesting
-} from '@angular/platform-browser-dynamic/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Router, UrlSerializer } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatMenuModule } from '@angular/material/menu';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 
-import { PostsService } from './app/posts.services';
-
-// Initialize the Angular testing environment.
-getTestBed().initTestEnvironment(
-  BrowserDynamicTestingModule,
-  platformBrowserDynamicTesting(), {
-    teardown: { destroyAfterEach: false }
-}
-);
+import { PostsService } from '../app/posts.services';
 
 function createUniversalStub(): any {
   const stubFn = function universalStub() {
@@ -216,35 +208,32 @@ function createActivatedRouteStub() {
   };
 }
 
-const originalConfigureTestingModule = TestBed.configureTestingModule.bind(TestBed);
-TestBed.configureTestingModule = (moduleDef: any = {}) => {
-  const providers = [
-    { provide: PostsService, useValue: createPostsServiceStub() },
-    { provide: MatDialogRef, useValue: createUniversalStub() },
-    { provide: MAT_DIALOG_DATA, useValue: createDialogDataStub() },
-    { provide: ActivatedRoute, useValue: createActivatedRouteStub() },
-    { provide: Router, useValue: createRouterStub() },
-    { provide: UrlSerializer, useValue: { serialize: () => '' } },
-    DatePipe,
-    ...(moduleDef.providers || [])
-  ];
-
-  const imports = [
-    NoopAnimationsModule,
-    MatAutocompleteModule,
-    MatMenuModule,
-    ...(moduleDef.imports || [])
-  ];
-
-  const schemas = [
-    NO_ERRORS_SCHEMA,
-    ...(moduleDef.schemas || [])
-  ];
-
-  return originalConfigureTestingModule({
+/**
+ * TestBed.configureTestingModule with the stubs and module imports every component spec
+ * depends on. errorOnUnknownElements/Properties are disabled to match NO_ERRORS_SCHEMA:
+ * most specs declare a single component without its Material dependencies.
+ */
+export function configureTestBed(moduleDef: any = {}) {
+  return TestBed.configureTestingModule({
     ...moduleDef,
-    imports,
-    providers,
-    schemas
+    imports: [
+      NoopAnimationsModule,
+      MatAutocompleteModule,
+      MatMenuModule,
+      ...(moduleDef.imports || [])
+    ],
+    providers: [
+      { provide: PostsService, useValue: createPostsServiceStub() },
+      { provide: MatDialogRef, useValue: createUniversalStub() },
+      { provide: MAT_DIALOG_DATA, useValue: createDialogDataStub() },
+      { provide: ActivatedRoute, useValue: createActivatedRouteStub() },
+      { provide: Router, useValue: createRouterStub() },
+      { provide: UrlSerializer, useValue: { serialize: () => '' } },
+      DatePipe,
+      ...(moduleDef.providers || [])
+    ],
+    schemas: [NO_ERRORS_SCHEMA, ...(moduleDef.schemas || [])],
+    errorOnUnknownElements: false,
+    errorOnUnknownProperties: false
   });
-};
+}

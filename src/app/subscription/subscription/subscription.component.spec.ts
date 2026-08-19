@@ -22,24 +22,19 @@ describe('SubscriptionComponent', () => {
       },
       service_initialized: new BehaviorSubject<boolean>(true),
       files_changed: new BehaviorSubject<boolean>(false),
-      getSubscription: jasmine.createSpy('getSubscription'),
-      getSubscriptionByID: jasmine.createSpy('getSubscriptionByID'),
-      downloadSubFromServer: jasmine.createSpy('downloadSubFromServer'),
-      checkSubscription: jasmine.createSpy('checkSubscription'),
-      cancelCheckSubscription: jasmine.createSpy('cancelCheckSubscription'),
-      openSnackBar: jasmine.createSpy('openSnackBar'),
-      hasPermission: jasmine.createSpy('hasPermission').and.returnValue(true)
+      getSubscription: vi.fn().mockName('getSubscription'),
+      getSubscriptionByID: vi.fn().mockName('getSubscriptionByID'),
+      downloadSubFromServer: vi.fn().mockName('downloadSubFromServer'),
+      checkSubscription: vi.fn().mockName('checkSubscription'),
+      cancelCheckSubscription: vi.fn().mockName('cancelCheckSubscription'),
+      openSnackBar: vi.fn().mockName('openSnackBar'),
+      hasPermission: vi.fn().mockName('hasPermission').mockReturnValue(true)
     };
     router = {
-      navigate: jasmine.createSpy('navigate')
+      navigate: vi.fn().mockName('navigate')
     };
 
-    component = new SubscriptionComponent(
-      postsService,
-      { params: of({ id: 'sub-1' }) } as any,
-      router,
-      { open: jasmine.createSpy('open') } as any
-    );
+    component = new SubscriptionComponent(postsService, { params: of({ id: 'sub-1' }) } as any, router, { open: vi.fn().mockName('open') } as any);
     component.id = 'sub-1';
   });
 
@@ -58,8 +53,8 @@ describe('SubscriptionComponent', () => {
       },
       videos: existing_videos
     } as any;
-    spyOn(postsService.files_changed, 'next');
-    postsService.getSubscription.and.returnValue(of({
+    vi.spyOn(postsService.files_changed, 'next').mockReturnValue(undefined);
+    postsService.getSubscription.mockReturnValue(of({
       subscription: {
         ...component.subscription,
         downloading: false,
@@ -78,7 +73,7 @@ describe('SubscriptionComponent', () => {
 
     expect(postsService.getSubscription).toHaveBeenCalledWith('sub-1', null, false);
     expect(component.subscription.videos).toBe(existing_videos);
-    expect(component.subscription.downloading).toBeFalse();
+    expect(component.subscription.downloading).toBe(false);
     expect(component.subscription.refresh_status.phase).toBe('queued');
     expect(postsService.files_changed.next).not.toHaveBeenCalled();
   });
@@ -90,8 +85,8 @@ describe('SubscriptionComponent', () => {
       downloading: true,
       videos: [{ id: 'video-1' }]
     } as any;
-    spyOn(postsService.files_changed, 'next');
-    postsService.getSubscription.and.returnValue(of({
+    vi.spyOn(postsService.files_changed, 'next').mockReturnValue(undefined);
+    postsService.getSubscription.mockReturnValue(of({
       subscription: {
         id: 'sub-1',
         name: 'Test subscription',
@@ -107,8 +102,8 @@ describe('SubscriptionComponent', () => {
   });
 
   it('should not publish a file change while initially loading subscription metadata', () => {
-    spyOn(postsService.files_changed, 'next');
-    postsService.getSubscription.and.returnValue(of({
+    vi.spyOn(postsService.files_changed, 'next').mockReturnValue(undefined);
+    postsService.getSubscription.mockReturnValue(of({
       subscription: {
         id: 'sub-1',
         name: 'Test subscription',
@@ -125,17 +120,14 @@ describe('SubscriptionComponent', () => {
 
   it('should not overlap lightweight subscription status requests', () => {
     const first_response = new Subject<any>();
-    postsService.getSubscription.and.returnValues(
-      first_response.asObservable(),
-      of({
-        subscription: {
-          id: 'sub-1',
-          name: 'Test subscription',
-          file_count: 1,
-          downloading: false
-        }
-      })
-    );
+    postsService.getSubscription.mockReturnValueOnce(first_response.asObservable()).mockReturnValueOnce(of({
+      subscription: {
+        id: 'sub-1',
+        name: 'Test subscription',
+        file_count: 1,
+        downloading: false
+      }
+    }));
 
     component.getSubscription(true);
     component.getSubscription(true);
@@ -160,11 +152,7 @@ describe('SubscriptionComponent', () => {
     const first_a_response = new Subject<any>();
     const b_response = new Subject<any>();
     const second_a_response = new Subject<any>();
-    postsService.getSubscription.and.returnValues(
-      first_a_response.asObservable(),
-      b_response.asObservable(),
-      second_a_response.asObservable()
-    );
+    postsService.getSubscription.mockReturnValueOnce(first_a_response.asObservable()).mockReturnValueOnce(b_response.asObservable()).mockReturnValueOnce(second_a_response.asObservable());
 
     component.id = 'sub-1';
     component.getSubscription(true);
@@ -221,7 +209,7 @@ describe('SubscriptionComponent', () => {
         running_download_count: 0
       }
     } as any;
-    const get_subscription_spy = spyOn(component, 'getSubscription');
+    const get_subscription_spy = vi.spyOn(component, 'getSubscription').mockReturnValue(undefined);
     (component as any).last_subscription_request_at = Date.now();
 
     (component as any).pollSubscription();
@@ -242,8 +230,8 @@ describe('SubscriptionComponent', () => {
       file_count: 1,
       downloading: false
     } as any;
-    postsService.checkSubscription.and.returnValue(of({success: true}));
-    const get_subscription_spy = spyOn(component, 'getSubscription');
+    postsService.checkSubscription.mockReturnValue(of({ success: true }));
+    const get_subscription_spy = vi.spyOn(component, 'getSubscription').mockReturnValue(undefined);
 
     component.checkSubscription();
 
@@ -267,8 +255,8 @@ describe('SubscriptionComponent', () => {
       videos: []
     } as any;
 
-    expect(component.shouldShowRefreshStatus()).toBeTrue();
-    expect(component.hasActiveRefresh()).toBeTrue();
+    expect(component.shouldShowRefreshStatus()).toBe(true);
+    expect(component.hasActiveRefresh()).toBe(true);
     expect(component.getRefreshHeadline()).toBe('Checking channel metadata');
     expect(component.getRefreshProgressMode()).toBe('determinate');
     expect(component.getRefreshProgressValue()).toBe(40);
@@ -290,7 +278,7 @@ describe('SubscriptionComponent', () => {
       videos: []
     } as any;
 
-    expect(component.canOpenDownloads()).toBeTrue();
+    expect(component.canOpenDownloads()).toBe(true);
 
     component.openDownloads();
 
@@ -314,11 +302,11 @@ describe('SubscriptionComponent', () => {
       videos: []
     } as any;
 
-    expect(component.shouldShowRefreshStatus()).toBeTrue();
+    expect(component.shouldShowRefreshStatus()).toBe(true);
     expect(component.getRefreshHeadline()).toBe('Downloads skipped');
     expect(component.getRefreshDescription()).toContain('were skipped');
     expect(component.getRefreshMetrics()).toContain('2 skipped');
     expect(component.getRefreshMetrics()).not.toContain('2 queued');
-    expect(component.canOpenDownloads()).toBeFalse();
+    expect(component.canOpenDownloads()).toBe(false);
   });
 });

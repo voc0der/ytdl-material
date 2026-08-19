@@ -9,19 +9,15 @@ describe('DeletePlaylistDialogComponent', () => {
 
   beforeEach(() => {
     dialogRefSpy = {
-      close: jasmine.createSpy('close')
+      close: vi.fn().mockName('close')
     };
     matDialogSpy = {
-      open: jasmine.createSpy('open')
+      open: vi.fn().mockName('open')
     };
-    component = new DeletePlaylistDialogComponent(
-      {
-        playlistName: 'My playlist',
-        fileCount: 3
-      },
-      matDialogSpy,
-      dialogRefSpy
-    );
+    component = new DeletePlaylistDialogComponent({
+      playlistName: 'My playlist',
+      fileCount: 3
+    }, matDialogSpy, dialogRefSpy);
   });
 
   it('should create', () => {
@@ -35,12 +31,12 @@ describe('DeletePlaylistDialogComponent', () => {
   });
 
   it('requires a second confirmation before deleting playlist files', () => {
-    matDialogSpy.open.and.returnValue({ afterClosed: () => of(true) });
+    matDialogSpy.open.mockReturnValue({ afterClosed: () => of(true) });
 
     component.confirmDeletePlaylistAndFiles();
 
-    expect(matDialogSpy.open).toHaveBeenCalledWith(ConfirmDialogComponent, jasmine.objectContaining({
-      data: jasmine.objectContaining({
+    expect(matDialogSpy.open).toHaveBeenCalledWith(ConfirmDialogComponent, expect.objectContaining({
+      data: expect.objectContaining({
         dialogTitle: 'Delete playlist files',
         submitText: 'Delete files too',
         warnSubmitColor: true

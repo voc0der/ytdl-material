@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { EditSubscriptionDialogComponent } from './edit-subscription-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('EditSubscriptionDialogComponent', () => {
   let component: EditSubscriptionDialogComponent;
   let fixture: ComponentFixture<EditSubscriptionDialogComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ EditSubscriptionDialogComponent ]
     })
     .compileComponents();

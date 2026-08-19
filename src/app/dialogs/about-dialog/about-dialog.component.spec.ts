@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { AboutDialogComponent } from './about-dialog.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('AboutDialogComponent', () => {
   let component: AboutDialogComponent;
   let fixture: ComponentFixture<AboutDialogComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ AboutDialogComponent ]
     })
     .compileComponents();

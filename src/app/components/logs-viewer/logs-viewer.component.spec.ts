@@ -1,13 +1,14 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 
 import { LogsViewerComponent } from './logs-viewer.component';
+import { configureTestBed } from '../../../testing/test-bed';
 
 describe('LogsViewerComponent', () => {
   let component: LogsViewerComponent;
   let fixture: ComponentFixture<LogsViewerComponent>;
 
   beforeEach(waitForAsync(() => {
-    TestBed.configureTestingModule({
+    configureTestBed({
       declarations: [ LogsViewerComponent ]
     })
     .compileComponents();

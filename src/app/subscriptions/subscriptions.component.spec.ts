@@ -11,22 +11,22 @@ describe('SubscriptionsComponent', () => {
 
   beforeEach(() => {
     dialog = {
-      open: jasmine.createSpy('open')
+      open: vi.fn().mockName('open')
     };
     postsService = {
       initialized: false,
       service_initialized: new BehaviorSubject<boolean>(false),
       files_changed: new BehaviorSubject<boolean>(false),
-      getAllSubscriptions: jasmine.createSpy('getAllSubscriptions').and.returnValue(of({subscriptions: []})),
-      getSubscriptionByID: jasmine.createSpy('getSubscriptionByID'),
-      redownloadSubscription: jasmine.createSpy('redownloadSubscription'),
-      reloadSubscriptions: jasmine.createSpy('reloadSubscriptions')
+      getAllSubscriptions: vi.fn().mockName('getAllSubscriptions').mockReturnValue(of({ subscriptions: [] })),
+      getSubscriptionByID: vi.fn().mockName('getSubscriptionByID'),
+      redownloadSubscription: vi.fn().mockName('redownloadSubscription'),
+      reloadSubscriptions: vi.fn().mockName('reloadSubscriptions')
     };
     router = {
-      navigate: jasmine.createSpy('navigate')
+      navigate: vi.fn().mockName('navigate')
     };
     snackBar = {
-      open: jasmine.createSpy('open')
+      open: vi.fn().mockName('open')
     };
 
     component = new SubscriptionsComponent(dialog, postsService, router, snackBar);
@@ -37,10 +37,10 @@ describe('SubscriptionsComponent', () => {
   });
 
   it('confirms before redownloading subscription files', () => {
-    const sub = {id: 'sub-1', name: 'Test subscription'} as any;
-    dialog.open.and.returnValue({afterClosed: () => of(true)});
-    postsService.redownloadSubscription.and.returnValue(of({success: true}));
-    spyOn(postsService.files_changed, 'next');
+    const sub = { id: 'sub-1', name: 'Test subscription' } as any;
+    dialog.open.mockReturnValue({ afterClosed: () => of(true) });
+    postsService.redownloadSubscription.mockReturnValue(of({ success: true }));
+    vi.spyOn(postsService.files_changed, 'next').mockReturnValue(undefined);
 
     component.confirmRedownloadSubscription(sub);
 
@@ -49,12 +49,12 @@ describe('SubscriptionsComponent', () => {
     expect(postsService.getAllSubscriptions).toHaveBeenCalled();
     expect(postsService.reloadSubscriptions).toHaveBeenCalled();
     expect(postsService.files_changed.next).toHaveBeenCalledWith(true);
-    expect(snackBar.open).toHaveBeenCalledWith('Redownload started for Test subscription', '', {duration: 2000});
+    expect(snackBar.open).toHaveBeenCalledWith('Redownload started for Test subscription', '', { duration: 2000 });
   });
 
   it('does not redownload when the confirmation is dismissed', () => {
-    const sub = {id: 'sub-1', name: 'Test subscription'} as any;
-    dialog.open.and.returnValue({afterClosed: () => of(false)});
+    const sub = { id: 'sub-1', name: 'Test subscription' } as any;
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
 
     component.confirmRedownloadSubscription(sub);
 
@@ -62,10 +62,10 @@ describe('SubscriptionsComponent', () => {
   });
 
   it('keeps redownload available for active subscriptions', () => {
-    expect(component.isRedownloadDisabled({id: 'sub-1', name: 'Test subscription', downloading: true} as any)).toBeFalse();
+    expect(component.isRedownloadDisabled({ id: 'sub-1', name: 'Test subscription', downloading: true } as any)).toBe(false);
   });
 
   it('disables redownload until a subscription has a name', () => {
-    expect(component.isRedownloadDisabled({id: 'sub-1', name: null} as any)).toBeTrue();
+    expect(component.isRedownloadDisabled({ id: 'sub-1', name: null } as any)).toBe(true);
   });
 });
