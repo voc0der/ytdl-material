@@ -47,13 +47,24 @@
   </div>
 
   @if (multiUserMode && !apiToken) {
-    <p i18n="RSS token explanation">The feed is private. Generate a revocable token to create its URL.</p>
+    <p i18n="RSS token explanation">The feed is private. Generate a revocable token for your feed reader.</p>
     <button mat-stroked-button color="accent" (click)="generateFeedToken()" [disabled]="tokenLoading">
-      <ng-container i18n="Generate RSS feed token">Generate feed URL</ng-container>
+      <ng-container i18n="Generate RSS feed token">Generate feed token</ng-container>
     </button>
     @if (tokenError) {
       <p class="text-danger">{{tokenError}}</p>
     }
+  }
+
+  @if (multiUserMode && apiToken) {
+    <p i18n="RSS header explanation">Configure your feed reader to send this value in the X-Api-Token header. It is shown only once.</p>
+    <mat-form-field style="width: 100%;">
+      <mat-label i18n="RSS token">RSS token</mat-label>
+      <input readonly [(ngModel)]="apiToken" matInput>
+      <button mat-icon-button matSuffix (click)="copyFeedToken()">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </mat-form-field>
   }
 
   <mat-form-field style="width: 100%;">

@@ -77,7 +77,6 @@ exports.isPublicAuthPath = isPublicAuthPath;
  * machine clients to drift out of step.
  ************************************************/
 function getPresentedApiToken(req) {
-    if (req.query && typeof req.query.apiToken === 'string') return req.query.apiToken;
     const header = req.headers ? req.headers['x-api-token'] : null;
     return typeof header === 'string' ? header : null;
 }

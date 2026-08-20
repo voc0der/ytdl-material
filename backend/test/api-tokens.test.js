@@ -162,12 +162,10 @@ describe('Per-user API tokens', function() {
     });
 
     describe('Through the middleware', function() {
-        it('authenticates a request in the query string', async function() {
+        it('does not accept a credential in the query string', async function() {
             const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'query');
 
-            const res = await request(appUsing()).get(`/api/whoami?apiToken=${encodeURIComponent(token)}`).expect(200);
-
-            assert.strictEqual(res.body.uid, OWNER);
+            await request(appUsing()).get(`/api/whoami?apiToken=${encodeURIComponent(token)}`).expect(401);
         });
 
         it('authenticates a request in a header, so it stays out of access logs', async function() {
@@ -196,7 +194,7 @@ describe('Per-user API tokens', function() {
         it('refuses a bad token rather than falling through as anonymous', async function() {
             // Falling through would hand the request to a route that then has to decide what
             // an unauthenticated caller may do -- which is the mistake the guards exist to stop.
-            await request(appUsing()).get('/api/whoami?apiToken=ytdl_nonsense').expect(401);
+            await request(appUsing()).get('/api/whoami').set('x-api-token', 'ytdl_nonsense').expect(401);
         });
 
         it('still refuses a request with no credential at all', async function() {
@@ -207,7 +205,7 @@ describe('Per-user API tokens', function() {
             const {token, id} = await api_tokens_api.generateTokenForUser(OWNER, 'revoked');
             await api_tokens_api.revokeTokenForUser(OWNER, id);
 
-            await request(appUsing()).get(`/api/whoami?apiToken=${encodeURIComponent(token)}`).expect(401);
+            await request(appUsing()).get('/api/whoami').set('x-api-token', token).expect(401);
         });
     });
 });

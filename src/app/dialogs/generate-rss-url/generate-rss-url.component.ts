@@ -40,7 +40,6 @@ export class GenerateRssUrlComponent {
         return;
       }
       this.apiToken = res.token;
-      this.rebuildURL();
     }, err => {
       this.tokenLoading = false;
       this.tokenError = err?.error?.error || err || $localize`Could not generate an RSS token.`;
@@ -56,10 +55,6 @@ export class GenerateRssUrlComponent {
   rebuildURL() {
     // code can be cleaned up
     const params = {};
-
-    if (this.apiToken) {
-      params['apiToken'] = this.apiToken;
-    }
 
     if (this.titleFilter) {
       params['text_search'] = encodeURIComponent(this.titleFilter);
@@ -94,5 +89,11 @@ export class GenerateRssUrlComponent {
     if (this.multiUserMode && !this.apiToken) return;
     this.clipboard.copy(this.url);
     this.postsService.openSnackBar('URL copied!');
+  }
+
+  copyFeedToken() {
+    if (!this.apiToken) return;
+    this.clipboard.copy(this.apiToken);
+    this.postsService.openSnackBar($localize`RSS token copied.`);
   }
 }

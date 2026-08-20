@@ -37,7 +37,6 @@ paths:
           description: Server download error
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/generateArgs:
     post:
@@ -60,7 +59,6 @@ paths:
                 $ref: '#/components/schemas/GenerateArgsResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getMp3s:
     get:
@@ -78,7 +76,6 @@ paths:
                 $ref: '#/components/schemas/GetMp3sResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getMp4s:
     get:
@@ -96,7 +93,6 @@ paths:
                 $ref: '#/components/schemas/GetMp4sResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getAllFiles:
     post:
@@ -119,14 +115,13 @@ paths:
                 $ref: '#/components/schemas/GetAllFilesResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/rss:
     get:
       tags:
         - files
       summary: Generates an RSS feed
-      description: Generates an RSS feed for the authenticated user's downloaded files. Use a revocable RSS token in feed readers.
+      description: Generates an RSS feed for the authenticated user's downloaded files. Feed readers must send a revocable RSS token in the X-Api-Token header.
       operationId: get-rss
       parameters:
         - in: query
@@ -146,7 +141,6 @@ paths:
                 description: RSS feed
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getFile:
     post:
@@ -173,7 +167,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/updateFile:
@@ -197,7 +190,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/enableSharing:
     post:
@@ -221,7 +213,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/disableSharing:
     post:
@@ -245,7 +236,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/incrementViewCount:
     post:
@@ -270,7 +260,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/subscribe:
@@ -294,7 +283,6 @@ paths:
                 $ref: '#/components/schemas/SubscribeResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/unsubscribe:
     post:
@@ -317,7 +305,6 @@ paths:
                 $ref: '#/components/schemas/UnsubscribeResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/checkSubscription:
     post:
@@ -340,7 +327,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/redownloadSubscription:
     post:
@@ -363,7 +349,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/cancelCheckSubscription:
     post:
@@ -386,7 +371,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/deleteSubscriptionFile:
     post:
@@ -411,7 +395,6 @@ paths:
           description: Internal Server Error
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getSubscription:
     post:
@@ -434,7 +417,6 @@ paths:
                 $ref: '#/components/schemas/GetSubscriptionResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/downloadVideosForSubscription:
     post:
@@ -457,7 +439,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getSubscriptions:
     post:
@@ -479,7 +460,6 @@ paths:
                 $ref: '#/components/schemas/GetAllSubscriptionsResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/createPlaylist:
     post:
@@ -502,7 +482,6 @@ paths:
                 $ref: '#/components/schemas/CreatePlaylistResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getPlaylist:
     post:
@@ -527,7 +506,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/updatePlaylist:
@@ -551,7 +529,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/deletePlaylist:
     post:
@@ -574,7 +551,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/addFileToPlaylist:
     post:
@@ -597,7 +573,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/downloadFileFromServer:
     post:
@@ -619,7 +594,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/deleteFile:
@@ -638,7 +612,6 @@ paths:
           description: OK
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/snipFile:
     post:
@@ -664,7 +637,6 @@ paths:
                 $ref: '#/components/schemas/SnipFileResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getSnipStatus:
     post:
@@ -686,7 +658,6 @@ paths:
                 $ref: '#/components/schemas/GetSnipStatusResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/deleteAllFiles:
     post:
@@ -708,7 +679,6 @@ paths:
                 $ref: '#/components/schemas/DeleteAllFilesResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/downloadArchive:
     post:
@@ -729,7 +699,6 @@ paths:
           description: If the archive dir is not found, 404 is sent as a response
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/deleteArchiveItems:
     post:
@@ -752,7 +721,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/importArchive:
     post:
@@ -775,7 +743,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/uploadCookies:
     post:
@@ -798,7 +765,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/updaterStatus:
     get:
@@ -816,7 +782,6 @@ paths:
                 $ref: '#/components/schemas/UpdaterStatus'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/updateServer:
     post:
@@ -839,7 +804,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/generateNewAPIKey:
     post:
@@ -857,7 +821,6 @@ paths:
                 $ref: '#/components/schemas/GenerateNewApiKeyResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/listAPITokens:
     post:
@@ -937,7 +900,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/setConfig:
@@ -961,7 +923,6 @@ paths:
           description: Tried to save invalid config file.
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/downloads:
     post:
@@ -984,7 +945,6 @@ paths:
       description: Retrieves a newest-first, server-paginated page of download summaries and their status.
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/download:
     post:
@@ -1006,7 +966,6 @@ paths:
       description: "Gets a single download using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1030,7 +989,6 @@ paths:
       description: "Pause a single download using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1054,7 +1012,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/resumeDownload:
     post:
@@ -1076,7 +1033,6 @@ paths:
       description: "Resume a single download using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1100,7 +1056,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/restartDownload:
     post:
@@ -1122,7 +1077,6 @@ paths:
       description: "Restart a single download using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1146,7 +1100,6 @@ paths:
       description: "Cancel a single download using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1170,7 +1123,6 @@ paths:
       description: "Clears a single download from the downloaded list using its download_id."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1194,7 +1146,6 @@ paths:
       description: "Clears multiple downloads based on a given filter."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - downloader
@@ -1218,7 +1169,6 @@ paths:
       description: "Gets a single task using its key."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1226,7 +1176,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1264,13 +1213,11 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/runTask:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1292,7 +1239,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1314,7 +1260,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1336,7 +1281,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1358,7 +1302,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1380,7 +1323,6 @@ paths:
     post:
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - tasks
@@ -1440,7 +1382,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
       tags:
@@ -1464,7 +1405,6 @@ paths:
       description: Updates certain properties for a user. Only two are possible right now.
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - multi-user mode
@@ -1487,7 +1427,6 @@ paths:
               $ref: '#/components/schemas/DeleteUserRequest'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - multi-user mode
@@ -1505,7 +1444,6 @@ paths:
       description: Gets the available roles and their permissions
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - multi-user mode
@@ -1523,7 +1461,6 @@ paths:
       description: "Changes the permissions for a user. Available values for each permission are: `default`, `yes`, and `no`. `default` will use the user's role's default permission."
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       requestBody:
         content:
@@ -1551,7 +1488,6 @@ paths:
       description: 'Changes the permissions for a role. Available values for each permission are: `yes`, and `no`.'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - multi-user mode
@@ -1569,7 +1505,6 @@ paths:
       description: 'Gets all users, returns a list of the user objects including their user permissions, videos, playlists, subscriptions, etc.'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
       tags:
         - multi-user mode
@@ -1604,7 +1539,6 @@ paths:
       description: Clears the log file
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getDBInfo:
     get:
@@ -1621,7 +1555,6 @@ paths:
                 $ref: '#/components/schemas/DBInfoResponse'
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/transferDB:
     post:
@@ -1644,7 +1577,6 @@ paths:
       description: Initiates a transfer between Local and MongoDB. Connection string must be set.
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/testConnectionString:
     post:
@@ -1667,7 +1599,6 @@ paths:
       description: Tests a MongoDB, PostgreSQL, or Redis connection string and returns an error if one exists.
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getFullTwitchChat:
     post:
@@ -1690,7 +1621,6 @@ paths:
       description: Gets the downloaded Twitch Chat (VODs only)
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/downloadTwitchChatByVODID:
     post:
@@ -1713,7 +1643,6 @@ paths:
       description: Downloads Twitch Chat for a VOD
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/checkConcurrentStream:
     post:
@@ -1738,7 +1667,6 @@ paths:
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
         - {}
   /api/updateConcurrentStream:
@@ -1762,7 +1690,6 @@ paths:
       description: Updates a concurrent stream
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/getAllCategories:
     post:
@@ -1780,7 +1707,6 @@ paths:
       description: Gets all categories
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/createCategory:
     post:
@@ -1803,7 +1729,6 @@ paths:
       description: Creates a category
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/createDefaultCategories:
     post:
@@ -1821,7 +1746,6 @@ paths:
       description: Creates the default category set when no categories exist
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/deleteCategory:
     post:
@@ -1844,7 +1768,6 @@ paths:
       description: Deletes a category
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/updateCategory:
     post:
@@ -1867,7 +1790,6 @@ paths:
       description: Updates a category
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
   /api/updateCategories:
     post:
@@ -1890,7 +1812,6 @@ paths:
       description: Updates all categories
       security:
         - JWT token parameter: []
-        - API token parameter: []
         - API token header: []
 components:
   schemas:
@@ -3662,13 +3583,8 @@ components:
       type: apiKey
       in: query
       description: 'Authentication token for the calling user. Retrieve it from the login endpoint. Not required in single-user mode, which has no accounts.'
-    API token parameter:
-      name: apiToken
-      type: apiKey
-      in: query
-      description: 'A per-user token generated in the web UI. Full API tokens act as their account; RSS tokens work only on /api/rss. Query parameters are necessary for feed readers, but other clients should prefer the header to keep credentials out of logs. Not required in single-user mode.'
     API token header:
       name: X-Api-Token
       type: apiKey
       in: header
-      description: 'The same per-user API token, sent as a header so it stays out of access logs and browser history.'
+      description: 'A per-user token generated in the web UI. Full API tokens act as their account; RSS tokens work only on /api/rss. Not required in single-user mode.'

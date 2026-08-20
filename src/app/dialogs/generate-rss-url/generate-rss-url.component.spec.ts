@@ -36,11 +36,11 @@ describe('GenerateRssUrlComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('uses the feed token and never a caller-selected user uid', () => {
+  it('keeps credentials and caller-selected user ids out of the URL', () => {
     component.apiToken = 'ytdl_feed_token';
     component.rebuildURL();
 
-    expect(queryParams['apiToken']).toBe('ytdl_feed_token');
+    expect(queryParams['apiToken']).toBeUndefined();
     expect(queryParams['uuid']).toBeUndefined();
   });
 });

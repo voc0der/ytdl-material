@@ -80,8 +80,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 ## Public API Variables
 
 Scripts and other machine clients authenticate with a **per-user API token**, generated from
-*Your Profile* in the web UI. Pass it in an `X-Api-Token` header; the `apiToken` query form
-also works where a client cannot set headers. A
+*Your Profile* in the web UI. Pass it in an `X-Api-Token` header. A
 full API token acts as the account that made it, with that account's permissions, and can be
 revoked from the same place. RSS URLs use a separate feed-only token, so exposing a feed URL
 does not grant access to other API routes. None of the variables below grant or restrict
