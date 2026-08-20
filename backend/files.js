@@ -684,6 +684,28 @@ exports.ensureSubtitleSidecarForFile = async (file_obj = null, subtitle_track_in
 exports.attachFileSubtitles = async (file_obj = null, ensure_sidecar = false) => {
     if (!file_obj) return file_obj;
 
+    /*************************************************
+     * Checked here rather than only inside
+     * ensureSubtitleSidecarForFile: discovering the
+     * tracks already reads sidecar files next to the
+     * stored path and shells out to ffprobe, so by
+     * the time the deeper check ran, a record left
+     * pointing somewhere it should not had already
+     * reached the filesystem.
+     ************************************************/
+    // Containment rather than the stricter regular-file check: a record whose media has
+    // been deleted still has subtitle metadata worth reading, and it is where the path
+    // points that matters here. ensureSubtitleSidecarForFile still demands a real file
+    // before anything is handed to ffprobe or ffmpeg.
+    if (file_obj.path && !utils.isPathInsideMediaRoots(file_obj.path, file_obj.user_uid)) {
+        logger.error(`Refusing to read subtitles for ${file_obj.uid}: its path is outside `
+            + `its owner's media folder.`);
+        return {
+            ...file_obj,
+            subtitles: []
+        };
+    }
+
     const available_tracks = await getAvailableSubtitleTracks(file_obj);
     if (available_tracks.length === 0) {
         return {
@@ -1490,15 +1512,61 @@ exports.getPlaylist = async (playlist_id, user_uid = null, require_sharing = fal
     return playlist;
 }
 
+/*************************************************
+ * Fields the playlist editor may change. The whole
+ * client object used to be written straight to the
+ * record, so a caller could set user_uid,
+ * sharingEnabled and uids directly -- handing
+ * themselves somebody else's playlist, turning on
+ * sharing without the sharing permission, or
+ * building a shared playlist out of another user's
+ * file uids.
+ ************************************************/
+const EDITABLE_PLAYLIST_FIELDS = ['name', 'uids'];
+
 exports.updatePlaylist = async (playlist, user_uid = null) => {
-    let playlistID = playlist.id;
-    const filter_obj = {id: playlistID};
+    if (!playlist || typeof playlist !== 'object') return false;
+
+    const filter_obj = {id: playlist.id};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
 
-    const duration = await exports.calculatePlaylistDuration(playlist);
-    playlist.duration = duration;
+    // Read what is stored rather than trusting what arrived. Ownership and sharing come
+    // from the stored record and are never taken from the request.
+    const stored_playlist = await db_api.getRecord('playlists', filter_obj);
+    if (!stored_playlist) {
+        logger.error(`Refusing to update playlist ${playlist.id}: it does not exist or does not belong to the caller.`);
+        return false;
+    }
 
-    return await db_api.updateRecord('playlists', filter_obj, playlist);
+    const update_obj = {};
+    for (const field of EDITABLE_PLAYLIST_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(playlist, field)) update_obj[field] = playlist[field];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(update_obj, 'uids')) {
+        if (!Array.isArray(update_obj['uids'])) {
+            logger.error(`Refusing to update playlist ${playlist.id}: uids must be a list.`);
+            return false;
+        }
+
+        // Every member has to be a file the caller owns, or a shared playlist becomes a
+        // way to publish files chosen by uid alone.
+        const owned_files = await exports.getVideosByUIDs(update_obj['uids'], user_uid);
+        const owned_uids = new Set(owned_files.map(file => file['uid']));
+        const unowned_uids = update_obj['uids'].filter(uid => !owned_uids.has(uid));
+        if (unowned_uids.length) {
+            logger.error(`Refusing to update playlist ${playlist.id}: `
+                + `${unowned_uids.join(', ')} ${unowned_uids.length === 1 ? 'does' : 'do'} not belong to the caller.`);
+            return false;
+        }
+    }
+
+    update_obj['duration'] = await exports.calculatePlaylistDuration({
+        ...stored_playlist,
+        ...update_obj
+    });
+
+    return await db_api.updateRecord('playlists', filter_obj, update_obj);
 }
 
 exports.setPlaylistProperty = async (playlist_id, assignment_obj, user_uid = null) => {

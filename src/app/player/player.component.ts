@@ -243,7 +243,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.postsService.openSnackBar($localize`Failed to get file information from the server.`, 'Dismiss');
         return;
       }
-      this.postsService.incrementViewCount(this.db_file['uid'], null, this.uuid).subscribe(() => undefined, err => {
+      // playlist_id is sent so a file played through a shared playlist can be counted:
+      // the server accepts membership of a shared playlist as the capability, and the
+      // file itself is often not shared on its own.
+      this.postsService.incrementViewCount(this.db_file['uid'], null, this.uuid, this.playlist_id).subscribe(() => undefined, err => {
         console.error('Failed to increment view count');
         console.error(err);
       });

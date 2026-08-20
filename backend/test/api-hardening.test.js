@@ -551,18 +551,25 @@ describe('Download arguments', function() {
 });
 
 describe('Serving a stored path', function() {
-    const {assert, config_api, fs, path, utils} = require('./test-shared');
+    const {assert, fs, path, utils, useTemporaryMediaRoots} = require('./test-shared');
 
-    const root = path.resolve(config_api.getConfigItem('ytdl_video_folder_path'));
-    const scratch = path.join(root, 'hardening-scratch');
+    let media = null;
+    let root = null;
+    let scratch = null;
+
+    before(function() {
+        media = useTemporaryMediaRoots();
+        root = path.resolve(media.video);
+        scratch = path.join(root, 'hardening-scratch');
+    });
 
     beforeEach(async function() {
         await fs.remove(scratch);
         await fs.ensureDir(scratch);
     });
 
-    after(async function() {
-        await fs.remove(scratch);
+    after(function() {
+        media.restore();
     });
 
     it('accepts a regular file inside a media root', async function() {
@@ -841,24 +848,22 @@ describe('Custom output containment', function() {
 });
 
 describe('Containment against the record owner', function() {
-    const {assert, config_api, fs, path, utils} = require('./test-shared');
+    const {assert, config_api, fs, path, utils, useTemporaryMediaRoots} = require('./test-shared');
 
-    const original_getConfigItem = config_api.getConfigItem;
-    const users_base_path = path.resolve(config_api.getConfigItem('ytdl_users_base_path'));
-    const alice_file = path.join(users_base_path, 'alice', 'video', 'alice.mp4');
-    const bob_file = path.join(users_base_path, 'bob', 'video', 'bob.mp4');
+    let media = null;
+    let alice_file = null;
+    let bob_file = null;
 
     before(async function() {
-        config_api.getConfigItem = (key) =>
-            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+        media = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+        alice_file = path.join(media.users, 'alice', 'video', 'alice.mp4');
+        bob_file = path.join(media.users, 'bob', 'video', 'bob.mp4');
         await fs.outputFile(alice_file, 'alice media');
         await fs.outputFile(bob_file, 'bob media');
     });
 
-    after(async function() {
-        config_api.getConfigItem = original_getConfigItem;
-        await fs.remove(path.join(users_base_path, 'alice'));
-        await fs.remove(path.join(users_base_path, 'bob'));
+    after(function() {
+        media.restore();
     });
 
     it('accepts a file inside its own owner directory', function() {
@@ -892,15 +897,11 @@ describe('Containment against the record owner', function() {
      * unstreamable, undownloadable and undeletable.
      ************************************************/
     it('still accepts a migrated file left in the shared roots', async function() {
-        const legacy_path = path.resolve(config_api.getConfigItem('ytdl_video_folder_path'), 'migrated-owner-test.mp4');
+        const legacy_path = path.join(media.video, 'migrated-owner-test.mp4');
         await fs.outputFile(legacy_path, 'migrated media');
 
-        try {
-            assert(utils.isServableMediaFile(legacy_path, 'alice'),
-                'a record migrated to alice whose file never moved must still be reachable');
-        } finally {
-            await fs.remove(legacy_path);
-        }
+        assert(utils.isServableMediaFile(legacy_path, 'alice'),
+            'a record migrated to alice whose file never moved must still be reachable');
     });
 });
 
@@ -968,24 +969,22 @@ describe('Registration responses', function() {
 });
 
 describe('Container archives', function() {
-    const {assert, config_api, fs, path, utils} = require('./test-shared');
+    const {assert, fs, path, utils, useTemporaryMediaRoots} = require('./test-shared');
 
-    const original_getConfigItem = config_api.getConfigItem;
-    const users_base_path = path.resolve(config_api.getConfigItem('ytdl_users_base_path'));
-    const alice_file = path.join(users_base_path, 'zip_alice', 'video', 'a.mp4');
-    const bob_file = path.join(users_base_path, 'zip_bob', 'video', 'b.mp4');
+    let media = null;
+    let alice_file = null;
+    let bob_file = null;
 
     before(async function() {
-        config_api.getConfigItem = (key) =>
-            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+        media = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+        alice_file = path.join(media.users, 'zip_alice', 'video', 'a.mp4');
+        bob_file = path.join(media.users, 'zip_bob', 'video', 'b.mp4');
         await fs.outputFile(alice_file, 'alice media');
         await fs.outputFile(bob_file, 'bob media');
     });
 
-    after(async function() {
-        config_api.getConfigItem = original_getConfigItem;
-        await fs.remove(path.join(users_base_path, 'zip_alice'));
-        await fs.remove(path.join(users_base_path, 'zip_bob'));
+    after(function() {
+        media.restore();
     });
 
     async function buildArchive(name, file_objs, user_uid) {
@@ -1036,7 +1035,7 @@ describe('Container archives', function() {
     it('does not throw the process down when a file has gone missing', async function() {
         // An unhandled 'error' on the archive or output stream is an uncaught exception.
         const zip_path = await utils.createContainerZipFile(
-            'missing', [{path: path.join(users_base_path, 'zip_alice', 'video', 'gone.mp4'), user_uid: 'zip_alice'}],
+            'missing', [{path: path.join(media.users, 'zip_alice', 'video', 'gone.mp4'), user_uid: 'zip_alice'}],
             'zip_alice');
 
         if (zip_path) { await fs.remove(zip_path); }
@@ -1108,5 +1107,167 @@ describe('Argument previews', function() {
             'https://example.com/v', 'video', {}, null, true, true);
 
         assert(args.includes('--proxy'), 'an administrator preview should still be accurate');
+    });
+});
+
+describe('Playlist updates', function() {
+    const {assert, config_api, db_api, files_api} = require('./test-shared');
+
+    const original_getConfigItem = config_api.getConfigItem;
+    const OWNER = 'playlist_owner';
+    const OTHER = 'playlist_other';
+    const PLAYLIST_ID = 'playlist_update_test';
+    const OWNED_FILE = 'playlist_owned_file';
+    const FOREIGN_FILE = 'playlist_foreign_file';
+
+    before(function() {
+        config_api.getConfigItem = (key) =>
+            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+    });
+
+    after(async function() {
+        config_api.getConfigItem = original_getConfigItem;
+        await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+        for (const uid of [OWNED_FILE, FOREIGN_FILE]) await db_api.removeAllRecords('files', {uid: uid});
+    });
+
+    beforeEach(async function() {
+        await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+        await db_api.insertRecordIntoTable('playlists', {
+            id: PLAYLIST_ID, name: 'original', user_uid: OWNER, sharingEnabled: false, uids: [OWNED_FILE]
+        });
+
+        for (const [uid, owner] of [[OWNED_FILE, OWNER], [FOREIGN_FILE, OTHER]]) {
+            await db_api.removeAllRecords('files', {uid: uid});
+            await db_api.insertRecordIntoTable('files', {uid: uid, user_uid: owner, duration: 10});
+        }
+    });
+
+    it('applies the fields the editor actually changes', async function() {
+        const success = await files_api.updatePlaylist(
+            {id: PLAYLIST_ID, name: 'renamed', uids: [OWNED_FILE]}, OWNER);
+
+        assert.strictEqual(success, true);
+        assert.strictEqual((await db_api.getRecord('playlists', {id: PLAYLIST_ID}))['name'], 'renamed');
+    });
+
+    /*************************************************
+     * The whole client object used to be written to
+     * the record, so these three fields were all
+     * writable by whoever was submitting the form.
+     ************************************************/
+    it('ignores an attempt to hand the playlist to somebody else', async function() {
+        await files_api.updatePlaylist(
+            {id: PLAYLIST_ID, name: 'renamed', uids: [OWNED_FILE], user_uid: OTHER}, OWNER);
+
+        assert.strictEqual((await db_api.getRecord('playlists', {id: PLAYLIST_ID}))['user_uid'], OWNER);
+    });
+
+    it('ignores an attempt to turn on sharing', async function() {
+        // Sharing is the sharing permission's business, not this endpoint's.
+        await files_api.updatePlaylist(
+            {id: PLAYLIST_ID, name: 'renamed', uids: [OWNED_FILE], sharingEnabled: true}, OWNER);
+
+        assert.strictEqual((await db_api.getRecord('playlists', {id: PLAYLIST_ID}))['sharingEnabled'], false);
+    });
+
+    it('refuses a member uid the caller does not own', async function() {
+        // Otherwise a shared playlist becomes a way to publish files chosen by uid alone.
+        const success = await files_api.updatePlaylist(
+            {id: PLAYLIST_ID, name: 'renamed', uids: [OWNED_FILE, FOREIGN_FILE]}, OWNER);
+
+        assert.strictEqual(success, false);
+        assert.deepStrictEqual((await db_api.getRecord('playlists', {id: PLAYLIST_ID}))['uids'], [OWNED_FILE]);
+    });
+
+    it('refuses to update a playlist belonging to somebody else', async function() {
+        const success = await files_api.updatePlaylist(
+            {id: PLAYLIST_ID, name: 'stolen', uids: []}, OTHER);
+
+        assert.strictEqual(success, false);
+        assert.strictEqual((await db_api.getRecord('playlists', {id: PLAYLIST_ID}))['name'], 'original');
+    });
+});
+
+describe('Custom output through a symlink', function() {
+    const {assert, fs, os, path, utils} = require('./test-shared');
+
+    let base = null;
+    let root = null;
+
+    before(function() {
+        base = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-symlink-test-'));
+        root = path.join(base, 'root');
+        fs.ensureDirSync(root);
+        fs.ensureDirSync(path.join(base, 'outside'));
+        fs.symlinkSync(path.join(base, 'outside'), path.join(root, 'link'));
+    });
+
+    after(function() {
+        fs.removeSync(base);
+    });
+
+    /*************************************************
+     * The first attempt at this called realpath on
+     * the whole destination. An output template names
+     * a file that has not been written yet, so the
+     * call always threw and the answer fell back to a
+     * lexical resolve -- which walks straight through
+     * the symlink.
+     ************************************************/
+    it('refuses a destination that does not exist yet behind a symlink', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('link/new-file', root), null);
+    });
+
+    it('refuses one nested further inside the symlink', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('link/a/b', root), null);
+    });
+
+    it('still accepts an ordinary template naming a file that does not exist', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('%(title)s', root), '%(title)s');
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/%(title)s', root), 'shows/%(title)s');
+    });
+});
+
+describe('Subtitle metadata', function() {
+    const {assert, files_api, fs, path, useTemporaryMediaRoots} = require('./test-shared');
+
+    let media = null;
+
+    before(function() {
+        media = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+    });
+
+    after(function() {
+        media.restore();
+    });
+
+    /*************************************************
+     * Discovering the tracks reads sidecars next to
+     * the stored path and shells out to ffprobe, so
+     * checking only inside ensureSubtitleSidecarForFile
+     * let a record pointing outside the media folders
+     * reach the filesystem first.
+     ************************************************/
+    it('refuses to read anything for a path outside the media folders', async function() {
+        const outside_path = path.join(media.base, 'outside.mp4');
+        await fs.outputFile(outside_path, 'not media');
+
+        const output = await files_api.attachFileSubtitles({
+            uid: 'subtitle_outside', path: outside_path, isAudio: false, user_uid: 'alice'
+        });
+
+        assert.deepStrictEqual(output.subtitles, []);
+    });
+
+    it('refuses a path inside another user\'s directory', async function() {
+        const bob_path = path.join(media.users, 'bob', 'video', 'bob.mp4');
+        await fs.outputFile(bob_path, 'bob media');
+
+        const output = await files_api.attachFileSubtitles({
+            uid: 'subtitle_foreign', path: bob_path, isAudio: false, user_uid: 'alice'
+        });
+
+        assert.deepStrictEqual(output.subtitles, []);
     });
 });

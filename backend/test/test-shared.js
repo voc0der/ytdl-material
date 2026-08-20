@@ -3,6 +3,7 @@ const assert = require('assert');
 const low = require('../lowdb-compat');
 const winston = require('winston');
 const path = require('path');
+const os = require('os');
 const util = require('util');
 const fs = require('fs-extra');
 const { v4: uuid } = require('uuid');
@@ -76,7 +77,67 @@ const generateEmptyAudioFile = async (file_path) => {
     return await exec(`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 -q:a 9 -acodec libmp3lame ${file_path}`);
 };
 
+
+/*************************************************
+ * A throwaway set of media roots.
+ *
+ * Tests that exercise path containment have to
+ * create files inside whatever the media roots are
+ * configured to be, and then delete them. Pointed
+ * at the real configuration, that means a test run
+ * writes into -- and recursively removes from --
+ * the machine's actual media folders. On a
+ * developer's own install, a fixture named
+ * users/alice is not obviously distinguishable
+ * from a real account.
+ *
+ * So the roots are redirected somewhere disposable
+ * for the duration, by intercepting reads rather
+ * than writing the config file.
+ ************************************************/
+function useTemporaryMediaRoots(extra_overrides = {}) {
+    const original_getConfigItem = config_api.getConfigItem;
+    const original_setConfigItem = config_api.setConfigItem;
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-media-test-'));
+
+    const roots = {
+        'ytdl_video_folder_path': path.join(base, 'video'),
+        'ytdl_audio_folder_path': path.join(base, 'audio'),
+        'ytdl_users_base_path': path.join(base, 'users'),
+        'ytdl_subscriptions_base_path': path.join(base, 'subscriptions')
+    };
+    for (const root of Object.values(roots)) fs.ensureDirSync(root);
+
+    const overrides = Object.assign({}, roots, extra_overrides);
+
+    config_api.getConfigItem = (key) =>
+        Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : original_getConfigItem(key);
+
+    // Writes are intercepted as well as reads. A test that repoints a root mid-run is
+    // doing so to exercise something, not to edit the developer's config file -- and if
+    // the write escaped, the read interception above would hide it anyway.
+    config_api.setConfigItem = (key, value) => {
+        overrides[key] = value;
+        return true;
+    };
+
+    return {
+        base,
+        video: roots['ytdl_video_folder_path'],
+        audio: roots['ytdl_audio_folder_path'],
+        users: roots['ytdl_users_base_path'],
+        subscriptions: roots['ytdl_subscriptions_base_path'],
+        restore() {
+            config_api.getConfigItem = original_getConfigItem;
+            config_api.setConfigItem = original_setConfigItem;
+            fs.removeSync(base);
+        }
+    };
+}
+
 module.exports = {
+    useTemporaryMediaRoots,
+    os,
     assert,
     low,
     path,

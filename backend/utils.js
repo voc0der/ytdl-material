@@ -1028,10 +1028,26 @@ exports.pathIsWithin = (candidate_path, container_path) => {
  * to the lexical answer, which still refuses '..'.
  ************************************************/
 function realPathOrResolved(target_path) {
-    try {
-        return fs.realpathSync(target_path);
-    } catch {
-        return path.resolve(target_path);
+    const resolved_path = path.resolve(target_path);
+    const trailing_segments = [];
+    let candidate_path = resolved_path;
+
+    // Walk up until something exists to canonicalize. Calling realpath on the whole path
+    // and giving up when it throws is not enough: an output template names a file that
+    // has not been written yet, so the call always fails and the answer falls back to the
+    // lexical one -- which walks straight through a symlinked directory on the way down.
+    for (;;) {
+        try {
+            const real_path = fs.realpathSync(candidate_path);
+            if (!trailing_segments.length) return real_path;
+            return path.join(real_path, ...trailing_segments.slice().reverse());
+        } catch {
+            const parent_path = path.dirname(candidate_path);
+            // Reached the filesystem root without finding anything that exists.
+            if (parent_path === candidate_path) return resolved_path;
+            trailing_segments.push(path.basename(candidate_path));
+            candidate_path = parent_path;
+        }
     }
 }
 

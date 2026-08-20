@@ -1806,21 +1806,51 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
     });
 });
 
+/*************************************************
+ * Unauthenticated by necessity: the player calls it
+ * for a shared video, and a share link carries no
+ * session. That is not a reason to accept any uid
+ * that is named, though.
+ *
+ * An authenticated caller writes to their own
+ * records. Anybody else has to demonstrate the same
+ * capability a share link does -- the file is
+ * shared, or it belongs to a shared playlist --
+ * rather than merely knowing an owner uid and a
+ * file uid, both of which appear in ordinary URLs.
+ ************************************************/
 app.post('/api/incrementViewCount', async (req, res) => {
-    let file_uid = req.body.file_uid;
-    let sub_id = req.body.sub_id;
-    let uuid = req.body.uuid;
+    const file_uid = req.body.file_uid;
+    const sub_id = req.body.sub_id;
+    const playlist_id = req.body.playlist_id;
+    const multi_user_mode = !!config_api.getConfigItem('ytdl_multi_user_mode');
+    const authenticated_uid = req.isAuthenticated() && req.user ? req.user.uid : null;
 
-    if (req.isAuthenticated()) uuid = req.user.uid;
+    let file_obj = null;
+    if (authenticated_uid || !multi_user_mode) {
+        file_obj = await files_api.getVideo(file_uid, authenticated_uid, sub_id);
+    } else {
+        const uuid = req.body.uuid;
+        if (!uuid) {
+            res.sendStatus(401);
+            return;
+        }
 
-    // getVideo drops its owner filter when the uuid is empty, so an anonymous caller who
-    // omitted it could name any file uid at all. In multi-user mode there has to be one.
-    if (config_api.getConfigItem('ytdl_multi_user_mode') && !uuid) {
-        res.sendStatus(401);
-        return;
+        if (playlist_id) {
+            const playlist = await files_api.getPlaylist(playlist_id, uuid, true);
+            const playlist_uids = playlist && Array.isArray(playlist['uids']) ? playlist['uids'] : [];
+            if (playlist_uids.includes(file_uid)) file_obj = await files_api.getVideo(file_uid, uuid, sub_id);
+        } else {
+            // Requires sharingEnabled, which is what a share link actually proves.
+            file_obj = await auth_api.getUserVideo(uuid, file_uid, true);
+        }
+
+        if (!file_obj) {
+            res.sendStatus(401);
+            return;
+        }
     }
 
-    const file_obj = await files_api.getVideo(file_uid, uuid, sub_id);
     if (!file_obj) {
         // Used to fall through and write anyway, which incremented a counter on a record
         // the caller could not even read.
