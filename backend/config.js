@@ -421,7 +421,6 @@ const DEFAULT_CONFIG = {
  ************************************************/
 const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.API.API_key',
-    'YtdlMaterial.API.youtube_API_key',
     'YtdlMaterial.API.twitch_client_ID',
     'YtdlMaterial.API.twitch_client_secret',
     'YtdlMaterial.API.ntfy_topic_URL',
@@ -440,11 +439,21 @@ const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.Users.ldap_config.searchFilter',
     'YtdlMaterial.Users.oidc.client_id',
     'YtdlMaterial.Users.oidc.client_secret',
-    'YtdlMaterial.Users.oidc.issuer_url',
-    'YtdlMaterial.Advanced.custom_downloading_agent'
+    'YtdlMaterial.Users.oidc.issuer_url'
 ];
 
 exports.SENSITIVE_CONFIG_PATHS = SENSITIVE_CONFIG_PATHS;
+
+/*************************************************
+ * Fields that read like credentials but are handed
+ * to every client on purpose, because something
+ * outside the settings page needs them. Listed
+ * explicitly so the redaction test can tell them
+ * apart from an oversight.
+ ************************************************/
+exports.CLIENT_VISIBLE_CONFIG_PATHS = {
+    'YtdlMaterial.API.youtube_API_key': 'the search runs in the browser, so the key has to reach it. Protecting it means moving search to the backend first.'
+};
 
 function deletePath(root, dotted_path) {
     const parts = dotted_path.split('.');

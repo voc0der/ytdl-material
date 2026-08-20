@@ -246,6 +246,7 @@ describe('Config redaction', function() {
         // like a credential should be on it.
         const full = config_api.getConfigFile();
         const listed = new Set(config_api.SENSITIVE_CONFIG_PATHS);
+        const exempt = new Set(Object.keys(config_api.CLIENT_VISIBLE_CONFIG_PATHS));
         const missing = [];
 
         const walk = (node, trail) => {
@@ -255,14 +256,15 @@ describe('Config redaction', function() {
                 if (value && typeof value === 'object' && !Array.isArray(value)) {
                     walk(value, dotted);
                 } else if (/secret|token|_key$|credential|password/i.test(key) && !/^use_/.test(key)) {
-                    if (!listed.has(dotted)) missing.push(dotted);
+                    if (!listed.has(dotted) && !exempt.has(dotted)) missing.push(dotted);
                 }
             }
         };
         walk(full.YtdlMaterial, 'YtdlMaterial');
 
         assert.deepStrictEqual(missing, [],
-            'these look like credentials but are not redacted; add them to SENSITIVE_CONFIG_PATHS');
+            'these look like credentials but are not redacted. Add them to SENSITIVE_CONFIG_PATHS, '
+            + 'or to CLIENT_VISIBLE_CONFIG_PATHS with the reason a client needs them.');
     });
 
     it('keeps the fields the login page needs', function() {
@@ -280,5 +282,34 @@ describe('Config redaction', function() {
 
         assert.strictEqual(JSON.stringify(config_api.getConfigFile()), before,
             'redaction must work on a copy');
+    });
+});
+
+describe('Config fields the client still needs', function() {
+    const {assert, config_api} = require('./test-shared');
+
+    it('leaves the browser-side search key in place', function() {
+        // main.component reads this to run the search in the browser. Redacting it does
+        // not protect anything the logged-in user cannot already see, and it does break
+        // search for everyone who is not an administrator.
+        const redacted = config_api.getRedactedConfigFile();
+
+        assert('youtube_API_key' in redacted.YtdlMaterial.API);
+    });
+
+    it('leaves the downloading agent in place', function() {
+        const redacted = config_api.getRedactedConfigFile();
+
+        assert('custom_downloading_agent' in redacted.YtdlMaterial.Advanced);
+    });
+
+    it('still redacts the secrets nothing outside settings reads', function() {
+        const redacted = config_api.getRedactedConfigFile();
+
+        assert(!('API_key' in redacted.YtdlMaterial.API));
+        assert(!('gotify_app_token' in redacted.YtdlMaterial.API));
+        assert(!('telegram_bot_token' in redacted.YtdlMaterial.API));
+        assert(!('bindCredentials' in redacted.YtdlMaterial.Users.ldap_config));
+        assert(!('client_secret' in redacted.YtdlMaterial.Users.oidc));
     });
 });
