@@ -37,9 +37,8 @@ updates:
         update-types:
           - "minor"
     ignore:
-      - dependency-name: "@angular-devkit/build-angular"
-        update-types:
-          - "version-update:semver-major"
+      # TypeScript majors land ahead of what Angular's compiler accepts, so let the
+      # Angular bump pull TypeScript along rather than the other way around.
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"

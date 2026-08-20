@@ -93,13 +93,30 @@ jobs:
           NODE
         working-directory: ./backend
 
-      - name: Fail if dependencies are outdated
+      - name: Report dependency status
         if: always()
+        env:
+          FRONTEND_OUTCOME: ${{ steps.frontend_outdated.outcome }}
+          BACKEND_OUTCOME: ${{ steps.backend_outdated.outcome }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          echo "Frontend check outcome: ${{ steps.frontend_outdated.outcome }}"
-          echo "Backend check outcome: ${{ steps.backend_outdated.outcome }}"
+          echo "Frontend check outcome: $FRONTEND_OUTCOME"
+          echo "Backend check outcome: $BACKEND_OUTCOME"
 
-          if [ "${{ steps.frontend_outdated.outcome }}" = "failure" ] || [ "${{ steps.backend_outdated.outcome }}" = "failure" ]; then
-            echo "One or more dependency checks reported outdated packages."
-            exit 1
+          if [ "$FRONTEND_OUTCOME" != "failure" ] && [ "$BACKEND_OUTCOME" != "failure" ]; then
+            echo "Every dependency is at the version its declared range wants."
+            exit 0
           fi
+
+          # The badge this workflow exists for reads ?branch=main, so a pull request run
+          # contributes nothing to it. Failing one only ever punished the PR that happened
+          # to be open when an unrelated package published -- the drift is upstream, not
+          # in the change under review, and dependabot opens a PR for it on its own daily
+          # run. Report it on the PR, block on main.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::warning::Dependencies are behind what their declared ranges want. This does not block the pull request -- the drift is upstream, not in this change. The run on main is what drives the badge."
+            exit 0
+          fi
+
+          echo "One or more dependency checks reported outdated packages."
+          exit 1
