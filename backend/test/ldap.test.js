@@ -74,6 +74,8 @@ describe('LDAP', function() {
         'ytdl-second',
         'ytdl.dotted_name-2@ytdl.test',
         'ytdl unsafe/uid',
+        'ytdl spaced name',
+        '..',
         'ytdl-outside'
     ];
 
@@ -224,14 +226,50 @@ describe('LDAP', function() {
     });
 
     describe('Uid handling', function() {
-        it('does not sanitize uids the way the OIDC path does', async function() {
-            // Documents current behaviour, not desired behaviour: the OIDC callback runs
-            // its login name through auth_api.sanitizeUserUID, the LDAP verify callback
-            // does not, so a directory can hand us a uid containing a path separator.
+        // The uid becomes a path component in db.js, downloader.js, utils.js and
+        // twitch.js, so a directory must not be able to hand back one that walks out of
+        // the users folder. The guard is deliberately narrower than the OIDC path's
+        // sanitizeUserUID -- see the second block.
+        it('refuses a uid containing a path separator', async function() {
             const uid = 'ytdl unsafe/uid';
-            assert.strictEqual(auth_api.sanitizeUserUID(uid), null);
 
             const result = await authenticate(uid, 'unsafe-password');
+
+            assert.strictEqual(result.outcome, 'fail');
+            const stored = await db_api.getRecord('users', {uid: uid});
+            assert(!stored, 'a rejected uid must not be written to the users table');
+        });
+
+        it('refuses a uid that is itself a relative path segment', async function() {
+            const result = await authenticate('..', 'dotdot-password');
+
+            assert.strictEqual(result.outcome, 'fail');
+            const stored = await db_api.getRecord('users', {uid: '..'});
+            assert(!stored);
+        });
+
+        it('rejects path-unsafe uids without reaching the directory', function() {
+            // Shapes worth pinning that no fixture entry can express: a uid the
+            // directory returns as an array (uid is multi-valued in the LDAP schema),
+            // a backslash on the Windows side, and a null byte.
+            assert.strictEqual(auth_api.uidIsPathSafe('..'), false);
+            assert.strictEqual(auth_api.uidIsPathSafe('.'), false);
+            assert.strictEqual(auth_api.uidIsPathSafe('a/b'), false);
+            assert.strictEqual(auth_api.uidIsPathSafe('a\\b'), false);
+            assert.strictEqual(auth_api.uidIsPathSafe('a\0b'), false);
+            assert.strictEqual(auth_api.uidIsPathSafe(''), false);
+            assert.strictEqual(auth_api.uidIsPathSafe('   '), false);
+            assert.strictEqual(auth_api.uidIsPathSafe(['a', 'b']), false);
+            assert.strictEqual(auth_api.uidIsPathSafe(undefined), false);
+        });
+
+        it('still accepts uids the stricter OIDC pattern would refuse', async function() {
+            // A directory using uids with spaces predates any of our validation and has
+            // live users. Closing the traversal must not lock them out.
+            const uid = 'ytdl spaced name';
+            assert.strictEqual(auth_api.sanitizeUserUID(uid), null, 'precondition: OIDC would refuse this');
+
+            const result = await authenticate(uid, 'spaced-password');
 
             assert.strictEqual(result.outcome, 'success');
             assert.strictEqual(result.user.uid, uid);

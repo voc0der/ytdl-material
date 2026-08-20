@@ -49,15 +49,32 @@ cn: Dotted Name
 sn: Name
 userPassword: dotted-password
 
-# uid containing characters SAFE_UID_PATTERN rejects. The LDAP verify callback does
-# not sanitize uids the way the OIDC path does, so this entry exists to pin down what
-# actually happens rather than what we assume happens.
+# uid containing a path separator. The uid becomes a folder name, so this login has to
+# be refused however legitimate the bind is.
 dn: uid=ytdl unsafe/uid,ou=people,dc=ytdl,dc=test
 objectClass: inetOrgPerson
 uid: ytdl unsafe/uid
 cn: Unsafe Uid
 sn: Uid
 userPassword: unsafe-password
+
+# The other traversal shape: a uid that *is* a relative path segment.
+dn: uid=..,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ..
+cn: Dot Dot
+sn: Dot
+userPassword: dotdot-password
+
+# uid with a space -- outside SAFE_UID_PATTERN, but harmless as a folder name. A
+# directory using uids like this predates any of our validation, so it keeps working;
+# this entry is here to catch a fix that over-rejects.
+dn: uid=ytdl spaced name,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl spaced name
+cn: Spaced Name
+sn: Name
+userPassword: spaced-password
 
 # Entry outside ou=people, so a searchBase of ou=people proves it scopes the search.
 dn: uid=ytdl-outside,dc=ytdl,dc=test

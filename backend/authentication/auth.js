@@ -21,6 +21,9 @@ let opts = null;
 let saltRounds = 10;
 
 const SAFE_UID_PATTERN = /^[A-Za-z0-9._@-]+$/;
+// Path separators and the null byte -- the characters that let a uid escape the folder
+// it is supposed to name, rather than merely look unusual.
+const PATH_UNSAFE_PATTERN = /[/\\\0]/;
 
 exports.initialize = function () {
   /*************************
@@ -174,6 +177,24 @@ exports.sanitizeUserUID = (rawUID) => {
   if (input === '.' || input === '..') return null;
   if (!SAFE_UID_PATTERN.test(input)) return null;
   return input;
+}
+
+/*************************************************
+ * The uid ends up as a path component in a dozen
+ * places (db.js, downloader.js, utils.js,
+ * twitch.js), so it must not be able to steer a
+ * path.join() out of the folder it names.
+ *
+ * Deliberately narrower than sanitizeUserUID: an
+ * LDAP directory was never held to SAFE_UID_PATTERN,
+ * and installs exist whose uids contain punctuation
+ * it refuses. Those keep working; only uids that
+ * can traverse are turned away.
+ ************************************************/
+exports.uidIsPathSafe = (rawUID) => {
+  if (typeof rawUID !== 'string' || !rawUID.trim()) return false;
+  if (rawUID === '.' || rawUID === '..') return false;
+  return !PATH_UNSAFE_PATTERN.test(rawUID);
 }
 
 function getOIDCIdentityFromClaims(claims, usernameClaim) {
@@ -343,6 +364,12 @@ exports.passport.use(new LdapStrategy(getLDAPConfiguration,
     if (!ldap_enabled) return done(null, false);
 
     const user_uid = user.uid;
+    if (!exports.uidIsPathSafe(user_uid)) {
+      logger.error(`LDAP login rejected: the directory returned an unusable uid (${JSON.stringify(user_uid)}). `
+        + `A uid must be a non-empty string, and cannot be '.', '..', or contain a path separator.`);
+      return done(null, false);
+    }
+
     let db_user = await db_api.getRecord('users', {uid: user_uid});
     if (!db_user) {
       // generate DB user
