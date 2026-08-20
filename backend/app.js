@@ -3453,7 +3453,7 @@ app.get('/api/auth/oidc/callback', async (req, res) => {
     }
 });
 
-app.post('/api/auth/register', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/auth/register', optionalJwt, async (req, res) => {
     if (oidc_api.isEnabled()) {
         res.status(403).send('Registration is disabled when OIDC is enabled.');
         return;
@@ -3463,7 +3463,16 @@ app.post('/api/auth/register', optionalJwt, anyAuthenticatedUser, async (req, re
     const username = req.body.username;
     const plaintextPassword = req.body.password;
 
-    if (userid !== 'admin' && !config_api.getConfigItem('ytdl_allow_registration') && !req.isAuthenticated() && (!req.user || !exports.userHasPermission(req.user.uid, 'settings'))) {
+    // Closing registration is meant to stop strangers signing themselves up, not to stop
+    // an administrator adding an account from the settings page. That exception was
+    // written as `exports.userHasPermission(...)`, which app.js does not define and never
+    // awaited -- so it either threw or, more usually, was skipped entirely by the
+    // short-circuit in front of it, and the settings page could not add users at all.
+    const registration_open = !!config_api.getConfigItem('ytdl_allow_registration');
+    const caller_may_create_users = req.isAuthenticated() && !!req.user
+        && await auth_api.userHasPermission(req.user.uid, 'settings');
+
+    if (userid !== 'admin' && !registration_open && !caller_may_create_users) {
         logger.error(`Registration failed for user ${userid}. Registration is disabled.`);
         res.sendStatus(409);
         return;

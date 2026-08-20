@@ -26,6 +26,7 @@ const INTENTIONALLY_UNAUTHENTICATED = {
     '/api/versionInfo': 'version string only, shown in the footer before login',
     '/api/auth/login': 'this is how you authenticate',
     '/api/auth/jwtAuth': 'this is how you authenticate',
+    '/api/auth/register': 'open registration is a supported configuration; the route itself decides whether it is on',
     '/api/auth/adminExists': 'the first-run setup screen asks this before an account exists',
     '/api/auth/oidc/status': 'the login page asks whether to show an OIDC button',
     '/api/auth/oidc/login': 'the OIDC redirect, by definition pre-authentication',
