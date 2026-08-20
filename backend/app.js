@@ -17,6 +17,7 @@ const { ZipArchive } = require('archiver');
 const unzipper = require('unzipper');
 const db_api = require('./db');
 const { DelegatingRateLimitStore } = require('./rate-limit-store');
+const { skipApiRateLimit, skipAuthRateLimit } = require('./rate-limit-paths');
 const redis_store = require('./redis-store');
 const utils = require('./utils')
 const low = require('./lowdb-compat')
@@ -1041,13 +1042,6 @@ app.use(function(req, res, next) {
     }
 });
 
-function isPublicApiPath(requestPath = '') {
-    return requestPath.includes('/api/stream')
-        || requestPath.includes('/api/thumbnail/')
-        || requestPath.includes('/api/rss')
-        || requestPath.includes('/api/telegramRequest');
-}
-
 /*************************************************
  * The Public API key is deprecated and does not
  * restrict anything.
@@ -1082,36 +1076,6 @@ const rateLimitValidateOptions = {
     xForwardedForHeader: false
 };
 
-function getRateLimitRequestPath(req) {
-    if (req.originalUrl) return req.originalUrl;
-    const baseUrl = req.baseUrl || '';
-    const requestPath = req.path || req.url || '';
-    return `${baseUrl}${requestPath}`;
-}
-
-function isPublicApiRateLimitExemptPath(requestPath) {
-    // Streaming and thumbnails are fetched repeatedly to render a single page and cannot
-    // be limited. The Telegram webhook is public in the same sense but it is a write, and
-    // an unlimited write is a download queue that anybody can fill.
-    return isPublicApiPath(requestPath) && !requestPath.includes('/api/telegramRequest');
-}
-
-function skipAuthRateLimit(req) {
-    const requestPath = getRateLimitRequestPath(req);
-    return requestPath.includes('/api/auth/jwtAuth')
-        || requestPath.includes('/api/auth/adminExists');
-}
-
-function skipApiRateLimit(req) {
-    const requestPath = getRateLimitRequestPath(req);
-    return isPublicApiRateLimitExemptPath(requestPath)
-        || requestPath.includes('/api/auth/jwtAuth')
-        || requestPath.includes('/api/auth/adminExists')
-        || requestPath.includes('/api/get')
-        || requestPath.includes('/api/versionInfo')
-        || requestPath.includes('/api/updaterStatus')
-        || requestPath.includes('/api/checkConcurrentStream');
-}
 
 const testCookiesRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:test-cookies:');
 const apiRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:api:');
