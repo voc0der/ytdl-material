@@ -1,0 +1,38 @@
+# Template for the throwaway test directory. dev/ldap/ldap-server.sh substitutes the
+# @PLACEHOLDERS@ and writes the result into the run directory -- do not edit the
+# generated copy, it is rewritten on every start.
+#
+# slapd.conf is the deprecated-but-supported config format. cn=config is what a real
+# deployment should use; here the flat file wins because it is one readable page
+# instead of a directory of LDIF that has to be bootstrapped before it can be read.
+
+include		@PREFIX@/etc/openldap/schema/core.schema
+include		@PREFIX@/etc/openldap/schema/cosine.schema
+include		@PREFIX@/etc/openldap/schema/inetorgperson.schema
+
+pidfile		@RUN_DIR@/slapd.pid
+argsfile	@RUN_DIR@/slapd.args
+
+# Anonymous binds must be allowed to reach the compare/search, because
+# passport-ldapauth binds as the service account, searches for the user, then
+# re-binds as the user it found.
+access to attrs=userPassword
+	by self write
+	by anonymous auth
+	by * none
+
+access to *
+	by self write
+	by users read
+	by anonymous read
+
+database	mdb
+maxsize		134217728
+suffix		"@SUFFIX@"
+rootdn		"@ROOT_DN@"
+rootpw		@ROOT_PW@
+directory	@DATA_DIR@
+
+index		objectClass	eq
+index		uid		eq,sub
+index		cn,sn,mail	eq,sub

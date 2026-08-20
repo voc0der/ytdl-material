@@ -1,0 +1,79 @@
+# Seed data for the local test directory (dc=ytdl,dc=test).
+#
+# Loaded offline with slapadd on every `ldap-server.sh start`, so the directory is
+# identical for every run -- tests may bind, but must not write.
+#
+# Passwords are stored in the clear on purpose. slapd compares them fine, and a
+# readable fixture is worth more here than a {SSHA} blob nobody can map back to the
+# password a failing test was using.
+
+dn: dc=ytdl,dc=test
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: ytdl-material test directory
+dc: ytdl
+
+dn: ou=people,dc=ytdl,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=ytdl,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+# The ordinary case: a user that should log in and be auto-provisioned.
+dn: uid=ytdl-user,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl-user
+cn: Regular Test User
+sn: User
+givenName: Regular
+mail: ytdl-user@ytdl.test
+userPassword: user-password
+
+# Second ordinary user, to prove auth is per-user and not "any valid bind wins".
+dn: uid=ytdl-second,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl-second
+cn: Second Test User
+sn: User
+mail: ytdl-second@ytdl.test
+userPassword: second-password
+
+# uid with the punctuation SAFE_UID_PATTERN allows (dot, dash, underscore, @).
+dn: uid=ytdl.dotted_name-2@ytdl.test,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl.dotted_name-2@ytdl.test
+cn: Dotted Name
+sn: Name
+userPassword: dotted-password
+
+# uid containing characters SAFE_UID_PATTERN rejects. The LDAP verify callback does
+# not sanitize uids the way the OIDC path does, so this entry exists to pin down what
+# actually happens rather than what we assume happens.
+dn: uid=ytdl unsafe/uid,ou=people,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl unsafe/uid
+cn: Unsafe Uid
+sn: Uid
+userPassword: unsafe-password
+
+# Entry outside ou=people, so a searchBase of ou=people proves it scopes the search.
+dn: uid=ytdl-outside,dc=ytdl,dc=test
+objectClass: inetOrgPerson
+uid: ytdl-outside
+cn: Outside The Search Base
+sn: Base
+userPassword: outside-password
+
+dn: cn=ytdl-users,ou=groups,dc=ytdl,dc=test
+objectClass: groupOfNames
+cn: ytdl-users
+member: uid=ytdl-user,ou=people,dc=ytdl,dc=test
+member: uid=ytdl-second,ou=people,dc=ytdl,dc=test
+
+dn: cn=ytdl-admins,ou=groups,dc=ytdl,dc=test
+objectClass: groupOfNames
+cn: ytdl-admins
+member: uid=ytdl-user,ou=people,dc=ytdl,dc=test

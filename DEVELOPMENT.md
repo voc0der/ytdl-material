@@ -76,3 +76,30 @@ behavior, so it would fail for reasons unrelated to any given change.
   "it works for me" does not disprove a report. Always reproduce with the reporter's URL.
 - **Running the backend test suite rewrites `backend/appdata/default.json`**, stripping
   retired keys and self-healing missing ones. Check `git diff` on it before committing.
+
+# A local LDAP server
+
+`ytdl_auth_method: ldap` was the one auth path with no way to exercise it, which is why
+`passport-ldapauth` had gone so long without anyone confirming what it actually does.
+`dev/ldap/ldap-server.sh` fixes that by building a throwaway OpenLDAP and seeding it:
+
+```bash
+dev/ldap/ldap-server.sh start     # builds on first run (~2 min), then listens on :3389
+cd backend && npm test            # backend/test/ldap.test.js now has a directory to talk to
+dev/ldap/ldap-server.sh stop
+```
+
+`start` reseeds from `dev/ldap/fixtures/seed.ldif` every time, so the directory is the same
+on every run and tests never have to clean up after each other. `status` shows the seeded
+uids, `search` runs `ldapsearch` as the admin account, and `clean --all` removes everything
+including the build.
+
+Nothing lands in the repo or in system directories: the tarball, the compiled OpenLDAP and
+the directory data all live under `~/.cache/ytdl-material/openldap`. It is built from
+source rather than installed because it needs no root that way, and pinned by SHA3-512 so a
+substituted tarball fails the build.
+
+`backend/test/ldap.test.js` skips itself when nothing is listening on the configured URL,
+so CI and anyone who has not started the server are unaffected. Point it elsewhere — a real
+directory, or a second instance — with the `YTDL_TEST_LDAP_*` variables that
+`dev/ldap/ldap-server.sh env` prints.
