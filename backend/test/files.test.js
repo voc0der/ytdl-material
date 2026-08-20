@@ -2,7 +2,10 @@
 const { assert, fs, path, exec, utils, files_api, config_api, db_api } = require('./test-shared');
 
 describe('Files', function() {
-    const fixture_dir = path.join(__dirname, 'tmp-files-test');
+    // Inside a configured media root on purpose: deletion refuses a path outside them,
+    // so a fixture parked in the test directory would exercise the refusal rather than
+    // the behaviour under test.
+    const fixture_dir = path.resolve(config_api.getConfigItem('ytdl_video_folder_path'), 'tmp-files-test');
     const fixture_file_path = path.join(fixture_dir, 'chapter-video.mp4');
     const fixture_info_path = path.join(fixture_dir, 'chapter-video.info.json');
 
@@ -377,6 +380,10 @@ describe('Files', function() {
         const original_multi_user_mode = config_api.getConfigItem('ytdl_multi_user_mode');
         const original_audio_folder_path = config_api.getConfigItem('ytdl_audio_folder_path');
         const original_video_folder_path = config_api.getConfigItem('ytdl_video_folder_path');
+        // Overridden alongside the others so the fixture layout matches what the config
+        // says: deletion refuses a path outside the configured roots, and the
+        // subscription orphan below lives under this one.
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
         const legacy_audio_dir = path.join(fixture_dir, 'legacy-audio');
         const legacy_video_dir = path.join(fixture_dir, 'legacy-video');
         const user_video_dir = path.join(fixture_dir, 'users', 'user-1', 'video');
@@ -392,6 +399,7 @@ describe('Files', function() {
             config_api.setConfigItem('ytdl_multi_user_mode', true);
             config_api.setConfigItem('ytdl_audio_folder_path', legacy_audio_dir);
             config_api.setConfigItem('ytdl_video_folder_path', legacy_video_dir);
+            config_api.setConfigItem('ytdl_subscriptions_base_path', path.join(fixture_dir, 'subscriptions'));
             await fs.outputFile(legacy_orphan_path, 'legacy orphan media');
             await fs.outputFile(legacy_info_path, '{}');
             await fs.outputFile(subscription_orphan_path, 'subscription orphan media');
@@ -434,6 +442,7 @@ describe('Files', function() {
             config_api.setConfigItem('ytdl_multi_user_mode', original_multi_user_mode);
             config_api.setConfigItem('ytdl_audio_folder_path', original_audio_folder_path);
             config_api.setConfigItem('ytdl_video_folder_path', original_video_folder_path);
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
             db_api.getFileDirectoriesAndDBs = original_get_file_directories;
             db_api.getRecords = original_get_records;
         }

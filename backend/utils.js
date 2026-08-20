@@ -1001,10 +1001,31 @@ function realPathOrResolved(target_path) {
     }
 }
 
-exports.isPathInsideMediaRoots = (candidate_path) => {
+/*************************************************
+ * In multi-user mode every one of a user's files
+ * lives under users/<uid>/, subscriptions included.
+ * Checking against the shared users/ root instead
+ * treats every account's media as one directory --
+ * so a record owned by one user, pointing at
+ * another user's file, passes.
+ *
+ * Given an owner, the check narrows to that owner's
+ * directory. Without one -- single-user mode, or a
+ * record with no owner -- it stays as it was.
+ ************************************************/
+exports.getMediaRootsForUser = (user_uid) => {
+    if (!user_uid || !config_api.getConfigItem('ytdl_multi_user_mode')) return exports.getMediaRoots();
+
+    const users_base_path = config_api.getConfigItem('ytdl_users_base_path');
+    if (!users_base_path) return exports.getMediaRoots();
+
+    return [realPathOrResolved(path.join(users_base_path, user_uid))];
+}
+
+exports.isPathInsideMediaRoots = (candidate_path, user_uid = null) => {
     if (typeof candidate_path !== 'string' || !candidate_path.trim()) return false;
     const resolved_path = realPathOrResolved(candidate_path);
-    const roots = exports.getMediaRoots();
+    const roots = exports.getMediaRootsForUser(user_uid);
     if (roots.length === 0) return false;
     return roots.some(root => exports.pathIsWithin(resolved_path, root));
 }
@@ -1016,8 +1037,8 @@ exports.isPathInsideMediaRoots = (candidate_path) => {
  * -- and none of these endpoints mean a directory
  * when they say path.
  ************************************************/
-exports.isServableMediaFile = (candidate_path) => {
-    if (!exports.isPathInsideMediaRoots(candidate_path)) return false;
+exports.isServableMediaFile = (candidate_path, user_uid = null) => {
+    if (!exports.isPathInsideMediaRoots(candidate_path, user_uid)) return false;
     try {
         return fs.statSync(realPathOrResolved(candidate_path)).isFile();
     } catch {
@@ -1042,22 +1063,44 @@ exports.isServableMediaFile = (candidate_path) => {
  * feature; only the ways out of it are closed.
  ************************************************/
 const FORBIDDEN_DOWNLOAD_ARGS = [
+    // Run a command outright.
     '--exec',
     '--exec-before-download',
-    '--config-location',
-    '--config-locations',
-    '--load-info-json',
-    '--load-info',
-    '--batch-file',
-    '-a',
-    '--cookies',
+    '--netrc-cmd',
+    // Name a binary for yt-dlp to run.
     '--downloader',
     '--external-downloader',
     '--downloader-args',
     '--external-downloader-args',
     '--ffmpeg-location',
+    '--use-postprocessor',
+    '--postprocessor-args',
+    '--ppa',
+    // Load options from somewhere else, which can set any of the above.
+    '--config-location',
+    '--config-locations',
+    '--load-info-json',
+    '--load-info',
     '--plugin-dirs',
-    '--use-postprocessor'
+    '--netrc',
+    '--netrc-location',
+    // Read a file of the caller's choosing.
+    '--batch-file',
+    '-a',
+    '--cookies',
+    '--cookies-from-browser',
+    '--client-certificate',
+    '--client-certificate-key',
+    '--client-certificate-password',
+    // Write to a path of the caller's choosing. customOutput is the supported way to
+    // control where a download lands, and unlike these it is checked for containment.
+    '-o',
+    '--output',
+    '-P',
+    '--paths',
+    '--print-to-file',
+    '--download-archive',
+    '--cache-dir'
 ];
 
 exports.FORBIDDEN_DOWNLOAD_ARGS = FORBIDDEN_DOWNLOAD_ARGS;
@@ -1071,13 +1114,21 @@ exports.hasAdvancedDownloadOptions = (options) => {
     return ADVANCED_DOWNLOAD_FIELDS.some(field => typeof options[field] === 'string' && options[field].trim() !== '');
 }
 
+function isForbiddenDownloadArg(flag) {
+    if (FORBIDDEN_DOWNLOAD_ARGS.includes(flag)) return true;
+    // Long options are matched case-insensitively as well. Short ones are not: yt-dlp
+    // reads '-P' as --paths and '-p' as something else entirely, so folding case there
+    // would both miss '-P' and invent matches that are not real options.
+    return flag.startsWith('--') && FORBIDDEN_DOWNLOAD_ARGS.includes(flag.toLowerCase());
+}
+
 exports.findForbiddenDownloadArgs = (raw_args) => {
     if (typeof raw_args !== 'string' || !raw_args.trim()) return [];
     return raw_args.split(',,')
         // yt-dlp accepts both '--exec CMD' and '--exec=CMD', and the delimiter splits on
         // ',,' rather than whitespace, so either form can arrive as a single token.
-        .map(arg => arg.trim().split(/[=\s]/)[0].toLowerCase())
-        .filter(arg => FORBIDDEN_DOWNLOAD_ARGS.includes(arg));
+        .map(arg => arg.trim().split(/[=\s]/)[0])
+        .filter(arg => isForbiddenDownloadArg(arg));
 }
 
 /*************************************************
@@ -1092,4 +1143,53 @@ exports.timingSafeEquals = (provided, expected) => {
     const expected_buffer = Buffer.from(expected);
     if (provided_buffer.length !== expected_buffer.length) return false;
     return crypto.timingSafeEqual(provided_buffer, expected_buffer);
+}
+
+/*************************************************
+ * Quarantine rather than repair.
+ *
+ * Arguments arrive as one string split on ',,', so
+ * a flag and its value can share a token or sit in
+ * separate ones. Removing just the offending flag
+ * would leave its value behind as a stray token,
+ * which yt-dlp reads as a URL. Discarding the whole
+ * string is unambiguous, and an argument list that
+ * contains one of these was not written by the
+ * download dialog in the first place.
+ *
+ * Used at the downloader boundary, where stored
+ * subscription arguments and resumed queue entries
+ * arrive without ever passing an HTTP handler.
+ ************************************************/
+exports.quarantineForbiddenDownloadArgs = (raw_args, context = 'download') => {
+    const forbidden_args = exports.findForbiddenDownloadArgs(raw_args);
+    if (!forbidden_args.length) return raw_args;
+
+    logger.error(`Discarding the custom arguments for this ${context}: they contain `
+        + `${forbidden_args.join(', ')}, which can run a command or write outside the media folders. `
+        + `The download will continue with its ordinary arguments.`);
+    return null;
+}
+
+/*************************************************
+ * customOutput is a yt-dlp output template joined
+ * onto the download folder, so '../' in it walks
+ * out of that folder exactly like any other path.
+ * The template placeholders are left alone -- what
+ * is being checked is the literal part.
+ ************************************************/
+exports.sanitizeCustomOutput = (custom_output, folder_path) => {
+    if (typeof custom_output !== 'string' || !custom_output.trim()) return null;
+    if (path.isAbsolute(custom_output)) {
+        logger.error(`Ignoring a custom output that is an absolute path: ${custom_output}`);
+        return null;
+    }
+
+    const joined_path = path.resolve(path.join(folder_path, custom_output));
+    if (!exports.pathIsWithin(joined_path, path.resolve(folder_path))) {
+        logger.error(`Ignoring a custom output that escapes its download folder: ${custom_output}`);
+        return null;
+    }
+
+    return custom_output;
 }

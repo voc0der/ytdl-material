@@ -1041,11 +1041,30 @@ app.use(function(req, res, next) {
         next();
     } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key') && req.query.apiKey === config_api.getConfigItem('ytdl_api_key')) {
         next();
-    } else if (isPublicApiPath(req.path)) {
-        next();
-    } else {
-        logger.verbose(`Rejecting request - invalid API use for endpoint: ${req.path}. API key present: ${!!req.query.apiKey}`);
+    } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key')) {
+        // A key was offered while key auth is switched on, and it is not the configured
+        // one. Refusing an offered-but-wrong key is the point of the setting.
+        //
+        // When the setting is off, an offered key is ignored rather than refused: after
+        // an upgrade a browser may still be running a cached bundle that appends the
+        // constant this gate used to require, and that should degrade to an ordinary
+        // keyless request rather than a closed socket.
+        logger.verbose(`Rejecting request - invalid API key for endpoint: ${req.path}.`);
         req.socket.end();
+    } else {
+        /*************************************************
+         * No key offered, which is the ordinary case for
+         * the web UI, and it is allowed through.
+         *
+         * This gate used to close the socket unless the
+         * caller presented a hardcoded UUID -- one that
+         * ships in the frontend bundle and is published in
+         * this repository, so everybody had it. It refused
+         * nobody. What actually decides whether a request
+         * is allowed is optionalJwt and the route guards,
+         * and those run next.
+         ************************************************/
+        next();
     }
 });
 
@@ -1235,7 +1254,10 @@ app.get('/api/config', async function(req, res) {
         config_file = config_api.getConfigFile();
     } else if (!caller) {
         config_file = config_api.getAnonymousConfigFile();
-    } else if (await auth_api.userHasPermission(caller.uid, 'settings')) {
+    } else if (caller.role === 'admin') {
+        // Admin rather than the 'settings' permission: /api/setConfig is admin-only, so a
+        // delegated user cannot save these anyway -- there is no reason to show them every
+        // integration credential on the way to a page they cannot submit.
         config_file = config_api.getConfigFile();
     } else {
         config_file = config_api.getRedactedConfigFile();
@@ -1572,13 +1594,16 @@ app.post('/api/removeDuplicates', optionalJwt, requirePermission('filemanager'),
 const EDITABLE_FILE_FIELDS = [
     'title', 'uploader', 'url', 'upload_date', 'description', 'view_count',
     'local_view_count', 'height', 'abr', 'size', 'isAudio', 'favorite',
-    'category', 'thumbnailURL'
+    'category', 'thumbnailURL', 'thumbnailPath'
 ];
 
-// path and thumbnailPath are deliberately absent. The video info dialog is the only
-// client of this endpoint and it never edits either one, while letting a caller write
-// the path turns this into a way to point a record at somebody else's media -- or at a
-// directory, which the delete path then removes recursively.
+// path is deliberately absent: the video info dialog only displays it, and letting a
+// caller write it turns this into a way to point a record at another user's media -- or
+// at a directory, which the delete path then removes recursively.
+//
+// thumbnailPath is editable because the dialog really does edit it, so it is checked
+// instead: it has to land inside a directory this server already serves.
+const PATH_FILE_FIELDS = ['thumbnailPath'];
 
 app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const uid = req.body.uid;
@@ -1593,6 +1618,15 @@ app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async
     const filtered_change_obj = {};
     for (const field of EDITABLE_FILE_FIELDS) {
         if (Object.prototype.hasOwnProperty.call(change_obj, field)) filtered_change_obj[field] = change_obj[field];
+    }
+
+    for (const field of PATH_FILE_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(filtered_change_obj, field)) continue;
+        if (!utils.isPathInsideMediaRoots(filtered_change_obj[field])) {
+            logger.error(`Refusing to set ${field} on file ${uid} to a path outside the configured media folders.`);
+            res.send({success: false, error: `${field} must be inside a configured media folder`});
+            return;
+        }
     }
 
     if (Object.keys(filtered_change_obj).length === 0) {
@@ -1771,11 +1805,17 @@ app.post('/api/incrementViewCount', async (req, res) => {
     if (req.isAuthenticated()) uuid = req.user.uid;
 
     const file_obj = await files_api.getVideo(file_uid, uuid, sub_id);
+    if (!file_obj) {
+        // Used to fall through and write anyway, which incremented a counter on a record
+        // the caller could not even read.
+        res.sendStatus(404);
+        return;
+    }
 
-    const current_view_count = file_obj && file_obj['local_view_count'] ? file_obj['local_view_count'] : 0;
+    const current_view_count = file_obj['local_view_count'] ? file_obj['local_view_count'] : 0;
     const new_view_count = current_view_count + 1;
 
-    await db_api.setVideoProperty(file_uid, {local_view_count: new_view_count}, uuid, sub_id);
+    await db_api.setVideoProperty(file_uid, {local_view_count: new_view_count}, file_obj['user_uid']);
 
     res.send({
         success: true
@@ -2389,8 +2429,8 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
         // Same reasoning as /api/stream: this is the point where a stored string becomes
         // a filesystem read. The generated-zip branches above are exempt because their
         // paths are built here rather than read out of a record.
-        if (!utils.isServableMediaFile(file_path_to_download)) {
-            logger.error(`Refusing to send ${uid}: its path is not a regular file inside the configured media folders.`);
+        if (!utils.isServableMediaFile(file_path_to_download, file_obj['user_uid'])) {
+            logger.error(`Refusing to send ${uid}: its path is not a regular file inside its owner's media folder.`);
             res.sendStatus(404);
             return;
         }
@@ -2775,8 +2815,8 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
     // The path comes out of the database, so it is checked here as well as where it is
     // written. This route turns a stored string into a filesystem read, which makes it
     // the last place the check is still cheap.
-    if (!utils.isServableMediaFile(file_path)) {
-        logger.error(`Refusing to stream ${uid}: its path is not a regular file inside the configured media folders.`);
+    if (!utils.isServableMediaFile(file_path, file_obj['user_uid'])) {
+        logger.error(`Refusing to stream ${uid}: its path is not a regular file inside its owner's media folder.`);
         res.status(404).type('text/plain').send('Media file not found');
         return;
     }
@@ -2822,7 +2862,7 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
     }
 });
 
-app.get('/api/streamSubtitle', optionalJwt, requireAuthenticated, async (req, res) => {
+app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
@@ -3547,7 +3587,7 @@ app.post('/api/auth/register', optionalJwt, async (req, res) => {
     }
   
     res.send({
-      user: new_user
+      user: auth_api.sanitizeUserForResponse(new_user)
     });
 });
 app.post('/api/auth/login'
@@ -3605,7 +3645,8 @@ app.post('/api/auth/changePassword', optionalJwt, requireAuthenticated, async (r
         return;
     }
 
-    if (changing_own_password && !await auth_api.verifyUserPassword(req.user.uid, req.body.current_password)) {
+    const must_prove_current_password = changing_own_password && req.user.role !== 'admin';
+    if (must_prove_current_password && !await auth_api.verifyUserPassword(req.user.uid, req.body.current_password)) {
         res.status(403).send({success: false, error: 'The current password is incorrect'});
         return;
     }
@@ -3757,6 +3798,18 @@ app.post('/api/telegramRequest', async (req, res) => {
         res.sendStatus(400);
         return;
     }
+
+    // The secret proves Telegram delivered this; it says nothing about who typed it.
+    // Anybody who can find the bot can message it, so the chat has to match the one that
+    // was configured.
+    const configured_chat_id = config_api.getConfigItem('ytdl_telegram_chat_id');
+    const message_chat_id = req.body.message.chat && req.body.message.chat.id;
+    if (!configured_chat_id || `${message_chat_id}` !== `${configured_chat_id}`) {
+        logger.error(`Rejecting a Telegram request from chat ${message_chat_id}: it is not the configured chat.`);
+        res.sendStatus(403);
+        return;
+    }
+
     const text = req.body.message.text;
     const regex_exp = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
     const url_regex = new RegExp(regex_exp);

@@ -2322,8 +2322,22 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
 
     if (options.customFileFolderPath) fileFolderPath = options.customFileFolderPath;
 
-    const customArgs = options.customArgs;
-    let customOutput = options.customOutput;
+    /*************************************************
+     * The last point every download passes through,
+     * whichever way it got here.
+     *
+     * Checking these in the HTTP handlers is not
+     * enough on its own: a subscription stores its
+     * custom arguments and replays them on every
+     * refresh, and a queued download resumes from a
+     * stored record. Neither goes anywhere near a
+     * request handler, so arguments written before
+     * this existed -- or written by any other path --
+     * are checked here as well.
+     ************************************************/
+    const customArgs = utils.quarantineForbiddenDownloadArgs(options.customArgs, 'download');
+    const additionalArgs = utils.quarantineForbiddenDownloadArgs(options.additionalArgs, 'download');
+    let customOutput = utils.sanitizeCustomOutput(options.customOutput, fileFolderPath);
     const customQualityConfiguration = options.customQualityConfiguration;
     const selectedAudioLanguage = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
     const selectedSubtitleLanguage = is_audio ? null : normalizeSelectedSubtitleLanguage(options.selectedSubtitleLanguage);
@@ -2421,8 +2435,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             downloadConfig = downloadConfig.concat(globalArgs.split(',,'));
         }
 
-        if (options.additionalArgs && options.additionalArgs !== '') {
-            downloadConfig = utils.injectArgs(downloadConfig, options.additionalArgs.split(',,'));
+        if (additionalArgs && additionalArgs !== '') {
+            downloadConfig = utils.injectArgs(downloadConfig, additionalArgs.split(',,'));
         }
 
         if (qualityPath) {

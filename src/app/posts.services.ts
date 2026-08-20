@@ -177,7 +177,6 @@ export class PostsService {
     sidepanel_mode: MatDrawerMode = 'over';
 
     // auth
-    auth_token = '4241b401-7236-493e-92b5-b72696b9d853';
     httpOptions: {
         params: HttpParams
     };
@@ -228,7 +227,7 @@ export class PostsService {
             this.path = !environment.codespaces ? 'http://localhost:17442/api/' : `${window.location.origin.replace('4200', '17442')}/api/`;
         }
 
-        this.http_params = `apiKey=${this.auth_token}`
+        this.http_params = ''
 
         this.httpOptions = {
             params: new HttpParams({
@@ -339,7 +338,7 @@ export class PostsService {
         return this.http.get(url + 'geturl');
     }
 
-    reloadConfig() {
+    reloadConfig(onSettled: () => void = null) {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;
             if (result) {
@@ -349,6 +348,10 @@ export class PostsService {
                 this.setPageTitle();
                 this.config_reloaded.next(true);
             }
+            if (onSettled) { onSettled(); }
+        }, () => {
+            // Still settle on failure, or nothing that waits on the service ever starts.
+            if (onSettled) { onSettled(); }
         });
     }
 
@@ -868,16 +871,19 @@ export class PostsService {
         localStorage.setItem('jwt_token', this.token);
         this.httpOptions.params = this.httpOptions.params.set('jwt', this.token);
 
-        this.setInitialized();
-        // Refetch rather than just re-emit: the config fetched during bootstrap was
-        // anonymous, so in multi-user mode it is the cut-down copy the server hands
-        // out before login. Everything downstream -- including the settings page,
-        // which submits the whole document back -- needs the real one.
-        this.reloadConfig();
+        // Refetch *before* declaring the service ready, rather than alongside it. The
+        // config loaded during bootstrap was fetched anonymously, so in multi-user mode
+        // it is the cut-down copy the server hands out before login. Anything gated on
+        // service_initialized -- the settings page above all, which copies the config and
+        // submits the whole document back -- would otherwise race the replacement and
+        // could win.
+        this.reloadConfig(() => {
+            this.setInitialized();
 
-        if (this.router.url.startsWith('/login')) {
-            this.router.navigateByUrl(redirect_path || '/home');
-        }
+            if (this.router.url.startsWith('/login')) {
+                this.router.navigateByUrl(redirect_path || '/home');
+            }
+        });
     }
 
     // user methods
@@ -1022,7 +1028,7 @@ export class PostsService {
 
     resetHttpParams() {
         // resets http params
-        this.http_params = `apiKey=${this.auth_token}`
+        this.http_params = ''
 
         this.httpOptions = {
             params: new HttpParams({

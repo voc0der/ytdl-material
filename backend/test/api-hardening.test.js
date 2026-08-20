@@ -356,6 +356,23 @@ describe('Saving a config that was handed out redacted', function() {
         assert.strictEqual(saved.YtdlMaterial.Extra.title_top, 'an unrelated change');
     });
 
+    it('carries forward a field withheld only from anonymous callers', function() {
+        // youtube_API_key is redacted for anonymous callers but not for logged-in ones,
+        // so it lives on a second list. A stale anonymous document saved back would erase
+        // it unless the carry-forward covers that list too.
+        const stored = config_api.getConfigFile();
+        stored.YtdlMaterial.API.youtube_API_key = 'search-key-that-must-survive';
+        config_api.setConfigFile(stored);
+
+        const anonymous = config_api.getAnonymousConfigFile();
+        assert(!('youtube_API_key' in anonymous.YtdlMaterial.API), 'precondition: it was withheld');
+
+        config_api.setConfigFile(anonymous);
+
+        assert.strictEqual(config_api.getConfigFile().YtdlMaterial.API.youtube_API_key,
+            'search-key-that-must-survive');
+    });
+
     it('still lets an administrator clear a secret deliberately', function() {
         const stored = config_api.getConfigFile();
         stored.YtdlMaterial.API.telegram_bot_token = 'to-be-cleared';
@@ -560,7 +577,14 @@ describe('Editable file fields', function() {
         assert(field_list, 'expected to find EDITABLE_FILE_FIELDS in app.js');
         assert(!field_list[1].includes("'path'"),
             'path must not be client-writable: it is what /api/stream and the delete path read');
-        assert(!field_list[1].includes("'thumbnailPath'"), 'thumbnailPath must not be client-writable either');
+
+        // thumbnailPath is a different case: the dialog really does edit it
+        // (video-info-dialog.component.html binds it), so it stays writable and is
+        // checked for containment instead of being removed.
+        assert(field_list[1].includes("'thumbnailPath'"), 'thumbnailPath is edited by the dialog');
+        const path_checked = app_source.match(/const PATH_FILE_FIELDS = \[([\s\S]*?)\];/);
+        assert(path_checked, 'expected PATH_FILE_FIELDS to exist');
+        assert(path_checked[1].includes("'thumbnailPath'"), 'thumbnailPath must be containment-checked');
     });
 });
 
@@ -651,5 +675,225 @@ describe('Account ownership', function() {
             assert.strictEqual(utils.timingSafeEquals(undefined, 'abc123'), false);
             assert.strictEqual(utils.timingSafeEquals('abc123', ''), false);
         });
+    });
+});
+
+describe('The shared bootstrap secret', function() {
+    const {assert, fs, path} = require('./test-shared');
+
+    /*************************************************
+     * A UUID was hardcoded in app.js and shipped in
+     * the frontend bundle as auth_token, sent as
+     * apiKey on every request. It gated nothing --
+     * it is published in this repository -- but the
+     * server did close the socket on anybody who did
+     * not send it, so removing it from only one side
+     * takes the whole UI down.
+     *
+     * Both sides are checked here because that is
+     * the mistake this guards against.
+     ************************************************/
+    const RETIRED_SECRET = '4241b401-7236-493e-92b5-b72696b9d853';
+
+    it('is gone from the backend', function() {
+        const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+        assert(!app_source.includes(RETIRED_SECRET), 'app.js still carries the published constant');
+    });
+
+    it('is gone from the frontend', function() {
+        const service_source = fs.readFileSync(
+            path.join(__dirname, '..', '..', 'src', 'app', 'posts.services.ts'), 'utf8');
+
+        assert(!service_source.includes(RETIRED_SECRET),
+            'the frontend still sends the published constant, so removing it server-side breaks bootstrap');
+    });
+
+    it('is not required by the API gate', function() {
+        // The gate must let a keyless request through to optionalJwt and the guards,
+        // which are what actually decide. Closing the socket instead is what broke the UI.
+        const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+        const gate = app_source.match(/app\.use\(function\(req, res, next\) \{\s*if \(!req\.path\.includes\('\/api\/'\)\)[\s\S]*?\n\}\);/);
+
+        assert(gate, 'expected to find the API gate middleware');
+        assert(!/else \{\s*logger[\s\S]*?req\.socket\.end\(\);\s*\}/.test(gate[0]),
+            'a request with no API key must not have its socket closed');
+    });
+});
+
+describe('Download arguments at the downloader boundary', function() {
+    const {assert, utils} = require('./test-shared');
+
+    it('refuses the option that runs a command through a shell', function() {
+        // yt-dlp runs --netrc-cmd through a shell, so it is --exec by another name.
+        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--netrc-cmd sh -c id'), ['--netrc-cmd']);
+    });
+
+    it('refuses the options that choose where files land', function() {
+        // customOutput is the supported way to control output, and unlike these it is
+        // checked for containment.
+        for (const flag of ['-o', '--output', '-P', '--paths', '--print-to-file', '--download-archive']) {
+            assert.deepStrictEqual(utils.findForbiddenDownloadArgs(`${flag} /etc/cron.d/x`), [flag],
+                `${flag} should be refused`);
+        }
+    });
+
+    it('matches short options case-sensitively', function() {
+        // -P is --paths and -p is not, so folding case both misses -P and invents
+        // matches for options that do not exist.
+        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('-P /tmp'), ['-P']);
+        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('-p /tmp'), []);
+    });
+
+    it('still matches long options whatever their case', function() {
+        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--EXEC id'), ['--EXEC']);
+    });
+
+    /*************************************************
+     * The HTTP handlers are not the only way in. A
+     * subscription stores its arguments and replays
+     * them on every refresh, and a queued download
+     * resumes from a stored record -- neither passes
+     * a request handler.
+     ************************************************/
+    it('discards a stored argument list rather than editing it', function() {
+        // Removing only the flag would leave its value behind as a stray token, which
+        // yt-dlp reads as a URL.
+        assert.strictEqual(utils.quarantineForbiddenDownloadArgs('-f best,,--exec id', 'subscription'), null);
+    });
+
+    it('leaves an ordinary stored argument list alone', function() {
+        const args = '-f bestvideo+bestaudio,,--merge-output-format mp4';
+
+        assert.strictEqual(utils.quarantineForbiddenDownloadArgs(args, 'subscription'), args);
+    });
+});
+
+describe('Custom output containment', function() {
+    const {assert, utils} = require('./test-shared');
+
+    it('accepts an ordinary output template', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('%(title)s', '/media/video'), '%(title)s');
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/%(title)s', '/media/video'), 'shows/%(title)s');
+    });
+
+    it('refuses one that walks out of the download folder', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('../../../etc/cron.d/x', '/media/video'), null);
+    });
+
+    it('refuses an absolute path', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('/etc/cron.d/x', '/media/video'), null);
+    });
+
+    it('treats an empty template as nothing to check', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('', '/media/video'), null);
+        assert.strictEqual(utils.sanitizeCustomOutput(null, '/media/video'), null);
+    });
+});
+
+describe('Containment against the record owner', function() {
+    const {assert, config_api, fs, path, utils} = require('./test-shared');
+
+    const original_getConfigItem = config_api.getConfigItem;
+    const users_base_path = path.resolve(config_api.getConfigItem('ytdl_users_base_path'));
+    const alice_file = path.join(users_base_path, 'alice', 'video', 'alice.mp4');
+    const bob_file = path.join(users_base_path, 'bob', 'video', 'bob.mp4');
+
+    before(async function() {
+        config_api.getConfigItem = (key) =>
+            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+        await fs.outputFile(alice_file, 'alice media');
+        await fs.outputFile(bob_file, 'bob media');
+    });
+
+    after(async function() {
+        config_api.getConfigItem = original_getConfigItem;
+        await fs.remove(path.join(users_base_path, 'alice'));
+        await fs.remove(path.join(users_base_path, 'bob'));
+    });
+
+    it('accepts a file inside its own owner directory', function() {
+        assert(utils.isServableMediaFile(alice_file, 'alice'));
+        assert(utils.isServableMediaFile(bob_file, 'bob'));
+    });
+
+    /*************************************************
+     * Checking against the shared users/ root treats
+     * every account's media as one directory, so a
+     * record owned by one user and pointing at
+     * another user's file passes. Rows like that
+     * exist wherever the path was writable before it
+     * was locked down.
+     ************************************************/
+    it('refuses a record that points at another user\'s file', function() {
+        assert(utils.isPathInsideMediaRoots(bob_file), 'precondition: it is under the shared users root');
+        assert(!utils.isServableMediaFile(bob_file, 'alice'));
+    });
+
+    it('falls back to the shared roots when there is no owner', function() {
+        assert(utils.isServableMediaFile(bob_file, null));
+    });
+});
+
+describe('Authorization when a role cannot be resolved', function() {
+    const {assert, auth_api, config_api, db_api} = require('./test-shared');
+
+    const original_getConfigItem = config_api.getConfigItem;
+    const ORPHANED = 'hardening_orphaned_role_user';
+
+    before(async function() {
+        config_api.getConfigItem = (key) =>
+            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+
+        await db_api.removeAllRecords('users', {uid: ORPHANED});
+        await db_api.insertRecordIntoTable('users', {
+            uid: ORPHANED,
+            name: ORPHANED,
+            // The role record does not exist, and the user carries a positive override.
+            role: 'a_role_that_was_deleted',
+            permissions: ['settings'],
+            permission_overrides: ['settings']
+        });
+    });
+
+    after(async function() {
+        config_api.getConfigItem = original_getConfigItem;
+        await db_api.removeAllRecords('users', {uid: ORPHANED});
+    });
+
+    it('refuses the permission even with a positive override', async function() {
+        // A missing role means the user's authorization state is unknown. An override
+        // must not stand in for it, or deleting a role leaves its members holding
+        // whatever had been overridden onto them.
+        assert.strictEqual(await auth_api.userHasPermission(ORPHANED, 'settings'), false);
+    });
+
+    it('reports no permissions at all', async function() {
+        assert.deepStrictEqual(await auth_api.userPermissions(ORPHANED), []);
+    });
+
+    it('refuses for a role that does not exist', async function() {
+        assert.strictEqual(await auth_api.roleHasPermissions('a_role_that_was_deleted', 'settings'), false);
+    });
+});
+
+describe('Registration responses', function() {
+    const {assert, auth_api, db_api} = require('./test-shared');
+
+    const CREATED = 'hardening_registration_response';
+
+    after(async function() {
+        await db_api.removeAllRecords('users', {uid: CREATED});
+    });
+
+    it('does not hand back the password hash', async function() {
+        const created = await auth_api.registerUser(CREATED, CREATED, 'a-password');
+        assert(created, 'precondition: the user was created');
+
+        // The route returns this object to the caller.
+        const returned = auth_api.sanitizeUserForResponse(created);
+
+        assert(!('passhash' in returned), 'the registration response still carries the hash');
+        assert.strictEqual(returned.uid, CREATED);
     });
 });

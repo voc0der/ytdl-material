@@ -627,22 +627,31 @@ function resolvePermission(user_obj, role_permissions, permission) {
 }
 
 /*************************************************
- * Returns the role's permissions, or an empty list
- * if the role record is missing. Failing closed
- * matters more than failing loudly here: this used
- * to dereference the missing record and throw,
- * which turned a misconfigured role into a 500 on
- * every request the user made.
+ * Returns the role's permissions, or null when the
+ * role cannot be resolved at all.
+ *
+ * null and [] are deliberately different answers. A
+ * role that exists and grants nothing still leaves
+ * a user-level override meaningful. A role that is
+ * missing means the user's authorization state is
+ * unknown, and an override must not be allowed to
+ * stand in for it -- otherwise deleting a role
+ * leaves its members holding whatever was
+ * overridden onto them.
+ *
+ * Either way it does not throw: dereferencing the
+ * missing record used to turn a misconfigured role
+ * into a 500 on every request the user made.
  ************************************************/
 async function getRolePermissions(role) {
   if (!role) {
     logger.error('Cannot resolve permissions: user has no role.');
-    return [];
+    return null;
   }
   const role_obj = await db_api.getRecord('roles', {key: role});
   if (!role_obj) {
     logger.error(`Role ${role} does not exist!`);
-    return [];
+    return null;
   }
   return Array.isArray(role_obj['permissions']) ? role_obj['permissions'] : [];
 }
@@ -655,6 +664,11 @@ exports.userHasPermission = async function(user_uid, permission) {
   }
 
   const role_permissions = await getRolePermissions(user_obj['role']);
+  if (role_permissions === null) {
+    logger.error(`Refusing every permission for ${user_uid}: their role could not be resolved.`);
+    return false;
+  }
+
   const has_permission = resolvePermission(user_obj, role_permissions, permission);
 
   if (!has_permission) logger.verbose(`User ${user_uid} failed to get permission ${permission}`);
@@ -663,6 +677,7 @@ exports.userHasPermission = async function(user_uid, permission) {
 
 exports.roleHasPermissions = async function(role, permission) {
   const role_permissions = await getRolePermissions(role);
+  if (role_permissions === null) return false;
   return role_permissions.includes(permission);
 }
 
@@ -674,6 +689,11 @@ exports.userPermissions = async function(user_uid) {
   }
 
   const role_permissions = await getRolePermissions(user_obj['role']);
+  if (role_permissions === null) {
+    logger.error(`Refusing every permission for ${user_uid}: their role could not be resolved.`);
+    return [];
+  }
+
   return CONSTS.AVAILABLE_PERMISSIONS.filter(permission => resolvePermission(user_obj, role_permissions, permission));
 }
 

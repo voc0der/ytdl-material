@@ -425,6 +425,9 @@ const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.API.API_key',
     'YtdlMaterial.API.twitch_client_ID',
     'YtdlMaterial.API.twitch_client_secret',
+    // The name this used to have. Installs that predate the client-ID/secret split still
+    // carry it, and redaction that only knows the new names walks straight past it.
+    'YtdlMaterial.API.twitch_API_key',
     'YtdlMaterial.API.ntfy_topic_URL',
     'YtdlMaterial.API.gotify_server_URL',
     'YtdlMaterial.API.gotify_app_token',
@@ -531,7 +534,10 @@ function setPath(root, dotted_path, value) {
  ************************************************/
 function preserveRedactedSecrets(new_config, old_config) {
     if (!new_config || !old_config) return;
-    for (const sensitive_path of SENSITIVE_CONFIG_PATHS) {
+    // Both lists, not just the sensitive one: a field withheld from anonymous callers is
+    // equally missing from a document one of them was handed, and would be erased the
+    // same way if it were saved back.
+    for (const sensitive_path of [...SENSITIVE_CONFIG_PATHS, ...AUTHENTICATED_ONLY_CONFIG_PATHS]) {
         if (hasPath(new_config, sensitive_path)) continue;
         if (!hasPath(old_config, sensitive_path)) continue;
         setPath(new_config, sensitive_path, getPath(old_config, sensitive_path));

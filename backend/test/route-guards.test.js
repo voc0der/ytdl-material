@@ -20,11 +20,17 @@ const APP_SOURCE = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
 // The leading [ \t]* is not cosmetic: one route in app.js is indented, and an anchored
 // pattern without it silently parsed 109 of 110 routes -- leaving the missing one
 // unchecked while every assertion here still passed.
-const ROUTE_PATTERN = /^[ \t]*app\.(get|post|put|delete)\('(\/api\/[^']*)'\s*,?\s*([^\n]*)$/gm;
+// Every express verb, and every quote style, because the point of this file is that a
+// new route cannot land without a guard. A pattern that only knows single-quoted
+// get/post/put/delete does not check a route written any other way -- it does not even
+// know it is there.
+const ROUTE_VERBS = 'get|post|put|delete|patch|head|options|all';
+const ROUTE_PATTERN = new RegExp(
+    `^[ \\t]*app\\.(${ROUTE_VERBS})\\(\\s*['"\`](/api/[^'"\`]*)['"\`]\\s*,?\\s*([^\\n]*)$`, 'gm');
 
-// Counted with a deliberately looser pattern, so that a route the parser above cannot see
+// Counted with a deliberately looser pattern, so a route the parser above cannot see
 // shows up as a mismatch rather than as an absence.
-const ROUTE_COUNT_PATTERN = /app\.(?:get|post|put|delete)\('\/api\//g;
+const ROUTE_COUNT_PATTERN = new RegExp(`app\\.(?:${ROUTE_VERBS})\\(\\s*['"\`]/api/`, 'g');
 
 // Routes that deliberately answer callers who have not authenticated. Each needs a reason,
 // because "it was already like that" is how the list grows.
@@ -51,7 +57,7 @@ const GUARDS = ['requireAdmin', 'requirePermission', 'requireAuthenticatedOrShar
 // The only routes a share link may reach. optionalJwt matches these exactly; it used to
 // match them as substrings, which also let a share reach /api/getFileFormats and
 // /api/getPlaylists.
-const SHARED_LINK_ROUTES = ['/api/getFile', '/api/stream', '/api/getPlaylist', '/api/downloadFileFromServer'];
+const SHARED_LINK_ROUTES = ['/api/getFile', '/api/stream', '/api/streamSubtitle', '/api/getPlaylist', '/api/downloadFileFromServer'];
 
 function parseRoutes() {
     const routes = [];

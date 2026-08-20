@@ -596,9 +596,12 @@ exports._connectToDB = async (custom_connection_string = null, custom_db_type = 
     }
 }
 
-exports.setVideoProperty = async (file_uid, assignment_obj) => {
-    // TODO: check if video exists, throw error if not
-    await exports.updateRecord('files', {uid: file_uid}, assignment_obj);
+exports.setVideoProperty = async (file_uid, assignment_obj, user_uid = null) => {
+    // Callers were already passing an owner and a sub id that this signature never
+    // accepted, so every write matched on the file uid alone.
+    const filter_obj = {uid: file_uid};
+    if (user_uid && config_api.getConfigItem('ytdl_multi_user_mode')) filter_obj['user_uid'] = user_uid;
+    await exports.updateRecord('files', filter_obj, assignment_obj);
 }
 
 exports.getFileDirectoriesAndDBs = async () => {

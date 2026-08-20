@@ -274,11 +274,33 @@ async function deleteSidecarPaths(sidecar_paths = []) {
     return true;
 }
 
-async function deleteMediaAndSidecars(file_path, type, additional_sidecar_paths = []) {
+async function deleteMediaAndSidecars(file_path, type, additional_sidecar_paths = [], user_uid = null) {
+    /*************************************************
+     * fs.remove is recursive, and the path it is
+     * given comes out of a database record. Closing
+     * the endpoint that used to let a client write
+     * that field does nothing for rows written before
+     * it was closed, or by any other route.
+     *
+     * So the check happens here, at the sink: a
+     * regular file, inside the media folders, and --
+     * when the record has an owner -- inside that
+     * owner's own directory.
+     ************************************************/
+    if (!utils.isServableMediaFile(file_path, user_uid)) {
+        logger.error(`Refusing to delete ${file_path}: it is not a regular file inside `
+            + `${user_uid ? `${user_uid}'s media folder` : 'the configured media folders'}.`);
+        return false;
+    }
+
     const sidecar_paths = uniqueNormalizedPaths([
         ...await getExistingSidecarPaths(file_path, type),
         ...additional_sidecar_paths
-    ]);
+    ]).filter(sidecar_path => {
+        if (utils.isServableMediaFile(sidecar_path, user_uid)) return true;
+        logger.error(`Refusing to delete sidecar ${sidecar_path}: it is outside the media folders.`);
+        return false;
+    });
 
     const sidecars_deleted = await deleteSidecarPaths(sidecar_paths);
 
@@ -1543,7 +1565,7 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
         }
     }
 
-    const deleted = await deleteMediaAndSidecars(media_path_to_delete, type, sidecarPaths);
+    const deleted = await deleteMediaAndSidecars(media_path_to_delete, type, sidecarPaths, file_obj.user_uid);
     if (!deleted) return false;
 
     if (file_obj.uid) {
@@ -1644,7 +1666,8 @@ exports.deleteOrphanFiles = async (user_uid = null) => {
     for (let i = 0; i < orphan_files.length; i += PLAYLIST_FILE_DELETE_BATCH_SIZE) {
         const batch_orphan_files = orphan_files.slice(i, i + PLAYLIST_FILE_DELETE_BATCH_SIZE);
         const batch_results = await Promise.allSettled(
-            batch_orphan_files.map(orphan_file => deleteMediaAndSidecars(orphan_file.path, orphan_file.type))
+            batch_orphan_files.map(orphan_file =>
+                deleteMediaAndSidecars(orphan_file.path, orphan_file.type, [], orphan_file.user_uid))
         );
 
         for (const result of batch_results) {

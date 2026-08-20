@@ -157,7 +157,6 @@ describe('PlayerComponent', () => {
 
   it('should build stream URLs without a trailing slash before the query string', () => {
     postsServiceStub.isLoggedIn = false;
-    postsServiceStub.auth_token = 'public-token';
     component.baseStreamPath = '/api/';
 
     const streamURL = component.createStreamURL({
@@ -165,17 +164,16 @@ describe('PlayerComponent', () => {
       isAudio: false
     } as DatabaseFile);
 
-    expect(streamURL).toBe('/api/stream?uid=uid%20with%20spaces&type=video&apiKey=public-token');
+    expect(streamURL).toBe('/api/stream?uid=uid%20with%20spaces&type=video');
   });
 
   it('should build subtitle track URLs without a trailing slash before the query string', () => {
     postsServiceStub.isLoggedIn = false;
-    postsServiceStub.auth_token = 'public-token';
     component.baseStreamPath = '/api/';
 
     const subtitleTrackURL = component.createSubtitleTrackURL('uid with spaces', 0);
 
-    expect(subtitleTrackURL).toBe('/api/streamSubtitle?uid=uid%20with%20spaces&index=0&apiKey=public-token');
+    expect(subtitleTrackURL).toBe('/api/streamSubtitle?uid=uid%20with%20spaces&index=0');
   });
 
   it('should reset page title on destroy', () => {
@@ -225,7 +223,6 @@ describe('PlayerComponent', () => {
 
   it('should normalize subtitle metadata into player track URLs', () => {
     postsServiceStub.isLoggedIn = false;
-    postsServiceStub.auth_token = 'public-token';
     component.baseStreamPath = '/api/';
 
     const mediaObject = component.createMediaObject({
@@ -249,7 +246,7 @@ describe('PlayerComponent', () => {
         language: 'en',
         kind: 'subtitles',
         default: true,
-        src: '/api/streamSubtitle?uid=uid-subtitle&index=0&apiKey=public-token'
+        src: '/api/streamSubtitle?uid=uid-subtitle&index=0'
       }
     ]);
   });

@@ -31,6 +31,7 @@ const files_api = require('../files');
 const SHARED_LINK_PATHS = new Set([
     '/api/getFile',
     '/api/stream',
+    '/api/streamSubtitle',
     '/api/getPlaylist',
     '/api/downloadFileFromServer'
 ]);
