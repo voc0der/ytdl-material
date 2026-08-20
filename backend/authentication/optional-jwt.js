@@ -77,8 +77,13 @@ exports.isPublicAuthPath = isPublicAuthPath;
  * machine clients to drift out of step.
  ************************************************/
 function getPresentedApiToken(req) {
-    const header = req.headers ? req.headers['x-api-token'] : null;
-    return typeof header === 'string' ? header : null;
+    const header = req.headers ? req.headers.authorization : null;
+    if (typeof header !== 'string') return null;
+
+    // RFC 6750 bearer credentials. Accept the scheme case-insensitively, but require one
+    // token and nothing else so malformed or combined Authorization values are refused.
+    const match = /^Bearer +(\S+)$/i.exec(header);
+    return match ? match[1] : null;
 }
 
 exports.getPresentedApiToken = getPresentedApiToken;

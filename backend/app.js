@@ -1012,7 +1012,7 @@ async function startYoutubeDL() {
 }
 
 app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Api-Token");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     res.header("Access-Control-Allow-Origin", getOrigin());
     if (req.method === 'OPTIONS') {
         res.sendStatus(200);

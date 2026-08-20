@@ -57,7 +57,7 @@
   }
 
   @if (multiUserMode && apiToken) {
-    <p i18n="RSS header explanation">Configure your feed reader to send this value in the X-Api-Token header. It is shown only once.</p>
+    <p i18n="RSS header explanation">Configure your feed reader to send this value as an Authorization Bearer token. It is shown only once.</p>
     <mat-form-field style="width: 100%;">
       <mat-label i18n="RSS token">RSS token</mat-label>
       <input readonly [(ngModel)]="apiToken" matInput>

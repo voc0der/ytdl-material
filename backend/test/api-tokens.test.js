@@ -168,33 +168,61 @@ describe('Per-user API tokens', function() {
             await request(appUsing()).get(`/api/whoami?apiToken=${encodeURIComponent(token)}`).expect(401);
         });
 
-        it('authenticates a request in a header, so it stays out of access logs', async function() {
+        it('authenticates with a standard Bearer header, so it stays out of access logs', async function() {
             const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'header');
 
-            const res = await request(appUsing()).get('/api/whoami').set('x-api-token', token).expect(200);
+            const res = await request(appUsing()).get('/api/whoami')
+                .set('Authorization', `Bearer ${token}`).expect(200);
 
             assert.strictEqual(res.body.uid, OWNER);
+        });
+
+        it('accepts the Bearer scheme case-insensitively', async function() {
+            const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'lowercase bearer');
+
+            const res = await request(appUsing()).get('/api/whoami')
+                .set('Authorization', `bearer ${token}`).expect(200);
+
+            assert.strictEqual(res.body.uid, OWNER);
+        });
+
+        it('does not accept the retired custom header', async function() {
+            const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'old header');
+
+            await request(appUsing()).get('/api/whoami').set('X-Api-Token', token).expect(401);
+        });
+
+        it('refuses malformed or non-Bearer authorization values', async function() {
+            const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'malformed header');
+
+            for (const value of [token, `Basic ${token}`, `Bearer ${token} extra`]) {
+                await request(appUsing()).get('/api/whoami').set('Authorization', value).expect(401);
+            }
         });
 
         it('accepts an RSS token only on the RSS route', async function() {
             const {token} = await api_tokens_api.generateTokenForUser(
                 OWNER, 'feed', api_tokens_api.TOKEN_TYPES.RSS);
 
-            await request(appUsing()).get('/api/whoami').set('x-api-token', token).expect(401);
-            const res = await request(appUsing()).get('/api/rss').set('x-api-token', token).expect(200);
+            await request(appUsing()).get('/api/whoami')
+                .set('Authorization', `Bearer ${token}`).expect(401);
+            const res = await request(appUsing()).get('/api/rss')
+                .set('Authorization', `Bearer ${token}`).expect(200);
             assert.strictEqual(res.body.uid, OWNER);
         });
 
         it('does not let one API token mint or manage another', async function() {
             const {token} = await api_tokens_api.generateTokenForUser(OWNER, 'limited lifetime');
 
-            await request(appUsing()).get('/api/manage-token').set('x-api-token', token).expect(403);
+            await request(appUsing()).get('/api/manage-token')
+                .set('Authorization', `Bearer ${token}`).expect(403);
         });
 
         it('refuses a bad token rather than falling through as anonymous', async function() {
             // Falling through would hand the request to a route that then has to decide what
             // an unauthenticated caller may do -- which is the mistake the guards exist to stop.
-            await request(appUsing()).get('/api/whoami').set('x-api-token', 'ytdl_nonsense').expect(401);
+            await request(appUsing()).get('/api/whoami')
+                .set('Authorization', 'Bearer ytdl_nonsense').expect(401);
         });
 
         it('still refuses a request with no credential at all', async function() {
@@ -205,7 +233,8 @@ describe('Per-user API tokens', function() {
             const {token, id} = await api_tokens_api.generateTokenForUser(OWNER, 'revoked');
             await api_tokens_api.revokeTokenForUser(OWNER, id);
 
-            await request(appUsing()).get('/api/whoami').set('x-api-token', token).expect(401);
+            await request(appUsing()).get('/api/whoami')
+                .set('Authorization', `Bearer ${token}`).expect(401);
         });
     });
 });

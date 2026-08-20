@@ -1386,8 +1386,10 @@ describe('The published API specification', function() {
         const spec = yaml.load(fs.readFileSync(spec_path, 'utf8'));
 
         assert.deepStrictEqual(Object.keys(spec.components.securitySchemes), [
-            'JWT token parameter', 'API token header'
+            'JWT token parameter', 'API bearer token'
         ]);
+        assert.strictEqual(spec.components.securitySchemes['API bearer token'].type, 'http');
+        assert.strictEqual(spec.components.securitySchemes['API bearer token'].scheme, 'bearer');
 
         const referenced = new Set();
         for (const operations of Object.values(spec.paths)) {
@@ -1399,7 +1401,7 @@ describe('The published API specification', function() {
         }
 
         assert.deepStrictEqual([...referenced], [
-            'JWT token parameter', 'API token header'
+            'JWT token parameter', 'API bearer token'
         ]);
     });
 });
