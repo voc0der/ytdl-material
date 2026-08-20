@@ -17,7 +17,14 @@ const { assert } = require('./test-shared');
  ************************************************/
 const APP_SOURCE = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
-const ROUTE_PATTERN = /^app\.(get|post|put|delete)\('(\/api\/[^']*)'\s*,?\s*([^\n]*)$/gm;
+// The leading [ \t]* is not cosmetic: one route in app.js is indented, and an anchored
+// pattern without it silently parsed 109 of 110 routes -- leaving the missing one
+// unchecked while every assertion here still passed.
+const ROUTE_PATTERN = /^[ \t]*app\.(get|post|put|delete)\('(\/api\/[^']*)'\s*,?\s*([^\n]*)$/gm;
+
+// Counted with a deliberately looser pattern, so that a route the parser above cannot see
+// shows up as a mismatch rather than as an absence.
+const ROUTE_COUNT_PATTERN = /app\.(?:get|post|put|delete)\('\/api\//g;
 
 // Routes that deliberately answer callers who have not authenticated. Each needs a reason,
 // because "it was already like that" is how the list grows.
@@ -31,15 +38,20 @@ const INTENTIONALLY_UNAUTHENTICATED = {
     '/api/auth/oidc/status': 'the login page asks whether to show an OIDC button',
     '/api/auth/oidc/login': 'the OIDC redirect, by definition pre-authentication',
     '/api/auth/oidc/callback': 'the OIDC redirect target, by definition pre-authentication',
-    '/api/telegramRequest': 'authenticated by the Telegram bot token, not by a user',
-    '/api/rss': 'feed readers cannot hold a session; access is scoped by the opaque feed URL',
+    '/api/telegramRequest': 'authenticated by Telegram\'s webhook secret header, not by a user session',
+    // Not opaque today -- the feed URL carries the ordinary user uid. Tracked separately;
+    // making it a revocable per-user token is the same machinery as per-user API tokens.
+    '/api/rss': 'feed readers cannot hold a session, and the feed is off unless enabled',
     '/api/checkConcurrentStream': 'playback state for a shared link, which has no user',
-    '/api/incrementViewCount': 'playback state for a shared link, which has no user',
-    '/api/uploadCookies': 'guarded by its own multer + rate limiter chain',
-    '/api/testCookies': 'guarded by its own rate limiter chain'
+    '/api/incrementViewCount': 'playback state for a shared link, which has no user'
 };
 
-const GUARDS = ['requireAdmin', 'requirePermission', 'anyAuthenticatedUser'];
+const GUARDS = ['requireAdmin', 'requirePermission', 'requireAuthenticatedOrShared', 'requireAuthenticated'];
+
+// The only routes a share link may reach. optionalJwt matches these exactly; it used to
+// match them as substrings, which also let a share reach /api/getFileFormats and
+// /api/getPlaylists.
+const SHARED_LINK_ROUTES = ['/api/getFile', '/api/stream', '/api/getPlaylist', '/api/downloadFileFromServer'];
 
 function parseRoutes() {
     const routes = [];
@@ -54,10 +66,12 @@ function parseRoutes() {
 describe('API route guards', function() {
     const routes = parseRoutes();
 
-    it('finds the routes at all', function() {
-        // If this drops sharply, the pattern above stopped matching and every other
-        // assertion in this file silently became vacuous.
-        assert(routes.length > 100, `expected to parse over 100 API routes, found ${routes.length}`);
+    it('parses every route defined in the file', function() {
+        // If the parser misses even one, every other assertion here is vacuous for it.
+        const declared = (APP_SOURCE.match(ROUTE_COUNT_PATTERN) || []).length;
+        assert.strictEqual(routes.length, declared,
+            `parsed ${routes.length} routes but ${declared} are declared -- the pattern is missing some`);
+        assert(routes.length > 100, `expected over 100 API routes, found ${routes.length}`);
     });
 
     it('gives every route either a guard or a documented reason to have none', function() {
@@ -78,13 +92,48 @@ describe('API route guards', function() {
         assert.deepStrictEqual(stale, [], 'these routes no longer exist and should be removed from the list');
     });
 
-    it('puts every guard behind optionalJwt', function() {
-        // The guards read req.user, which optionalJwt is what populates.
-        const misordered = routes.filter(({rest}) =>
-            GUARDS.some(guard => rest.includes(guard)) && !rest.includes('optionalJwt'));
+    it('puts every guard behind optionalJwt, in that order', function() {
+        // The guards read req.user, and optionalJwt is what populates it. Checking only
+        // that both names appear would pass for a chain that runs them the wrong way
+        // round, so compare where each one sits.
+        const misordered = routes.filter(({rest}) => {
+            const guard = GUARDS.find(candidate => rest.includes(candidate));
+            if (!guard) return false;
+            const jwt_position = rest.indexOf('optionalJwt');
+            return jwt_position === -1 || jwt_position > rest.indexOf(guard);
+        });
 
         assert.deepStrictEqual(misordered.map(r => r.route), [],
             'a guard placed before optionalJwt sees no user and would refuse everyone');
+    });
+
+    it('only lets a share link reach the routes it was issued for', function() {
+        for (const route of SHARED_LINK_ROUTES) {
+            const definition = routes.find(r => r.route === route);
+            assert(definition, `expected ${route} to exist`);
+            assert(definition.rest.includes('requireAuthenticatedOrShared'),
+                `${route} is reachable by a share link and must say so`);
+        }
+
+        // Every other route must refuse a caller who only holds a share.
+        const overreaching = routes.filter(({route, rest}) =>
+            !SHARED_LINK_ROUTES.includes(route) && rest.includes('requireAuthenticatedOrShared'));
+
+        assert.deepStrictEqual(overreaching.map(r => r.route), [],
+            'these routes accept a share link but optionalJwt never validates a share for them');
+    });
+
+    it('keeps the server-wide cookie file behind an administrator', function() {
+        for (const route of ['/api/uploadCookies', '/api/testCookies']) {
+            const definition = routes.find(r => r.route === route);
+            assert(definition, `expected ${route} to exist`);
+            assert(definition.rest.includes('requireAdmin'), `${route} must be behind requireAdmin`);
+        }
+
+        // multer writes the request body to disk as it parses, so the guard has to run first.
+        const upload = routes.find(r => r.route === '/api/uploadCookies');
+        assert(upload.rest.indexOf('requireAdmin') < upload.rest.indexOf('upload_multer'),
+            'requireAdmin must run before multer, or an unauthenticated body is written to disk anyway');
     });
 
     it('keeps user and server management restricted to administrators', function() {

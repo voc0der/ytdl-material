@@ -175,6 +175,7 @@ exports.setConfigFile = (config) => {
     try {
         const {normalized_config} = normalizeConfigRoot(config);
         const old_config = exports.getConfigFile();
+        preserveRedactedSecrets(normalized_config, old_config);
         fs.writeFileSync(configPath, JSON.stringify(normalized_config, null, 2));
         const changes = exports.findChangedConfigItems(old_config, normalized_config);
         if (changes.length > 0) {
@@ -342,6 +343,7 @@ const DEFAULT_CONFIG = {
         "telegram_bot_token": "",
         "telegram_chat_id": "",
         "telegram_webhook_proxy": "",
+        "telegram_webhook_secret": "",
         "webhook_URL": "",
         "use_custom_webhook_template": false,
         "custom_webhook_title_template": "{{event_name}}",
@@ -429,6 +431,7 @@ const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.API.telegram_bot_token',
     'YtdlMaterial.API.telegram_chat_id',
     'YtdlMaterial.API.telegram_webhook_proxy',
+    'YtdlMaterial.API.telegram_webhook_secret',
     'YtdlMaterial.API.webhook_URL',
     'YtdlMaterial.API.discord_webhook_URL',
     'YtdlMaterial.API.slack_webhook_URL',
@@ -439,7 +442,14 @@ const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.Users.ldap_config.searchFilter',
     'YtdlMaterial.Users.oidc.client_id',
     'YtdlMaterial.Users.oidc.client_secret',
-    'YtdlMaterial.Users.oidc.issuer_url'
+    'YtdlMaterial.Users.oidc.issuer_url',
+    // Connection strings carry a username and password in the URL itself, so the whole
+    // value is the secret. A key-name heuristic would never have caught these.
+    'YtdlMaterial.Database.mongodb_connection_string',
+    'YtdlMaterial.Database.postgresdb_connection_string',
+    'YtdlMaterial.Database.redis_connection_string',
+    // Free-form yt-dlp arguments, which routinely hold --proxy and --username/--password.
+    'YtdlMaterial.Downloader.custom_args'
 ];
 
 exports.SENSITIVE_CONFIG_PATHS = SENSITIVE_CONFIG_PATHS;
@@ -455,16 +465,80 @@ exports.CLIENT_VISIBLE_CONFIG_PATHS = {
     'YtdlMaterial.API.youtube_API_key': 'the search runs in the browser, so the key has to reach it. Protecting it means moving search to the backend first.'
 };
 
-function deletePath(root, dotted_path) {
+/*************************************************
+ * Fields a logged-in client is given but an
+ * anonymous one is not.
+ *
+ * youtube_API_key has to reach the browser because
+ * search runs there -- but "a logged-in user may
+ * see it" is not a reason to publish it to anybody
+ * who can reach the login page.
+ ************************************************/
+const AUTHENTICATED_ONLY_CONFIG_PATHS = [
+    'YtdlMaterial.API.youtube_API_key'
+];
+
+exports.AUTHENTICATED_ONLY_CONFIG_PATHS = AUTHENTICATED_ONLY_CONFIG_PATHS;
+
+function resolveParent(root, dotted_path) {
     const parts = dotted_path.split('.');
     const field = parts.pop();
     let node = root;
     for (const part of parts) {
-        if (!node || typeof node !== 'object') return;
+        if (!node || typeof node !== 'object') return {node: null, field: field};
         node = node[part];
     }
-    if (node && typeof node === 'object' && field in node) delete node[field];
+    return {node: node && typeof node === 'object' ? node : null, field: field};
 }
+
+function deletePath(root, dotted_path) {
+    const {node, field} = resolveParent(root, dotted_path);
+    if (node && field in node) delete node[field];
+}
+
+function hasPath(root, dotted_path) {
+    const {node, field} = resolveParent(root, dotted_path);
+    return !!node && field in node;
+}
+
+function getPath(root, dotted_path) {
+    const {node, field} = resolveParent(root, dotted_path);
+    return node ? node[field] : undefined;
+}
+
+function setPath(root, dotted_path, value) {
+    const parts = dotted_path.split('.');
+    const field = parts.pop();
+    let node = root;
+    for (const part of parts) {
+        if (!node[part] || typeof node[part] !== 'object') node[part] = {};
+        node = node[part];
+    }
+    node[field] = value;
+}
+
+/*************************************************
+ * A client that was handed a redacted config must
+ * not be able to erase the secrets it could not see
+ * simply by saving the settings page back: the
+ * settings page submits the whole document, and
+ * setConfigFile replaces the whole document.
+ *
+ * Absence means "this was never shown to me", so
+ * the stored value is carried forward. Clearing a
+ * secret on purpose is done by sending an empty
+ * value, which is present and therefore honoured.
+ ************************************************/
+function preserveRedactedSecrets(new_config, old_config) {
+    if (!new_config || !old_config) return;
+    for (const sensitive_path of SENSITIVE_CONFIG_PATHS) {
+        if (hasPath(new_config, sensitive_path)) continue;
+        if (!hasPath(old_config, sensitive_path)) continue;
+        setPath(new_config, sensitive_path, getPath(old_config, sensitive_path));
+    }
+}
+
+exports.preserveRedactedSecrets = preserveRedactedSecrets;
 
 exports.getRedactedConfigFile = () => {
     const config_json = exports.getConfigFile();
@@ -475,4 +549,34 @@ exports.getRedactedConfigFile = () => {
     const redacted = JSON.parse(JSON.stringify(config_json));
     for (const sensitive_path of SENSITIVE_CONFIG_PATHS) deletePath(redacted, sensitive_path);
     return redacted;
+}
+
+/*************************************************
+ * What an anonymous caller gets in multi-user mode.
+ *
+ * An allowlist is the safer shape and it was tried
+ * first. The trouble is that the pre-login surface
+ * is not only the login page: a share link renders
+ * the player, and the application shell reads
+ * Subscriptions, Extra and Downloader without
+ * checking whether they are there -- so a
+ * projection that withholds them white-screens
+ * every anonymous visitor. Breaking every shared
+ * link is a worse outcome than the one being
+ * defended against.
+ *
+ * So this stays subtractive, and the compensating
+ * control is that SENSITIVE_CONFIG_PATHS is
+ * enumerated and tested rather than inferred. A
+ * test also fails on any field whose name reads
+ * like a credential, which is what catches a
+ * setting added later by somebody who did not think
+ * to update the list.
+ ************************************************/
+exports.getAnonymousConfigFile = () => {
+    const config_json = exports.getRedactedConfigFile();
+    if (!config_json) return config_json;
+
+    for (const authenticated_path of AUTHENTICATED_ONLY_CONFIG_PATHS) deletePath(config_json, authenticated_path);
+    return config_json;
 }

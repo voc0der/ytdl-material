@@ -214,6 +214,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_telegram_webhook_proxy',
         'path': 'YtdlMaterial.API.telegram_webhook_proxy'
     },
+    'ytdl_telegram_webhook_secret': {
+        'key': 'ytdl_telegram_webhook_secret',
+        'path': 'YtdlMaterial.API.telegram_webhook_secret'
+    },
     'ytdl_webhook_url': {
         'key': 'ytdl_webhook_url',
         'path': 'YtdlMaterial.API.webhook_URL'

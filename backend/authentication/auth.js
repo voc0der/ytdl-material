@@ -113,6 +113,14 @@ exports.passport.deserializeUser(function(user, done) {
  **************************************/
 
 exports.registerUser = async (userid, username, plaintextPassword) => {
+  // Every caller funnels through here, and a uid becomes a directory name further down
+  // (the per-user media folder), so this is the place to refuse one that can traverse.
+  if (!exports.uidIsPathSafe(userid)) {
+    logger.error(`Registration failed: the uid ${JSON.stringify(userid)} is unusable. `
+      + `A uid must be a non-empty string, and cannot be '.', '..', or contain a path separator.`);
+    return null;
+  }
+
   const hash = await bcrypt.hash(plaintextPassword, saltRounds);
   const new_user = generateUserObject(userid, username, hash);
   // check if user exists
@@ -466,6 +474,20 @@ exports.ensureAuthenticatedElseError = (req, res, next) => {
   }
 }
 
+/*************************************************
+ * Confirms a password against the stored hash for
+ * one account. Used to make a password change prove
+ * the caller knows the password it is replacing --
+ * a live session is not on its own enough, since
+ * an unattended browser is one too.
+ ************************************************/
+exports.verifyUserPassword = async (user_uid, password) => {
+  if (typeof password !== 'string' || password === '') return false;
+  const user = await db_api.getRecord('users', {uid: user_uid});
+  if (!user || !user.passhash) return false;
+  return await bcrypt.compare(password, user.passhash);
+}
+
 // change password
 exports.changeUserPassword = async (user_uid, new_pass) => {
   try {
@@ -555,11 +577,32 @@ exports.getUserPlaylist = async function(user_uid, playlistID, requireSharing = 
   return playlist;
 }
 
+/*************************************************
+ * The caller's uid was taken as an argument and
+ * then ignored: sharing was toggled by object id
+ * alone, so anybody holding the sharing permission
+ * could expose -- or hide -- another user's media
+ * as soon as they learned its uid.
+ *
+ * Ownership is checked before the write rather than
+ * folded into the update filter, because
+ * updateRecord reports success even when its filter
+ * matched nothing.
+ ************************************************/
 exports.changeSharingMode = async function(user_uid, file_uid, is_playlist, enabled) {
-  let success = false;
-  is_playlist ? await db_api.updateRecord(`playlists`, {id: file_uid}, {sharingEnabled: enabled}) : await db_api.updateRecord(`files`, {uid: file_uid}, {sharingEnabled: enabled});
-  success = true;
-  return success;
+  const table = is_playlist ? 'playlists' : 'files';
+  const filter_obj = is_playlist ? {id: file_uid} : {uid: file_uid};
+
+  if (config_api.getConfigItem('ytdl_multi_user_mode') && user_uid) {
+    const record = await db_api.getRecord(table, filter_obj);
+    if (!record || record['user_uid'] !== user_uid) {
+      logger.error(`Refusing to change sharing on ${file_uid}: it does not belong to ${user_uid}.`);
+      return false;
+    }
+  }
+
+  await db_api.updateRecord(table, filter_obj, {sharingEnabled: enabled});
+  return true;
 }
 
 /*************************************************

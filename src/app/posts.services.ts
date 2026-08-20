@@ -869,8 +869,11 @@ export class PostsService {
         this.httpOptions.params = this.httpOptions.params.set('jwt', this.token);
 
         this.setInitialized();
-        // needed to re-initialize parts of app after login
-        this.config_reloaded.next(true);
+        // Refetch rather than just re-emit: the config fetched during bootstrap was
+        // anonymous, so in multi-user mode it is the cut-down copy the server hands
+        // out before login. Everything downstream -- including the settings page,
+        // which submits the whole document back -- needs the real one.
+        this.reloadConfig();
 
         if (this.router.url.startsWith('/login')) {
             this.router.navigateByUrl(redirect_path || '/home');
@@ -1088,8 +1091,9 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'deleteUser', body, this.httpOptions);
     }
 
-    changeUserPassword(user_uid, new_password) {
-        return this.http.post(this.path + 'auth/changePassword', {user_uid: user_uid, new_password: new_password}, this.httpOptions);
+    changeUserPassword(user_uid, new_password, current_password = null) {
+        return this.http.post(this.path + 'auth/changePassword',
+            {user_uid: user_uid, new_password: new_password, current_password: current_password}, this.httpOptions);
     }
 
     getUsers(): Observable<GetUsersResponse> {

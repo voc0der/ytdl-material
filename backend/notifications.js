@@ -227,6 +227,26 @@ config_api.config_updated.subscribe(change => {
     }
 });
 
+/*************************************************
+ * Telegram will send a secret of our choosing back
+ * on every webhook delivery, in the
+ * X-Telegram-Bot-Api-Secret-Token header. Without
+ * one the endpoint has no way to tell Telegram from
+ * anybody else who knows the URL, so one is
+ * generated the first time the bot is set up and
+ * kept in the config afterwards.
+ ************************************************/
+exports.ensureTelegramWebhookSecret = () => {
+    const existing_secret = config_api.getConfigItem('ytdl_telegram_webhook_secret');
+    if (typeof existing_secret === 'string' && existing_secret.trim()) return existing_secret.trim();
+
+    // Telegram restricts the secret to 1-256 characters of A-Z, a-z, 0-9, _ and -.
+    const generated_secret = uuid().replace(/-/g, '');
+    config_api.setConfigItem('ytdl_telegram_webhook_secret', generated_secret);
+    logger.info('Generated a Telegram webhook secret so incoming requests can be verified.');
+    return generated_secret;
+}
+
 async function setupTelegramBot() {
     const use_telegram_api = config_api.getConfigItem('ytdl_use_telegram_API');
     const bot_token = config_api.getConfigItem('ytdl_telegram_bot_token');
@@ -238,7 +258,7 @@ async function setupTelegramBot() {
     telegram_bot = createTelegramBot(bot_token);
     const webhook_proxy = config_api.getConfigItem('ytdl_telegram_webhook_proxy');
     const webhook_url = webhook_proxy ? webhook_proxy : `${utils.getBaseURL()}/api/telegramRequest`;
-    await telegram_bot.setWebHook(webhook_url);
+    await telegram_bot.setWebHook(webhook_url, exports.ensureTelegramWebhookSecret());
 }
 
 exports.sendTelegramNotification = async ({body, title, type, url, thumbnail}) => {
@@ -276,8 +296,8 @@ function createTelegramBot(bot_token) {
     }
 
     return {
-        setWebHook(url) {
-            return callTelegram('setWebhook', { url });
+        setWebHook(url, secret_token) {
+            return callTelegram('setWebhook', secret_token ? { url, secret_token } : { url });
         },
         sendPhoto(chat_id, photo) {
             return callTelegram('sendPhoto', { chat_id, photo });

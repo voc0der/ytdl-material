@@ -3,15 +3,16 @@ const express = require('express');
 const request = require('supertest');
 
 const { assert, auth_api, config_api, db_api } = require('./test-shared');
-const { requireAdmin, requirePermission, anyAuthenticatedUser } = require('../authentication/permissions');
+const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('../authentication/permissions');
 
 // The guards are middleware, so they are exercised as middleware: mounted on a bare
 // express app with a stand-in for the user optionalJwt would have attached. Requiring the
 // real app.js is not an option -- it boots the whole application, socket and all.
-function appGuardedBy(guard, user) {
+function appGuardedBy(guard, user, {can_watch = false} = {}) {
     const app = express();
     app.use((req, res, next) => {
         if (user) req.user = user;
+        if (can_watch) req.can_watch = true;
         next();
     });
     app.get('/guarded', guard, (req, res) => res.send({reached: true}));
@@ -113,9 +114,43 @@ describe('Permission guards', function() {
         });
     });
 
-    describe('anyAuthenticatedUser', function() {
-        it('passes the request straight through', async function() {
-            await request(appGuardedBy(anyAuthenticatedUser, MEMBER)).get('/guarded').expect(200);
+    describe('requireAuthenticated', function() {
+        it('lets an ordinary authenticated user through', async function() {
+            await request(appGuardedBy(requireAuthenticated, MEMBER)).get('/guarded').expect(200);
+        });
+
+        it('refuses a caller with no user', async function() {
+            await request(appGuardedBy(requireAuthenticated, null)).get('/guarded').expect(401);
+        });
+
+        // The reason this guard stopped being a no-op: optionalJwt lets a share-link
+        // caller through with can_watch and no user at all, and a guard that returned
+        // next() unconditionally let that caller reach every route wearing it.
+        it('refuses a caller who only holds a share link', async function() {
+            await request(appGuardedBy(requireAuthenticated, null, {can_watch: true})).get('/guarded').expect(401);
+        });
+
+        it('does nothing in single-user mode', async function() {
+            multi_user_mode = false;
+            try {
+                await request(appGuardedBy(requireAuthenticated, null)).get('/guarded').expect(200);
+            } finally {
+                multi_user_mode = true;
+            }
+        });
+    });
+
+    describe('requireAuthenticatedOrShared', function() {
+        it('lets an authenticated user through', async function() {
+            await request(appGuardedBy(requireAuthenticatedOrShared, MEMBER)).get('/guarded').expect(200);
+        });
+
+        it('lets a share-link caller through', async function() {
+            await request(appGuardedBy(requireAuthenticatedOrShared, null, {can_watch: true})).get('/guarded').expect(200);
+        });
+
+        it('refuses a caller who has neither', async function() {
+            await request(appGuardedBy(requireAuthenticatedOrShared, null)).get('/guarded').expect(401);
         });
     });
 });

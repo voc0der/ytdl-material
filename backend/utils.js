@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
+const crypto = require('crypto');
 const { Readable } = require('stream');
 const archiver = require('archiver');
 const ProgressBar = require('progress');
@@ -971,7 +972,7 @@ exports.getMediaRoots = () => {
     ];
     return configured_roots
         .filter(root => typeof root === 'string' && root.trim())
-        .map(root => path.resolve(root));
+        .map(root => realPathOrResolved(root));
 }
 
 exports.pathIsWithin = (candidate_path, container_path) => {
@@ -980,10 +981,115 @@ exports.pathIsWithin = (candidate_path, container_path) => {
     return !relative_path.startsWith('..') && !path.isAbsolute(relative_path);
 }
 
+/*************************************************
+ * path.resolve only collapses '..' textually; it
+ * will happily hand back a path inside a media
+ * folder that is a symlink pointing anywhere at
+ * all. realpath follows the link, so the check is
+ * made against what would actually be opened.
+ *
+ * A path that does not exist cannot be followed --
+ * a download still in flight, a record whose file
+ * has already been removed -- so those fall back
+ * to the lexical answer, which still refuses '..'.
+ ************************************************/
+function realPathOrResolved(target_path) {
+    try {
+        return fs.realpathSync(target_path);
+    } catch {
+        return path.resolve(target_path);
+    }
+}
+
 exports.isPathInsideMediaRoots = (candidate_path) => {
     if (typeof candidate_path !== 'string' || !candidate_path.trim()) return false;
-    const resolved_path = path.resolve(candidate_path);
+    const resolved_path = realPathOrResolved(candidate_path);
     const roots = exports.getMediaRoots();
     if (roots.length === 0) return false;
     return roots.some(root => exports.pathIsWithin(resolved_path, root));
+}
+
+/*************************************************
+ * Containment on its own is not enough for anything
+ * that reads or deletes. A directory is "inside"
+ * the media roots too -- so is a media root itself
+ * -- and none of these endpoints mean a directory
+ * when they say path.
+ ************************************************/
+exports.isServableMediaFile = (candidate_path) => {
+    if (!exports.isPathInsideMediaRoots(candidate_path)) return false;
+    try {
+        return fs.statSync(realPathOrResolved(candidate_path)).isFile();
+    } catch {
+        return false;
+    }
+}
+
+/*************************************************
+ * yt-dlp options that do more than describe a
+ * download. Some run a command outright, some name
+ * a binary for it to run, and some load a file that
+ * can set any other option -- which makes allowing
+ * one of them equivalent to allowing all of them.
+ *
+ * Refused for everybody, including holders of the
+ * advanced_download permission. That permission is
+ * meant to grant control over how a download runs,
+ * not the ability to run commands as the server.
+ *
+ * A denylist rather than an allowlist because
+ * arbitrary arguments are the whole point of the
+ * feature; only the ways out of it are closed.
+ ************************************************/
+const FORBIDDEN_DOWNLOAD_ARGS = [
+    '--exec',
+    '--exec-before-download',
+    '--config-location',
+    '--config-locations',
+    '--load-info-json',
+    '--load-info',
+    '--batch-file',
+    '-a',
+    '--cookies',
+    '--downloader',
+    '--external-downloader',
+    '--downloader-args',
+    '--external-downloader-args',
+    '--ffmpeg-location',
+    '--plugin-dirs',
+    '--use-postprocessor'
+];
+
+exports.FORBIDDEN_DOWNLOAD_ARGS = FORBIDDEN_DOWNLOAD_ARGS;
+
+const ADVANCED_DOWNLOAD_FIELDS = ['customArgs', 'additionalArgs', 'customOutput'];
+
+exports.ADVANCED_DOWNLOAD_FIELDS = ADVANCED_DOWNLOAD_FIELDS;
+
+exports.hasAdvancedDownloadOptions = (options) => {
+    if (!options || typeof options !== 'object') return false;
+    return ADVANCED_DOWNLOAD_FIELDS.some(field => typeof options[field] === 'string' && options[field].trim() !== '');
+}
+
+exports.findForbiddenDownloadArgs = (raw_args) => {
+    if (typeof raw_args !== 'string' || !raw_args.trim()) return [];
+    return raw_args.split(',,')
+        // yt-dlp accepts both '--exec CMD' and '--exec=CMD', and the delimiter splits on
+        // ',,' rather than whitespace, so either form can arrive as a single token.
+        .map(arg => arg.trim().split(/[=\s]/)[0].toLowerCase())
+        .filter(arg => FORBIDDEN_DOWNLOAD_ARGS.includes(arg));
+}
+
+/*************************************************
+ * Constant-time string comparison, for secrets
+ * that arrive on a request. A plain === leaks how
+ * much of the value was right through how long the
+ * comparison took.
+ ************************************************/
+exports.timingSafeEquals = (provided, expected) => {
+    if (typeof provided !== 'string' || typeof expected !== 'string') return false;
+    const provided_buffer = Buffer.from(provided);
+    const expected_buffer = Buffer.from(expected);
+    if (provided_buffer.length !== expected_buffer.length) return false;
+    return crypto.timingSafeEqual(provided_buffer, expected_buffer);
 }

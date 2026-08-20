@@ -67,13 +67,35 @@ exports.requirePermission = function(permission) {
 }
 
 /*************************************************
- * Marks a route as intentionally available to any
- * authenticated caller. It does nothing at runtime
- * -- optionalJwt has already done the work -- and
- * exists so that the route coverage test can tell
- * "considered, and open to everyone" apart from
- * "nobody has looked at this one yet".
+ * Requires a real authenticated caller.
+ *
+ * This replaced a marker that returned next() and
+ * nothing else, on the reasoning that optionalJwt
+ * had already established identity. That is true
+ * for most routes but not all of them: a caller
+ * holding a share link is let through with
+ * req.can_watch set and no req.user at all, and a
+ * guard that checks nothing let that caller reach
+ * every route wearing it.
  ************************************************/
-exports.anyAuthenticatedUser = function(req, res, next) {
+exports.requireAuthenticated = function(req, res, next) {
+    if (!enforcementApplies()) return next();
+
+    if (!req.user) return refuse(req, res, 401, 'Authentication required');
+
+    return next();
+}
+
+/*************************************************
+ * For the few routes a share link is meant to
+ * reach. optionalJwt has already checked the share
+ * itself and set can_watch; this only says that
+ * doing so is allowed here.
+ ************************************************/
+exports.requireAuthenticatedOrShared = function(req, res, next) {
+    if (!enforcementApplies()) return next();
+
+    if (!req.user && !req.can_watch) return refuse(req, res, 401, 'Authentication required');
+
     return next();
 }

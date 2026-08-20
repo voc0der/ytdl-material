@@ -4,7 +4,8 @@ const { promisify } = require('util');
 const http = require('http');
 const https = require('https');
 const auth_api = require('./authentication/auth');
-const { requireAdmin, requirePermission, anyAuthenticatedUser } = require('./authentication/permissions');
+const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('./authentication/permissions');
+const { optionalJwt } = require('./authentication/optional-jwt');
 const oidc_api = require('./authentication/oidc');
 const path = require('path');
 const compression = require('compression');
@@ -130,8 +131,6 @@ if (umask !== undefined) process.umask(umask);
 
 // check if debug mode
 let debugMode = process.env.YTDL_MODE === 'debug';
-
-const admin_token = '4241b401-7236-493e-92b5-b72696b9d853';
 
 // logging setup
 
@@ -1040,8 +1039,6 @@ app.use(function(req, res, next) {
                req.path.includes('/api/auth/oidc/callback') ||
                req.path.includes('/api/auth/oidc/status')) {
         next();
-    } else if (req.query.apiKey === admin_token) {
-        next();
     } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key') && req.query.apiKey === config_api.getConfigItem('ytdl_api_key')) {
         next();
     } else if (isPublicApiPath(req.path)) {
@@ -1066,7 +1063,10 @@ function getRateLimitRequestPath(req) {
 }
 
 function isPublicApiRateLimitExemptPath(requestPath) {
-    return isPublicApiPath(requestPath);
+    // Streaming and thumbnails are fetched repeatedly to render a single page and cannot
+    // be limited. The Telegram webhook is public in the same sense but it is a write, and
+    // an unlimited write is a download queue that anybody can fill.
+    return isPublicApiPath(requestPath) && !requestPath.includes('/api/telegramRequest');
 }
 
 function skipAuthRateLimit(req) {
@@ -1220,53 +1220,26 @@ async function initializeRateLimiters() {
 app.use('/api', apiRateLimiter);
 app.use('/api/auth', authRateLimiter);
 
-function isPublicAuthPath(req_path) {
-    return req_path.includes('/api/auth/register')
-        || req_path.includes('/api/auth/oidc/login')
-        || req_path.includes('/api/auth/oidc/callback')
-        || req_path.includes('/api/auth/oidc/status');
-}
-
-const optionalJwt = async function (req, res, next) {
-    const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
-    if (multiUserMode && ((req.body && req.body.uuid) || (req.query && req.query.uuid)) && (req.path.includes('/api/getFile') ||
-                                                                                            req.path.includes('/api/stream') ||
-                                                                                            req.path.includes('/api/getPlaylist') ||
-                                                                                            req.path.includes('/api/downloadFileFromServer'))) {
-        // check if shared video
-        const using_body = req.body && req.body.uuid;
-        const uuid = using_body ? req.body.uuid : req.query.uuid;
-        const uid = using_body ? req.body.uid : req.query.uid;
-        const playlist_id = using_body ? req.body.playlist_id : req.query.playlist_id;
-        const file = !playlist_id ? await auth_api.getUserVideo(uuid, uid, true) : await files_api.getPlaylist(playlist_id, uuid, true);
-        if (file) {
-            req.can_watch = true;
-            return next();
-        } else {
-            res.sendStatus(401);
-            return;
-        }
-    } else if (multiUserMode && !isPublicAuthPath(req.path)) {
-        if (!req.query.jwt) {
-            res.sendStatus(401);
-            return;
-        }
-        return auth_api.passport.authenticate('jwt', { session: false })(req, res, next);
-    }
-    return next();
-};
-
 // Reachable before login on purpose: the frontend cannot render a login page without
 // knowing the auth method, whether registration is open, and the theme. It cannot use
 // optionalJwt for that reason -- an anonymous caller has to get a smaller answer rather
 // than a 401 -- so entitlement is resolved here instead, and everyone else gets the file
 // with the integration secrets removed.
 app.get('/api/config', async function(req, res) {
-    const caller = await auth_api.getUserFromJWT(req.query.jwt);
-    const caller_may_see_secrets = !config_api.getConfigItem('ytdl_multi_user_mode')
-        || (!!caller && await auth_api.userHasPermission(caller.uid, 'settings'));
+    const multi_user_mode = !!config_api.getConfigItem('ytdl_multi_user_mode');
+    const caller = multi_user_mode ? await auth_api.getUserFromJWT(req.query.jwt) : null;
 
-    let config_file = caller_may_see_secrets ? config_api.getConfigFile() : config_api.getRedactedConfigFile();
+    let config_file;
+    if (!multi_user_mode) {
+        // No accounts exist, so there is nobody to withhold anything from.
+        config_file = config_api.getConfigFile();
+    } else if (!caller) {
+        config_file = config_api.getAnonymousConfigFile();
+    } else if (await auth_api.userHasPermission(caller.uid, 'settings')) {
+        config_file = config_api.getConfigFile();
+    } else {
+        config_file = config_api.getRedactedConfigFile();
+    }
     res.send({
         config_file: config_file,
         ytdlp_impersonation_available: config_api.isYtDlpImpersonationDependencyEnvEnabled(),
@@ -1361,7 +1334,38 @@ app.post('/api/testConnectionString', optionalJwt, requireAdmin, async (req, res
     res.send({success: success, error: error});
 });
 
-app.post('/api/downloadFile', optionalJwt, anyAuthenticatedUser, async function(req, res) {
+/*************************************************
+ * customArgs, additionalArgs and customOutput are
+ * the advanced download feature. The permission
+ * that names it was only ever checked on the dialog
+ * that previews the arguments, not on the endpoints
+ * that hand them to the downloader -- so it has to
+ * be checked wherever they are accepted.
+ *
+ * The argument content is then checked regardless
+ * of the answer: holding advanced_download is not
+ * meant to include running commands as the server.
+ ************************************************/
+async function refuseUnsafeDownloadOptions(req, options) {
+    if (utils.hasAdvancedDownloadOptions(options) && config_api.getConfigItem('ytdl_multi_user_mode')) {
+        if (!req.user) return {status: 401, error: 'Authentication required'};
+        if (!await auth_api.userHasPermission(req.user.uid, 'advanced_download')) {
+            return {status: 403, error: 'Missing the \'advanced_download\' permission'};
+        }
+    }
+
+    for (const field of ['customArgs', 'additionalArgs']) {
+        const forbidden_args = utils.findForbiddenDownloadArgs(options[field]);
+        if (forbidden_args.length) {
+            logger.error(`Refusing a download: ${field} contained ${forbidden_args.join(', ')}.`);
+            return {status: 400, error: `These arguments are not allowed: ${forbidden_args.join(', ')}`};
+        }
+    }
+
+    return null;
+}
+
+app.post('/api/downloadFile', optionalJwt, requireAuthenticated, async function(req, res) {
     req.setTimeout(0); // remove timeout in case of long videos
     const url = req.body.url;
     const type = req.body.type ? req.body.type : 'video';
@@ -1384,6 +1388,12 @@ app.post('/api/downloadFile', optionalJwt, anyAuthenticatedUser, async function(
         disableSponsorBlock: req.body.disableSponsorBlock,
         channelSearchPlaylist: !!req.body.channelSearchPlaylist
     };
+
+    const refusal = await refuseUnsafeDownloadOptions(req, options);
+    if (refusal) {
+        res.status(refusal.status).send({success: false, error: refusal.error});
+        return;
+    }
 
     const downloads = await downloader_api.createDownloads(url, type, options, user_uid);
 
@@ -1426,12 +1436,18 @@ app.post('/api/generateArgs', optionalJwt, requirePermission('advanced_download'
         disableSponsorBlock: req.body.disableSponsorBlock
     };
 
+    const refusal = await refuseUnsafeDownloadOptions(req, options);
+    if (refusal) {
+        res.status(refusal.status).send({success: false, error: refusal.error});
+        return;
+    }
+
     const args = await downloader_api.generateArgs(url, type, options, user_uid, true);
     res.send({args: args});
 });
 
 // gets all download mp3s
-app.get('/api/getMp3s', optionalJwt, anyAuthenticatedUser, async function(req, res) {
+app.get('/api/getMp3s', optionalJwt, requireAuthenticated, async function(req, res) {
     // TODO: simplify
     let mp3s = await db_api.getRecords('files', {isAudio: true});
     let playlists = await db_api.getRecords('playlists');
@@ -1452,7 +1468,7 @@ app.get('/api/getMp3s', optionalJwt, anyAuthenticatedUser, async function(req, r
 });
 
 // gets all download mp4s
-app.get('/api/getMp4s', optionalJwt, anyAuthenticatedUser, async function(req, res) {
+app.get('/api/getMp4s', optionalJwt, requireAuthenticated, async function(req, res) {
     let mp4s = await db_api.getRecords('files', {isAudio: false});
     let playlists = await db_api.getRecords('playlists');
 
@@ -1472,7 +1488,7 @@ app.get('/api/getMp4s', optionalJwt, anyAuthenticatedUser, async function(req, r
     });
 });
 
-app.post('/api/getFile', optionalJwt, anyAuthenticatedUser, async function (req, res) {
+app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, async function (req, res) {
     const uid = req.body.uid;
     const uuid = req.body.uuid;
     let file = null;
@@ -1500,7 +1516,7 @@ app.post('/api/getFile', optionalJwt, anyAuthenticatedUser, async function (req,
     }
 });
 
-app.post('/api/getAllFiles', optionalJwt, anyAuthenticatedUser, async function (req, res) {
+app.post('/api/getAllFiles', optionalJwt, requireAuthenticated, async function (req, res) {
     // these are returned
     const sort = req.body.sort;
     const range = req.body.range;
@@ -1556,12 +1572,13 @@ app.post('/api/removeDuplicates', optionalJwt, requirePermission('filemanager'),
 const EDITABLE_FILE_FIELDS = [
     'title', 'uploader', 'url', 'upload_date', 'description', 'view_count',
     'local_view_count', 'height', 'abr', 'size', 'isAudio', 'favorite',
-    'category', 'thumbnailURL', 'path', 'thumbnailPath'
+    'category', 'thumbnailURL'
 ];
 
-// path and thumbnailPath are editable on purpose -- relinking a file that moved on disk
-// is a real thing people do -- but the value has to stay inside a directory we serve.
-const PATH_FILE_FIELDS = ['path', 'thumbnailPath'];
+// path and thumbnailPath are deliberately absent. The video info dialog is the only
+// client of this endpoint and it never edits either one, while letting a caller write
+// the path turns this into a way to point a record at somebody else's media -- or at a
+// directory, which the delete path then removes recursively.
 
 app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const uid = req.body.uid;
@@ -1576,15 +1593,6 @@ app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async
     const filtered_change_obj = {};
     for (const field of EDITABLE_FILE_FIELDS) {
         if (Object.prototype.hasOwnProperty.call(change_obj, field)) filtered_change_obj[field] = change_obj[field];
-    }
-
-    for (const field of PATH_FILE_FIELDS) {
-        if (!Object.prototype.hasOwnProperty.call(filtered_change_obj, field)) continue;
-        if (!utils.isPathInsideMediaRoots(filtered_change_obj[field])) {
-            logger.error(`Refusing to set ${field} on file ${uid} to a path outside the configured media folders.`);
-            res.send({success: false, error: `${field} must be inside a configured media folder`});
-            return;
-        }
     }
 
     if (Object.keys(filtered_change_obj).length === 0) {
@@ -1623,7 +1631,7 @@ app.post('/api/checkConcurrentStream', async (req, res) => {
     res.send({stream: concurrentStreams[uid]})
 });
 
-app.post('/api/updateConcurrentStream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/updateConcurrentStream', optionalJwt, requireAuthenticated, async (req, res) => {
     const uid = req.body.uid;
     const playback_timestamp = req.body.playback_timestamp;
     const unix_timestamp = req.body.unix_timestamp;
@@ -1638,7 +1646,7 @@ app.post('/api/updateConcurrentStream', optionalJwt, anyAuthenticatedUser, async
     res.send({stream: concurrentStreams[uid]})
 });
 
-app.post('/api/getFullTwitchChat', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/getFullTwitchChat', optionalJwt, requireAuthenticated, async (req, res) => {
     var id = req.body.id;
     var type = req.body.type;
     var uuid = req.body.uuid;
@@ -1657,7 +1665,7 @@ app.post('/api/getFullTwitchChat', optionalJwt, anyAuthenticatedUser, async (req
     });
 });
 
-app.post('/api/downloadTwitchChatByVODID', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/downloadTwitchChatByVODID', optionalJwt, requireAuthenticated, async (req, res) => {
     var id = req.body.id;
     var type = req.body.type;
     var vodId = req.body.vodId;
@@ -1692,7 +1700,7 @@ app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async 
     // multi-user mode
     if (req.isAuthenticated()) {
         // if multi user mode, use this method instead
-        success = auth_api.changeSharingMode(req.user.uid, uid, is_playlist, true);
+        success = await auth_api.changeSharingMode(req.user.uid, uid, is_playlist, true);
         res.send({success: success});
         return;
     }
@@ -1726,6 +1734,14 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
     var uid = req.body.uid;
     var is_playlist = req.body.is_playlist;
     let success = null;
+
+    // Was unscoped in exactly the way enableSharing was, and is fixed the same way: the
+    // owner check lives in changeSharingMode so both directions go through it.
+    if (req.isAuthenticated()) {
+        success = await auth_api.changeSharingMode(req.user.uid, uid, is_playlist, false);
+        res.send({success: success});
+        return;
+    }
 
     try {
         success = true;
@@ -1768,7 +1784,7 @@ app.post('/api/incrementViewCount', async (req, res) => {
 
 // categories
 
-app.post('/api/getAllCategories', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/getAllCategories', optionalJwt, requireAuthenticated, async (req, res) => {
     const categories = await db_api.getRecords('categories');
     res.send({categories: categories});
 });
@@ -1865,6 +1881,12 @@ app.post('/api/subscribe', optionalJwt, requirePermission('subscriptions'), asyn
 
     if (customOutput && customOutput !== '') {
         new_sub.custom_output = customOutput;
+    }
+
+    const refusal = await refuseUnsafeDownloadOptions(req, {customArgs: customArgs, customOutput: customOutput});
+    if (refusal) {
+        res.status(refusal.status).send({success: false, error: refusal.error});
+        return;
     }
 
     const result_obj = await subscriptions_api.subscribe(new_sub, user_uid);
@@ -1990,6 +2012,15 @@ app.post('/api/updateSubscription', optionalJwt, requirePermission('subscription
     const updated_sub = req.body.subscription;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
+    const refusal = await refuseUnsafeDownloadOptions(req, {
+        customArgs: updated_sub && updated_sub['custom_args'],
+        customOutput: updated_sub && updated_sub['custom_output']
+    });
+    if (refusal) {
+        res.status(refusal.status).send({success: false, error: refusal.error});
+        return;
+    }
+
     const success = await subscriptions_api.updateSubscription(updated_sub, user_uid);
     res.send({
         success: success
@@ -2045,7 +2076,7 @@ app.post('/api/getSubscriptions', optionalJwt, requirePermission('subscriptions'
     });
 });
 
-app.post('/api/createPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/createPlaylist', optionalJwt, requireAuthenticated, async (req, res) => {
     let playlistName = req.body.playlistName;
     let uids = req.body.uids;
 
@@ -2057,7 +2088,7 @@ app.post('/api/createPlaylist', optionalJwt, anyAuthenticatedUser, async (req, r
     })
 });
 
-app.post('/api/getPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/getPlaylist', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let uuid = req.body.uuid ? req.body.uuid : (req.user && req.user.uid ? req.user.uid : null);
     let include_file_metadata = req.body.include_file_metadata;
@@ -2078,7 +2109,7 @@ app.post('/api/getPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res)
     });
 });
 
-app.post('/api/getPlaylists', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const include_categories = req.body.include_categories;
     const filter_obj = getScopedFilterByUser(uuid);
@@ -2096,7 +2127,7 @@ app.post('/api/getPlaylists', optionalJwt, anyAuthenticatedUser, async (req, res
     });
 });
 
-app.post('/api/addFileToPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/addFileToPlaylist', optionalJwt, requireAuthenticated, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let file_uid = req.body.file_uid;
     
@@ -2124,7 +2155,7 @@ app.post('/api/addFileToPlaylist', optionalJwt, anyAuthenticatedUser, async (req
     });
 });
 
-app.post('/api/updatePlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/updatePlaylist', optionalJwt, requireAuthenticated, async (req, res) => {
     let playlist = req.body.playlist;
     let success = await files_api.updatePlaylist(playlist, req.user && req.user.uid);
     res.send({
@@ -2132,7 +2163,7 @@ app.post('/api/updatePlaylist', optionalJwt, anyAuthenticatedUser, async (req, r
     });
 });
 
-app.post('/api/deletePlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/deletePlaylist', optionalJwt, requireAuthenticated, async (req, res) => {
     let playlistID = req.body.playlist_id;
     const delete_files = req.body.delete_files === true;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -2310,7 +2341,7 @@ app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), a
     });
 });
 
-app.post('/api/downloadFileFromServer', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
     let uid = req.body.uid;
     let uuid = req.body.uuid;
     let playlist_id = req.body.playlist_id;
@@ -2355,6 +2386,14 @@ app.post('/api/downloadFileFromServer', optionalJwt, anyAuthenticatedUser, async
             return;
         }
         file_path_to_download = file_obj.path;
+        // Same reasoning as /api/stream: this is the point where a stored string becomes
+        // a filesystem read. The generated-zip branches above are exempt because their
+        // paths are built here rather than read out of a record.
+        if (!utils.isServableMediaFile(file_path_to_download)) {
+            logger.error(`Refusing to send ${uid}: its path is not a regular file inside the configured media folders.`);
+            res.sendStatus(404);
+            return;
+        }
     }
     if (!path.isAbsolute(file_path_to_download)) file_path_to_download = path.join(__dirname, file_path_to_download);
     res.sendFile(file_path_to_download, function (err) {
@@ -2434,8 +2473,18 @@ app.post('/api/deleteArchiveItems', optionalJwt, requirePermission('filemanager'
     });
 });
 
-var upload_multer = multer({ dest: __dirname + '/appdata/' });
-app.post('/api/uploadCookies', upload_multer.single('cookies'), async (req, res) => {
+// The limit matters as much as the guard: multer writes the body to disk while it parses,
+// so without one an upload is a way to fill the volume before any handler runs.
+const MAX_COOKIE_UPLOAD_BYTES = 2 * 1024 * 1024;
+var upload_multer = multer({
+    dest: __dirname + '/appdata/',
+    limits: {fileSize: MAX_COOKIE_UPLOAD_BYTES, files: 1}
+});
+
+// cookies.txt is one file shared by every download on the server, so replacing it is an
+// administrator's action. The guards run before multer, so an unauthenticated request is
+// refused before its body is written anywhere.
+app.post('/api/uploadCookies', optionalJwt, requireAdmin, upload_multer.single('cookies'), async (req, res) => {
     if (!req.file || !req.file.path) {
         res.sendStatus(400);
         return;
@@ -2502,7 +2551,7 @@ function normalizeCookieTestError(err) {
     return message.length > max_error_length ? message.substring(0, max_error_length) + '...' : message;
 }
 
-app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, async (req, res) => {
+app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, requireAdmin, async (req, res) => {
     const logs = [];
     const use_cookies_enabled = config_api.getConfigItem('ytdl_use_cookies');
     const downloader = config_api.getConfigItem('ytdl_default_downloader');
@@ -2696,7 +2745,7 @@ app.post('/api/generateNewAPIKey', optionalJwt, requireAdmin, function (req, res
 
 // Streaming API calls
 
-app.get('/api/stream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
     const type = req.query.type;
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
@@ -2726,8 +2775,8 @@ app.get('/api/stream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     // The path comes out of the database, so it is checked here as well as where it is
     // written. This route turns a stored string into a filesystem read, which makes it
     // the last place the check is still cheap.
-    if (!utils.isPathInsideMediaRoots(file_path)) {
-        logger.error(`Refusing to stream ${uid}: its path is outside the configured media folders.`);
+    if (!utils.isServableMediaFile(file_path)) {
+        logger.error(`Refusing to stream ${uid}: its path is not a regular file inside the configured media folders.`);
         res.status(404).type('text/plain').send('Media file not found');
         return;
     }
@@ -2773,7 +2822,7 @@ app.get('/api/stream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     }
 });
 
-app.get('/api/streamSubtitle', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.get('/api/streamSubtitle', optionalJwt, requireAuthenticated, async (req, res) => {
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
@@ -2816,7 +2865,7 @@ app.get('/api/streamSubtitle', optionalJwt, anyAuthenticatedUser, async (req, re
     res.sendFile(resolved_subtitle_path);
 });
 
-app.get('/api/thumbnail/:path', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.get('/api/thumbnail/:path', optionalJwt, requireAuthenticated, async (req, res) => {
     // Express route params are already decoded.
     const requestedPath = typeof req.params.path === 'string' ? req.params.path : '';
     const resolvedRequestedPath = path.isAbsolute(requestedPath) ? path.resolve(requestedPath) : path.resolve(__dirname, requestedPath);
@@ -3382,7 +3431,7 @@ app.post('/api/clearAllLogs', optionalJwt, requireAdmin, async function(req, res
     });
 });
 
-  app.post('/api/getFileFormats', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+  app.post('/api/getFileFormats', optionalJwt, requireAuthenticated, async (req, res) => {
     const url = req.body.url;
     const result = await downloader_api.getVideoInfoByURL(url, [], null, {forceYtDlp: true});
     res.send({
@@ -3468,9 +3517,11 @@ app.post('/api/auth/register', optionalJwt, async (req, res) => {
     // written as `exports.userHasPermission(...)`, which app.js does not define and never
     // awaited -- so it either threw or, more usually, was skipped entirely by the
     // short-circuit in front of it, and the settings page could not add users at all.
+    // Admin rather than the 'settings' permission: every other user-management route
+    // (getUsers, getRoles, changeUser, deleteUser) is admin-only, and creating an account
+    // is no smaller a power than editing one.
     const registration_open = !!config_api.getConfigItem('ytdl_allow_registration');
-    const caller_may_create_users = req.isAuthenticated() && !!req.user
-        && await auth_api.userHasPermission(req.user.uid, 'settings');
+    const caller_may_create_users = req.isAuthenticated() && !!req.user && req.user.role === 'admin';
 
     if (userid !== 'admin' && !registration_open && !caller_may_create_users) {
         logger.error(`Registration failed for user ${userid}. Registration is disabled.`);
@@ -3517,10 +3568,49 @@ app.post('/api/auth/jwtAuth'
         , auth_api.generateJWT
         , auth_api.returnAuthResponse
 );
-app.post('/api/auth/changePassword', optionalJwt, anyAuthenticatedUser, async (req, res) => {
-    let user_uid = req.body.user_uid;
-    let password = req.body.new_password;
-    let success = await auth_api.changeUserPassword(user_uid, password);
+/*************************************************
+ * The uid used to come straight off the request
+ * body and was written without any check at all, so
+ * any account could reset any other -- including
+ * admin. A caller changes their own password and
+ * has to prove they know it; resetting somebody
+ * else's is an administrator's job.
+ ************************************************/
+app.post('/api/auth/changePassword', optionalJwt, requireAuthenticated, async (req, res) => {
+    const enforcing = !!config_api.getConfigItem('ytdl_multi_user_mode');
+    const new_password = req.body.new_password;
+
+    if (typeof new_password !== 'string' || new_password === '') {
+        res.status(400).send({success: false, error: 'A new password must be provided'});
+        return;
+    }
+
+    if (!enforcing) {
+        const success = await auth_api.changeUserPassword(req.body.user_uid, new_password);
+        res.send({success: success});
+        return;
+    }
+
+    if (!req.user) {
+        res.status(401).send({success: false, error: 'Authentication required'});
+        return;
+    }
+
+    const target_uid = req.body.user_uid ? req.body.user_uid : req.user.uid;
+    const changing_own_password = target_uid === req.user.uid;
+
+    if (!changing_own_password && req.user.role !== 'admin') {
+        logger.error(`User ${req.user.uid} tried to change the password of ${target_uid}.`);
+        res.status(403).send({success: false, error: 'Only an administrator can change another user\'s password'});
+        return;
+    }
+
+    if (changing_own_password && !await auth_api.verifyUserPassword(req.user.uid, req.body.current_password)) {
+        res.status(403).send({success: false, error: 'The current password is incorrect'});
+        return;
+    }
+
+    const success = await auth_api.changeUserPassword(target_uid, new_password);
     res.send({success: success});
 });
 app.post('/api/auth/adminExists', async (req, res) => {
@@ -3597,7 +3687,7 @@ app.post('/api/changeRolePermissions', optionalJwt, requireAdmin, async (req, re
 
 // notifications
 
-app.post('/api/getNotifications', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/getNotifications', optionalJwt, requireAuthenticated, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const notifications = await db_api.getRecords('notifications', {user_uid: uuid});
@@ -3606,7 +3696,7 @@ app.post('/api/getNotifications', optionalJwt, anyAuthenticatedUser, async (req,
 });
 
 // set notifications to read
-app.post('/api/setNotificationsToRead', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/setNotificationsToRead', optionalJwt, requireAuthenticated, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const success = await db_api.updateRecords('notifications', {user_uid: uuid}, {read: true});
@@ -3614,7 +3704,7 @@ app.post('/api/setNotificationsToRead', optionalJwt, anyAuthenticatedUser, async
     res.send({success: success});
 });
 
-app.post('/api/deleteNotification', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/deleteNotification', optionalJwt, requireAuthenticated, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const notification_uid = req.body.uid;
     if (!notification_uid) {
@@ -3627,7 +3717,7 @@ app.post('/api/deleteNotification', optionalJwt, anyAuthenticatedUser, async (re
     res.send({success: success});
 });
 
-app.post('/api/deleteAllNotifications', optionalJwt, anyAuthenticatedUser, async (req, res) => {
+app.post('/api/deleteAllNotifications', optionalJwt, requireAuthenticated, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const success = await db_api.removeAllRecords('notifications', {user_uid: uuid});
@@ -3635,7 +3725,33 @@ app.post('/api/deleteAllNotifications', optionalJwt, anyAuthenticatedUser, async
     res.send({success: success});
 });
 
+/*************************************************
+ * Telegram's webhook. It was reachable by anybody
+ * who knew the URL: no check that Telegram sent it,
+ * none that the integration was even switched on,
+ * and the user_uid it queued downloads against came
+ * straight off the query string.
+ *
+ * The secret header is what proves the caller is
+ * Telegram. Once it matches, the query string is
+ * trustworthy too -- the webhook URL, and therefore
+ * the uid in it, is configured by the administrator
+ * on Telegram's side.
+ ************************************************/
 app.post('/api/telegramRequest', async (req, res) => {
+    if (!config_api.getConfigItem('ytdl_use_telegram_API')) {
+        logger.error('Rejecting a Telegram request: the Telegram integration is disabled.');
+        res.sendStatus(404);
+        return;
+    }
+
+    const expected_secret = config_api.getConfigItem('ytdl_telegram_webhook_secret');
+    if (!expected_secret || !utils.timingSafeEquals(req.get('X-Telegram-Bot-Api-Secret-Token'), expected_secret)) {
+        logger.error('Rejecting a Telegram request: the webhook secret did not match.');
+        res.sendStatus(401);
+        return;
+    }
+
     if (!req.body.message || !req.body.message.text) {
         logger.error('Invalid Telegram request received!');
         res.sendStatus(400);
@@ -3659,7 +3775,14 @@ app.post('/api/telegramRequest', async (req, res) => {
             return;
         }
 
-        downloader_api.createDownload(parsed_url.toString(), 'video', {}, req.query.user_uid ? req.query.user_uid : null);
+        const requested_user_uid = req.query.user_uid ? `${req.query.user_uid}` : null;
+        if (requested_user_uid && !await db_api.getRecord('users', {uid: requested_user_uid})) {
+            logger.error(`Rejecting a Telegram request: there is no user '${requested_user_uid}'.`);
+            res.sendStatus(400);
+            return;
+        }
+
+        downloader_api.createDownload(parsed_url.toString(), 'video', {}, requested_user_uid);
         res.sendStatus(200);
     } else {
         logger.error('Invalid Telegram request received! Make sure you only send a valid URL.');
