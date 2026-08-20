@@ -754,14 +754,29 @@ describe('The shared bootstrap secret', function() {
     });
 
     it('is not required by the API gate', function() {
-        // The gate must let a keyless request through to optionalJwt and the guards,
-        // which are what actually decide. Closing the socket instead is what broke the UI.
+        // The gate must not refuse a keyless request: what decides is optionalJwt and the
+        // route guards. Closing the socket instead is what broke the UI.
         const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-        const gate = app_source.match(/app\.use\(function\(req, res, next\) \{\s*if \(!req\.path\.includes\('\/api\/'\)\)[\s\S]*?\n\}\);/);
 
-        assert(gate, 'expected to find the API gate middleware');
-        assert(!/else \{\s*logger[\s\S]*?req\.socket\.end\(\);\s*\}/.test(gate[0]),
-            'a request with no API key must not have its socket closed');
+        assert(!/req\.socket\.end\(\)/.test(app_source),
+            'no request should have its socket closed for want of an API key');
+    });
+
+    it('does not treat the Public API key as a control any more', function() {
+        // Deprecated: it never restricted an endpoint and never identified a caller, so it
+        // could not authorize anything. The parameter is still accepted and ignored.
+        const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+        assert(!/req\.query\.apiKey/.test(app_source),
+            'the API key must not take part in deciding whether a request is allowed');
+    });
+
+    it('says so in the published API documentation', function() {
+        const docs = fs.readFileSync(path.join(__dirname, '..', '..', 'Public API v1.yaml'), 'utf8');
+
+        assert(docs.includes('deprecated'), 'the docs must say the apiKey parameter is deprecated');
+        assert(!/Remember to authenticate with your API key/.test(docs),
+            'the docs still tell people the API key authenticates them');
     });
 });
 

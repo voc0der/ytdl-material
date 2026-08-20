@@ -323,6 +323,11 @@
             <div class="col-12 mt-3">
               <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_API_key']"><ng-container i18n="Enable Public API key setting">Enable Public API</ng-container></mat-checkbox>
             </div>
+            <div class="col-12">
+              <div class="api-key-deprecation-note">
+                <ng-container i18n="Public API key deprecation note">The API key below is deprecated and does not restrict access to the API. Requests are authenticated with the token from logging in, and authorized by that account's permissions. This setting now only controls whether the documentation page is served.</ng-container>
+              </div>
+            </div>
             <div class="col-12 mt-1">
               <mat-checkbox color="accent" [disabled]="!new_config['API']['use_API_key']" [(ngModel)]="new_config['API']['enable_documentation_api']">Enable Documentation API</mat-checkbox>
             </div>

@@ -915,6 +915,22 @@ function loadConfigValues() {
     }
 
     configureExpressTrustProxy();
+    warnAboutDeprecatedPublicApiKey();
+}
+
+/*************************************************
+ * Said plainly at startup, because an administrator
+ * who switched this on almost certainly believes it
+ * is protecting the API.
+ ************************************************/
+function warnAboutDeprecatedPublicApiKey() {
+    if (!config_api.getConfigItem('ytdl_use_api_key')) return;
+
+    logger.warn('The Public API key is deprecated and does not restrict access to the API. '
+        + 'It never has: the key was not required to reach any endpoint, and it did not identify '
+        + 'the caller, so it could not authorize anything either. Requests are authorized by the '
+        + 'JWT from /api/auth/login and by each route\'s permissions. The setting still controls '
+        + 'whether the documentation page is served. Per-user API tokens are tracked in issue #388.');
 }
 
 function initializeDocumentationAPI() {
@@ -1032,37 +1048,32 @@ function isPublicApiPath(requestPath = '') {
         || requestPath.includes('/api/telegramRequest');
 }
 
+/*************************************************
+ * The Public API key is deprecated and does not
+ * restrict anything.
+ *
+ * It never did. This gate used to close the socket
+ * unless the caller presented a hardcoded UUID --
+ * one that ships in the frontend bundle and is
+ * published in this repository, so everybody had
+ * it. Nor can it be made to restrict anything
+ * without taking the web UI down with it: the UI
+ * has no configured key to send, and handing it one
+ * would only publish that key to every page load.
+ *
+ * A key also never established *who* was calling,
+ * so it could not authorize anything even when it
+ * matched. What decides whether a request is
+ * allowed is optionalJwt and the route guards, and
+ * those run next.
+ *
+ * The apiKey query parameter is still accepted and
+ * ignored, so scripts that send one keep working.
+ * Per-user API tokens, which are the real
+ * replacement, are tracked in #388.
+ ************************************************/
 app.use(function(req, res, next) {
-    if (!req.path.includes('/api/')) {
-        next();
-    } else if (req.path.includes('/api/auth/oidc/login') ||
-               req.path.includes('/api/auth/oidc/callback') ||
-               req.path.includes('/api/auth/oidc/status')) {
-        next();
-    } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key') && req.query.apiKey === config_api.getConfigItem('ytdl_api_key')) {
-        next();
-    } else {
-        /*************************************************
-         * No key, or one that does not match: either way
-         * the request goes on to optionalJwt and the route
-         * guards, which are what actually decide.
-         *
-         * This gate used to close the socket unless the
-         * caller presented a hardcoded UUID -- one that
-         * ships in the frontend bundle and is published in
-         * this repository, so everybody had it. It refused
-         * nobody, and it could not be made to refuse
-         * anybody without taking the web UI down with it,
-         * because the UI has no configured key to send.
-         *
-         * So the API key is one way to authenticate rather
-         * than a gate in front of everything, and offering
-         * a wrong one is not fatal -- which also means a
-         * browser still running a cached bundle degrades to
-         * an ordinary request instead of a closed socket.
-         ************************************************/
-        next();
-    }
+    next();
 });
 
 app.use(compression());
