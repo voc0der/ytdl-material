@@ -245,7 +245,8 @@ exports.getJSON = (file_path, type) => {
         json_paths.push(file_path_no_extension + `${actual_ext}.info.json`);
     }
 
-    const json_path = json_paths.find(candidate_path => fs.existsSync(candidate_path));
+    // readFileSync follows a symlink, so the candidates are filtered before one is read.
+    const json_path = exports.keepSiblingSidecarPaths(file_path, json_paths).find(candidate_path => fs.existsSync(candidate_path));
     if (json_path) {
         obj = JSON.parse(fs.readFileSync(json_path, 'utf8'));
     } else obj = 0;
@@ -259,18 +260,15 @@ exports.getJSONByType = (type, name, customPath, openReadPerms = false) => {
 exports.getDownloadedThumbnail = (file_path) => {
     const file_path_no_extension = exports.removeFileExtension(file_path);
 
-    let jpgPath = file_path_no_extension + '.jpg';
-    let webpPath = file_path_no_extension + '.webp';
-    let pngPath = file_path_no_extension + '.png';
+    // What this returns is recorded as thumbnailPath and later served, so a sibling symlink
+    // pointing out of the media roots must not be recorded in the first place.
+    const candidate_paths = exports.keepSiblingSidecarPaths(file_path, [
+        file_path_no_extension + '.jpg',
+        file_path_no_extension + '.webp',
+        file_path_no_extension + '.png'
+    ]);
 
-    if (fs.existsSync(jpgPath))
-        return jpgPath;
-    else if (fs.existsSync(webpPath))
-        return webpPath;
-    else if (fs.existsSync(pngPath))
-        return pngPath;
-    else
-        return null;
+    return candidate_paths.find(candidate_path => fs.existsSync(candidate_path)) || null;
 }
 
 exports.getExpectedFileSize = (input_info_jsons) => {
@@ -390,7 +388,9 @@ exports.fixVideoMetadataPerms = (file_path, type) => {
         file_path_no_extension + '.jpg'
     ];
 
-    for (const file of files_to_fix) {
+    // chmod follows a symlink to its target, so each derived path is checked, not just the
+    // media file they were derived from.
+    for (const file of exports.keepSiblingSidecarPaths(file_path, files_to_fix)) {
         if (!fs.existsSync(file)) continue;
         fs.chmodSync(file, 0o644);
     }
@@ -407,11 +407,14 @@ exports.deleteJSONFile = (file_path, type) => {
 
     const file_path_no_extension = exports.removeFileExtension(file_path);
 
-    let json_path = file_path_no_extension + '.info.json';
-    let alternate_json_path = file_path_no_extension + ext + '.info.json';
+    const json_paths = exports.keepSiblingSidecarPaths(file_path, [
+        file_path_no_extension + '.info.json',
+        file_path_no_extension + ext + '.info.json'
+    ]);
 
-    if (fs.existsSync(json_path)) fs.unlinkSync(json_path);
-    if (fs.existsSync(alternate_json_path)) fs.unlinkSync(alternate_json_path);
+    for (const json_path of json_paths) {
+        if (fs.existsSync(json_path)) fs.unlinkSync(json_path);
+    }
 }
 
 exports.durationStringToNumber = (dur_str) => {
@@ -1112,6 +1115,33 @@ exports.getMediaRootsForUser = (user_uid) => {
     const own_directory = realPathOrResolved(path.join(users_base_path, user_uid));
 
     return [...roots.filter(root => root !== shared_users_root), own_directory];
+}
+
+/*************************************************
+ * Filters derived sidecar paths down to the ones
+ * that really are siblings of their media file.
+ *
+ * Deriving a sidecar by swapping the extension
+ * settles where the *name* is. It says nothing about
+ * where a symlink at that name points, and reads,
+ * chmods and ffmpeg all follow one. Canonicalizing
+ * both sides settles it.
+ *
+ * The invariant is deliberately local -- same
+ * directory as the media file -- rather than "inside
+ * the media roots". The roots are configuration, and
+ * a sidecar belongs to its file wherever that file
+ * is; whether the file itself belongs anywhere is a
+ * separate question, asked separately by the callers
+ * that serve it.
+ ************************************************/
+exports.keepSiblingSidecarPaths = (file_path, candidate_paths = []) => {
+    if (typeof file_path !== 'string' || !file_path.trim()) return [];
+    const parent_directory = realPathOrResolved(path.dirname(path.resolve(file_path)));
+    return candidate_paths.filter(candidate_path => {
+        if (typeof candidate_path !== 'string' || !candidate_path.trim()) return false;
+        return path.dirname(realPathOrResolved(candidate_path)) === parent_directory;
+    });
 }
 
 exports.isPathInsideMediaRoots = (candidate_path, user_uid = null) => {

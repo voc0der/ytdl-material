@@ -1612,3 +1612,208 @@ describe('Sidecar path derivation', function() {
         }
     });
 });
+
+describe('Category playlists', function() {
+    const {assert, categories_api, config_api, db_api} = require('./test-shared');
+
+    /*************************************************
+     * Categories are server-wide by design -- they are
+     * rules, not content. The files they gather are
+     * not, and the query that gathered them carried no
+     * user at all.
+     *
+     * A category playlist built for Alice therefore
+     * described Bob's library: his file's uid, his
+     * thumbnail's path and URL, and a duration totalled
+     * over media she cannot see. The uid is what the
+     * thumbnail endpoint takes, so handing it out was
+     * the whole of the leak.
+     ************************************************/
+    const original_getRecords = db_api.getRecords;
+    const original_getConfigItem = config_api.getConfigItem;
+    let file_queries = [];
+    let multi_user_mode = true;
+
+    const CATEGORY = {uid: 'category_uid', name: 'Music'};
+    const ALICE_FILE = {uid: 'alice_file', user_uid: 'alice', duration: 10,
+        thumbnailURL: 'https://example.invalid/alice.jpg', thumbnailPath: 'users/alice/alice_file.jpg',
+        category: {uid: 'category_uid'}};
+    const BOB_FILE = {uid: 'bob_private_file', user_uid: 'bob', duration: 500,
+        thumbnailURL: 'https://example.invalid/bob.jpg', thumbnailPath: 'users/bob/bob_private_file.jpg',
+        category: {uid: 'category_uid'}};
+
+    beforeEach(function() {
+        file_queries = [];
+        multi_user_mode = true;
+        config_api.getConfigItem = (key) =>
+            key === 'ytdl_multi_user_mode' ? multi_user_mode : original_getConfigItem(key);
+        db_api.getRecords = async (table, filter_obj) => {
+            if (table === 'categories') return [CATEGORY];
+            if (table !== 'files') return original_getRecords(table, filter_obj);
+            file_queries.push(filter_obj);
+            const owner = filter_obj && Object.prototype.hasOwnProperty.call(filter_obj, 'user_uid')
+                ? filter_obj.user_uid
+                : undefined;
+            return [ALICE_FILE, BOB_FILE].filter(file => owner === undefined || file.user_uid === owner);
+        };
+    });
+
+    afterEach(function() {
+        db_api.getRecords = original_getRecords;
+        config_api.getConfigItem = original_getConfigItem;
+    });
+
+    it('scopes the files it gathers to the caller', async function() {
+        await categories_api.getCategoriesAsPlaylists('alice');
+
+        assert.strictEqual(file_queries.length, 1);
+        assert.strictEqual(file_queries[0].user_uid, 'alice',
+            'the caller uid has to reach the file query, or the category sees the whole server');
+    });
+
+    it('does not describe another user\'s file', async function() {
+        const playlists = await categories_api.getCategoriesAsPlaylists('alice');
+
+        assert.strictEqual(playlists.length, 1);
+        const [category_playlist] = playlists;
+        assert.strictEqual(category_playlist.thumbnailFileUid, 'alice_file',
+            'the borrowed uid is what the thumbnail endpoint takes -- it must be a file the caller owns');
+        assert.strictEqual(category_playlist.thumbnailPath, ALICE_FILE.thumbnailPath);
+        assert.strictEqual(category_playlist.thumbnailURL, ALICE_FILE.thumbnailURL);
+        assert.strictEqual(category_playlist.duration, 10,
+            'a duration totalled over media the caller cannot see reports the size of somebody else\'s library');
+    });
+
+    it('leaves single-user mode unfiltered, where there are no accounts to separate', async function() {
+        multi_user_mode = false;
+
+        const playlists = await categories_api.getCategoriesAsPlaylists(null);
+
+        assert.deepStrictEqual(file_queries[0], {'category.uid': {$in: ['category_uid']}},
+            'single-user mode has one library and no user_uid on its records');
+        assert.strictEqual(playlists[0].duration, 510);
+    });
+});
+
+describe('Sidecar symlinks', function() {
+    const {assert, files_api, fs, path, useTemporaryMediaRoots, utils} = require('./test-shared');
+
+    /*************************************************
+     * Deriving a sidecar as a sibling of its media
+     * file settles where the name is. It says nothing
+     * about where a symlink at that name points, and
+     * the reads, the chmod and the sidecar the
+     * subtitle endpoint serves all follow one.
+     ************************************************/
+    let media_roots = null;
+    let outside_directory = null;
+
+    beforeEach(function() {
+        media_roots = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+        outside_directory = path.join(media_roots.base, 'outside');
+        fs.ensureDirSync(outside_directory);
+    });
+
+    afterEach(function() {
+        if (media_roots) media_roots.restore();
+    });
+
+    function plantMediaFileFor(user_uid, file_name) {
+        const user_directory = path.join(media_roots.users, user_uid);
+        fs.ensureDirSync(user_directory);
+        const media_path = path.join(user_directory, file_name);
+        fs.writeFileSync(media_path, 'media');
+        return media_path;
+    }
+
+    // Track discovery falls back to requested_subtitles from the metadata when ffprobe finds
+    // nothing embedded, which is what lets these reach the sidecar logic at all. Without it
+    // the function returns null for want of any track and the assertions below pass
+    // vacuously -- which is exactly what the first draft of them did.
+    function plantMediaFileWithASubtitleTrack(user_uid, file_name) {
+        const media_path = plantMediaFileFor(user_uid, file_name);
+        fs.writeFileSync(`${utils.removeFileExtension(media_path)}.info.json`,
+            JSON.stringify({requested_subtitles: {en: {name: 'English'}}}));
+        return media_path;
+    }
+
+    it('does not read an info.json that is a symlink out of the media roots', function() {
+        const media_path = plantMediaFileFor('alice', 'clip.mp4');
+        const secret_path = path.join(outside_directory, 'secret.info.json');
+        fs.writeFileSync(secret_path, JSON.stringify({title: 'not yours'}));
+        fs.symlinkSync(secret_path, path.join(media_roots.users, 'alice', 'clip.info.json'));
+
+        assert.strictEqual(utils.getJSON(media_path, 'video'), 0,
+            'the sidecar name is a sibling, but it points outside and must not be read');
+    });
+
+    it('still reads an ordinary info.json beside the media file', function() {
+        const media_path = plantMediaFileFor('alice', 'ordinary.mp4');
+        fs.writeFileSync(path.join(media_roots.users, 'alice', 'ordinary.info.json'), JSON.stringify({title: 'mine'}));
+
+        assert.strictEqual(utils.getJSON(media_path, 'video').title, 'mine');
+    });
+
+    it('does not record a thumbnail that is a symlink out of the media roots', function() {
+        const media_path = plantMediaFileFor('alice', 'thumbed.mp4');
+        const outside_image = path.join(outside_directory, 'outside.jpg');
+        fs.writeFileSync(outside_image, 'image');
+        fs.symlinkSync(outside_image, path.join(media_roots.users, 'alice', 'thumbed.jpg'));
+
+        assert.strictEqual(utils.getDownloadedThumbnail(media_path), null,
+            'a recorded thumbnailPath is later served, so it must not be recorded at all');
+    });
+
+    it('does not chmod through a sidecar symlink', function() {
+        const media_path = plantMediaFileFor('alice', 'perms.mp4');
+        const outside_json = path.join(outside_directory, 'outside.info.json');
+        fs.writeFileSync(outside_json, '{}');
+        fs.chmodSync(outside_json, 0o600);
+        fs.symlinkSync(outside_json, path.join(media_roots.users, 'alice', 'perms.info.json'));
+
+        utils.fixVideoMetadataPerms(media_path, 'video');
+
+        assert.strictEqual(fs.statSync(outside_json).mode & 0o777, 0o600,
+            'chmod follows a symlink to its target, so the derived path needs checking too');
+    });
+
+    it('finds a track to begin with, so the two checks below are not vacuous', async function() {
+        const media_path = plantMediaFileWithASubtitleTrack('alice', 'present.mp4');
+        const sidecar_path = files_api.getSubtitleSidecarPath(media_path, 0);
+        fs.writeFileSync(sidecar_path, 'WEBVTT');
+
+        const served = await files_api.ensureSubtitleSidecarForFile(
+            {uid: 'alice_present', path: media_path, user_uid: 'alice', isAudio: false}, 0);
+
+        assert.strictEqual(served, sidecar_path,
+            'an ordinary sidecar beside the media file must still be served');
+    });
+
+    it('does not serve a subtitle sidecar that points outside the media roots', async function() {
+        const media_path = plantMediaFileWithASubtitleTrack('alice', 'subs.mp4');
+        const outside_vtt = path.join(outside_directory, 'outside.vtt');
+        fs.writeFileSync(outside_vtt, 'WEBVTT');
+        const sidecar_path = files_api.getSubtitleSidecarPath(media_path, 0);
+        fs.symlinkSync(outside_vtt, sidecar_path);
+
+        const served = await files_api.ensureSubtitleSidecarForFile(
+            {uid: 'alice_subs', path: media_path, user_uid: 'alice', isAudio: false}, 0);
+
+        assert.strictEqual(served, null,
+            'an existing sidecar is handed straight to the endpoint, so it needs the same check as a new one');
+    });
+
+    it('does not serve a subtitle sidecar sitting in another user\'s directory', async function() {
+        const media_path = plantMediaFileWithASubtitleTrack('alice', 'foreign.mp4');
+        const bobs_directory = path.join(media_roots.users, 'bob');
+        fs.ensureDirSync(bobs_directory);
+        const bobs_vtt = path.join(bobs_directory, 'bob.vtt');
+        fs.writeFileSync(bobs_vtt, 'WEBVTT');
+        fs.symlinkSync(bobs_vtt, files_api.getSubtitleSidecarPath(media_path, 0));
+
+        const served = await files_api.ensureSubtitleSidecarForFile(
+            {uid: 'alice_foreign', path: media_path, user_uid: 'alice', isAudio: false}, 0);
+
+        assert.strictEqual(served, null);
+    });
+});

@@ -704,6 +704,25 @@ exports.ensureSubtitleSidecarForFile = async (file_obj = null, subtitle_track_in
 
     const subtitle_sidecar_path = getSubtitleSidecarPath(file_obj.path, subtitle_track_index);
     if (!subtitle_sidecar_path) return null;
+
+    /*************************************************
+     * Checked before an existing sidecar is returned,
+     * not only before a new one is written.
+     *
+     * An existing sidecar was handed straight back
+     * for /api/streamSubtitle to serve. Deriving its
+     * path as a sibling of the media file settles
+     * where the name is, not where a symlink at that
+     * name points, so a .player-subtitles.vtt link
+     * beside a perfectly legitimate media file was
+     * served from wherever it pointed.
+     ************************************************/
+    if (!utils.isPathInsideMediaRoots(subtitle_sidecar_path, file_obj.user_uid)) {
+        logger.error(`Refusing the subtitle sidecar for ${file_obj.uid}: ${subtitle_sidecar_path} `
+            + `resolves outside its owner's media folder.`);
+        return null;
+    }
+
     if (await fs.pathExists(subtitle_sidecar_path)) return subtitle_sidecar_path;
 
     return await extractSubtitleSidecar(file_obj.path, subtitle_track_index);

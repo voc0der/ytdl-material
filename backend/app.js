@@ -2213,7 +2213,7 @@ app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, async (req, res
 
     let playlists = await db_api.getRecords('playlists', filter_obj);
     if (include_categories) {
-        const categories = await categories_api.getCategoriesAsPlaylists();
+        const categories = await categories_api.getCategoriesAsPlaylists(uuid);
         if (categories) {
             playlists = playlists.concat(categories);
         }
