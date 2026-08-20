@@ -1,6 +1,7 @@
 const config_api = require('../config');
 
 const auth_api = require('./auth');
+const api_tokens_api = require('./api-tokens');
 const files_api = require('../files');
 
 /*************************************************
@@ -64,8 +65,64 @@ exports.isPublicAuthPath = isPublicAuthPath;
  * req.isAuthenticated() as false for everybody,
  * including users who are plainly logged in.
  ************************************************/
-exports.resolveJwtIfPresent = function (req, res, next) {
+/*************************************************
+ * Logs in the caller from an API token, if they
+ * presented one.
+ *
+ * A token resolves to a user and nothing else, so
+ * everything downstream -- the guards, the ownership
+ * checks, the per-route permissions -- treats the
+ * request exactly as it would a browser session for
+ * that account. There is no separate policy for
+ * machine clients to drift out of step.
+ ************************************************/
+function getPresentedApiToken(req) {
+    if (req.query && typeof req.query.apiToken === 'string') return req.query.apiToken;
+    const header = req.headers ? req.headers['x-api-token'] : null;
+    return typeof header === 'string' ? header : null;
+}
+
+exports.getPresentedApiToken = getPresentedApiToken;
+
+function allowedApiTokenTypes(req) {
+    return req.path === '/api/rss'
+        ? [api_tokens_api.TOKEN_TYPES.API, api_tokens_api.TOKEN_TYPES.RSS]
+        : [api_tokens_api.TOKEN_TYPES.API];
+}
+
+async function logInWithApiToken(req) {
+    const token = getPresentedApiToken(req);
+    if (!token) return false;
+
+    const user = await api_tokens_api.resolveToken(token, allowedApiTokenTypes(req));
+    if (!user) return false;
+
+    await new Promise((resolve, reject) => req.logIn(user, {session: false}, err => err ? reject(err) : resolve()));
+    req.authenticated_with_api_token = true;
+    return true;
+}
+
+exports.logInWithApiToken = logInWithApiToken;
+
+// A bearer token must not be able to mint a replacement before it is revoked. Token
+// management therefore requires the browser JWT even though ordinary API routes accept
+// either credential.
+exports.requireJwtForTokenManagement = function (req, res, next) {
+    if (config_api.getConfigItem('ytdl_multi_user_mode') && req.authenticated_with_api_token) {
+        res.sendStatus(403);
+        return;
+    }
+    next();
+};
+
+exports.resolveJwtIfPresent = async function (req, res, next) {
     if (!config_api.getConfigItem('ytdl_multi_user_mode')) return next();
+
+    if (getPresentedApiToken(req)) {
+        await logInWithApiToken(req);
+        return next();
+    }
+
     if (!req.query || !req.query.jwt) return next();
 
     return auth_api.passport.authenticate('jwt', {session: false}, (err, user) => {
@@ -110,11 +167,21 @@ exports.optionalJwt = async function (req, res, next) {
             return;
         }
     } else if (multiUserMode && !isPublicAuthPath(req.path)) {
+        // An API token is accepted anywhere a jwt is. It resolves to the same user record
+        // the jwt would, so nothing downstream has to know which one was presented.
+        if (getPresentedApiToken(req)) {
+            if (await logInWithApiToken(req)) return next();
+            res.sendStatus(401);
+            return;
+        }
         if (!req.query.jwt) {
             res.sendStatus(401);
             return;
         }
         return auth_api.passport.authenticate('jwt', { session: false })(req, res, next);
+    } else if (multiUserMode && getPresentedApiToken(req)) {
+        await logInWithApiToken(req);
+        return next();
     } else if (multiUserMode && req.query.jwt) {
         // A public auth path still has to be able to tell who is calling when a token is
         // offered. Registration is the case that matters: it is open to strangers, but it

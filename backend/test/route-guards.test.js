@@ -45,9 +45,6 @@ const INTENTIONALLY_UNAUTHENTICATED = {
     '/api/auth/oidc/login': 'the OIDC redirect, by definition pre-authentication',
     '/api/auth/oidc/callback': 'the OIDC redirect target, by definition pre-authentication',
     '/api/telegramRequest': 'authenticated by Telegram\'s webhook secret header, not by a user session',
-    // Not opaque today -- the feed URL carries the ordinary user uid. Tracked separately;
-    // making it a revocable per-user token is the same machinery as per-user API tokens.
-    '/api/rss': 'feed readers cannot hold a session, and the feed is off unless enabled',
     '/api/checkConcurrentStream': 'playback state for a shared link, which has no user',
     '/api/incrementViewCount': 'playback state for a shared link, which has no user'
 };
@@ -256,5 +253,24 @@ describe('API route guards', function() {
             assert(definition, `expected ${route} to exist`);
             assert(definition.rest.includes('requireAdmin'), `${route} must be behind requireAdmin`);
         }
+    });
+
+    it('keeps API-token management behind a browser JWT', function() {
+        for (const route of ['/api/listAPITokens', '/api/generateAPIToken', '/api/revokeAPIToken']) {
+            const definition = routes.find(r => r.route === route);
+            assert(definition, `expected ${route} to exist`);
+            assert(definition.rest.includes('requireAuthenticated'));
+            assert(definition.rest.includes('requireJwtForTokenManagement'));
+        }
+    });
+
+    it('scopes an RSS feed from the credential, never a requested uid', function() {
+        const route_start = APP_SOURCE.indexOf("app.get('/api/rss'");
+        const route_end = APP_SOURCE.indexOf('// web server', route_start);
+        const handler = APP_SOURCE.slice(route_start, route_end);
+
+        assert(route_start >= 0 && route_end > route_start, 'expected to find the RSS handler');
+        assert(handler.includes('req.user.uid'), 'the RSS handler must use its authenticated owner');
+        assert(!handler.includes('req.query.uuid'), 'a caller must not be able to select another owner');
     });
 });

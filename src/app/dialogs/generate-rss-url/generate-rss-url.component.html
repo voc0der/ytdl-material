@@ -22,17 +22,6 @@
       </div>
       <div class="col-12 col-md-6 mt-2">
         <mat-form-field class="filter-field">
-          <mat-label><ng-container i18n="User">User</ng-container></mat-label>
-          <mat-select color="accent" [(ngModel)]="userFilter" (selectionChange)="rebuildURL()" [disabled]="!usersList">
-            <mat-option [value]="''"><ng-container i18n="None">None</ng-container></mat-option>
-            @for (user of usersList; track user) {
-              <mat-option [value]="user.uid"><ng-container>{{user.name}}</ng-container></mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      </div>
-      <div class="col-12 col-md-6 mt-2">
-        <mat-form-field class="filter-field">
           <mat-label><ng-container i18n="Subscription">Subscription</ng-container></mat-label>
           <mat-select color="accent" [(ngModel)]="subscriptionFilter" (selectionChange)="rebuildURL()">
             <mat-option [value]="''"><ng-container i18n="None">None</ng-container></mat-option>
@@ -57,10 +46,20 @@
     </div>
   </div>
 
+  @if (multiUserMode && !apiToken) {
+    <p i18n="RSS token explanation">The feed is private. Generate a revocable token to create its URL.</p>
+    <button mat-stroked-button color="accent" (click)="generateFeedToken()" [disabled]="tokenLoading">
+      <ng-container i18n="Generate RSS feed token">Generate feed URL</ng-container>
+    </button>
+    @if (tokenError) {
+      <p class="text-danger">{{tokenError}}</p>
+    }
+  }
+
   <mat-form-field style="width: 100%;">
     <mat-label i18n="URL">URL</mat-label>
     <input readonly [(ngModel)]="url" matInput>
-    <button mat-icon-button matSuffix (click)="copyURL()">
+    <button mat-icon-button matSuffix (click)="copyURL()" [disabled]="multiUserMode && !apiToken">
       <mat-icon>content_copy</mat-icon>
     </button>
   </mat-form-field>

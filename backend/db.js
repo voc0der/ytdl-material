@@ -106,6 +106,35 @@ const tables = {
             key: 'text'
         }
     },
+    /*************************************************
+     * Per-user API tokens.
+     *
+     * Kept in their own table rather than on the user
+     * record so a token can be looked up by its hash
+     * directly. Scanning every user on every API
+     * request would work at self-hosted sizes and
+     * would still be the wrong shape.
+     *
+     * Only the hash is stored. The token itself is
+     * shown once, at generation, and cannot be
+     * recovered afterwards -- a table anyone can read
+     * with a database client should not be a list of
+     * working credentials.
+     ************************************************/
+    api_tokens: {
+        name: 'api_tokens',
+        primary_key: 'id',
+        field_types: {
+            id: 'text',
+            hash: 'text',
+            user_uid: 'text',
+            type: 'text'
+        },
+        indexes: [
+            { keys: { hash: 1 } },
+            { keys: { user_uid: 1 } }
+        ]
+    },
     users: {
         name: 'users',
         primary_key: 'uid',

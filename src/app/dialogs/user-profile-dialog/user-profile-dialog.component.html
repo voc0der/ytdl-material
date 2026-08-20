@@ -15,6 +15,68 @@
       <div style="margin-top: 20px;">
       </div>
       <mat-divider style="margin-bottom: 20px"></mat-divider>
+
+      <div class="api-tokens">
+        <strong><ng-container i18n="API tokens heading">API tokens</ng-container></strong>
+        <div class="api-tokens-hint" i18n="API tokens explanation">
+          Full API tokens let scripts act as you, with your permissions. RSS tokens work only for a feed. Both can be revoked at any time.
+        </div>
+
+        @if (new_token) {
+          <div class="new-token">
+            <div class="new-token-warning" i18n="New API token warning">Copy this now &mdash; it is not shown again.</div>
+            <code class="new-token-value">{{new_token}}</code>
+            <div>
+              <button mat-stroked-button color="primary" (click)="copyNewToken()"><ng-container i18n="Copy">Copy</ng-container></button>
+              <button mat-button (click)="dismissNewToken()"><ng-container i18n="Done">Done</ng-container></button>
+            </div>
+          </div>
+        }
+
+        @if (api_tokens.length) {
+          @for (token of api_tokens; track token.id) {
+          <div class="token-row">
+            <div class="token-details">
+              <div class="token-label">{{token.label || 'Unnamed token'}}</div>
+              <div class="token-dates">
+                @if (token.type === 'rss') {
+                  <ng-container i18n="RSS feed token type">RSS feed</ng-container>
+                } @else {
+                  <ng-container i18n="Full API token type">Full API</ng-container>
+                }
+                &middot;
+                <ng-container i18n="Token created">Created</ng-container>&nbsp;{{token.created | date}}
+                &middot;
+                @if (token.last_used) {
+                  <ng-container i18n="Token last used">last used</ng-container>&nbsp;{{token.last_used | date}}
+                } @else {
+                  <ng-container i18n="Token never used">never used</ng-container>
+                }
+              </div>
+            </div>
+            <button mat-icon-button color="warn" (click)="revokeAPIToken(token.id)" matTooltip="Revoke" i18n-matTooltip="Revoke token tooltip">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+          }
+        } @else if (!api_tokens_loading) {
+          <div class="api-tokens-hint" i18n="No API tokens">You have no tokens yet.</div>
+        }
+
+        <div class="new-token-form">
+          <mat-form-field color="accent" class="token-label-field">
+            <mat-label i18n="Token name label">Name (optional)</mat-label>
+            <input matInput [(ngModel)]="new_token_label" placeholder="Backup script" maxlength="64">
+          </mat-form-field>
+          <button mat-stroked-button color="accent" (click)="generateAPIToken()"><ng-container i18n="Generate token">Generate</ng-container></button>
+        </div>
+
+        @if (token_error) {
+          <div class="token-error">{{token_error}}</div>
+        }
+      </div>
+
+      <mat-divider style="margin: 20px 0"></mat-divider>
     </div>
   }
   <mat-form-field color="accent">

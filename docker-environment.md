@@ -79,8 +79,13 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 
 ## Public API Variables
 
-The API is authorized by the JWT from `/api/auth/login` and by each route's permissions.
-None of the variables below grant or restrict access to any endpoint.
+Scripts and other machine clients authenticate with a **per-user API token**, generated from
+*Your Profile* in the web UI. Pass it in an `X-Api-Token` header; the `apiToken` query form
+also works where a client cannot set headers. A
+full API token acts as the account that made it, with that account's permissions, and can be
+revoked from the same place. RSS URLs use a separate feed-only token, so exposing a feed URL
+does not grant access to other API routes. None of the variables below grant or restrict
+access to any endpoint.
 
 * `ytdl_use_api_key`: set to `'true'` to allow the documentation page to be served. Despite
   the name it does not require an `apiKey` for anything, and never did.
@@ -91,8 +96,8 @@ None of the variables below grant or restrict access to any endpoint.
 
 > **Deprecated.** The `apiKey` parameter never restricted access to any endpoint, and it did
 > not identify the caller, so it could not authorize anything either. Enabling it does not
-> harden an installation and the backend logs a warning at startup saying so. Per-user API
-> tokens are tracked in [#388](https://github.com/voc0der/ytdl-material/issues/388).
+> harden an installation and the backend logs a warning at startup saying so. Use a per-user
+> API token instead.
 
 ## HTTPS and Reverse Proxy Variables
 

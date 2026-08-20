@@ -12,8 +12,6 @@ import { Clipboard } from '@angular/cdk/clipboard';
     standalone: false
 })
 export class GenerateRssUrlComponent {
-  usersList = null;
-  userFilter = '';
   titleFilter = '';
   subscriptionFilter = '';
   fileTypeFilter = 'both';
@@ -23,20 +21,29 @@ export class GenerateRssUrlComponent {
   baseURL = `${this.postsService.config.Host.url}:${this.postsService.config.Host.port}/api/rss`
   sortProperty = 'registered'
   descendingMode = true
+  apiToken = null;
+  tokenLoading = false;
+  tokenError = null;
+  multiUserMode = !!this.postsService.config?.Advanced?.multi_user_mode;
   constructor(public postsService: PostsService, private router: Router, private serializer: UrlSerializer, private clipboard: Clipboard) {
-    if (postsService.isLoggedIn) {
-      this.usersList = [this.postsService.user];
-      this.userFilter = postsService.user.uid;
-      this.getUsers();
-    }
     this.url = this.baseURL;
     this.rebuildURL();
   }
 
-  getUsers() {
-    this.postsService.getUsers().subscribe(res => {
-      this.usersList = res['users'];
-      console.log(this.usersList)
+  generateFeedToken() {
+    this.tokenLoading = true;
+    this.tokenError = null;
+    this.postsService.generateAPIToken('RSS feed', 'rss').subscribe(res => {
+      this.tokenLoading = false;
+      if (!res?.success || !res.token) {
+        this.tokenError = res?.error || $localize`Could not generate an RSS token.`;
+        return;
+      }
+      this.apiToken = res.token;
+      this.rebuildURL();
+    }, err => {
+      this.tokenLoading = false;
+      this.tokenError = err?.error?.error || err || $localize`Could not generate an RSS token.`;
     });
   }
 
@@ -50,8 +57,8 @@ export class GenerateRssUrlComponent {
     // code can be cleaned up
     const params = {};
 
-    if (this.userFilter) {
-      params['uuid'] = encodeURIComponent(this.userFilter);
+    if (this.apiToken) {
+      params['apiToken'] = this.apiToken;
     }
 
     if (this.titleFilter) {
@@ -84,6 +91,7 @@ export class GenerateRssUrlComponent {
   }
 
   copyURL() {
+    if (this.multiUserMode && !this.apiToken) return;
     this.clipboard.copy(this.url);
     this.postsService.openSnackBar('URL copied!');
   }

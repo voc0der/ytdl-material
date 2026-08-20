@@ -1382,11 +1382,13 @@ describe('The published API specification', function() {
             'the spec still defines or references the deprecated apiKey scheme');
     });
 
-    it('secures every operation with the JWT scheme instead', function() {
+    it('defines and uses the supported user-token schemes', function() {
         const yaml = require('js-yaml');
         const spec = yaml.load(fs.readFileSync(spec_path, 'utf8'));
 
-        assert.deepStrictEqual(Object.keys(spec.components.securitySchemes), ['JWT token parameter']);
+        assert.deepStrictEqual(Object.keys(spec.components.securitySchemes), [
+            'JWT token parameter', 'API token parameter', 'API token header'
+        ]);
 
         const referenced = new Set();
         for (const operations of Object.values(spec.paths)) {
@@ -1397,7 +1399,9 @@ describe('The published API specification', function() {
             }
         }
 
-        assert.deepStrictEqual([...referenced], ['JWT token parameter']);
+        assert.deepStrictEqual([...referenced], [
+            'JWT token parameter', 'API token parameter', 'API token header'
+        ]);
     });
 });
 

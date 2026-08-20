@@ -5,7 +5,8 @@ const http = require('http');
 const https = require('https');
 const auth_api = require('./authentication/auth');
 const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('./authentication/permissions');
-const { optionalJwt, resolveJwtIfPresent } = require('./authentication/optional-jwt');
+const { optionalJwt, resolveJwtIfPresent, requireJwtForTokenManagement } = require('./authentication/optional-jwt');
+const api_tokens_api = require('./authentication/api-tokens');
 const oidc_api = require('./authentication/oidc');
 const path = require('path');
 const compression = require('compression');
@@ -3635,6 +3636,53 @@ app.post('/api/auth/jwtAuth'
         , auth_api.returnAuthResponse
 );
 /*************************************************
+ * Per-user API tokens: the replacement for the
+ * Public API key.
+ *
+ * All three act on the calling account and take no
+ * uid from the request, so there is no version of
+ * these that touches somebody else's tokens.
+ *
+ * They are pointless in single-user mode, which has
+ * no accounts and asks for no credentials, so they
+ * say so rather than issuing a token that means
+ * nothing.
+ ************************************************/
+function refuseTokensInSingleUserMode(res) {
+    res.status(400).send({
+        success: false,
+        error: 'API tokens are only used in multi-user mode. Single-user mode does not require a credential.'
+    });
+}
+
+app.post('/api/listAPITokens', optionalJwt, requireAuthenticated, requireJwtForTokenManagement, async (req, res) => {
+    if (!config_api.getConfigItem('ytdl_multi_user_mode')) return refuseTokensInSingleUserMode(res);
+
+    res.send({success: true, tokens: await api_tokens_api.listTokensForUser(req.user.uid)});
+});
+
+app.post('/api/generateAPIToken', optionalJwt, requireAuthenticated, requireJwtForTokenManagement, async (req, res) => {
+    if (!config_api.getConfigItem('ytdl_multi_user_mode')) return refuseTokensInSingleUserMode(res);
+
+    const token_request = req.body || {};
+    const result = await api_tokens_api.generateTokenForUser(req.user.uid, token_request.label, token_request.type);
+    if (!result || result.error) {
+        res.status(400).send({success: false, error: result ? result.error : 'Could not generate a token'});
+        return;
+    }
+
+    // The token itself appears here and nowhere else, ever again.
+    res.send({success: true, ...result});
+});
+
+app.post('/api/revokeAPIToken', optionalJwt, requireAuthenticated, requireJwtForTokenManagement, async (req, res) => {
+    if (!config_api.getConfigItem('ytdl_multi_user_mode')) return refuseTokensInSingleUserMode(res);
+
+    const success = await api_tokens_api.revokeTokenForUser(req.user.uid, req.body && req.body.token_id);
+    res.send({success: success});
+});
+
+/*************************************************
  * The uid used to come straight off the request
  * body and was written without any check at all, so
  * any account could reset any other -- including
@@ -3715,6 +3763,10 @@ app.post('/api/deleteUser', optionalJwt, requireAdmin, async (req, res) => {
     let uid = req.body.uid;
     try {
         const success = await auth_api.deleteUser(uid);
+        // A token must not outlive the account it belongs to. resolveToken cleans up an
+        // orphan when it meets one, but that leaves a window where the credential is still
+        // presentable, and nothing should have to rely on being asked.
+        if (success) await api_tokens_api.revokeAllTokensForUser(uid);
         res.send({success: success});
     } catch (err) {
         logger.error(err);
@@ -3872,7 +3924,7 @@ app.post('/api/telegramRequest', async (req, res) => {
 
 // rss feed
 
-app.get('/api/rss', async function (req, res) {
+app.get('/api/rss', optionalJwt, requireAuthenticated, async function (req, res) {
     if (!config_api.getConfigItem('ytdl_enable_rss_feed')) {
         logger.error('RSS feed is disabled! It must be enabled in the settings before it can be generated.');
         res.sendStatus(403);
@@ -3891,7 +3943,9 @@ app.get('/api/rss', async function (req, res) {
             ? `${req.query.category_filter_uids}`.split(',').map(category_uid => decodeURIComponent(category_uid))
             : null;
     const sub_id = req.query.sub_id ? decodeURIComponent(req.query.sub_id) : null;
-    const uuid = req.query.uuid ? decodeURIComponent(req.query.uuid) : null;
+    // The credential, not a caller-supplied uid, decides whose feed this is. In
+    // single-user mode the guard is intentionally inert and records have no owner.
+    const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const {files} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid, category_filter_uids);
 

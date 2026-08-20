@@ -613,6 +613,19 @@ export class PostsService {
         return this.http.post<GenerateNewApiKeyResponse>(this.path + 'generateNewAPIKey', {}, this.httpOptions);
     }
 
+    // Per-user API tokens. All three act on the calling account; none of them takes a uid.
+    listAPITokens() {
+        return this.http.post<{success: boolean, tokens: {id: string, label: string, type: 'api' | 'rss', created: number, last_used: number | null}[]}>(this.path + 'listAPITokens', {}, this.httpOptions);
+    }
+
+    generateAPIToken(label: string, type: 'api' | 'rss' = 'api') {
+        return this.http.post<{success: boolean, token?: string, id?: string, label?: string, type?: 'api' | 'rss', created?: number, error?: string}>(this.path + 'generateAPIToken', {label: label, type: type}, this.httpOptions);
+    }
+
+    revokeAPIToken(token_id: string) {
+        return this.http.post<{success: boolean}>(this.path + 'revokeAPIToken', {token_id: token_id}, this.httpOptions);
+    }
+
     enableSharing(uid: string, is_playlist: boolean) {
         const body: SharingToggle = {uid: uid, is_playlist: is_playlist};
         return this.http.post<SuccessObject>(this.path + 'enableSharing', body, this.httpOptions);
