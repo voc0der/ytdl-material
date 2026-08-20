@@ -6,7 +6,7 @@
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
 <a href="https://github.com/voc0der/ytdl-material/blob/main/CONTRIBUTING.md#coverage">
-  <img src="https://img.shields.io/badge/coverage-57.0%25-orange" alt="Code coverage percentage" />
+  <img src="https://img.shields.io/badge/coverage-59.2%25-orange" alt="Code coverage percentage" />
 </a>
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
 [![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/main/LICENSE.md)
@@ -46,7 +46,7 @@ See the [install and build guide](./install-and-build.md).
 
 ## API
 
-Enable the public API in Settings -> *Extra*, generate an API key if needed, then enable API docs (restart required) for endpoint details.
+Enable the public API in Settings -> *Extra*, then enable API docs (restart required) for endpoint details.
 
 ## Contributing
 

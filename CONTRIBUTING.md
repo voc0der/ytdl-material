@@ -81,18 +81,17 @@ the badge lands between two values, and do not chase a tenth of a percent.
 
 ### After running it
 
-The backend suite rewrites `backend/appdata/default.json` and the sample media in
-`backend/test/`. Revert them before committing:
+Nothing. A run leaves the working tree clean.
 
-```bash
-git checkout -- backend/appdata backend/test
-```
+It did not always: the backend suite used to rewrite `backend/appdata/default.json` and
+regenerate the sample media in `backend/test/` with ffmpeg, whose output is not byte-stable.
+`coverage.sh` still checks those paths afterwards, but as a canary -- it now says nothing
+unless something has regressed.
 
 ### Why this is not in CI
 
-The working-tree churn above would have to be either committed or specially ignored on every
-run, and the number moves slowly enough that a manual refresh when the badge looks stale is a
-better trade. Update the badge in the same PR as whatever moved it.
+The number moves slowly enough that a manual refresh when the badge looks stale is a better
+trade than a job on every PR. Update the badge in the same PR as whatever moved it.
 
 ## Notes
 

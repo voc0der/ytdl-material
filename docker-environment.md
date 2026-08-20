@@ -79,9 +79,20 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 
 ## Public API Variables
 
-* `ytdl_use_api_key`: set to `'true'` to require `apiKey` for public API endpoints
-* `ytdl_api_key`: public API key value used when `ytdl_use_api_key` is enabled
-* `ytdl_enable_documentation_api`: set to `'true'` to expose local API docs at `/docs` (requires `ytdl_use_api_key` and restart)
+The API is authorized by the JWT from `/api/auth/login` and by each route's permissions.
+None of the variables below grant or restrict access to any endpoint.
+
+* `ytdl_use_api_key`: set to `'true'` to allow the documentation page to be served. Despite
+  the name it does not require an `apiKey` for anything, and never did.
+* `ytdl_api_key`: the value returned by the settings menu's *generate* button. Still accepted
+  as an `apiKey` query parameter and ignored, so existing scripts keep working.
+* `ytdl_enable_documentation_api`: set to `'true'` to expose local API docs at `/docs`
+  (requires `ytdl_use_api_key` and restart)
+
+> **Deprecated.** The `apiKey` parameter never restricted access to any endpoint, and it did
+> not identify the caller, so it could not authorize anything either. Enabling it does not
+> harden an installation and the backend logs a warning at startup saying so. Per-user API
+> tokens are tracked in [#388](https://github.com/voc0der/ytdl-material/issues/388).
 
 ## HTTPS and Reverse Proxy Variables
 

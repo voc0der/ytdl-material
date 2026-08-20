@@ -2,10 +2,12 @@
 #
 # Measures line coverage across both trees and prints the number the README badge uses.
 #
-# Deliberately not part of CI. The backend suite writes to appdata/ and to the sample
-# media in backend/test/, so a coverage run leaves the working tree dirty and has to be
-# reverted -- see CONTRIBUTING.md. Running it on every PR would mean either committing
-# that churn or teaching CI to ignore it, for a number that moves slowly.
+# Deliberately not part of CI: the number moves slowly enough that a manual refresh when
+# the badge looks stale is the better trade -- see CONTRIBUTING.md.
+#
+# A run used to leave the working tree dirty, because the backend suite rewrote appdata/
+# and the sample media in backend/test/. It no longer does, and the check at the end of
+# this script is the canary for that going wrong again rather than a standing instruction.
 #
 # Usage: dev/coverage/coverage.sh [frontend|backend]
 #        (no argument runs both)
@@ -89,7 +91,13 @@ esac
 
 node "$HERE/summarize.mjs"
 
+# The suite is supposed to leave these alone. Warn only if it did not, so this stays a
+# canary rather than a step everyone learns to perform by reflex.
 if [ "${1:-both}" != "frontend" ]; then
-  warn "the backend suite rewrote backend/appdata/default.json and backend/test/sample_mp*."
-  warn "revert them before committing: git checkout -- backend/appdata backend/test"
+  dirtied="$(git -C "$ROOT" status --porcelain -- backend/appdata backend/test 2>/dev/null)"
+  if [ -n "$dirtied" ]; then
+    warn "the backend suite left changes behind -- it is not supposed to:"
+    printf '%s\n' "$dirtied"
+    warn "revert them before committing: git checkout -- backend/appdata backend/test"
+  fi
 fi
