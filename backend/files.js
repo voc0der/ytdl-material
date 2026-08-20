@@ -647,6 +647,13 @@ async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) 
     if (!subtitle_sidecar_path) return null;
     if (!(await fs.pathExists(file_path))) return null;
 
+    // This deletes a file and then hands ffmpeg somewhere to write. Both deserve a check of
+    // their own rather than an inherited assumption about where the media file was.
+    if (!utils.isPathInsideMediaRoots(subtitle_sidecar_path)) {
+        logger.warn(`Refusing to write a subtitle sidecar outside the media roots: ${subtitle_sidecar_path}`);
+        return null;
+    }
+
     try {
         await fs.remove(subtitle_sidecar_path);
     } catch (e) {
@@ -1807,6 +1814,56 @@ exports.getVideo = async (file_uid, user_uid = null, sub_id = null) => {
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
     if (sub_id) filter_obj['sub_id'] = sub_id;
     return await db_api.getRecord('files', filter_obj);
+}
+
+// Thumbnails are served straight off disk, so what may be served is fixed here rather than
+// inferred from whatever a record happens to hold.
+const ALLOWED_THUMBNAIL_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+
+/*************************************************
+ * Resolves the thumbnail a given caller is allowed
+ * to see for a given file, or null.
+ *
+ * The endpoint used to take the thumbnail's path
+ * from the URL and serve anything that landed
+ * inside a list of allowed roots -- a list that
+ * included the backend directory, the parent of
+ * every user's media on a default install. Any
+ * logged-in user could read any other user's
+ * thumbnails by naming the path.
+ *
+ * No path check can fix that on its own, because
+ * the video and audio folders are shared between
+ * users and a path does not say who owns it. The
+ * record does, so the record decides and the caller
+ * never names a path.
+ *
+ * It lives here rather than in the route handler so
+ * it can be exercised without booting the server;
+ * the last thing hidden behind that boot was a dead
+ * code path that survived a round of review.
+ ************************************************/
+exports.getThumbnailPathForUser = async (file_uid, user_uid = null) => {
+    if (typeof file_uid !== 'string' || !file_uid.trim()) return null;
+
+    const file_obj = await exports.getVideo(file_uid, user_uid);
+    if (!file_obj) return null;
+
+    const stored_thumbnail_path = file_obj['thumbnailPath']
+        || (file_obj['path'] ? utils.getDownloadedThumbnail(file_obj['path']) : null);
+    if (!stored_thumbnail_path) return null;
+
+    // Resolved against the working directory, which is what every other media path check
+    // does and what getDownloadedThumbnail assumed when it recorded a relative path.
+    const resolved_thumbnail_path = path.resolve(stored_thumbnail_path);
+    if (!ALLOWED_THUMBNAIL_EXTENSIONS.has(path.extname(resolved_thumbnail_path).toLowerCase())) return null;
+
+    // The record already settles ownership. This is the second lock: a stored thumbnailPath
+    // pointing outside the caller's media is not served whatever the record says, so a bad
+    // value written before that field was validated stays inert.
+    if (!utils.isPathInsideMediaRoots(resolved_thumbnail_path, user_uid)) return null;
+
+    return resolved_thumbnail_path;
 }
 
 exports.getVideosByUIDs = async (file_uids = [], user_uid = null) => {

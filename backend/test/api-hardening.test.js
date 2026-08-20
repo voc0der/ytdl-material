@@ -1400,3 +1400,215 @@ describe('The published API specification', function() {
         assert.deepStrictEqual([...referenced], ['JWT token parameter']);
     });
 });
+
+describe('Thumbnail access', function() {
+    const {assert, files_api, fs, path, useTemporaryMediaRoots, utils} = require('./test-shared');
+
+    /*************************************************
+     * The endpoint used to take the thumbnail's path
+     * straight off the URL and serve anything that
+     * resolved inside a list of allowed roots -- and
+     * that list included the backend directory itself,
+     * which on a default install is the parent of
+     * every user's media. Any logged-in user could
+     * read any other user's thumbnails by naming the
+     * path.
+     *
+     * Tightening the roots is not enough on its own:
+     * the video and audio folders are shared between
+     * users, so no path check can say whose file a
+     * path refers to. Only the record can.
+     ************************************************/
+    let media_roots = null;
+    const original_getVideo = files_api.getVideo;
+    let lookups = [];
+    let records = {};
+
+    beforeEach(function() {
+        media_roots = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+        lookups = [];
+        records = {};
+        files_api.getVideo = async (file_uid, user_uid = null) => {
+            lookups.push({file_uid, user_uid});
+            const record = records[file_uid];
+            // Mirrors the real scoping: a record belonging to somebody else does not come back.
+            if (!record) return null;
+            if (user_uid && record.user_uid && record.user_uid !== user_uid) return null;
+            return record;
+        };
+    });
+
+    afterEach(function() {
+        files_api.getVideo = original_getVideo;
+        if (media_roots) media_roots.restore();
+    });
+
+    function giveUserAThumbnail(user_uid, file_uid, extension = '.jpg') {
+        const user_directory = path.join(media_roots.users, user_uid);
+        fs.ensureDirSync(user_directory);
+        const thumbnail_path = path.join(user_directory, `${file_uid}${extension}`);
+        fs.writeFileSync(thumbnail_path, 'not really an image');
+        records[file_uid] = {uid: file_uid, user_uid: user_uid, thumbnailPath: thumbnail_path};
+        return thumbnail_path;
+    }
+
+    it('serves the thumbnail recorded against a file the caller owns', async function() {
+        const thumbnail_path = giveUserAThumbnail('alice', 'alice_file');
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('alice_file', 'alice'),
+            path.resolve(thumbnail_path));
+    });
+
+    it('scopes the lookup to the caller', async function() {
+        giveUserAThumbnail('bob', 'bob_file');
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('bob_file', 'alice'), null,
+            'a file belonging to another user must not resolve');
+        assert.deepStrictEqual(lookups, [{file_uid: 'bob_file', user_uid: 'alice'}],
+            'the caller uid has to reach the record lookup, or the scoping never happens');
+    });
+
+    it('refuses a record whose thumbnail sits in another user\'s directory', async function() {
+        // The record comes back -- ownership says yes -- but the path it holds points at
+        // somebody else's media. This is the value the path check exists for.
+        const bobs_thumbnail = giveUserAThumbnail('bob', 'bob_file');
+        records['alice_file'] = {uid: 'alice_file', user_uid: 'alice', thumbnailPath: bobs_thumbnail};
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('alice_file', 'alice'), null);
+    });
+
+    it('refuses a record pointing outside the media roots entirely', async function() {
+        records['alice_file'] = {uid: 'alice_file', user_uid: 'alice', thumbnailPath: path.join(__dirname, '..', 'app.js')};
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('alice_file', 'alice'), null);
+    });
+
+    it('serves images only', async function() {
+        const user_directory = path.join(media_roots.users, 'alice');
+        fs.ensureDirSync(user_directory);
+        const info_json_path = path.join(user_directory, 'alice_file.info.json');
+        fs.writeFileSync(info_json_path, '{}');
+        records['alice_file'] = {uid: 'alice_file', user_uid: 'alice', thumbnailPath: info_json_path};
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('alice_file', 'alice'), null,
+            'the endpoint must not become a way to read arbitrary files that happen to be contained');
+    });
+
+    it('answers the same way for a file that does not exist and one that is not yours', async function() {
+        giveUserAThumbnail('bob', 'bob_file');
+
+        assert.strictEqual(await files_api.getThumbnailPathForUser('bob_file', 'alice'), null);
+        assert.strictEqual(await files_api.getThumbnailPathForUser('no_such_file', 'alice'), null);
+    });
+
+    it('refuses a missing or empty uid rather than resolving something', async function() {
+        for (const bad_uid of ['', '   ', null, undefined, 42]) {
+            assert.strictEqual(await files_api.getThumbnailPathForUser(bad_uid, 'alice'), null);
+        }
+        assert.deepStrictEqual(lookups, [], 'a uid that cannot be one should not reach the database');
+    });
+
+    it('no longer accepts a path on the URL at all', function() {
+        const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+        assert(!app_source.includes("'/api/thumbnail/:path'"),
+            'the route must be keyed on a file uid; a path parameter cannot be authorized');
+        assert(app_source.includes("'/api/thumbnail/:uid'"));
+    });
+
+    it('keeps the resolution consistent with every other media path check', function() {
+        // getThumbnailPathForUser resolves against the working directory. If that ever
+        // diverged from what isPathInsideMediaRoots resolves against, every thumbnail on a
+        // default install would 404 -- or worse, stop being checked.
+        const relative_root = path.relative(process.cwd(), media_roots.video);
+
+        assert(utils.isPathInsideMediaRoots(path.join(relative_root, 'example.jpg')));
+    });
+});
+
+describe('Sidecar path derivation', function() {
+    const {assert, fs, path, useTemporaryMediaRoots, utils} = require('./test-shared');
+
+    /*************************************************
+     * removeFileExtension split the whole path on '.'
+     * and dropped the last piece. That is only the
+     * extension when no directory above the file has
+     * a dot in its name.
+     *
+     * A media root called 'media.v2' holding a file
+     * with no extension turned into '/media', so every
+     * sidecar derived from it -- .info.json, .jpg, the
+     * subtitle sidecars -- pointed outside the media
+     * root, and the reads, chmods, unlinks and ffmpeg
+     * writes that use those paths all followed.
+     ************************************************/
+    it('strips the extension and leaves the directory alone', function() {
+        assert.strictEqual(utils.removeFileExtension('/srv/media/clip.mp4'), '/srv/media/clip');
+        assert.strictEqual(utils.removeFileExtension('clip.mp4'), 'clip');
+        assert.strictEqual(utils.removeFileExtension('/srv/media/clip.tar.gz'), '/srv/media/clip.tar');
+    });
+
+    it('does not eat a directory when the file has no extension', function() {
+        assert.strictEqual(utils.removeFileExtension('/media.v2/video/clip'), '/media.v2/video/clip');
+        assert.strictEqual(utils.removeFileExtension('/srv/a.b/c'), '/srv/a.b/c');
+        assert.strictEqual(utils.removeFileExtension('/x/y/z'), '/x/y/z');
+    });
+
+    it('leaves a dotfile alone rather than reducing it to nothing', function() {
+        assert.strictEqual(utils.removeFileExtension('.hidden'), '.hidden');
+    });
+
+    it('keeps every derived sidecar a sibling of the media file', function() {
+        // The property every caller assumes, stated once: whatever comes back shares the
+        // media file's directory, so containment of the file means containment of its
+        // sidecars.
+        const awkward_paths = [
+            '/media.v2/video/clip', '/media.v2/video/clip.mp4', '/srv/a.b.c/d.e/clip',
+            '/srv/media/clip', 'video/clip.webm'
+        ];
+
+        for (const file_path of awkward_paths) {
+            assert.strictEqual(path.dirname(path.resolve(utils.removeFileExtension(file_path))),
+                path.dirname(path.resolve(file_path)),
+                `${file_path} derived a sidecar base in a different directory`);
+        }
+    });
+
+    it('does not read a sidecar out of a dotted parent directory', function() {
+        // The original report, reproduced: a root with a dot, an extensionless media file,
+        // and an .info.json sitting one level up that must not be found.
+        const media_roots = useTemporaryMediaRoots({'ytdl_video_folder_path': '/does/not/matter'});
+        try {
+            const dotted_root = path.join(media_roots.base, 'media.v2');
+            const video_directory = path.join(dotted_root, 'video');
+            fs.ensureDirSync(video_directory);
+
+            const media_path = path.join(video_directory, 'clip');
+            fs.writeFileSync(media_path, 'media');
+            fs.writeFileSync(path.join(media_roots.base, 'media.info.json'), JSON.stringify({title: 'outside'}));
+
+            assert.strictEqual(utils.getJSON(media_path, 'video'), 0,
+                'the sidecar above the media root must not be reachable from a file inside it');
+        } finally {
+            media_roots.restore();
+        }
+    });
+
+    it('refuses to chmod or unlink metadata outside the media roots', function() {
+        const media_roots = useTemporaryMediaRoots();
+        try {
+            const outside_directory = path.join(media_roots.base, 'outside');
+            fs.ensureDirSync(outside_directory);
+            const outside_json = path.join(outside_directory, 'clip.info.json');
+            fs.writeFileSync(outside_json, '{}');
+
+            utils.fixVideoMetadataPerms(path.join(outside_directory, 'clip.mp4'), 'video');
+            utils.deleteJSONFile(path.join(outside_directory, 'clip.mp4'), 'video');
+
+            assert.strictEqual(fs.existsSync(outside_json), true,
+                'a media path outside the roots must not have its sidecars deleted');
+        } finally {
+            media_roots.restore();
+        }
+    });
+});

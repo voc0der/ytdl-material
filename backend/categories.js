@@ -282,6 +282,9 @@ async function getCategoriesAsPlaylists() {
         const category_playlist = {...category};
         category_playlist['thumbnailURL'] = files_that_match[0].thumbnailURL;
         category_playlist['thumbnailPath'] = files_that_match[0].thumbnailPath;
+        // A category is not a file, so it has no thumbnail of its own -- it borrows one.
+        // The thumbnail endpoint takes a file uid, so say which file it is borrowing from.
+        category_playlist['thumbnailFileUid'] = files_that_match[0].uid;
         category_playlist['duration'] = files_that_match.reduce((a, b) => a + utils.durationStringToNumber(b.duration), 0);
         category_playlist['id'] = category_playlist['uid'];
         category_playlist['auto'] = true;

@@ -2986,45 +2986,26 @@ app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, async 
     res.sendFile(resolved_subtitle_path);
 });
 
-app.get('/api/thumbnail/:path', optionalJwt, requireAuthenticated, async (req, res) => {
-    // Express route params are already decoded.
-    const requestedPath = typeof req.params.path === 'string' ? req.params.path : '';
-    const resolvedRequestedPath = path.isAbsolute(requestedPath) ? path.resolve(requestedPath) : path.resolve(__dirname, requestedPath);
-    const thumbnailExt = path.extname(resolvedRequestedPath).toLowerCase();
-    const allowedThumbnailExts = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-    if (!allowedThumbnailExts.has(thumbnailExt)) {
-        res.sendStatus(400);
-        return;
-    }
-
-    // Scoped to the caller in multi-user mode, so one user cannot read a thumbnail out of
-    // another user's directory just by naming its path.
+app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, async (req, res) => {
+    /*************************************************
+     * Identifies the thumbnail by the uid of the file
+     * it belongs to, never by a path off the URL.
+     * files_api.getThumbnailPathForUser carries the
+     * reasoning and the checks.
+     *
+     * One answer for "no such file", "not yours" and
+     * "the record points somewhere it should not", so
+     * the endpoint cannot be used to find out which
+     * uids exist.
+     ************************************************/
     const caller_uid = req.isAuthenticated() && req.user ? req.user.uid : null;
-    const configuredRoots = [
-        __dirname,
-        ...utils.getMediaRootsForUser(caller_uid)
-    ]
-        .filter(Boolean)
-        .map(root => path.resolve(__dirname, root));
-
-    let thumbnailRoot = null;
-    let thumbnailRelativePath = null;
-    for (const root of configuredRoots) {
-        const relativePath = path.relative(root, resolvedRequestedPath);
-        if (relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
-            thumbnailRoot = root;
-            thumbnailRelativePath = relativePath;
-            break;
-        }
-    }
-
-    if (!thumbnailRoot || !thumbnailRelativePath) {
-        logger.warn(`Refusing thumbnail request outside allowed roots: ${requestedPath}`);
-        res.sendStatus(403);
+    const thumbnail_path = await files_api.getThumbnailPathForUser(req.params.uid, caller_uid);
+    if (!thumbnail_path) {
+        res.sendStatus(404);
         return;
     }
 
-    res.sendFile(thumbnailRelativePath, { root: thumbnailRoot }, (err) => {
+    res.sendFile(thumbnail_path, (err) => {
         if (!err) return;
         if (res.headersSent) return;
         if (err.statusCode === 404) {

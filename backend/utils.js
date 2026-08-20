@@ -369,6 +369,14 @@ exports.getExpectedFileSize = (input_info_jsons) => {
 exports.fixVideoMetadataPerms = (file_path, type) => {
     if (is_windows) return;
 
+    // chmod is a write. Derived sidecar paths are siblings of the media file now, so a
+    // contained media file means contained sidecars -- but the media path itself arrives
+    // from a database record here, and a record is not a guarantee.
+    if (!exports.isPathInsideMediaRoots(file_path)) {
+        logger.warn(`Refusing to change permissions on metadata outside the media roots: ${file_path}`);
+        return;
+    }
+
     const ext = type === 'audio' ? '.mp3' : '.mp4';
 
     const file_path_no_extension = exports.removeFileExtension(file_path);
@@ -389,6 +397,12 @@ exports.fixVideoMetadataPerms = (file_path, type) => {
 }
 
 exports.deleteJSONFile = (file_path, type) => {
+    // Same reasoning as fixVideoMetadataPerms, and unlink is the less forgiving of the two.
+    if (!exports.isPathInsideMediaRoots(file_path)) {
+        logger.warn(`Refusing to delete metadata outside the media roots: ${file_path}`);
+        return;
+    }
+
     const ext = type === 'audio' ? '.mp3' : '.mp4';
 
     const file_path_no_extension = exports.removeFileExtension(file_path);
@@ -463,10 +477,29 @@ exports.recFindByExt = async (base, ext, files, result, recursive = true) => {
     return matching_files;
 }
 
+/*************************************************
+ * Strips the extension and nothing else.
+ *
+ * It used to split the whole path on '.' and drop
+ * the last piece, which is only the extension when
+ * no directory above the file contains a dot. Give
+ * it '/media.v2/video/clip' -- a media root with a
+ * dot in its name and a file with no extension --
+ * and it returned '/media', so every sidecar path
+ * derived from it ('.info.json', '.jpg', the
+ * subtitle sidecars) pointed outside the media root
+ * entirely: read, chmod, unlink and ffmpeg output
+ * all followed it there.
+ *
+ * path.extname only ever looks at the basename, so
+ * the result now always stays in the file's own
+ * directory, which is what every caller assumes.
+ ************************************************/
 exports.removeFileExtension = (filename) => {
-    const filename_parts = filename.split('.');
-    filename_parts.splice(filename_parts.length - 1);
-    return filename_parts.join('.');
+    if (typeof filename !== 'string' || !filename) return filename;
+    const extension = path.extname(filename);
+    if (!extension) return filename;
+    return filename.slice(0, filename.length - extension.length);
 }
 
 exports.formatDateString = (date_string) => {
