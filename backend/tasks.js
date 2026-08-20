@@ -13,7 +13,7 @@ const CONSTS = require('./consts');
 
 const fs = require('fs-extra');
 const path = require('path');
-const scheduler = require('node-schedule');
+const { Cron } = require('croner');
 
 const DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE = {
     type: 'recurring',
@@ -112,7 +112,7 @@ function getDefaultTaskSchedule(task_key) {
 
 function cancelTaskJob(task_key) {
     const existing_job = TASK_JOBS.get(task_key);
-    if (existing_job) existing_job.cancel();
+    if (existing_job) existing_job.stop();
     TASK_JOBS.delete(task_key);
 }
 
@@ -135,22 +135,49 @@ const defaultOptions = {
     }
 }
 
-function scheduleJob(task_key, schedule) {
-    // schedule has to be converted from our format to one node-schedule can consume
-    let converted_schedule = null;
-    if (schedule['type'] === 'timestamp') {
-        converted_schedule = new Date(schedule['data']['timestamp']);
-    } else if (schedule['type'] === 'recurring') {
-        const dayOfWeek = schedule['data']['dayOfWeek'] != null       ? schedule['data']['dayOfWeek'] : null;
-        const hour = schedule['data']['hour']           != null       ? schedule['data']['hour']      : null;
-        const minute = schedule['data']['minute']       != null       ? schedule['data']['minute']    : null;
-        converted_schedule = new scheduler.RecurrenceRule(null, null, null, dayOfWeek, hour, minute, undefined, schedule['data']['tz'] ? schedule['data']['tz'] : undefined);
-    } else {
-        logger.error(`Failed to schedule job '${task_key}' as the type '${schedule['type']}' is invalid.`)
+/*************************************************
+ * Our recurring schedule is {hour, minute,
+ * dayOfWeek}, where an absent field means "every".
+ * That maps onto cron directly.
+ *
+ * Seconds are pinned to 0 rather than left as '*'
+ * to match what this did before: node-schedule's
+ * RecurrenceRule defaulted an unset second to 0, so
+ * an hour-only schedule fired once a minute, not
+ * once a second.
+ ************************************************/
+function buildCronPattern(data) {
+    const field = (value) => {
+        if (value === null || value === undefined) return '*';
+        if (Array.isArray(value)) return value.length ? value.join(',') : '*';
+        return String(value);
+    };
+
+    return `0 ${field(data['minute'])} ${field(data['hour'])} * * ${field(data['dayOfWeek'])}`;
+}
+
+/*************************************************
+ * The schedule dialog sends the browser's timezone
+ * with every schedule, so most stored schedules
+ * carry a real IANA name. An unusable one should
+ * cost that task its timezone, not take down task
+ * setup for everything else -- croner throws on a
+ * timezone it cannot resolve.
+ ************************************************/
+function resolveTimezone(tz, task_key) {
+    if (!tz || typeof tz !== 'string') return null;
+    try {
+        new Intl.DateTimeFormat('en-US', {timeZone: tz});
+        return tz;
+    } catch {
+        logger.warn(`Task '${task_key}' is scheduled with an unrecognized timezone '${tz}'. `
+            + `Falling back to the server's local time; re-save the schedule to fix it.`);
         return null;
     }
+}
 
-    return scheduler.scheduleJob(converted_schedule, async () => {
+function scheduleJob(task_key, schedule) {
+    const runTask = async () => {
         const task_state = await db_api.getRecord('tasks', {key: task_key});
         if (task_state['running'] || task_state['confirming']) {
             logger.verbose(`Skipping running task ${task_state['key']} as it is already in progress.`);
@@ -161,7 +188,42 @@ function scheduleJob(task_key, schedule) {
         if (task_state['schedule']['type'] !== 'recurring') await db_api.updateRecord('tasks', {key: task_key}, {schedule: null});
         // we're just "running" the task, any confirmation should be user-initiated
         exports.executeRun(task_key);
-    });
+    };
+
+    // A rejection in here used to surface as an unhandled rejection, which on a modern
+    // node is a process-level crash rather than a warning.
+    const onError = (err) => logger.error(`Scheduled task '${task_key}' failed: ${err && err.message ? err.message : err}`);
+
+    if (schedule['type'] === 'timestamp') {
+        const run_at = new Date(schedule['data']['timestamp']);
+        if (Number.isNaN(run_at.getTime())) {
+            logger.error(`Failed to schedule job '${task_key}' as its timestamp is not a valid date.`);
+            return null;
+        }
+        const job = new Cron(run_at, {catch: onError}, runTask);
+        // croner hands back a job for a time that has already passed and simply never
+        // runs it. node-schedule returned nothing at all, and scheduleTaskJob relies on
+        // that to decide whether a task counts as scheduled.
+        if (!job.nextRun()) {
+            job.stop();
+            return null;
+        }
+        return job;
+    }
+
+    if (schedule['type'] === 'recurring') {
+        const pattern = buildCronPattern(schedule['data']);
+        const timezone = resolveTimezone(schedule['data']['tz'], task_key);
+        try {
+            return new Cron(pattern, {catch: onError, ...(timezone && {timezone})}, runTask);
+        } catch (err) {
+            logger.error(`Failed to schedule job '${task_key}' with pattern '${pattern}': ${err.message}`);
+            return null;
+        }
+    }
+
+    logger.error(`Failed to schedule job '${task_key}' as the type '${schedule['type']}' is invalid.`);
+    return null;
 }
 
 exports.setupTasks = async () => {
@@ -449,3 +511,4 @@ const guessSubscriptions = async (isPlaylist, basePath = null) => {
 }
 
 exports.TASKS = TASKS;
+exports.buildCronPattern = buildCronPattern;
