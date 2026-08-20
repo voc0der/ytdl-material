@@ -8,6 +8,8 @@ const {
     db_api
 } = require('./test-shared');
 
+const ldap_strategy = require('../authentication/ldap');
+
 // These run against the throwaway OpenLDAP server from dev/ldap/ldap-server.sh, and
 // skip themselves when nothing is listening -- CI has no directory to talk to, and a
 // contributor who has not started one should not see a wall of red.
@@ -48,13 +50,30 @@ function serverIsUp() {
 // initialized against. The strategy underneath needs neither, so drive it the way
 // passport does internally: shallow-copy it and swap in the outcome callbacks.
 function authenticate(username, password) {
-    const strategy = Object.create(auth_api.passport._strategies['ldapauth']);
+    const strategy = Object.create(auth_api.passport._strategies['ldap']);
     return new Promise((resolve) => {
         strategy.success = (user, info) => resolve({outcome: 'success', user, info});
         strategy.fail = (challenge, status) => resolve({outcome: 'fail', challenge, status});
         strategy.error = (error) => resolve({outcome: 'error', error});
         strategy.redirect = (url) => resolve({outcome: 'redirect', url});
         strategy.pass = () => resolve({outcome: 'pass'});
+        strategy.authenticate({body: {username, password}, query: {}, headers: {}}, {});
+    });
+}
+
+// Same, but intercepts the directory entry on its way to the verify callback, which is
+// the only place the raw LDAP attributes are visible.
+function authenticateCapturingEntry(username, password) {
+    const strategy = Object.create(auth_api.passport._strategies['ldap']);
+    return new Promise((resolve) => {
+        let captured = null;
+        strategy._verify = (entry, done) => {
+            captured = entry;
+            done(null, {uid: entry.uid});
+        };
+        strategy.success = () => resolve({outcome: 'success', entry: captured});
+        strategy.fail = (challenge, status) => resolve({outcome: 'fail', challenge, status});
+        strategy.error = (error) => resolve({outcome: 'error', error});
         strategy.authenticate({body: {username, password}, query: {}, headers: {}}, {});
     });
 }
@@ -273,6 +292,119 @@ describe('LDAP', function() {
 
             assert.strictEqual(result.outcome, 'success');
             assert.strictEqual(result.user.uid, uid);
+        });
+    });
+
+    describe('Search filter', function() {
+        it('escapes the username before substituting it in', function() {
+            const filter = ldap_strategy.buildSearchFilter('(uid={{username}})', 'a*b(c)\\d');
+
+            assert.strictEqual(filter, '(uid=a\\2ab\\28c\\29\\5cd)');
+        });
+
+        it('substitutes every occurrence of the placeholder', function() {
+            const filter = ldap_strategy.buildSearchFilter('(|(uid={{username}})(mail={{username}}))', 'jdoe');
+
+            assert.strictEqual(filter, '(|(uid=jdoe)(mail=jdoe))');
+        });
+
+        it('does not let a username smuggle syntax into the filter', async function() {
+            // Unescaped, '(uid=*)' matches every person in the base. It has to be searched
+            // for as a literal instead, which matches nobody.
+            const result = await authenticate('*', 'user-password');
+
+            assert.strictEqual(result.outcome, 'fail');
+            assert.strictEqual(result.status, 401);
+        });
+
+        it('does not let a username close the filter and append its own', async function() {
+            const result = await authenticate('ytdl-user)(objectClass=*', 'user-password');
+
+            assert.strictEqual(result.outcome, 'fail');
+        });
+
+        it('refuses to guess when the filter matches more than one entry', async function() {
+            // A filter that ignores {{username}} entirely is the degenerate case, but any
+            // filter loose enough to match two people has the same problem: binding as one
+            // of them would authenticate a user nobody named.
+            ldap_config = {...baseLdapConfig(), searchFilter: '(objectClass=inetOrgPerson)'};
+
+            const result = await authenticate('ytdl-user', 'user-password');
+
+            assert.strictEqual(result.outcome, 'fail');
+            assert.strictEqual(result.status, 401);
+        });
+    });
+
+    describe('Configuration handling', function() {
+        it('accepts adminDn/adminPassword as aliases for bindDN/bindCredentials', async function() {
+            // ldapauth-fork accepted both spellings, so a hand-edited config may use either.
+            ldap_config = {
+                url: LDAP_URL,
+                adminDn: BIND_DN,
+                adminPassword: BIND_PW,
+                searchBase: SEARCH_BASE,
+                searchFilter: '(uid={{username}})'
+            };
+
+            const result = await authenticate('ytdl-user', 'user-password');
+
+            assert.strictEqual(result.outcome, 'success');
+        });
+
+        it('searches anonymously when no bind DN is configured', async function() {
+            // A directory that allows anonymous search needs no service account, and the
+            // previous implementation skipped the admin bind entirely in that case.
+            ldap_config = {
+                url: LDAP_URL,
+                searchBase: SEARCH_BASE,
+                searchFilter: '(uid={{username}})'
+            };
+
+            const result = await authenticate('ytdl-user', 'user-password');
+
+            assert.strictEqual(result.outcome, 'success');
+            assert.strictEqual(result.user.uid, 'ytdl-user');
+        });
+
+        it('errors when required options are missing rather than groping in the dark', async function() {
+            ldap_config = {url: LDAP_URL};
+
+            const result = await authenticate('ytdl-user', 'user-password');
+
+            assert.strictEqual(result.outcome, 'error');
+            assert.match(result.error.message, /searchBase/);
+            assert.match(result.error.message, /searchFilter/);
+        });
+
+        it('reads config fresh on every login', function() {
+            // getLDAPConfiguration is called per request, so pointing the app at a new
+            // directory takes effect on the next login and not on the next restart.
+            const first = ldap_strategy.readConfig({url: 'ldap://one.test', searchBase: 'a', searchFilter: 'b'});
+            const second = ldap_strategy.readConfig({url: 'ldap://two.test', searchBase: 'a', searchFilter: 'b'});
+
+            assert.strictEqual(first.url, 'ldap://one.test');
+            assert.strictEqual(second.url, 'ldap://two.test');
+        });
+
+        it('defaults the search scope and bind property the way ldapauth-fork did', function() {
+            const config = ldap_strategy.readConfig({url: 'ldap://x.test', searchBase: 'a', searchFilter: 'b'});
+
+            assert.strictEqual(config.search_scope, 'sub');
+            assert.strictEqual(config.bind_property, 'dn');
+        });
+    });
+
+    describe('The entry handed to the verify callback', function() {
+        it('carries the directory attributes but not the password', async function() {
+            const result = await authenticateCapturingEntry('ytdl-user', 'user-password');
+
+            assert.strictEqual(result.outcome, 'success');
+            assert.strictEqual(result.entry.uid, 'ytdl-user');
+            assert.strictEqual(result.entry.dn, `uid=ytdl-user,${SEARCH_BASE}`);
+            assert.strictEqual(result.entry.mail, 'ytdl-user@ytdl.test');
+            assert.strictEqual(result.entry.userPassword, undefined,
+                'the service account can read userPassword; it must not travel any further');
         });
     });
 });

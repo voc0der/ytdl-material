@@ -79,9 +79,10 @@ behavior, so it would fail for reasons unrelated to any given change.
 
 # A local LDAP server
 
-`ytdl_auth_method: ldap` was the one auth path with no way to exercise it, which is why
-`passport-ldapauth` had gone so long without anyone confirming what it actually does.
-`dev/ldap/ldap-server.sh` fixes that by building a throwaway OpenLDAP and seeding it:
+`ytdl_auth_method: ldap` was the one auth path with no way to exercise it, which is why it
+went so long without anyone confirming what it actually does — and why replacing the LDAP
+client underneath it had to wait. `dev/ldap/ldap-server.sh` builds a throwaway OpenLDAP and
+seeds it:
 
 ```bash
 dev/ldap/ldap-server.sh start     # builds on first run (~2 min), then listens on :3389

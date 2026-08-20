@@ -366,7 +366,7 @@ const DEFAULT_CONFIG = {
             "url": "ldap://localhost:389",
             "bindDN": "cn=root",
             "bindCredentials": "secret",
-            "searchBase": "ou=passport-ldapauth",
+            "searchBase": "ou=people,dc=example,dc=com",
             "searchFilter": "(uid={{username}})"
         },
         "oidc": {

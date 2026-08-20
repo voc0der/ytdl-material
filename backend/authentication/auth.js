@@ -10,7 +10,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 var LocalStrategy = require('passport-local').Strategy;
-var LdapStrategy = require('passport-ldapauth');
+var LdapStrategy = require('./ldap');
 var JwtStrategy = require('passport-jwt').Strategy,
     ExtractJwt = require('passport-jwt').ExtractJwt;
 

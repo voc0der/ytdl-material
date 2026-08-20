@@ -3438,7 +3438,7 @@ app.post('/api/auth/login'
             }
             next();
         }
-        , auth_api.passport.authenticate(['local', 'ldapauth'], { session: false })
+        , auth_api.passport.authenticate(['local', 'ldap'], { session: false })
         , auth_api.generateJWT
         , auth_api.returnAuthResponse
 );
