@@ -316,14 +316,44 @@ describe('Config fields the client still needs', function() {
 
 describe('Saving a config that was handed out redacted', function() {
     const {assert, config_api} = require('./test-shared');
-    let original_config;
 
-    beforeEach(function() {
+    /*************************************************
+     * Snapshotted once, not per test.
+     *
+     * Taking it in beforeEach meant the second test
+     * captured whatever the first had written, so the
+     * restore preserved a fake credential instead of
+     * removing it -- and the config file is tracked,
+     * so the suite left that string in the repository.
+     ************************************************/
+    let original_config = null;
+
+    before(function() {
         original_config = config_api.getConfigFile();
     });
 
+    // The fields these tests write, cleared explicitly rather than by restoring a document
+    // that omits them. Omitting is exactly what makes setConfigFile carry a value forward,
+    // so a plain restore preserves the fake credential instead of removing it.
+    const FIELDS_THESE_TESTS_WRITE = [
+        ['API', 'telegram_bot_token'],
+        ['API', 'youtube_API_key'],
+        ['Users', 'oidc', 'client_secret'],
+        ['Database', 'postgresdb_connection_string']
+    ];
+
     afterEach(function() {
-        config_api.setConfigFile(original_config);
+        const restored = JSON.parse(JSON.stringify(original_config));
+        for (const field_path of FIELDS_THESE_TESTS_WRITE) {
+            const field = field_path[field_path.length - 1];
+            let node = restored.YtdlMaterial;
+            for (const part of field_path.slice(0, -1)) {
+                if (!node[part] || typeof node[part] !== 'object') node[part] = {};
+                node = node[part];
+            }
+            if (!(field in node)) node[field] = '';
+        }
+        config_api.setConfigFile(restored);
     });
 
     /*************************************************
