@@ -216,10 +216,30 @@ exports.createJWTForUser = function(user_uid) {
   return jwt.sign(payload, SERVER_SECRET);
 }
 
+/*************************************************
+ * User records carry the bcrypt hash, and they are
+ * handed out by the login response and by the user
+ * management endpoints. Nothing outside this module
+ * needs the hash, so it is stripped on the way out
+ * rather than trusted not to be looked at.
+ ************************************************/
+const SENSITIVE_USER_FIELDS = ['passhash'];
+
+exports.sanitizeUserForResponse = function(user) {
+  if (!user || typeof user !== 'object') return user;
+  const safe_user = {...user};
+  for (const field of SENSITIVE_USER_FIELDS) delete safe_user[field];
+  return safe_user;
+}
+
+exports.sanitizeUsersForResponse = function(users) {
+  return Array.isArray(users) ? users.map(exports.sanitizeUserForResponse) : users;
+}
+
 exports.getAuthResponseObject = async function(user) {
   const token = exports.createJWTForUser(user.uid);
   return {
-    user: user,
+    user: exports.sanitizeUserForResponse(user),
     token: token,
     permissions: await exports.userPermissions(user.uid),
     available_permissions: CONSTS.AVAILABLE_PERMISSIONS
@@ -521,84 +541,76 @@ exports.changeSharingMode = async function(user_uid, file_uid, is_playlist, enab
   return success;
 }
 
-exports.userHasPermission = async function(user_uid, permission) {
+/*************************************************
+ * One resolver, used by both callers below.
+ *
+ * They used to implement this separately and had
+ * already drifted: the list version fell through
+ * after a positive override and could report the
+ * same permission twice, while the single-check
+ * version returned early and did not.
+ *
+ * An override, positive or negative, is the final
+ * word; otherwise the role decides.
+ ************************************************/
+function resolvePermission(user_obj, role_permissions, permission) {
+  const explicit_permissions = Array.isArray(user_obj['permissions']) ? user_obj['permissions'] : [];
+  const overrides = Array.isArray(user_obj['permission_overrides']) ? user_obj['permission_overrides'] : [];
 
-  const user_obj = await db_api.getRecord('users', ({uid: user_uid}));
-  const role = user_obj['role'];
+  if (overrides.includes(permission)) return explicit_permissions.includes(permission);
+
+  return role_permissions.includes(permission);
+}
+
+/*************************************************
+ * Returns the role's permissions, or an empty list
+ * if the role record is missing. Failing closed
+ * matters more than failing loudly here: this used
+ * to dereference the missing record and throw,
+ * which turned a misconfigured role into a 500 on
+ * every request the user made.
+ ************************************************/
+async function getRolePermissions(role) {
   if (!role) {
-    // role doesn't exist
-    logger.error('Invalid role ' + role);
+    logger.error('Cannot resolve permissions: user has no role.');
+    return [];
+  }
+  const role_obj = await db_api.getRecord('roles', {key: role});
+  if (!role_obj) {
+    logger.error(`Role ${role} does not exist!`);
+    return [];
+  }
+  return Array.isArray(role_obj['permissions']) ? role_obj['permissions'] : [];
+}
+
+exports.userHasPermission = async function(user_uid, permission) {
+  const user_obj = await db_api.getRecord('users', {uid: user_uid});
+  if (!user_obj) {
+    logger.error(`Cannot resolve permissions: user ${user_uid} does not exist.`);
     return false;
   }
 
-  const user_has_explicit_permission = user_obj['permissions'].includes(permission);
-  const permission_in_overrides = user_obj['permission_overrides'].includes(permission);
+  const role_permissions = await getRolePermissions(user_obj['role']);
+  const has_permission = resolvePermission(user_obj, role_permissions, permission);
 
-  // check if user has a negative/positive override
-  if (user_has_explicit_permission && permission_in_overrides) {
-    // positive override
-    return true;
-  } else if (!user_has_explicit_permission && permission_in_overrides) {
-    // negative override
-    return false;
-  }
-
-  // no overrides, let's check if the role has the permission
-  const role_has_permission = await exports.roleHasPermissions(role, permission);
-  if (role_has_permission) {
-    return true;
-  } else {
-    logger.verbose(`User ${user_uid} failed to get permission ${permission}`);
-    return false;
-  }
+  if (!has_permission) logger.verbose(`User ${user_uid} failed to get permission ${permission}`);
+  return has_permission;
 }
 
 exports.roleHasPermissions = async function(role, permission) {
-  const role_obj = await db_api.getRecord('roles', {key: role})
-  if (!role) {
-    logger.error(`Role ${role} does not exist!`);
-  }
-  const role_permissions = role_obj['permissions'];
-  if (role_permissions && role_permissions.includes(permission)) return true;
-  else return false;
+  const role_permissions = await getRolePermissions(role);
+  return role_permissions.includes(permission);
 }
 
 exports.userPermissions = async function(user_uid) {
-  let user_permissions = [];
-  const user_obj = await db_api.getRecord('users', ({uid: user_uid}));
-  const role = user_obj['role'];
-  if (!role) {
-    // role doesn't exist
-    logger.error('Invalid role ' + role);
-    return null;
-  }
-  const role_obj = await db_api.getRecord('roles', {key: role});
-  const role_permissions = role_obj['permissions'];
-
-  for (let i = 0; i < CONSTS.AVAILABLE_PERMISSIONS.length; i++) {
-    let permission = CONSTS.AVAILABLE_PERMISSIONS[i];
-
-    const user_has_explicit_permission = user_obj['permissions'].includes(permission);
-    const permission_in_overrides = user_obj['permission_overrides'].includes(permission);
-
-    // check if user has a negative/positive override
-    if (user_has_explicit_permission && permission_in_overrides) {
-      // positive override
-      user_permissions.push(permission);
-    } else if (!user_has_explicit_permission && permission_in_overrides) {
-      // negative override
-      continue;
-    }
-
-    // no overrides, let's check if the role has the permission
-    if (role_permissions.includes(permission)) {
-      user_permissions.push(permission);
-    } else {
-      continue;
-    }
+  const user_obj = await db_api.getRecord('users', {uid: user_uid});
+  if (!user_obj) {
+    logger.error(`Cannot resolve permissions: user ${user_uid} does not exist.`);
+    return [];
   }
 
-  return user_permissions;
+  const role_permissions = await getRolePermissions(user_obj['role']);
+  return CONSTS.AVAILABLE_PERMISSIONS.filter(permission => resolvePermission(user_obj, role_permissions, permission));
 }
 
 function getToken(queryParams) {

@@ -948,3 +948,42 @@ function File(id, title, thumbnailURL, isAudio, duration, url, uploader, size, p
     this.favorite = false;
 }   
 exports.File = File;
+
+/*************************************************
+ * Media paths live in the database, and database
+ * rows are editable through the API, so a stored
+ * path is not trustworthy on its own. Anything that
+ * turns one into a filesystem read has to confirm
+ * it still points somewhere we actually serve.
+ *
+ * Comparison is on path.resolve rather than
+ * realpath: it stops '..' traversal, which is the
+ * reachable case, without breaking the many setups
+ * where the media directories are themselves
+ * symlinks.
+ ************************************************/
+exports.getMediaRoots = () => {
+    const configured_roots = [
+        config_api.getConfigItem('ytdl_video_folder_path'),
+        config_api.getConfigItem('ytdl_audio_folder_path'),
+        config_api.getConfigItem('ytdl_users_base_path'),
+        config_api.getConfigItem('ytdl_subscriptions_base_path')
+    ];
+    return configured_roots
+        .filter(root => typeof root === 'string' && root.trim())
+        .map(root => path.resolve(root));
+}
+
+exports.pathIsWithin = (candidate_path, container_path) => {
+    const relative_path = path.relative(container_path, candidate_path);
+    if (relative_path === '') return true;
+    return !relative_path.startsWith('..') && !path.isAbsolute(relative_path);
+}
+
+exports.isPathInsideMediaRoots = (candidate_path) => {
+    if (typeof candidate_path !== 'string' || !candidate_path.trim()) return false;
+    const resolved_path = path.resolve(candidate_path);
+    const roots = exports.getMediaRoots();
+    if (roots.length === 0) return false;
+    return roots.some(root => exports.pathIsWithin(resolved_path, root));
+}

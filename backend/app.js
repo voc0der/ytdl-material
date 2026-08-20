@@ -1540,11 +1540,53 @@ app.post('/api/removeDuplicates', optionalJwt, async function (req, res) {
     res.send(result);
 });
 
+// Fields the video info dialog can edit. Anything else in change_obj is dropped rather
+// than written: the record also holds ownership and identity fields, and this endpoint
+// has no business letting a client rewrite those.
+const EDITABLE_FILE_FIELDS = [
+    'title', 'uploader', 'url', 'upload_date', 'description', 'view_count',
+    'local_view_count', 'height', 'abr', 'size', 'isAudio', 'favorite',
+    'category', 'thumbnailURL', 'path', 'thumbnailPath'
+];
+
+// path and thumbnailPath are editable on purpose -- relinking a file that moved on disk
+// is a real thing people do -- but the value has to stay inside a directory we serve.
+const PATH_FILE_FIELDS = ['path', 'thumbnailPath'];
+
 app.post('/api/updateFile', optionalJwt, async function (req, res) {
     const uid = req.body.uid;
     const change_obj = req.body.change_obj;
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
-    const file = await db_api.updateRecord('files', {uid: uid}, change_obj);
+    if (!change_obj || typeof change_obj !== 'object' || Array.isArray(change_obj)) {
+        res.send({success: false, error: 'No changes provided'});
+        return;
+    }
+
+    const filtered_change_obj = {};
+    for (const field of EDITABLE_FILE_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(change_obj, field)) filtered_change_obj[field] = change_obj[field];
+    }
+
+    for (const field of PATH_FILE_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(filtered_change_obj, field)) continue;
+        if (!utils.isPathInsideMediaRoots(filtered_change_obj[field])) {
+            logger.error(`Refusing to set ${field} on file ${uid} to a path outside the configured media folders.`);
+            res.send({success: false, error: `${field} must be inside a configured media folder`});
+            return;
+        }
+    }
+
+    if (Object.keys(filtered_change_obj).length === 0) {
+        res.send({success: false, error: 'No editable changes provided'});
+        return;
+    }
+
+    // Scoped to the caller in multi-user mode, so one user cannot edit another's records.
+    const file_filter = {uid: uid};
+    if (config_api.getConfigItem('ytdl_multi_user_mode') && user_uid) file_filter['user_uid'] = user_uid;
+
+    const file = await db_api.updateRecord('files', file_filter, filtered_change_obj);
 
     if (!file) {
         res.send({
@@ -2671,6 +2713,14 @@ app.get('/api/stream', optionalJwt, async (req, res) => {
         res.status(404).type('text/plain').send('Media file not found');
         return;
     }
+    // The path comes out of the database, so it is checked here as well as where it is
+    // written. This route turns a stored string into a filesystem read, which makes it
+    // the last place the check is still cheap.
+    if (!utils.isPathInsideMediaRoots(file_path)) {
+        logger.error(`Refusing to stream ${uid}: its path is outside the configured media folders.`);
+        res.status(404).type('text/plain').send('Media file not found');
+        return;
+    }
     if (!fs.existsSync(file_path)) {
         logger.error(`File ${file_path} could not be found! UID: ${uid}, ID: ${file_obj && file_obj.id}`);
         res.status(404).type('text/plain').send('Media file not found');
@@ -3462,7 +3512,7 @@ app.post('/api/auth/adminExists', async (req, res) => {
 // user management
 app.post('/api/getUsers', optionalJwt, async (req, res) => {
     let users = await db_api.getRecords('users');
-    res.send({users: users});
+    res.send({users: auth_api.sanitizeUsersForResponse(users)});
 });
 app.post('/api/getRoles', optionalJwt, async (req, res) => {
     let roles = await db_api.getRecords('roles');

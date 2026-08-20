@@ -1,0 +1,225 @@
+/* eslint-disable no-undef */
+const path = require('path');
+
+const {
+    assert,
+    auth_api,
+    config_api,
+    utils
+} = require('./test-shared');
+
+describe('API hardening', function() {
+    describe('Media path containment', function() {
+        // Stored paths are what the downloader wrote, which is relative to the backend's
+        // working directory and inside one of the four configured roots. These assertions
+        // exist mostly to prove the containment check does not reject that ordinary shape.
+        it('accepts paths inside each configured media root', function() {
+            const roots = {
+                'ytdl_video_folder_path': config_api.getConfigItem('ytdl_video_folder_path'),
+                'ytdl_audio_folder_path': config_api.getConfigItem('ytdl_audio_folder_path'),
+                'ytdl_users_base_path': config_api.getConfigItem('ytdl_users_base_path'),
+                'ytdl_subscriptions_base_path': config_api.getConfigItem('ytdl_subscriptions_base_path')
+            };
+
+            for (const [key, root] of Object.entries(roots)) {
+                assert(root, `expected ${key} to be configured`);
+                assert(utils.isPathInsideMediaRoots(path.join(root, 'example.mp4')),
+                    `a file directly inside ${key} should be accepted`);
+                assert(utils.isPathInsideMediaRoots(path.join(root, 'nested', 'deeper', 'example.mp4')),
+                    `a file nested inside ${key} should be accepted`);
+            }
+        });
+
+        it('accepts an absolute path that resolves into a root', function() {
+            const root = config_api.getConfigItem('ytdl_video_folder_path');
+
+            assert(utils.isPathInsideMediaRoots(path.resolve(root, 'example.mp4')));
+        });
+
+        it('rejects traversal out of a root', function() {
+            const root = config_api.getConfigItem('ytdl_video_folder_path');
+
+            assert(!utils.isPathInsideMediaRoots(path.join(root, '..', '..', 'etc', 'passwd')));
+            assert(!utils.isPathInsideMediaRoots(path.join(root, '..', 'app.js')));
+        });
+
+        it('rejects absolute paths outside every root', function() {
+            assert(!utils.isPathInsideMediaRoots('/etc/passwd'));
+            assert(!utils.isPathInsideMediaRoots('/'));
+        });
+
+        it('rejects values that are not usable paths', function() {
+            assert(!utils.isPathInsideMediaRoots(''));
+            assert(!utils.isPathInsideMediaRoots('   '));
+            assert(!utils.isPathInsideMediaRoots(null));
+            assert(!utils.isPathInsideMediaRoots(undefined));
+            assert(!utils.isPathInsideMediaRoots(42));
+            assert(!utils.isPathInsideMediaRoots(['video/x.mp4']));
+        });
+
+        it('does not treat a sibling directory with a shared prefix as contained', function() {
+            // 'videos-backup' starts with 'video' as a string but is not inside it.
+            const root = config_api.getConfigItem('ytdl_video_folder_path');
+            const sibling = path.resolve(root).replace(/\/$/, '') + '-backup';
+
+            assert(!utils.isPathInsideMediaRoots(path.join(sibling, 'example.mp4')));
+        });
+    });
+
+    describe('User records leaving the process', function() {
+        const userWithHash = () => ({
+            uid: 'someone',
+            name: 'Someone',
+            passhash: '$2a$10$abcdefghijklmnopqrstuv',
+            role: 'user',
+            permissions: [],
+            permission_overrides: []
+        });
+
+        it('strips the password hash', function() {
+            const sanitized = auth_api.sanitizeUserForResponse(userWithHash());
+
+            assert.strictEqual(sanitized.passhash, undefined);
+            assert.strictEqual(sanitized.uid, 'someone');
+            assert.strictEqual(sanitized.role, 'user');
+        });
+
+        it('does not mutate the record it was given', function() {
+            const original = userWithHash();
+
+            auth_api.sanitizeUserForResponse(original);
+
+            assert.strictEqual(original.passhash, '$2a$10$abcdefghijklmnopqrstuv',
+                'sanitizing a record must not damage the copy the caller is still using');
+        });
+
+        it('handles a list of users', function() {
+            const sanitized = auth_api.sanitizeUsersForResponse([userWithHash(), userWithHash()]);
+
+            assert.strictEqual(sanitized.length, 2);
+            for (const user of sanitized) assert.strictEqual(user.passhash, undefined);
+        });
+
+        it('passes through values that are not user records', function() {
+            assert.strictEqual(auth_api.sanitizeUserForResponse(null), null);
+            assert.strictEqual(auth_api.sanitizeUserForResponse(undefined), undefined);
+            assert.deepStrictEqual(auth_api.sanitizeUsersForResponse(null), null);
+        });
+
+        it('keeps the hash out of the login response', async function() {
+            // getAuthResponseObject signs a JWT, which needs the secret initialize() loads.
+            auth_api.initialize();
+            const user = await auth_api.registerUser('hardening_test_user', 'hardening_test_user', 'test_pass');
+            assert(user, 'precondition: the test user should register');
+
+            try {
+                const auth_response = await auth_api.getAuthResponseObject(user);
+
+                assert.strictEqual(auth_response.user.passhash, undefined);
+                assert(auth_response.user.uid, 'the response should still carry the user');
+                assert(auth_response.token, 'the response should still carry a token');
+            } finally {
+                await auth_api.deleteUser('hardening_test_user');
+            }
+        });
+    });
+});
+
+describe('Permission resolution', function() {
+    const {assert, auth_api, db_api} = require('./test-shared');
+
+    const ROLE_KEY = 'hardening_test_role';
+    const USER_UID = 'hardening_perm_user';
+
+    // The role grants filemanager and subscriptions; overrides are set per test.
+    const givenUser = async (permissions, permission_overrides) => {
+        await db_api.removeAllRecords('users', {uid: USER_UID});
+        await db_api.insertRecordIntoTable('users', {
+            uid: USER_UID,
+            name: USER_UID,
+            role: ROLE_KEY,
+            permissions: permissions,
+            permission_overrides: permission_overrides
+        });
+    };
+
+    before(async function() {
+        await db_api.removeAllRecords('roles', {key: ROLE_KEY});
+        await db_api.insertRecordIntoTable('roles', {
+            key: ROLE_KEY,
+            permissions: ['filemanager', 'subscriptions']
+        });
+    });
+
+    after(async function() {
+        await db_api.removeAllRecords('roles', {key: ROLE_KEY});
+        await db_api.removeAllRecords('users', {uid: USER_UID});
+    });
+
+    it('grants what the role grants when there are no overrides', async function() {
+        await givenUser([], []);
+
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'filemanager'), true);
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'tasks_manager'), false);
+        assert.deepStrictEqual(await auth_api.userPermissions(USER_UID), ['filemanager', 'subscriptions']);
+    });
+
+    it('honours a positive override for something the role lacks', async function() {
+        await givenUser(['tasks_manager'], ['tasks_manager']);
+
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'tasks_manager'), true);
+        assert((await auth_api.userPermissions(USER_UID)).includes('tasks_manager'));
+    });
+
+    it('honours a negative override for something the role grants', async function() {
+        await givenUser([], ['filemanager']);
+
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'filemanager'), false);
+        assert(!(await auth_api.userPermissions(USER_UID)).includes('filemanager'));
+    });
+
+    it('reports a permission once when the role and a positive override agree', async function() {
+        // The list resolver used to fall through after a positive override and push the
+        // same permission a second time from the role check.
+        await givenUser(['filemanager'], ['filemanager']);
+
+        const permissions = await auth_api.userPermissions(USER_UID);
+
+        assert.deepStrictEqual(permissions, [...new Set(permissions)], 'permissions must not repeat');
+        assert.strictEqual(permissions.filter(p => p === 'filemanager').length, 1);
+    });
+
+    it('agrees with itself across both resolvers', async function() {
+        await givenUser(['tasks_manager'], ['tasks_manager', 'subscriptions']);
+
+        const listed = await auth_api.userPermissions(USER_UID);
+        for (const permission of ['filemanager', 'subscriptions', 'tasks_manager', 'settings']) {
+            assert.strictEqual(await auth_api.userHasPermission(USER_UID, permission), listed.includes(permission),
+                `userHasPermission and userPermissions disagree about ${permission}`);
+        }
+    });
+
+    it('fails closed when the role record is missing', async function() {
+        await db_api.removeAllRecords('users', {uid: USER_UID});
+        await db_api.insertRecordIntoTable('users', {
+            uid: USER_UID, name: USER_UID, role: 'role_that_does_not_exist',
+            permissions: [], permission_overrides: []
+        });
+
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'filemanager'), false);
+        assert.deepStrictEqual(await auth_api.userPermissions(USER_UID), []);
+    });
+
+    it('fails closed for a user that does not exist', async function() {
+        assert.strictEqual(await auth_api.userHasPermission('no_such_user_at_all', 'filemanager'), false);
+        assert.deepStrictEqual(await auth_api.userPermissions('no_such_user_at_all'), []);
+    });
+
+    it('tolerates a record with missing permission arrays', async function() {
+        await db_api.removeAllRecords('users', {uid: USER_UID});
+        await db_api.insertRecordIntoTable('users', {uid: USER_UID, name: USER_UID, role: ROLE_KEY});
+
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'filemanager'), true);
+        assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'settings'), false);
+    });
+});
