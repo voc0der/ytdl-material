@@ -21,26 +21,6 @@
     top: 20px;
 }
 
-.api-key-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 10px 12px;
-}
-
-.enable-api-key-div {
-    flex: 1 1 320px;
-    min-width: 260px;
-    margin-bottom: 0;
-    margin-right: 0;
-}
-
-.api-key-div {
-    display: flex;
-    align-items: center;
-    padding-top: 6px;
-}
-
 .text-field {
     width: 100%;
     max-width: 500px;
@@ -48,13 +28,6 @@
 
 .api-docs-hint {
     margin-top: -2px;
-    font-size: 12px;
-    opacity: 0.75;
-}
-
-.api-key-deprecation-note {
-    margin-top: 4px;
-    max-width: 640px;
     font-size: 12px;
     opacity: 0.75;
 }

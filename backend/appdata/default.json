@@ -41,8 +41,6 @@
       "warn_on_duplicate": false
     },
     "API": {
-      "use_API_key": false,
-      "API_key": "",
       "use_youtube_API": false,
       "youtube_API_key": "",
       "use_twitch_API": false,

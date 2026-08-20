@@ -28,11 +28,6 @@ services:
       # ytdl_log_level: 'info'
 
       # API documentation page (optional, requires restart).
-      # These do not restrict access to the API -- requests are authorized by the JWT from
-      # /api/auth/login and by each route's permissions. ytdl_use_api_key only decides
-      # whether the docs page may be served; the apiKey parameter is deprecated and ignored.
-      # ytdl_use_api_key: 'true'
-      # ytdl_api_key: 'replace-with-api-key'
       # ytdl_enable_documentation_api: 'true'
 
       # SSL/HTTPS configuration (optional)

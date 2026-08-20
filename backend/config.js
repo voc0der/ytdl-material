@@ -69,7 +69,9 @@ const RETIRED_CONFIG_ITEMS = [
             + ' now always available from the Download button menu, so users who previously could not reach them'
             + ' will see them. Access is still controlled by the \'advanced_download\' user permission, which can'
             + ' be revoked per role under Settings if you want to keep it hidden.'
-    }
+    },
+    {path: 'YtdlMaterial.API.use_API_key'},
+    {path: 'YtdlMaterial.API.API_key'}
 ];
 
 exports.initialize = () => {
@@ -97,7 +99,10 @@ function removeRetiredConfigItems() {
         removed_any = true;
     }
 
-    if (removed_any) exports.setConfigFile(config_json);
+    // Retired paths must actually be deleted. setConfigFile deliberately carries forward
+    // absent secret fields, which is correct for a redacted client save but would restore a
+    // retired secret during this startup migration.
+    if (removed_any) fs.writeFileSync(configPath, JSON.stringify(config_json, null, 2));
 }
 
 function ensureConfigItemsExist() {
@@ -326,8 +331,6 @@ const DEFAULT_CONFIG = {
         "enable_rss_feed": false,
       },
       "API": {
-        "use_API_key": false,
-        "API_key": "",
         "enable_documentation_api": false,
         "use_youtube_API": false,
         "youtube_API_key": "",

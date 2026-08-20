@@ -22,7 +22,6 @@ import {
     DownloadArchiveRequest,
     DownloadFileRequest,
     FileType,
-    GenerateNewApiKeyResponse,
     GetAllDownloadsResponse,
     GetAllFilesResponse,
     GetAllSubscriptionsResponse,
@@ -607,10 +606,6 @@ export class PostsService {
 
     clearAllLogs() {
         return this.http.post<SuccessObject>(this.path + 'clearAllLogs', {}, this.httpOptions);
-    }
-
-    generateNewAPIKey() {
-        return this.http.post<GenerateNewApiKeyResponse>(this.path + 'generateNewAPIKey', {}, this.httpOptions);
     }
 
     // Per-user API tokens. All three act on the calling account; none of them takes a uid.

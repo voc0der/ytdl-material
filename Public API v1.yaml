@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: ytdl-material API Docs - Official
   version: '1.0'
-  description: "Welcome to the official docs for ytdl-material.\n\n\nYou can check out all the available endpoints below.\n\n\n### Authentication\n\nRequests are authenticated with a JWT, and authorized by the permissions on the account that token belongs to.\n\n\nCall `/api/auth/login` with a username and password. The response contains a `token`. Supply it on subsequent calls:\n\n\n`?jwt=JWT_TOKEN`\n\n\nIn single-user mode there are no accounts and no token is required.\n\n### The apiKey parameter is deprecated\n\nEarlier versions described an `apiKey` query parameter, generated from the settings menu, as the way to authenticate. It never restricted access to any endpoint, and it did not identify the caller, so it could not authorize anything either. It is still accepted and ignored, so existing scripts keep working, but it must not be relied on as a control. The `Enable Public API` setting now only controls whether this documentation page is served.\n\n\nPer-user API tokens are tracked in issue #388."
+  description: "Available API endpoints for ytdl-material.\n\n### Authentication\n\nIn multi-user mode, generate an API token from Your Profile and send it in the `X-Api-Token` header. A JWT returned by `/api/auth/login` is also supported through the `jwt` query parameter. RSS tokens work only with `/api/rss`. In single-user mode, no credential is required."
   contact:
     name: voc0der
     url: https://github.com/voc0der/ytdl-material
@@ -802,23 +802,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessObject'
-      security:
-        - JWT token parameter: []
-        - API token header: []
-  /api/generateNewAPIKey:
-    post:
-      tags:
-        - security
-      summary: Generate new API key
-      description: Generates and sets a new API key
-      operationId: post-genapikey
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenerateNewApiKeyResponse'
       security:
         - JWT token parameter: []
         - API token header: []
@@ -2840,14 +2823,6 @@ components:
       properties:
         unhashed_pin:
           type: string
-    GenerateNewApiKeyResponse:
-      required:
-        - new_api_key
-      type: object
-      properties:
-        new_api_key:
-          type: string
-          example: 4241b401-7236-493e-92b5-b72696b9d853
     DeleteMp3Mp4Request:
       required:
         - uid

@@ -48,7 +48,6 @@ export type { DownloadVideosForSubscriptionRequest } from './models/DownloadVide
 export { FileType } from './models/FileType';
 export { FileTypeFilter } from './models/FileTypeFilter';
 export type { GenerateArgsResponse } from './models/GenerateArgsResponse';
-export type { GenerateNewApiKeyResponse } from './models/GenerateNewApiKeyResponse';
 export type { GetAllCategoriesResponse } from './models/GetAllCategoriesResponse';
 export type { GetAllDownloadsRequest } from './models/GetAllDownloadsRequest';
 export type { GetAllDownloadsResponse } from './models/GetAllDownloadsResponse';

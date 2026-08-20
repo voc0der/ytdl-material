@@ -146,14 +146,6 @@ exports.CONFIG_ITEMS = {
     },
 
     // API
-    'ytdl_use_api_key': {
-        'key': 'ytdl_use_api_key',
-        'path': 'YtdlMaterial.API.use_API_key'
-    },
-    'ytdl_api_key': {
-        'key': 'ytdl_api_key',
-        'path': 'YtdlMaterial.API.API_key'
-    },
     'ytdl_enable_documentation_api': {
         'key': 'ytdl_enable_documentation_api',
         'path': 'YtdlMaterial.API.enable_documentation_api'

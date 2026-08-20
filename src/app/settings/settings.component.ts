@@ -297,15 +297,6 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  generateAPIKey(): void {
-    this.postsService.generateNewAPIKey().subscribe(res => {
-      if (res['new_api_key']) {
-        this.initial_config.API.API_key = res['new_api_key'];
-        this.new_config.API.API_key = res['new_api_key'];
-      }
-    });
-  }
-
   generateBookmarklet(): void {
     this.bookmarksite('YTDL-Material', this.generated_bookmarklet_code);
   }

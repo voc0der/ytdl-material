@@ -469,8 +469,7 @@ describe('The config handed to an anonymous caller', function() {
                 if (value && typeof value === 'object') {
                     walk(value, next_trail);
                 } else if (typeof value === 'boolean') {
-                    // A flag saying whether a feature is switched on is not the credential
-                    // it switches on -- use_API_key is a checkbox, API_key is the secret.
+                    // A feature flag is not itself a credential.
                     continue;
                 } else if (credential_pattern.test(key)) {
                     found.push(next_trail);
@@ -777,21 +776,25 @@ describe('The shared bootstrap secret', function() {
             'no request should have its socket closed for want of an API key');
     });
 
-    it('does not treat the Public API key as a control any more', function() {
-        // Deprecated: it never restricted an endpoint and never identified a caller, so it
-        // could not authorize anything. The parameter is still accepted and ignored.
+    it('does not contain the retired shared API key route or request parameter', function() {
         const app_source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
         assert(!/req\.query\.apiKey/.test(app_source),
-            'the API key must not take part in deciding whether a request is allowed');
+            'the retired API key request parameter is still wired');
+        assert(!app_source.includes('/api/generateNewAPIKey'),
+            'the retired shared API key generation route is still wired');
     });
 
-    it('says so in the published API documentation', function() {
+    it('does not publish the retired shared API key', function() {
         const docs = fs.readFileSync(path.join(__dirname, '..', '..', 'Public API v1.yaml'), 'utf8');
+        const docker_docs = fs.readFileSync(path.join(__dirname, '..', '..', 'docker-environment.md'), 'utf8');
+        const compose = fs.readFileSync(path.join(__dirname, '..', '..', 'docker-compose-extended.yml'), 'utf8');
 
-        assert(docs.includes('deprecated'), 'the docs must say the apiKey parameter is deprecated');
-        assert(!/Remember to authenticate with your API key/.test(docs),
-            'the docs still tell people the API key authenticates them');
+        for (const source of [docs, docker_docs, compose]) {
+            assert(!source.includes('ytdl_use_api_key'), 'the retired API key toggle is still documented');
+            assert(!source.includes('ytdl_api_key'), 'the retired shared API key is still documented');
+            assert(!source.includes('/api/generateNewAPIKey'), 'the retired API key route is still documented');
+        }
     });
 });
 
@@ -1367,19 +1370,15 @@ describe('The published API specification', function() {
 
     const spec_path = path.join(__dirname, '..', '..', 'Public API v1.yaml');
 
-    /*************************************************
-     * Correcting the prose was not enough. The
-     * machine-readable half still declared the
-     * deprecated apiKey as the security scheme on
-     * every operation, so generated clients would
-     * keep advertising a parameter the server
-     * ignores, and would not send a JWT at all.
-     ************************************************/
-    it('does not offer the deprecated key as a security scheme', function() {
+    it('does not offer the retired shared key as a security scheme', function() {
         const spec = fs.readFileSync(spec_path, 'utf8');
 
         assert(!spec.includes('Auth query parameter'),
-            'the spec still defines or references the deprecated apiKey scheme');
+            'the spec still defines or references the retired shared key scheme');
+        assert(!spec.includes('/api/generateNewAPIKey'),
+            'the spec still exposes the retired shared key generation route');
+        assert(!spec.includes('GenerateNewApiKeyResponse'),
+            'the spec still exposes the retired shared key response schema');
     });
 
     it('defines and uses the supported user-token schemes', function() {

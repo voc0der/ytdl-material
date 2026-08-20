@@ -83,6 +83,19 @@ describe('Config', async function() {
         assert(!('allow_advanced_download' in updated_config['YtdlMaterial']['Advanced']));
     });
 
+    it('Strips the retired shared API key settings on initialize', async function() {
+        const config_json = config_api.getConfigFile();
+        config_json['YtdlMaterial']['API']['use_API_key'] = true;
+        config_json['YtdlMaterial']['API']['API_key'] = 'retired-key';
+        config_api.setConfigFile(config_json);
+
+        config_api.initialize();
+
+        const api_config = config_api.getConfigFile()['YtdlMaterial']['API'];
+        assert(!('use_API_key' in api_config));
+        assert(!('API_key' in api_config));
+    });
+
     it('Leaves the config alone when no retired settings are stored', async function() {
         config_api.initialize();
         const before = JSON.stringify(config_api.getConfigFile());
@@ -92,4 +105,3 @@ describe('Config', async function() {
         assert.strictEqual(JSON.stringify(config_api.getConfigFile()), before);
     });
 });
-

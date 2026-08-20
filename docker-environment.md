@@ -77,26 +77,9 @@ If `ytdl_redis_connection_string` is configured, ytdl-material will attempt to u
 
 When using env-managed Docker setups with `write_ytdl_config='true'`, you can clear a previously written Redis connection string by setting `ytdl_redis_connection_string=''` for one startup, then removing the line entirely afterward.
 
-## Public API Variables
+## API Documentation Variable
 
-Scripts and other machine clients authenticate with a **per-user API token**, generated from
-*Your Profile* in the web UI. Pass it in an `X-Api-Token` header. A
-full API token acts as the account that made it, with that account's permissions, and can be
-revoked from the same place. RSS URLs use a separate feed-only token, so exposing a feed URL
-does not grant access to other API routes. None of the variables below grant or restrict
-access to any endpoint.
-
-* `ytdl_use_api_key`: set to `'true'` to allow the documentation page to be served. Despite
-  the name it does not require an `apiKey` for anything, and never did.
-* `ytdl_api_key`: the value returned by the settings menu's *generate* button. Still accepted
-  as an `apiKey` query parameter and ignored, so existing scripts keep working.
-* `ytdl_enable_documentation_api`: set to `'true'` to expose local API docs at `/docs`
-  (requires `ytdl_use_api_key` and restart)
-
-> **Deprecated.** The `apiKey` parameter never restricted access to any endpoint, and it did
-> not identify the caller, so it could not authorize anything either. Enabling it does not
-> harden an installation and the backend logs a warning at startup saying so. Use a per-user
-> API token instead.
+* `ytdl_enable_documentation_api`: set to `'true'` to serve API documentation at `/docs` after restart
 
 ## HTTPS and Reverse Proxy Variables
 

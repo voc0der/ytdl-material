@@ -917,38 +917,16 @@ function loadConfigValues() {
     }
 
     configureExpressTrustProxy();
-    warnAboutDeprecatedPublicApiKey();
-}
-
-/*************************************************
- * Said plainly at startup, because an administrator
- * who switched this on almost certainly believes it
- * is protecting the API.
- ************************************************/
-function warnAboutDeprecatedPublicApiKey() {
-    if (!config_api.getConfigItem('ytdl_use_api_key')) return;
-
-    logger.warn('The Public API key is deprecated and does not restrict access to the API. '
-        + 'It never has: the key was not required to reach any endpoint, and it did not identify '
-        + 'the caller, so it could not authorize anything either. Requests are authorized by the '
-        + 'JWT from /api/auth/login and by each route\'s permissions. The setting still controls '
-        + 'whether the documentation page is served. Per-user API tokens are tracked in issue #388.');
 }
 
 function initializeDocumentationAPI() {
     const docs_enabled = !!config_api.getConfigItem('ytdl_enable_documentation_api');
-    const public_api_enabled = !!config_api.getConfigItem('ytdl_use_api_key');
 
     documentation_api_enabled = false;
     documentation_api_handler = null;
     openapi_spec_path = null;
 
     if (!docs_enabled) return;
-
-    if (!public_api_enabled) {
-        logger.warn('Documentation API is enabled in config but Public API is disabled. Skipping docs startup.');
-        return;
-    }
 
     openapi_spec_path = OPENAPI_SPEC_PATH_CANDIDATES.find(spec_path => fs.existsSync(spec_path)) || null;
     if (!openapi_spec_path) {
@@ -1034,41 +1012,13 @@ async function startYoutubeDL() {
 }
 
 app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Api-Token");
     res.header("Access-Control-Allow-Origin", getOrigin());
     if (req.method === 'OPTIONS') {
         res.sendStatus(200);
     } else {
         next();
     }
-});
-
-/*************************************************
- * The Public API key is deprecated and does not
- * restrict anything.
- *
- * It never did. This gate used to close the socket
- * unless the caller presented a hardcoded UUID --
- * one that ships in the frontend bundle and is
- * published in this repository, so everybody had
- * it. Nor can it be made to restrict anything
- * without taking the web UI down with it: the UI
- * has no configured key to send, and handing it one
- * would only publish that key to every page load.
- *
- * A key also never established *who* was calling,
- * so it could not authorize anything even when it
- * matched. What decides whether a request is
- * allowed is optionalJwt and the route guards, and
- * those run next.
- *
- * The apiKey query parameter is still accepted and
- * ignored, so scripts that send one keep working.
- * Per-user API tokens, which are the real
- * replacement, are tracked in #388.
- ************************************************/
-app.use(function(req, res, next) {
-    next();
 });
 
 app.use(compression());
@@ -2819,14 +2769,6 @@ app.post('/api/updateServer', optionalJwt, requireAdmin, async (req, res) => {
         success: true
     });
 
-});
-
-// API Key API calls
-
-app.post('/api/generateNewAPIKey', optionalJwt, requireAdmin, function (req, res) {
-    const new_api_key = uuid();
-    config_api.setConfigItem('ytdl_api_key', new_api_key);
-    res.send({new_api_key: new_api_key});
 });
 
 // Streaming API calls

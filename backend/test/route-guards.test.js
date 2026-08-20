@@ -244,7 +244,7 @@ describe('API route guards', function() {
         const must_be_admin = [
             '/api/setConfig', '/api/restartServer', '/api/transferDB', '/api/restoreDBBackup',
             '/api/getUsers', '/api/getRoles', '/api/updateUser', '/api/deleteUser',
-            '/api/changeUserPermissions', '/api/changeRolePermissions', '/api/generateNewAPIKey',
+            '/api/changeUserPermissions', '/api/changeRolePermissions',
             '/api/updateServer', '/api/logs', '/api/clearAllLogs'
         ];
 

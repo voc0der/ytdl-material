@@ -119,9 +119,7 @@ function createPostsServiceStub(): any {
       Advanced: {
         multi_user_mode: false
       },
-      API: {
-        API_key: 'test-key'
-      }
+      API: {}
     }
   });
 
