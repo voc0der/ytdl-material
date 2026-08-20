@@ -142,6 +142,107 @@ describe('API route guards', function() {
             'requireAdmin must run before multer, or an unauthenticated body is written to disk anyway');
     });
 
+    /*************************************************
+     * The spec is the contract generated clients are
+     * built from, so a wrong security declaration is
+     * a real defect: it makes a client send a token
+     * where none is wanted, or omit one where it is
+     * required.
+     *
+     * The earlier version of this check only looked at
+     * which scheme *names* the spec referenced, which
+     * passed happily while login, registration, the
+     * RSS feed and every shared-playback route all
+     * declared a JWT as mandatory, and while eight
+     * guarded task and backup operations declared no
+     * security at all.
+     ************************************************/
+    describe('against the published specification', function() {
+        const HTTP_VERBS = new Set(ROUTE_VERBS.split('|'));
+
+        // Parsed inside each test rather than in the describe body. A spec that will not
+        // parse is exactly the failure these tests exist to report, and doing it out here
+        // would abort the whole file at load time instead.
+        function loadSpec() {
+            const yaml = require('js-yaml');
+            return yaml.load(fs.readFileSync(path.join(__dirname, '..', '..', 'Public API v1.yaml'), 'utf8'));
+        }
+
+        function documentedOperations(spec) {
+            const operations = [];
+            for (const [route, path_item] of Object.entries(spec.paths)) {
+                for (const [verb, operation] of Object.entries(path_item)) {
+                    if (HTTP_VERBS.has(verb)) operations.push({route, verb, operation});
+                }
+            }
+            return operations;
+        }
+
+        // security: [] and a requirement list containing {} both mean "a caller with no
+        // credentials gets an answer". The difference is whether a token is meaningful at
+        // all, which is why both spellings appear in the spec.
+        function allowsAnonymous(operation) {
+            if (!Array.isArray(operation.security)) return false;
+            if (operation.security.length === 0) return true;
+            return operation.security.some(requirement => Object.keys(requirement).length === 0);
+        }
+
+        it('documents only routes the server actually serves', function() {
+            const spec = loadSpec();
+            const defined_routes = new Set(routes.map(r => r.route));
+            const phantom = Object.keys(spec.paths).filter(route => !defined_routes.has(route));
+
+            assert.deepStrictEqual(phantom, [],
+                'these are documented but not implemented -- a generated client would call them and get a 404');
+        });
+
+        it('gives every documented operation an explicit security declaration', function() {
+            const undeclared = documentedOperations(loadSpec())
+                .filter(({operation}) => !Array.isArray(operation.security))
+                .map(({verb, route}) => `${verb.toUpperCase()} ${route}`);
+
+            assert.deepStrictEqual(undeclared, [],
+                'an operation with no security key inherits the document default, which is "none"');
+        });
+
+        it('requires a token on every route the server guards', function() {
+            const understated = documentedOperations(loadSpec()).filter(({route, operation}) => {
+                if (Object.prototype.hasOwnProperty.call(INTENTIONALLY_UNAUTHENTICATED, route)) return false;
+                if (SHARED_LINK_ROUTES.includes(route)) return false;
+                return allowsAnonymous(operation);
+            });
+
+            assert.deepStrictEqual(understated.map(o => `${o.verb.toUpperCase()} ${o.route}`), [],
+                'these routes are guarded but the spec says a caller needs no credentials');
+        });
+
+        it('does not demand a token on the routes that answer without one', function() {
+            const overstated = documentedOperations(loadSpec()).filter(({route, operation}) => {
+                const is_public = Object.prototype.hasOwnProperty.call(INTENTIONALLY_UNAUTHENTICATED, route);
+                const is_shared = SHARED_LINK_ROUTES.includes(route);
+                if (!is_public && !is_shared) return false;
+                return !allowsAnonymous(operation);
+            });
+
+            assert.deepStrictEqual(overstated.map(o => `${o.verb.toUpperCase()} ${o.route}`), [],
+                'these routes answer an anonymous caller -- a share link, a login, or single-user '
+                + 'mode -- and the spec must not declare a token as mandatory');
+        });
+
+        it('names only schemes the specification defines', function() {
+            const spec = loadSpec();
+            const defined = new Set(Object.keys(spec.components.securitySchemes));
+            const undefined_schemes = new Set();
+            for (const {operation} of documentedOperations(spec)) {
+                for (const requirement of operation.security || []) {
+                    Object.keys(requirement).filter(name => !defined.has(name)).forEach(name => undefined_schemes.add(name));
+                }
+            }
+
+            assert.deepStrictEqual([...undefined_schemes], []);
+        });
+    });
+
     it('keeps user and server management restricted to administrators', function() {
         const must_be_admin = [
             '/api/setConfig', '/api/restartServer', '/api/transferDB', '/api/restoreDBBackup',

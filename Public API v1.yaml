@@ -140,8 +140,8 @@ paths:
               schema:
                 type: string
                 description: RSS feed
-      security:
-        - JWT token parameter: []
+      # Answers a caller with no token at all.
+      security: []
   /api/getFile:
     post:
       tags:
@@ -163,8 +163,11 @@ paths:
                 $ref: '#/components/schemas/GetFileResponse'
         '401':
           description: User is not authorized to view the file.
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/updateFile:
     post:
       tags:
@@ -249,8 +252,11 @@ paths:
               $ref: '#/components/schemas/IncrementViewCountRequest'
       operationId: post-api-incrementViewCount
       description: Increments a file's view count
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/subscribe:
     post:
       tags:
@@ -481,8 +487,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetPlaylistResponse'
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/updatePlaylist:
     post:
       tags:
@@ -546,28 +555,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-  /api/deleteMp4:
-    post:
-      tags:
-        - files
-      summary: Delete mp4 file
-      description: Deletes an mp4 file by its uid
-      operationId: post-api-deleteMp4
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeleteMp3Mp4Request'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: boolean
-                description: Whether the operation succeeded
-      security:
-        - JWT token parameter: []
   /api/downloadFileFromServer:
     post:
       tags:
@@ -584,8 +571,11 @@ paths:
           description: 'The file itself is in the response, as well as an options object.'
         '401':
           description: User is not authorized to view the file.
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/deleteFile:
     post:
       tags:
@@ -785,22 +775,6 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
       security:
         - JWT token parameter: []
-  /api/isPinSet:
-    post:
-      tags:
-        - security
-      summary: Check if pin is set
-      description: Checks if the pin is set for settings
-      operationId: post-api-isPinSet
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/inline_response_200_15'
-      security:
-        - JWT token parameter: []
   /api/generateNewAPIKey:
     post:
       tags:
@@ -817,28 +791,6 @@ paths:
                 $ref: '#/components/schemas/GenerateNewApiKeyResponse'
       security:
         - JWT token parameter: []
-  /api/deleteMp3:
-    post:
-      tags:
-        - files
-      summary: Delete mp3 file
-      description: Deletes an mp3 file by its uid
-      operationId: post-api-deleteMp3
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeleteMp3Mp4Request'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: boolean
-                description: Whether the operation succeeded
-      security:
-        - JWT token parameter: []
   /api/config:
     get:
       tags: []
@@ -852,8 +804,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigResponse'
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/setConfig:
     post:
       summary: Set config
@@ -1114,6 +1069,8 @@ paths:
         - tasks
   /api/getTasks:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Get tasks
@@ -1152,6 +1109,8 @@ paths:
         - JWT token parameter: []
   /api/runTask:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Runs one task
@@ -1170,6 +1129,8 @@ paths:
               $ref: '#/components/schemas/GetTaskRequest'
   /api/confirmTask:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Confirms a task
@@ -1186,26 +1147,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/GetTaskRequest'
-  /api/cancelTask:
-    post:
-      tags:
-        - tasks
-      summary: Cancels a task
-      operationId: post-api-cancel-task
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessObject'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetTaskRequest'
   /api/updateTaskSchedule:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Updates task schedule
@@ -1224,6 +1169,8 @@ paths:
               $ref: '#/components/schemas/UpdateTaskScheduleRequest'
   /api/updateTaskData:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Updates task data
@@ -1242,6 +1189,8 @@ paths:
               $ref: '#/components/schemas/UpdateTaskDataRequest'
   /api/getDBBackups:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Get database backups
@@ -1260,6 +1209,8 @@ paths:
               type: object
   /api/restoreDBBackup:
     post:
+      security:
+        - JWT token parameter: []
       tags:
         - tasks
       summary: Restore database backup
@@ -1293,8 +1244,8 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
-      security:
-        - JWT token parameter: []
+      # Answers a caller with no token at all.
+      security: []
       tags:
         - multi-user mode
   /api/auth/register:
@@ -1314,8 +1265,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
       tags:
         - multi-user mode
   /api/updateUser:
@@ -1447,29 +1401,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VersionInfoResponse'
-      security:
-        - JWT token parameter: []
-  /api/getLogs:
-    post:
-      summary: Gets logs from server
-      tags:
-        - server
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetLogsResponse'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetLogsRequest'
-      operationId: post-api-getLogs
-      description: Gets logs from server
-      security:
-        - JWT token parameter: []
+      # Answers a caller with no token at all.
+      security: []
   /api/clearAllLogs:
     post:
       summary: Clears the log file
@@ -1604,8 +1537,11 @@ paths:
               $ref: '#/components/schemas/CheckConcurrentStreamRequest'
       operationId: post-api-checkConcurrentStream
       description: Checks status of a concurrent stream
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
         - JWT token parameter: []
+        - {}
   /api/updateConcurrentStream:
     post:
       summary: Updates a concurrent stream
@@ -2831,6 +2767,10 @@ components:
           description: Backup if thumbnailPath is not defined
         thumbnailPath:
           type: string
+          description: >-
+            Where the downloaded thumbnail sits on the server. Informational only: the
+            image is served by the thumbnail endpoint, which is keyed on this file's uid,
+            because a path does not say who owns it.
         isAudio:
           type: boolean
         duration:
@@ -2892,6 +2832,15 @@ components:
           type: string
         thumbnailURL:
           type: string
+        thumbnailPath:
+          type: string
+          description: Informational only, as on DatabaseFile.
+        thumbnailFileUid:
+          type: string
+          description: >-
+            A playlist has no thumbnail of its own -- an automatic one borrows the
+            thumbnail of a file it contains. This is the uid of that file, and it is what
+            the thumbnail endpoint expects.
         type:
           $ref: '#/components/schemas/FileType'
         registered:

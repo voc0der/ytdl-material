@@ -11,6 +11,11 @@ export type DatabaseFile = {
      * Backup if thumbnailPath is not defined
      */
     thumbnailURL: string;
+    /**
+     * Where the downloaded thumbnail sits on the server. Informational only: the
+     * image is served by the thumbnail endpoint, which is keyed on this file's uid,
+     * because a path does not say who owns it.
+     */
     thumbnailPath?: string;
     isAudio: boolean;
     /**
