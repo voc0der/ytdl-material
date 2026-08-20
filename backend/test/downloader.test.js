@@ -2,6 +2,7 @@
 const { PassThrough } = require('stream');
 const {
     assert,
+    os,
     path,
     fs,
     uuid,
@@ -1207,8 +1208,11 @@ describe('Downloader', function() {
     });
 
     it('Tag file', async function() {
-        const success = await generateEmptyAudioFile('test/sample_mp3.mp3');
-        const audio_path = './test/sample_mp3.mp3';
+        // Generated somewhere disposable rather than over the tracked fixture: ffmpeg's
+        // output is not byte-stable, so regenerating it in place left the repository
+        // dirty after every test run.
+        const audio_path = path.join(os.tmpdir(), `ytdl-sample-${uuid()}.mp3`);
+        const success = await generateEmptyAudioFile(audio_path);
         const sample_json = fs.readJSONSync('./test/sample_mp3.info.json');
         const tags = {
             title: sample_json['title'],
@@ -1217,6 +1221,7 @@ describe('Downloader', function() {
         }
         NodeID3.write(tags, audio_path);
         const written_tags = NodeID3.read(audio_path);
+        await fs.remove(audio_path);
         assert(success && written_tags['raw']['TRCK'] === '27');
     });
 
