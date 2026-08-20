@@ -22,8 +22,8 @@
       "playlist_chunk_size": 100,
       "skip_join_only_videos": false,
       "use_ytdlp_impersonation": false,
-      "use_extractor_client_fallback": false,
-      "transcoding": false
+      "transcoding": false,
+      "js_runtimes": ""
     },
     "Extra": {
       "title_top": "ytdl-material",
@@ -66,7 +66,8 @@
       "enable_documentation_api": false,
       "use_custom_webhook_template": false,
       "custom_webhook_title_template": "{{event_name}}",
-      "custom_webhook_body_template": "{{event_body}}"
+      "custom_webhook_body_template": "{{event_body}}",
+      "telegram_webhook_secret": ""
     },
     "Themes": {
       "default_theme": "default",
@@ -107,18 +108,21 @@
     },
     "Database": {
       "use_local_db": true,
-      "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib"
+      "mongodb_connection_string": "mongodb://127.0.0.1:27017/?compressors=zlib",
+      "remote_db_type": "",
+      "postgresdb_connection_string": "",
+      "redis_connection_string": "",
+      "db_migrate": ""
     },
     "Advanced": {
       "default_downloader": "youtube-dl",
-      "ytdlp_update_channel": "stable",
       "use_default_downloading_agent": true,
       "custom_downloading_agent": "",
       "multi_user_mode": false,
-      "allow_advanced_download": false,
       "use_cookies": false,
       "jwt_expiration": 86400,
-      "logger_level": "info"
+      "logger_level": "info",
+      "ytdlp_update_channel": "stable"
     }
   }
 }

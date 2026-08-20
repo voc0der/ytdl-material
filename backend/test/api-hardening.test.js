@@ -318,42 +318,27 @@ describe('Saving a config that was handed out redacted', function() {
     const {assert, config_api} = require('./test-shared');
 
     /*************************************************
-     * Snapshotted once, not per test.
+     * Restored by writing the file back verbatim.
      *
-     * Taking it in beforeEach meant the second test
-     * captured whatever the first had written, so the
-     * restore preserved a fake credential instead of
-     * removing it -- and the config file is tracked,
-     * so the suite left that string in the repository.
+     * Going through setConfigFile cannot restore it:
+     * a field the snapshot omits is carried forward
+     * rather than removed -- which is the behaviour
+     * these very tests exist to check -- and writing
+     * an empty value instead adds a key the file
+     * never had. Either way the tracked config comes
+     * out of a test run different from how it went
+     * in. The bytes are the only faithful snapshot.
      ************************************************/
-    let original_config = null;
+    const {fs, path} = require('./test-shared');
+    const config_path = path.join(__dirname, '..', 'appdata', 'default.json');
+    let original_config_bytes = null;
 
     before(function() {
-        original_config = config_api.getConfigFile();
+        original_config_bytes = fs.readFileSync(config_path);
     });
 
-    // The fields these tests write, cleared explicitly rather than by restoring a document
-    // that omits them. Omitting is exactly what makes setConfigFile carry a value forward,
-    // so a plain restore preserves the fake credential instead of removing it.
-    const FIELDS_THESE_TESTS_WRITE = [
-        ['API', 'telegram_bot_token'],
-        ['API', 'youtube_API_key'],
-        ['Users', 'oidc', 'client_secret'],
-        ['Database', 'postgresdb_connection_string']
-    ];
-
     afterEach(function() {
-        const restored = JSON.parse(JSON.stringify(original_config));
-        for (const field_path of FIELDS_THESE_TESTS_WRITE) {
-            const field = field_path[field_path.length - 1];
-            let node = restored.YtdlMaterial;
-            for (const part of field_path.slice(0, -1)) {
-                if (!node[part] || typeof node[part] !== 'object') node[part] = {};
-                node = node[part];
-            }
-            if (!(field in node)) node[field] = '';
-        }
-        config_api.setConfigFile(restored);
+        fs.writeFileSync(config_path, original_config_bytes);
     });
 
     /*************************************************
@@ -1314,5 +1299,104 @@ describe('Subtitle metadata', function() {
         });
 
         assert.deepStrictEqual(output.subtitles, []);
+    });
+});
+
+describe('Playback metadata', function() {
+    const {assert, files_api, fs, path, useTemporaryMediaRoots} = require('./test-shared');
+
+    let media = null;
+
+    before(function() {
+        media = useTemporaryMediaRoots({'ytdl_multi_user_mode': true});
+    });
+
+    after(function() {
+        media.restore();
+    });
+
+    /*************************************************
+     * Chapters are read from the .info.json sitting
+     * beside the stored path, which is a filesystem
+     * read of an untrusted string. Guarding only the
+     * subtitle path left this one open, and it runs
+     * first: attachFilePlaybackMetadata calls
+     * chapters before subtitles.
+     ************************************************/
+    it('refuses to read chapters for a path outside the media folders', async function() {
+        const outside_path = path.join(media.base, 'outside.mp4');
+        await fs.outputFile(outside_path, 'not media');
+        await fs.outputJSON(path.join(media.base, 'outside.info.json'), {chapters: [{title: 'leaked'}]});
+
+        const output = files_api.attachFileChapters({
+            uid: 'chapters_outside', path: outside_path, isAudio: false, user_uid: 'alice'
+        });
+
+        assert.deepStrictEqual(output.chapters, []);
+    });
+
+    it('refuses for a path inside another user\'s directory', async function() {
+        const bob_path = path.join(media.users, 'bob', 'video', 'bob.mp4');
+        await fs.outputFile(bob_path, 'bob media');
+        await fs.outputJSON(path.join(media.users, 'bob', 'video', 'bob.info.json'),
+            {chapters: [{title: 'leaked'}]});
+
+        const output = files_api.attachFileChapters({
+            uid: 'chapters_foreign', path: bob_path, isAudio: false, user_uid: 'alice'
+        });
+
+        assert.deepStrictEqual(output.chapters, []);
+    });
+
+    it('still reads chapters for a file its owner really has', async function() {
+        const alice_path = path.join(media.users, 'alice', 'video', 'alice.mp4');
+        await fs.outputFile(alice_path, 'alice media');
+        await fs.outputJSON(path.join(media.users, 'alice', 'video', 'alice.info.json'),
+            {chapters: [{title: 'intro', start_time: 0, end_time: 5}]});
+
+        const output = files_api.attachFileChapters({
+            uid: 'chapters_own', path: alice_path, isAudio: false, user_uid: 'alice'
+        });
+
+        assert.strictEqual(output.chapters.length, 1);
+    });
+});
+
+describe('The published API specification', function() {
+    const {assert, fs, path} = require('./test-shared');
+
+    const spec_path = path.join(__dirname, '..', '..', 'Public API v1.yaml');
+
+    /*************************************************
+     * Correcting the prose was not enough. The
+     * machine-readable half still declared the
+     * deprecated apiKey as the security scheme on
+     * every operation, so generated clients would
+     * keep advertising a parameter the server
+     * ignores, and would not send a JWT at all.
+     ************************************************/
+    it('does not offer the deprecated key as a security scheme', function() {
+        const spec = fs.readFileSync(spec_path, 'utf8');
+
+        assert(!spec.includes('Auth query parameter'),
+            'the spec still defines or references the deprecated apiKey scheme');
+    });
+
+    it('secures every operation with the JWT scheme instead', function() {
+        const yaml = require('js-yaml');
+        const spec = yaml.load(fs.readFileSync(spec_path, 'utf8'));
+
+        assert.deepStrictEqual(Object.keys(spec.components.securitySchemes), ['JWT token parameter']);
+
+        const referenced = new Set();
+        for (const operations of Object.values(spec.paths)) {
+            for (const operation of Object.values(operations)) {
+                for (const requirement of operation.security || []) {
+                    Object.keys(requirement).forEach(name => referenced.add(name));
+                }
+            }
+        }
+
+        assert.deepStrictEqual([...referenced], ['JWT token parameter']);
     });
 });

@@ -3,7 +3,7 @@ const express = require('express');
 const request = require('supertest');
 
 const { assert, auth_api, config_api, db_api } = require('./test-shared');
-const { optionalJwt } = require('../authentication/optional-jwt');
+const { optionalJwt, resolveJwtIfPresent } = require('../authentication/optional-jwt');
 
 /*************************************************
  * optionalJwt is what every guard depends on: it
@@ -27,6 +27,18 @@ function appUsing(route_path) {
     app.all(route_path, (req, res) => res.send({
         uid: req.user ? req.user.uid : null,
         can_watch: !!req.can_watch
+    }));
+    return app;
+}
+
+function appResolving(route_path) {
+    const app = express();
+    app.use(express.json());
+    app.use(auth_api.passport.initialize());
+    app.use(resolveJwtIfPresent);
+    app.all(route_path, (req, res) => res.send({
+        uid: req.user ? req.user.uid : null,
+        authenticated: !!(req.isAuthenticated && req.isAuthenticated())
     }));
     return app;
 }
@@ -205,6 +217,40 @@ describe('optionalJwt', function() {
         it('does not treat getPlaylists as a shareable path', async function() {
             await request(appUsing('/api/getPlaylists'))
                 .post('/api/getPlaylists').query({uuid: CALLER, uid: SHARED_FILE}).expect(401);
+        });
+    });
+
+    /*************************************************
+     * A route with no jwt middleware at all sees
+     * req.isAuthenticated() as false for everybody,
+     * logged-in users included -- passport populates
+     * req.user only where something ran the strategy.
+     * incrementViewCount was written that way and
+     * then taught to refuse callers it could not
+     * identify, which was every one of them.
+     ************************************************/
+    describe('resolveJwtIfPresent', function() {
+        it('identifies a caller who offers a token', async function() {
+            const res = await request(appResolving('/api/incrementViewCount'))
+                .post('/api/incrementViewCount').query({jwt: token}).expect(200);
+
+            assert.strictEqual(res.body.uid, CALLER);
+            assert.strictEqual(res.body.authenticated, true);
+        });
+
+        it('lets an anonymous caller through rather than refusing', async function() {
+            // A share link carries no token, and playback state has to keep working.
+            const res = await request(appResolving('/api/incrementViewCount'))
+                .post('/api/incrementViewCount').expect(200);
+
+            assert.strictEqual(res.body.uid, null);
+        });
+
+        it('treats a bad token as anonymous rather than refusing', async function() {
+            const res = await request(appResolving('/api/incrementViewCount'))
+                .post('/api/incrementViewCount').query({jwt: 'not-a-real-token'}).expect(200);
+
+            assert.strictEqual(res.body.uid, null);
         });
     });
 

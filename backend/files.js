@@ -494,6 +494,27 @@ function getPlaybackMetadataForFile(file_obj = null) {
         };
     }
 
+    /*************************************************
+     * The .info.json this reads sits beside the
+     * stored path, so this is a filesystem read of an
+     * untrusted string and needs the same check the
+     * subtitle path got.
+     *
+     * It lives here rather than in attachFileChapters
+     * because that is not the only way in --
+     * attachFilePlaybackMetadata calls chapters
+     * before subtitles, and attachFileChaptersCollection
+     * calls it directly for every file in a listing.
+     ************************************************/
+    if (!utils.isPathInsideMediaRoots(file_obj.path, file_obj.user_uid)) {
+        logger.error(`Refusing to read playback metadata for ${file_obj.uid}: its path is outside `
+            + `its owner's media folder.`);
+        return {
+            duration: file_obj.duration,
+            chapters: []
+        };
+    }
+
     const type = file_obj.isAudio ? 'audio' : 'video';
     const metadata_json = utils.getJSON(file_obj.path, type);
     if (!metadata_json) {

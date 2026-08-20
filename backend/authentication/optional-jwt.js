@@ -52,6 +52,28 @@ function isPublicAuthPath(req_path) {
 
 exports.isPublicAuthPath = isPublicAuthPath;
 
+/*************************************************
+ * Resolves a token when one is offered, and never
+ * refuses a caller who has none.
+ *
+ * For the routes that have to answer an anonymous
+ * caller -- playback state for a share link -- while
+ * still knowing who a logged-in one is. optionalJwt
+ * cannot do this: it 401s a request with no token,
+ * and a route with no jwt middleware at all sees
+ * req.isAuthenticated() as false for everybody,
+ * including users who are plainly logged in.
+ ************************************************/
+exports.resolveJwtIfPresent = function (req, res, next) {
+    if (!config_api.getConfigItem('ytdl_multi_user_mode')) return next();
+    if (!req.query || !req.query.jwt) return next();
+
+    return auth_api.passport.authenticate('jwt', {session: false}, (err, user) => {
+        if (err || !user) return next();
+        return req.logIn(user, {session: false}, () => next());
+    })(req, res, next);
+}
+
 exports.optionalJwt = async function (req, res, next) {
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
     if (multiUserMode && ((req.body && req.body.uuid) || (req.query && req.query.uuid)) && SHARED_LINK_PATHS.has(req.path)) {

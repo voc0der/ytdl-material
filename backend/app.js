@@ -5,7 +5,7 @@ const http = require('http');
 const https = require('https');
 const auth_api = require('./authentication/auth');
 const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('./authentication/permissions');
-const { optionalJwt } = require('./authentication/optional-jwt');
+const { optionalJwt, resolveJwtIfPresent } = require('./authentication/optional-jwt');
 const oidc_api = require('./authentication/oidc');
 const path = require('path');
 const compression = require('compression');
@@ -1830,7 +1830,7 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
  * rather than merely knowing an owner uid and a
  * file uid, both of which appear in ordinary URLs.
  ************************************************/
-app.post('/api/incrementViewCount', async (req, res) => {
+app.post('/api/incrementViewCount', resolveJwtIfPresent, async (req, res) => {
     const file_uid = req.body.file_uid;
     const sub_id = req.body.sub_id;
     const playlist_id = req.body.playlist_id;
