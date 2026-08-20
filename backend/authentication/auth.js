@@ -208,6 +208,27 @@ function getOIDCIdentityFromClaims(claims, usernameClaim) {
   return null;
 }
 
+/*************************************************
+ * Resolves the caller without rejecting them.
+ *
+ * optionalJwt answers "you may not proceed", which
+ * is wrong for the handful of routes that have to
+ * serve anonymous callers a smaller answer rather
+ * than refuse them. This answers "is anyone
+ * identifiable here" and leaves the consequences to
+ * the caller.
+ ************************************************/
+exports.getUserFromJWT = async function(token) {
+  if (!token || typeof token !== 'string' || !SERVER_SECRET) return null;
+  try {
+    const payload = jwt.verify(token, SERVER_SECRET);
+    if (!payload || !payload.user) return null;
+    return await db_api.getRecord('users', {uid: payload.user});
+  } catch {
+    return null;
+  }
+}
+
 exports.createJWTForUser = function(user_uid) {
   const payload = {
       exp: Math.floor(Date.now() / 1000) + JWT_EXPIRATION,

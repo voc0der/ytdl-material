@@ -405,3 +405,65 @@ const DEFAULT_CONFIG = {
       }
     }
   }
+
+/*************************************************
+ * /api/config is reachable before login, because
+ * the frontend needs to know things like the auth
+ * method and whether registration is open before it
+ * can render anything. The config file also holds
+ * every integration secret the app has been given.
+ *
+ * So the file is redacted for callers who are not
+ * entitled to the whole thing. Callers who can edit
+ * settings get it intact, which is the only way the
+ * settings page can work -- and means a redacted
+ * value never round-trips back into setConfig.
+ ************************************************/
+const SENSITIVE_CONFIG_PATHS = [
+    'YtdlMaterial.API.API_key',
+    'YtdlMaterial.API.youtube_API_key',
+    'YtdlMaterial.API.twitch_client_ID',
+    'YtdlMaterial.API.twitch_client_secret',
+    'YtdlMaterial.API.ntfy_topic_URL',
+    'YtdlMaterial.API.gotify_server_URL',
+    'YtdlMaterial.API.gotify_app_token',
+    'YtdlMaterial.API.telegram_bot_token',
+    'YtdlMaterial.API.telegram_chat_id',
+    'YtdlMaterial.API.telegram_webhook_proxy',
+    'YtdlMaterial.API.webhook_URL',
+    'YtdlMaterial.API.discord_webhook_URL',
+    'YtdlMaterial.API.slack_webhook_URL',
+    'YtdlMaterial.Users.ldap_config.bindDN',
+    'YtdlMaterial.Users.ldap_config.bindCredentials',
+    'YtdlMaterial.Users.ldap_config.url',
+    'YtdlMaterial.Users.ldap_config.searchBase',
+    'YtdlMaterial.Users.ldap_config.searchFilter',
+    'YtdlMaterial.Users.oidc.client_id',
+    'YtdlMaterial.Users.oidc.client_secret',
+    'YtdlMaterial.Users.oidc.issuer_url',
+    'YtdlMaterial.Advanced.custom_downloading_agent'
+];
+
+exports.SENSITIVE_CONFIG_PATHS = SENSITIVE_CONFIG_PATHS;
+
+function deletePath(root, dotted_path) {
+    const parts = dotted_path.split('.');
+    const field = parts.pop();
+    let node = root;
+    for (const part of parts) {
+        if (!node || typeof node !== 'object') return;
+        node = node[part];
+    }
+    if (node && typeof node === 'object' && field in node) delete node[field];
+}
+
+exports.getRedactedConfigFile = () => {
+    const config_json = exports.getConfigFile();
+    if (!config_json) return config_json;
+
+    // Structured clone rather than a shallow copy: the paths below are nested, and the
+    // caller must not be able to reach the live object the rest of the process is using.
+    const redacted = JSON.parse(JSON.stringify(config_json));
+    for (const sensitive_path of SENSITIVE_CONFIG_PATHS) deletePath(redacted, sensitive_path);
+    return redacted;
+}

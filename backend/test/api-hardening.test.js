@@ -223,3 +223,62 @@ describe('Permission resolution', function() {
         assert.strictEqual(await auth_api.userHasPermission(USER_UID, 'settings'), false);
     });
 });
+
+describe('Config redaction', function() {
+    const {assert, config_api} = require('./test-shared');
+
+    it('removes every path on the sensitive list', function() {
+        const redacted = config_api.getRedactedConfigFile();
+        assert(redacted, 'precondition: there should be a config file');
+
+        for (const sensitive_path of config_api.SENSITIVE_CONFIG_PATHS) {
+            const parts = sensitive_path.split('.');
+            const field = parts.pop();
+            let node = redacted;
+            for (const part of parts) node = node && node[part];
+            if (!node) continue; // section absent entirely, nothing to leak
+            assert(!(field in node), `${sensitive_path} should not survive redaction`);
+        }
+    });
+
+    it('covers the secrets that actually exist in the config', function() {
+        // Guards against the list drifting behind the config: anything whose key looks
+        // like a credential should be on it.
+        const full = config_api.getConfigFile();
+        const listed = new Set(config_api.SENSITIVE_CONFIG_PATHS);
+        const missing = [];
+
+        const walk = (node, trail) => {
+            if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+            for (const [key, value] of Object.entries(node)) {
+                const dotted = `${trail}.${key}`;
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    walk(value, dotted);
+                } else if (/secret|token|_key$|credential|password/i.test(key) && !/^use_/.test(key)) {
+                    if (!listed.has(dotted)) missing.push(dotted);
+                }
+            }
+        };
+        walk(full.YtdlMaterial, 'YtdlMaterial');
+
+        assert.deepStrictEqual(missing, [],
+            'these look like credentials but are not redacted; add them to SENSITIVE_CONFIG_PATHS');
+    });
+
+    it('keeps the fields the login page needs', function() {
+        const redacted = config_api.getRedactedConfigFile();
+
+        assert.notStrictEqual(redacted.YtdlMaterial.Advanced.multi_user_mode, undefined);
+        assert.notStrictEqual(redacted.YtdlMaterial.Users.auth_method, undefined);
+        assert.notStrictEqual(redacted.YtdlMaterial.Users.allow_registration, undefined);
+    });
+
+    it('does not damage the live config', function() {
+        const before = JSON.stringify(config_api.getConfigFile());
+
+        config_api.getRedactedConfigFile();
+
+        assert.strictEqual(JSON.stringify(config_api.getConfigFile()), before,
+            'redaction must work on a copy');
+    });
+});

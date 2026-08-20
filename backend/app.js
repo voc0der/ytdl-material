@@ -4,6 +4,7 @@ const { promisify } = require('util');
 const http = require('http');
 const https = require('https');
 const auth_api = require('./authentication/auth');
+const { requireAdmin, requirePermission, anyAuthenticatedUser } = require('./authentication/permissions');
 const oidc_api = require('./authentication/oidc');
 const path = require('path');
 const compression = require('compression');
@@ -1255,8 +1256,17 @@ const optionalJwt = async function (req, res, next) {
     return next();
 };
 
-app.get('/api/config', function(req, res) {
-    let config_file = config_api.getConfigFile();
+// Reachable before login on purpose: the frontend cannot render a login page without
+// knowing the auth method, whether registration is open, and the theme. It cannot use
+// optionalJwt for that reason -- an anonymous caller has to get a smaller answer rather
+// than a 401 -- so entitlement is resolved here instead, and everyone else gets the file
+// with the integration secrets removed.
+app.get('/api/config', async function(req, res) {
+    const caller = await auth_api.getUserFromJWT(req.query.jwt);
+    const caller_may_see_secrets = !config_api.getConfigItem('ytdl_multi_user_mode')
+        || (!!caller && await auth_api.userHasPermission(caller.uid, 'settings'));
+
+    let config_file = caller_may_see_secrets ? config_api.getConfigFile() : config_api.getRedactedConfigFile();
     res.send({
         config_file: config_file,
         ytdlp_impersonation_available: config_api.isYtDlpImpersonationDependencyEnvEnabled(),
@@ -1265,7 +1275,7 @@ app.get('/api/config', function(req, res) {
     });
 });
 
-app.post('/api/setConfig', optionalJwt, function(req, res) {
+app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     let new_config_file = normalizeConfigRoot(req.body.new_config_file);
     if (new_config_file && new_config_file[CONFIG_ROOT_KEY]) {
         let success = config_api.setConfigFile(new_config_file);
@@ -1305,18 +1315,18 @@ app.use('/docs', docsRateLimiter, (req, res, next) => {
     documentation_api_handler(req, res, next);
 });
 
-app.post('/api/restartServer', optionalJwt, (req, res) => {
+app.post('/api/restartServer', optionalJwt, requireAdmin, (req, res) => {
     // delayed by a little bit so that the client gets a response
     setTimeout(() => {utils.restartServer()}, 100);
     res.send({success: true});
 });
 
-app.get('/api/getDBInfo', optionalJwt, async (req, res) => {
+app.get('/api/getDBInfo', optionalJwt, requireAdmin, async (req, res) => {
     const db_info = await db_api.getDBStats();
     res.send(db_info);
 });
 
-app.post('/api/transferDB', optionalJwt, async (req, res) => {
+app.post('/api/transferDB', optionalJwt, requireAdmin, async (req, res) => {
     const local_to_remote = req.body.local_to_remote;
     let success = null;
     let error = '';
@@ -1335,7 +1345,7 @@ app.post('/api/transferDB', optionalJwt, async (req, res) => {
     res.send({success: success, error: error});
 });
 
-app.post('/api/testConnectionString', optionalJwt, async (req, res) => {
+app.post('/api/testConnectionString', optionalJwt, requireAdmin, async (req, res) => {
     const connection_string = req.body.connection_string;
     let success = null;
     let error = '';
@@ -1351,7 +1361,7 @@ app.post('/api/testConnectionString', optionalJwt, async (req, res) => {
     res.send({success: success, error: error});
 });
 
-app.post('/api/downloadFile', optionalJwt, async function(req, res) {
+app.post('/api/downloadFile', optionalJwt, anyAuthenticatedUser, async function(req, res) {
     req.setTimeout(0); // remove timeout in case of long videos
     const url = req.body.url;
     const type = req.body.type ? req.body.type : 'video';
@@ -1384,18 +1394,18 @@ app.post('/api/downloadFile', optionalJwt, async function(req, res) {
     }
 });
 
-app.post('/api/killAllDownloads', optionalJwt, async function(req, res) {
+app.post('/api/killAllDownloads', optionalJwt, requireAdmin, async function(req, res) {
     const result_obj = await killAllDownloads();
     res.send(result_obj);
 });
 
-app.post('/api/deleteOrphanFiles', optionalJwt, async function(req, res) {
+app.post('/api/deleteOrphanFiles', optionalJwt, requireAdmin, async function(req, res) {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const result = await files_api.deleteOrphanFiles(user_uid);
     res.send(result);
 });
 
-app.post('/api/generateArgs', optionalJwt, async function(req, res) {
+app.post('/api/generateArgs', optionalJwt, requirePermission('advanced_download'), async function(req, res) {
     const url = req.body.url;
     const type = req.body.type;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -1421,7 +1431,7 @@ app.post('/api/generateArgs', optionalJwt, async function(req, res) {
 });
 
 // gets all download mp3s
-app.get('/api/getMp3s', optionalJwt, async function(req, res) {
+app.get('/api/getMp3s', optionalJwt, anyAuthenticatedUser, async function(req, res) {
     // TODO: simplify
     let mp3s = await db_api.getRecords('files', {isAudio: true});
     let playlists = await db_api.getRecords('playlists');
@@ -1442,7 +1452,7 @@ app.get('/api/getMp3s', optionalJwt, async function(req, res) {
 });
 
 // gets all download mp4s
-app.get('/api/getMp4s', optionalJwt, async function(req, res) {
+app.get('/api/getMp4s', optionalJwt, anyAuthenticatedUser, async function(req, res) {
     let mp4s = await db_api.getRecords('files', {isAudio: false});
     let playlists = await db_api.getRecords('playlists');
 
@@ -1462,7 +1472,7 @@ app.get('/api/getMp4s', optionalJwt, async function(req, res) {
     });
 });
 
-app.post('/api/getFile', optionalJwt, async function (req, res) {
+app.post('/api/getFile', optionalJwt, anyAuthenticatedUser, async function (req, res) {
     const uid = req.body.uid;
     const uuid = req.body.uuid;
     let file = null;
@@ -1490,7 +1500,7 @@ app.post('/api/getFile', optionalJwt, async function (req, res) {
     }
 });
 
-app.post('/api/getAllFiles', optionalJwt, async function (req, res) {
+app.post('/api/getAllFiles', optionalJwt, anyAuthenticatedUser, async function (req, res) {
     // these are returned
     const sort = req.body.sort;
     const range = req.body.range;
@@ -1511,13 +1521,13 @@ app.post('/api/getAllFiles', optionalJwt, async function (req, res) {
     });
 });
 
-app.post('/api/getDuplicateSummary', optionalJwt, async function (req, res) {
+app.post('/api/getDuplicateSummary', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const summary = await files_api.getDuplicateSummary(user_uid);
     res.send(summary);
 });
 
-app.post('/api/getDuplicates', optionalJwt, async function (req, res) {
+app.post('/api/getDuplicates', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const duplicates = await files_api.getDuplicateGroups(user_uid);
     res.send({
@@ -1525,14 +1535,14 @@ app.post('/api/getDuplicates', optionalJwt, async function (req, res) {
     });
 });
 
-app.post('/api/removeNewestDuplicates', optionalJwt, async function (req, res) {
+app.post('/api/removeNewestDuplicates', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const duplicate_key = req.body.duplicate_key;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const result = await files_api.removeNewestDuplicates(duplicate_key, user_uid);
     res.send(result);
 });
 
-app.post('/api/removeDuplicates', optionalJwt, async function (req, res) {
+app.post('/api/removeDuplicates', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const duplicate_key = req.body.duplicate_key;
     const removal_mode = req.body.removal_mode;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -1553,7 +1563,7 @@ const EDITABLE_FILE_FIELDS = [
 // is a real thing people do -- but the value has to stay inside a directory we serve.
 const PATH_FILE_FIELDS = ['path', 'thumbnailPath'];
 
-app.post('/api/updateFile', optionalJwt, async function (req, res) {
+app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async function (req, res) {
     const uid = req.body.uid;
     const change_obj = req.body.change_obj;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -1613,7 +1623,7 @@ app.post('/api/checkConcurrentStream', async (req, res) => {
     res.send({stream: concurrentStreams[uid]})
 });
 
-app.post('/api/updateConcurrentStream', optionalJwt, async (req, res) => {
+app.post('/api/updateConcurrentStream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uid = req.body.uid;
     const playback_timestamp = req.body.playback_timestamp;
     const unix_timestamp = req.body.unix_timestamp;
@@ -1628,7 +1638,7 @@ app.post('/api/updateConcurrentStream', optionalJwt, async (req, res) => {
     res.send({stream: concurrentStreams[uid]})
 });
 
-app.post('/api/getFullTwitchChat', optionalJwt, async (req, res) => {
+app.post('/api/getFullTwitchChat', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     var id = req.body.id;
     var type = req.body.type;
     var uuid = req.body.uuid;
@@ -1647,7 +1657,7 @@ app.post('/api/getFullTwitchChat', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/downloadTwitchChatByVODID', optionalJwt, async (req, res) => {
+app.post('/api/downloadTwitchChatByVODID', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     var id = req.body.id;
     var type = req.body.type;
     var vodId = req.body.vodId;
@@ -1675,7 +1685,7 @@ app.post('/api/downloadTwitchChatByVODID', optionalJwt, async (req, res) => {
 });
 
 // video sharing
-app.post('/api/enableSharing', optionalJwt, async (req, res) => {
+app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async (req, res) => {
     var uid = req.body.uid;
     var is_playlist = req.body.is_playlist;
     let success = false;
@@ -1711,7 +1721,7 @@ app.post('/api/enableSharing', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/disableSharing', optionalJwt, async function(req, res) {
+app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async function(req, res) {
     var type = req.body.type;
     var uid = req.body.uid;
     var is_playlist = req.body.is_playlist;
@@ -1758,12 +1768,12 @@ app.post('/api/incrementViewCount', async (req, res) => {
 
 // categories
 
-app.post('/api/getAllCategories', optionalJwt, async (req, res) => {
+app.post('/api/getAllCategories', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const categories = await db_api.getRecords('categories');
     res.send({categories: categories});
 });
 
-app.post('/api/createCategory', optionalJwt, async (req, res) => {
+app.post('/api/createCategory', optionalJwt, requirePermission('settings'), async (req, res) => {
     const name = req.body.name;
     const new_category = {
         name: name,
@@ -1781,7 +1791,7 @@ app.post('/api/createCategory', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/createDefaultCategories', optionalJwt, async (req, res) => {
+app.post('/api/createDefaultCategories', optionalJwt, requirePermission('settings'), async (req, res) => {
     const existing_categories = await db_api.getRecords('categories');
     if (existing_categories && existing_categories.length > 0) {
         res.send({
@@ -1799,7 +1809,7 @@ app.post('/api/createDefaultCategories', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/deleteCategory', optionalJwt, async (req, res) => {
+app.post('/api/deleteCategory', optionalJwt, requirePermission('settings'), async (req, res) => {
     const category_uid = req.body.category_uid;
 
     await db_api.removeRecord('categories', {uid: category_uid});
@@ -1809,13 +1819,13 @@ app.post('/api/deleteCategory', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/updateCategory', optionalJwt, async (req, res) => {
+app.post('/api/updateCategory', optionalJwt, requirePermission('settings'), async (req, res) => {
     const category = req.body.category;
     await db_api.updateRecord('categories', {uid: category.uid}, category)
     res.send({success: true});
 });
 
-app.post('/api/updateCategories', optionalJwt, async (req, res) => {
+app.post('/api/updateCategories', optionalJwt, requirePermission('settings'), async (req, res) => {
     const categories = req.body.categories;
     await db_api.removeAllRecords('categories');
     await db_api.insertRecordsIntoTable('categories', categories);
@@ -1824,7 +1834,7 @@ app.post('/api/updateCategories', optionalJwt, async (req, res) => {
 
 // subscriptions
 
-app.post('/api/subscribe', optionalJwt, async (req, res) => {
+app.post('/api/subscribe', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let name = req.body.name;
     let url = req.body.url;
     let maxQuality = req.body.maxQuality;
@@ -1871,7 +1881,7 @@ app.post('/api/subscribe', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/unsubscribe', optionalJwt, async (req, res) => {
+app.post('/api/unsubscribe', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let deleteMode = req.body.deleteMode
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -1889,7 +1899,7 @@ app.post('/api/unsubscribe', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/deleteSubscriptionFile', optionalJwt, async (req, res) => {
+app.post('/api/deleteSubscriptionFile', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let deleteForever = req.body.deleteForever;
     let file_uid = req.body.file_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -1906,7 +1916,7 @@ app.post('/api/deleteSubscriptionFile', optionalJwt, async (req, res) => {
 
 });
 
-app.post('/api/getSubscription', optionalJwt, async (req, res) => {
+app.post('/api/getSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let subID = req.body.id;
     let subName = req.body.name; // if included, subID is optional
     const include_videos = req.body.include_videos !== false;
@@ -1961,7 +1971,7 @@ app.post('/api/getSubscription', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/downloadVideosForSubscription', optionalJwt, async (req, res) => {
+app.post('/api/downloadVideosForSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     const subID = req.body.subID;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -1976,7 +1986,7 @@ app.post('/api/downloadVideosForSubscription', optionalJwt, async (req, res) => 
     });
 });
 
-app.post('/api/updateSubscription', optionalJwt, async (req, res) => {
+app.post('/api/updateSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     const updated_sub = req.body.subscription;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -1986,7 +1996,7 @@ app.post('/api/updateSubscription', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/checkSubscription', optionalJwt, async (req, res) => {
+app.post('/api/checkSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -1996,7 +2006,7 @@ app.post('/api/checkSubscription', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/redownloadSubscription', optionalJwt, async (req, res) => {
+app.post('/api/redownloadSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -2004,7 +2014,7 @@ app.post('/api/redownloadSubscription', optionalJwt, async (req, res) => {
     res.send(result);
 });
 
-app.post('/api/cancelCheckSubscription', optionalJwt, async (req, res) => {
+app.post('/api/cancelCheckSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -2014,7 +2024,7 @@ app.post('/api/cancelCheckSubscription', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/cancelSubscriptionCheck', optionalJwt, async (req, res) => {
+app.post('/api/cancelSubscriptionCheck', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let sub_id = req.body.sub_id;
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -2024,7 +2034,7 @@ app.post('/api/cancelSubscriptionCheck', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/getSubscriptions', optionalJwt, async (req, res) => {
+app.post('/api/getSubscriptions', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
     // get subs from api
@@ -2035,7 +2045,7 @@ app.post('/api/getSubscriptions', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/createPlaylist', optionalJwt, async (req, res) => {
+app.post('/api/createPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let playlistName = req.body.playlistName;
     let uids = req.body.uids;
 
@@ -2047,7 +2057,7 @@ app.post('/api/createPlaylist', optionalJwt, async (req, res) => {
     })
 });
 
-app.post('/api/getPlaylist', optionalJwt, async (req, res) => {
+app.post('/api/getPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let uuid = req.body.uuid ? req.body.uuid : (req.user && req.user.uid ? req.user.uid : null);
     let include_file_metadata = req.body.include_file_metadata;
@@ -2068,7 +2078,7 @@ app.post('/api/getPlaylist', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/getPlaylists', optionalJwt, async (req, res) => {
+app.post('/api/getPlaylists', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const include_categories = req.body.include_categories;
     const filter_obj = getScopedFilterByUser(uuid);
@@ -2086,7 +2096,7 @@ app.post('/api/getPlaylists', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/addFileToPlaylist', optionalJwt, async (req, res) => {
+app.post('/api/addFileToPlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let file_uid = req.body.file_uid;
     
@@ -2114,7 +2124,7 @@ app.post('/api/addFileToPlaylist', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/updatePlaylist', optionalJwt, async (req, res) => {
+app.post('/api/updatePlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let playlist = req.body.playlist;
     let success = await files_api.updatePlaylist(playlist, req.user && req.user.uid);
     res.send({
@@ -2122,7 +2132,7 @@ app.post('/api/updatePlaylist', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/deletePlaylist', optionalJwt, async (req, res) => {
+app.post('/api/deletePlaylist', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let playlistID = req.body.playlist_id;
     const delete_files = req.body.delete_files === true;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -2167,7 +2177,7 @@ app.post('/api/deletePlaylist', optionalJwt, async (req, res) => {
 });
 
 // deletes non-subscription files
-app.post('/api/deleteFile', optionalJwt, async (req, res) => {
+app.post('/api/deleteFile', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uid = req.body.uid;
     const blacklistMode = req.body.blacklistMode;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
@@ -2178,7 +2188,7 @@ app.post('/api/deleteFile', optionalJwt, async (req, res) => {
 });
 
 // creates a new file containing only the selected range of an existing file
-app.post('/api/snipFile', optionalJwt, async (req, res) => {
+app.post('/api/snipFile', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uid = req.body.uid;
     const start = req.body.start;
     const end = req.body.end;
@@ -2234,7 +2244,7 @@ app.post('/api/snipFile', optionalJwt, async (req, res) => {
     res.send({success: true, job_uid: job_uid});
 });
 
-app.post('/api/getSnipStatus', optionalJwt, async (req, res) => {
+app.post('/api/getSnipStatus', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const job_uid = req.body.job_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const job = typeof job_uid === 'string' ? snipJobs[job_uid] : null;
@@ -2260,7 +2270,7 @@ app.post('/api/getSnipStatus', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/deleteAllFiles', optionalJwt, async (req, res) => {
+app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const blacklistMode = false;
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
@@ -2300,7 +2310,7 @@ app.post('/api/deleteAllFiles', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/downloadFileFromServer', optionalJwt, async (req, res) => {
+app.post('/api/downloadFileFromServer', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let uid = req.body.uid;
     let uuid = req.body.uuid;
     let playlist_id = req.body.playlist_id;
@@ -2361,7 +2371,7 @@ app.post('/api/downloadFileFromServer', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/getArchives', optionalJwt, async (req, res) => {
+app.post('/api/getArchives', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const sub_id = req.body.sub_id;
     const filter_obj = {sub_id: sub_id, ...getScopedFilterByUser(uuid)};
@@ -2377,7 +2387,7 @@ app.post('/api/getArchives', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/downloadArchive', optionalJwt, async (req, res) => {
+app.post('/api/downloadArchive', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const sub_id = req.body.sub_id; 
     const type = req.body.type;
@@ -2394,7 +2404,7 @@ app.post('/api/downloadArchive', optionalJwt, async (req, res) => {
 
 });
 
-app.post('/api/importArchive', optionalJwt, async (req, res) => {
+app.post('/api/importArchive', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const archive = req.body.archive;
     const sub_id = req.body.sub_id; 
@@ -2410,7 +2420,7 @@ app.post('/api/importArchive', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/deleteArchiveItems', optionalJwt, async (req, res) => {
+app.post('/api/deleteArchiveItems', optionalJwt, requirePermission('filemanager'), async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
     const archives = req.body.archives;
 
@@ -2654,7 +2664,7 @@ app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, async (req, re
 
 // Updater API calls
 
-app.get('/api/updaterStatus', optionalJwt, async (req, res) => {
+app.get('/api/updaterStatus', optionalJwt, requireAdmin, async (req, res) => {
     let status = updaterStatus;
 
     if (status) {
@@ -2665,7 +2675,7 @@ app.get('/api/updaterStatus', optionalJwt, async (req, res) => {
 
 });
 
-app.post('/api/updateServer', optionalJwt, async (req, res) => {
+app.post('/api/updateServer', optionalJwt, requireAdmin, async (req, res) => {
     let tag = req.body.tag;
 
     updateServer(tag);
@@ -2678,7 +2688,7 @@ app.post('/api/updateServer', optionalJwt, async (req, res) => {
 
 // API Key API calls
 
-app.post('/api/generateNewAPIKey', optionalJwt, function (req, res) {
+app.post('/api/generateNewAPIKey', optionalJwt, requireAdmin, function (req, res) {
     const new_api_key = uuid();
     config_api.setConfigItem('ytdl_api_key', new_api_key);
     res.send({new_api_key: new_api_key});
@@ -2686,7 +2696,7 @@ app.post('/api/generateNewAPIKey', optionalJwt, function (req, res) {
 
 // Streaming API calls
 
-app.get('/api/stream', optionalJwt, async (req, res) => {
+app.get('/api/stream', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const type = req.query.type;
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
@@ -2763,7 +2773,7 @@ app.get('/api/stream', optionalJwt, async (req, res) => {
     }
 });
 
-app.get('/api/streamSubtitle', optionalJwt, async (req, res) => {
+app.get('/api/streamSubtitle', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
@@ -2806,7 +2816,7 @@ app.get('/api/streamSubtitle', optionalJwt, async (req, res) => {
     res.sendFile(resolved_subtitle_path);
 });
 
-app.get('/api/thumbnail/:path', optionalJwt, async (req, res) => {
+app.get('/api/thumbnail/:path', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     // Express route params are already decoded.
     const requestedPath = typeof req.params.path === 'string' ? req.params.path : '';
     const resolvedRequestedPath = path.isAbsolute(requestedPath) ? path.resolve(requestedPath) : path.resolve(__dirname, requestedPath);
@@ -2970,7 +2980,7 @@ async function hasScopedDownload(download_uid, user_uid) {
     return downloads.length > 0;
 }
 
-app.post('/api/downloads', optionalJwt, async (req, res) => {
+app.post('/api/downloads', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const uids = req.body.uids;
     const only_unfinished = req.body.only_unfinished === true;
@@ -3069,7 +3079,7 @@ app.post('/api/downloads', optionalJwt, async (req, res) => {
     });
 });
 
-app.post('/api/download', optionalJwt, async (req, res) => {
+app.post('/api/download', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const scoped_filter = getScopedFilterByUser(user_uid);
@@ -3092,7 +3102,7 @@ app.post('/api/download', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
+app.post('/api/clearDownloads', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const scoped_filter = getScopedFilterByUser(user_uid);
     const clear_finished = req.body.clear_finished;
@@ -3129,7 +3139,7 @@ app.post('/api/clearDownloads', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/clearDownload', optionalJwt, async (req, res) => {
+app.post('/api/clearDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     if (!(await hasScopedDownload(download_uid, user_uid))) {
@@ -3140,7 +3150,7 @@ app.post('/api/clearDownload', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/pauseDownload', optionalJwt, async (req, res) => {
+app.post('/api/pauseDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     if (!(await hasScopedDownload(download_uid, user_uid))) {
@@ -3151,7 +3161,7 @@ app.post('/api/pauseDownload', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/pauseAllDownloads', optionalJwt, async (req, res) => {
+app.post('/api/pauseAllDownloads', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     let success = true;
     const all_running_downloads = await db_api.getRecords(
@@ -3168,7 +3178,7 @@ app.post('/api/pauseAllDownloads', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/resumeDownload', optionalJwt, async (req, res) => {
+app.post('/api/resumeDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     if (!(await hasScopedDownload(download_uid, user_uid))) {
@@ -3179,7 +3189,7 @@ app.post('/api/resumeDownload', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/resumeAllDownloads', optionalJwt, async (req, res) => {
+app.post('/api/resumeAllDownloads', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     let success = true;
     const all_paused_downloads = await db_api.getRecords(
@@ -3196,7 +3206,7 @@ app.post('/api/resumeAllDownloads', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/restartDownload', optionalJwt, async (req, res) => {
+app.post('/api/restartDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     if (!(await hasScopedDownload(download_uid, user_uid))) {
@@ -3207,7 +3217,7 @@ app.post('/api/restartDownload', optionalJwt, async (req, res) => {
     res.send({success: !!new_download, new_download_uid: new_download ? new_download['uid'] : null});
 });
 
-app.post('/api/cancelDownload', optionalJwt, async (req, res) => {
+app.post('/api/cancelDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     if (!(await hasScopedDownload(download_uid, user_uid))) {
@@ -3220,7 +3230,7 @@ app.post('/api/cancelDownload', optionalJwt, async (req, res) => {
 
 // tasks
 
-app.post('/api/getTasks', optionalJwt, async (req, res) => {
+app.post('/api/getTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const tasks = await db_api.getRecords('tasks');
     for (let task of tasks) {
         if (!tasks_api.TASKS[task['key']]) {
@@ -3234,7 +3244,7 @@ app.post('/api/getTasks', optionalJwt, async (req, res) => {
     res.send({tasks: tasks});
 });
 
-app.post('/api/resetTasks', optionalJwt, async (req, res) => {
+app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const tasks_keys = Object.keys(tasks_api.TASKS);
     for (let i = 0; i < tasks_keys.length; i++) {
         const task_key = tasks_keys[i];
@@ -3245,7 +3255,7 @@ app.post('/api/resetTasks', optionalJwt, async (req, res) => {
     res.send({success: true});
 });
 
-app.post('/api/getTask', optionalJwt, async (req, res) => {
+app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
     const job = tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['job'];
@@ -3254,7 +3264,7 @@ app.post('/api/getTask', optionalJwt, async (req, res) => {
     res.send({task: task});
 });
 
-app.post('/api/runTask', optionalJwt, async (req, res) => {
+app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
 
@@ -3265,7 +3275,7 @@ app.post('/api/runTask', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/confirmTask', optionalJwt, async (req, res) => {
+app.post('/api/confirmTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
 
@@ -3276,7 +3286,7 @@ app.post('/api/confirmTask', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/updateTaskSchedule', optionalJwt, async (req, res) => {
+app.post('/api/updateTaskSchedule', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const new_schedule = req.body.new_schedule;
   
@@ -3285,7 +3295,7 @@ app.post('/api/updateTaskSchedule', optionalJwt, async (req, res) => {
     res.send({success: true});
 });
 
-app.post('/api/updateTaskData', optionalJwt, async (req, res) => {
+app.post('/api/updateTaskData', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const new_data = req.body.new_data;
   
@@ -3294,7 +3304,7 @@ app.post('/api/updateTaskData', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/updateTaskOptions', optionalJwt, async (req, res) => {
+app.post('/api/updateTaskOptions', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const new_options = req.body.new_options;
   
@@ -3303,7 +3313,7 @@ app.post('/api/updateTaskOptions', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/getDBBackups', optionalJwt, async (req, res) => {
+app.post('/api/getDBBackups', optionalJwt, requireAdmin, async (req, res) => {
     const backup_dir = path.join('appdata', 'db_backup');
     fs.ensureDirSync(backup_dir);
     const db_backups = [];
@@ -3326,7 +3336,7 @@ app.post('/api/getDBBackups', optionalJwt, async (req, res) => {
     res.send({db_backups: db_backups});
 });
 
-app.post('/api/restoreDBBackup', optionalJwt, async (req, res) => {
+app.post('/api/restoreDBBackup', optionalJwt, requireAdmin, async (req, res) => {
     const file_name = req.body.file_name;
 
     const success = await db_api.restoreDB(file_name);
@@ -3336,7 +3346,7 @@ app.post('/api/restoreDBBackup', optionalJwt, async (req, res) => {
 
 // logs management
 
-app.post('/api/logs', optionalJwt, async function(req, res) {
+app.post('/api/logs', optionalJwt, requireAdmin, async function(req, res) {
     let logs = null;
     let lines = req.body.lines;
     const logs_path = path.join('appdata', 'logs', 'combined.log')
@@ -3353,7 +3363,7 @@ app.post('/api/logs', optionalJwt, async function(req, res) {
     });
 });
 
-app.post('/api/clearAllLogs', optionalJwt, async function(req, res) {
+app.post('/api/clearAllLogs', optionalJwt, requireAdmin, async function(req, res) {
     const logs_path = path.join('appdata', 'logs', 'combined.log');
     const logs_err_path = path.join('appdata', 'logs', 'error.log');
     let success = false;
@@ -3372,7 +3382,7 @@ app.post('/api/clearAllLogs', optionalJwt, async function(req, res) {
     });
 });
 
-  app.post('/api/getFileFormats', optionalJwt, async (req, res) => {
+  app.post('/api/getFileFormats', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const url = req.body.url;
     const result = await downloader_api.getVideoInfoByURL(url, [], null, {forceYtDlp: true});
     res.send({
@@ -3443,7 +3453,7 @@ app.get('/api/auth/oidc/callback', async (req, res) => {
     }
 });
 
-app.post('/api/auth/register', optionalJwt, async (req, res) => {
+app.post('/api/auth/register', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     if (oidc_api.isEnabled()) {
         res.status(403).send('Registration is disabled when OIDC is enabled.');
         return;
@@ -3498,7 +3508,7 @@ app.post('/api/auth/jwtAuth'
         , auth_api.generateJWT
         , auth_api.returnAuthResponse
 );
-app.post('/api/auth/changePassword', optionalJwt, async (req, res) => {
+app.post('/api/auth/changePassword', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     let user_uid = req.body.user_uid;
     let password = req.body.new_password;
     let success = await auth_api.changeUserPassword(user_uid, password);
@@ -3510,16 +3520,16 @@ app.post('/api/auth/adminExists', async (req, res) => {
 });
 
 // user management
-app.post('/api/getUsers', optionalJwt, async (req, res) => {
+app.post('/api/getUsers', optionalJwt, requireAdmin, async (req, res) => {
     let users = await db_api.getRecords('users');
     res.send({users: auth_api.sanitizeUsersForResponse(users)});
 });
-app.post('/api/getRoles', optionalJwt, async (req, res) => {
+app.post('/api/getRoles', optionalJwt, requireAdmin, async (req, res) => {
     let roles = await db_api.getRecords('roles');
     res.send({roles: roles});
 });
 
-app.post('/api/updateUser', optionalJwt, async (req, res) => {
+app.post('/api/updateUser', optionalJwt, requireAdmin, async (req, res) => {
     let change_obj = req.body.change_object;
     try {
         if (change_obj.name) {
@@ -3535,7 +3545,7 @@ app.post('/api/updateUser', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/deleteUser', optionalJwt, async (req, res) => {
+app.post('/api/deleteUser', optionalJwt, requireAdmin, async (req, res) => {
     let uid = req.body.uid;
     try {
         const success = await auth_api.deleteUser(uid);
@@ -3546,7 +3556,7 @@ app.post('/api/deleteUser', optionalJwt, async (req, res) => {
     }
 });
 
-app.post('/api/changeUserPermissions', optionalJwt, async (req, res) => {
+app.post('/api/changeUserPermissions', optionalJwt, requireAdmin, async (req, res) => {
     const user_uid = req.body.user_uid;
     const permission = req.body.permission;
     const new_value = req.body.new_value;
@@ -3561,7 +3571,7 @@ app.post('/api/changeUserPermissions', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/changeRolePermissions', optionalJwt, async (req, res) => {
+app.post('/api/changeRolePermissions', optionalJwt, requireAdmin, async (req, res) => {
     const role = req.body.role;
     const permission = req.body.permission;
     const new_value = req.body.new_value;
@@ -3578,7 +3588,7 @@ app.post('/api/changeRolePermissions', optionalJwt, async (req, res) => {
 
 // notifications
 
-app.post('/api/getNotifications', optionalJwt, async (req, res) => {
+app.post('/api/getNotifications', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const notifications = await db_api.getRecords('notifications', {user_uid: uuid});
@@ -3587,7 +3597,7 @@ app.post('/api/getNotifications', optionalJwt, async (req, res) => {
 });
 
 // set notifications to read
-app.post('/api/setNotificationsToRead', optionalJwt, async (req, res) => {
+app.post('/api/setNotificationsToRead', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const success = await db_api.updateRecords('notifications', {user_uid: uuid}, {read: true});
@@ -3595,7 +3605,7 @@ app.post('/api/setNotificationsToRead', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/deleteNotification', optionalJwt, async (req, res) => {
+app.post('/api/deleteNotification', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const notification_uid = req.body.uid;
     if (!notification_uid) {
@@ -3608,7 +3618,7 @@ app.post('/api/deleteNotification', optionalJwt, async (req, res) => {
     res.send({success: success});
 });
 
-app.post('/api/deleteAllNotifications', optionalJwt, async (req, res) => {
+app.post('/api/deleteAllNotifications', optionalJwt, anyAuthenticatedUser, async (req, res) => {
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
     const success = await db_api.removeAllRecords('notifications', {user_uid: uuid});
