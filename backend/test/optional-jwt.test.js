@@ -136,6 +136,72 @@ describe('optionalJwt', function() {
                 .post('/api/getFileFormats').query({uuid: CALLER, uid: SHARED_FILE}).expect(401);
         });
 
+        /*************************************************
+         * A shared playlist used to authorize the
+         * playlist and nothing else -- optionalJwt
+         * checked that the playlist was shared, then
+         * /api/stream happily served any file uid
+         * belonging to the same user.
+         ************************************************/
+        describe('A shared playlist', function() {
+            const PLAYLIST_ID = 'optional_jwt_shared_playlist';
+            const MEMBER_FILE = 'optional_jwt_playlist_member';
+            const PRIVATE_FILE = 'optional_jwt_private_file';
+
+            beforeEach(async function() {
+                for (const uid of [MEMBER_FILE, PRIVATE_FILE]) {
+                    await db_api.removeAllRecords('files', {uid: uid});
+                    await db_api.insertRecordIntoTable('files', {
+                        uid: uid, user_uid: CALLER, sharingEnabled: false
+                    });
+                }
+                await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+                await db_api.insertRecordIntoTable('playlists', {
+                    id: PLAYLIST_ID, user_uid: CALLER, sharingEnabled: true, uids: [MEMBER_FILE]
+                });
+            });
+
+            after(async function() {
+                await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+                for (const uid of [MEMBER_FILE, PRIVATE_FILE]) {
+                    await db_api.removeAllRecords('files', {uid: uid});
+                }
+            });
+
+            it('authorizes a file that is in it', async function() {
+                const res = await request(appUsing('/api/stream'))
+                    .get('/api/stream')
+                    .query({uuid: CALLER, playlist_id: PLAYLIST_ID, uid: MEMBER_FILE})
+                    .expect(200);
+
+                assert.strictEqual(res.body.can_watch, true);
+            });
+
+            it('refuses a file that is not in it', async function() {
+                await request(appUsing('/api/stream'))
+                    .get('/api/stream')
+                    .query({uuid: CALLER, playlist_id: PLAYLIST_ID, uid: PRIVATE_FILE})
+                    .expect(401);
+            });
+
+            it('refuses that file\'s subtitles too', async function() {
+                await request(appUsing('/api/streamSubtitle'))
+                    .get('/api/streamSubtitle')
+                    .query({uuid: CALLER, playlist_id: PLAYLIST_ID, uid: PRIVATE_FILE})
+                    .expect(401);
+            });
+
+            it('still authorizes a request for the playlist itself', async function() {
+                // No uid means the caller is asking for the playlist, which is the share.
+                const res = await request(appUsing('/api/getPlaylist'))
+                    .post('/api/getPlaylist')
+                    .query({uuid: CALLER, playlist_id: PLAYLIST_ID})
+                    .expect(200);
+
+                assert.strictEqual(res.body.can_watch, true);
+            });
+        });
+
         it('does not treat getPlaylists as a shareable path', async function() {
             await request(appUsing('/api/getPlaylists'))
                 .post('/api/getPlaylists').query({uuid: CALLER, uid: SHARED_FILE}).expect(401);

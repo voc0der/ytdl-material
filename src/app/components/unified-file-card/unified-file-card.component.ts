@@ -53,7 +53,6 @@ export class UnifiedFileCardComponent implements OnInit {
   @Input() displayDateProperty = 'registered';
   @Input() baseStreamPath = null;
   @Input() jwtString = null;
-  @Input() apiKeyString = null;
   @Input() availablePlaylists = null;
   @Output() goToFile = new EventEmitter<any>();
   @Output() toggleFavorite = new EventEmitter<DatabaseFile>();
@@ -114,12 +113,7 @@ export class UnifiedFileCardComponent implements OnInit {
     }
 
     if (this.file_obj && this.file_obj.thumbnailPath) {
-      let authQuery = '';
-      if (this.jwtString) {
-        authQuery = `jwt=${this.jwtString}`;
-      } else if (this.apiKeyString) {
-        authQuery = `apiKey=${this.apiKeyString}`;
-      }
+      const authQuery = this.jwtString ? `jwt=${this.jwtString}` : '';
       this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(this.file_obj.thumbnailPath)}${authQuery ? '?' + authQuery : ''}`;
     }
 
@@ -184,8 +178,6 @@ export class UnifiedFileCardComponent implements OnInit {
 
     if (this.jwtString) {
       fullLocation += `&jwt=${this.jwtString}`;
-    } else if (this.apiKeyString) {
-      fullLocation += `&apiKey=${this.apiKeyString}`;
     }
 
     fullLocation += '&t=,10';

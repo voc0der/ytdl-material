@@ -810,7 +810,9 @@ describe('Files', function() {
         });
     });
     describe('embedded subtitle extraction', function() {
-        const subtitle_dir = path.join(__dirname, 'tmp-subtitle-test');
+        // Inside a media root, like the other fixtures: subtitle extraction hands the path
+        // to ffprobe and ffmpeg, and now refuses one outside the configured folders.
+        const subtitle_dir = path.resolve(config_api.getConfigItem('ytdl_video_folder_path'), 'tmp-subtitle-test');
         const subtitle_source_path = path.join(subtitle_dir, 'subtitled.mp4');
 
         // Builds a real video carrying one embedded English subtitle track. The extraction

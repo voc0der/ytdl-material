@@ -13,7 +13,7 @@ const multer  = require('multer');
 const express = require("express");
 const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
-const archiver = require('archiver');
+const { ZipArchive } = require('archiver');
 const unzipper = require('unzipper');
 const db_api = require('./db');
 const { DelegatingRateLimitStore } = require('./rate-limit-store');
@@ -610,8 +610,8 @@ async function backupServerLite() {
     let output = fs.createWriteStream(path.join(__dirname, output_path));
 
     await new Promise(resolve => {
-        var archive = archiver('zip', {
-            gzip: true,
+        // archiver 8 exports classes rather than a callable factory; the old form threw.
+        var archive = new ZipArchive({
             zlib: { level: 9 } // Sets the compression level.
         });
 
@@ -1041,28 +1041,25 @@ app.use(function(req, res, next) {
         next();
     } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key') && req.query.apiKey === config_api.getConfigItem('ytdl_api_key')) {
         next();
-    } else if (req.query.apiKey && config_api.getConfigItem('ytdl_use_api_key')) {
-        // A key was offered while key auth is switched on, and it is not the configured
-        // one. Refusing an offered-but-wrong key is the point of the setting.
-        //
-        // When the setting is off, an offered key is ignored rather than refused: after
-        // an upgrade a browser may still be running a cached bundle that appends the
-        // constant this gate used to require, and that should degrade to an ordinary
-        // keyless request rather than a closed socket.
-        logger.verbose(`Rejecting request - invalid API key for endpoint: ${req.path}.`);
-        req.socket.end();
     } else {
         /*************************************************
-         * No key offered, which is the ordinary case for
-         * the web UI, and it is allowed through.
+         * No key, or one that does not match: either way
+         * the request goes on to optionalJwt and the route
+         * guards, which are what actually decide.
          *
          * This gate used to close the socket unless the
          * caller presented a hardcoded UUID -- one that
          * ships in the frontend bundle and is published in
          * this repository, so everybody had it. It refused
-         * nobody. What actually decides whether a request
-         * is allowed is optionalJwt and the route guards,
-         * and those run next.
+         * nobody, and it could not be made to refuse
+         * anybody without taking the web UI down with it,
+         * because the UI has no configured key to send.
+         *
+         * So the API key is one way to authenticate rather
+         * than a gate in front of everything, and offering
+         * a wrong one is not fatal -- which also means a
+         * browser still running a cached bundle degrades to
+         * an ordinary request instead of a closed socket.
          ************************************************/
         next();
     }
@@ -1368,7 +1365,7 @@ app.post('/api/testConnectionString', optionalJwt, requireAdmin, async (req, res
  * of the answer: holding advanced_download is not
  * meant to include running commands as the server.
  ************************************************/
-async function refuseUnsafeDownloadOptions(req, options) {
+async function refuseUnsafeDownloadOptions(req, options, url = undefined) {
     if (utils.hasAdvancedDownloadOptions(options) && config_api.getConfigItem('ytdl_multi_user_mode')) {
         if (!req.user) return {status: 401, error: 'Authentication required'};
         if (!await auth_api.userHasPermission(req.user.uid, 'advanced_download')) {
@@ -1377,11 +1374,17 @@ async function refuseUnsafeDownloadOptions(req, options) {
     }
 
     for (const field of ['customArgs', 'additionalArgs']) {
-        const forbidden_args = utils.findForbiddenDownloadArgs(options[field]);
-        if (forbidden_args.length) {
-            logger.error(`Refusing a download: ${field} contained ${forbidden_args.join(', ')}.`);
-            return {status: 400, error: `These arguments are not allowed: ${forbidden_args.join(', ')}`};
+        const disallowed_args = utils.findDisallowedDownloadArgs(options[field]);
+        if (disallowed_args.length) {
+            logger.error(`Refusing a download: ${field} contained ${disallowed_args.join(', ')}.`);
+            return {status: 400, error: `These arguments are not allowed: ${disallowed_args.join(', ')}`};
         }
+    }
+
+    // Rejected here as well as at the downloader, so the caller is told why rather than
+    // watching a download quietly fail to appear.
+    if (url !== undefined && !utils.isAllowedDownloadURL(url)) {
+        return {status: 400, error: 'Only http and https URLs can be downloaded'};
     }
 
     return null;
@@ -1411,7 +1414,7 @@ app.post('/api/downloadFile', optionalJwt, requireAuthenticated, async function(
         channelSearchPlaylist: !!req.body.channelSearchPlaylist
     };
 
-    const refusal = await refuseUnsafeDownloadOptions(req, options);
+    const refusal = await refuseUnsafeDownloadOptions(req, options, url);
     if (refusal) {
         res.status(refusal.status).send({success: false, error: refusal.error});
         return;
@@ -1458,13 +1461,19 @@ app.post('/api/generateArgs', optionalJwt, requirePermission('advanced_download'
         disableSponsorBlock: req.body.disableSponsorBlock
     };
 
-    const refusal = await refuseUnsafeDownloadOptions(req, options);
+    const refusal = await refuseUnsafeDownloadOptions(req, options, url);
     if (refusal) {
         res.status(refusal.status).send({success: false, error: refusal.error});
         return;
     }
 
-    const args = await downloader_api.generateArgs(url, type, options, user_uid, true);
+    // The preview is generated without the administrator's global arguments unless the
+    // caller is one: advanced_download is delegable, and those arguments are a secret the
+    // settings page already withholds from everybody else.
+    const caller_may_see_global_args = !config_api.getConfigItem('ytdl_multi_user_mode')
+        || (req.isAuthenticated() && !!req.user && req.user.role === 'admin');
+
+    const args = await downloader_api.generateArgs(url, type, options, user_uid, true, caller_may_see_global_args);
     res.send({args: args});
 });
 
@@ -1622,8 +1631,8 @@ app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async
 
     for (const field of PATH_FILE_FIELDS) {
         if (!Object.prototype.hasOwnProperty.call(filtered_change_obj, field)) continue;
-        if (!utils.isPathInsideMediaRoots(filtered_change_obj[field])) {
-            logger.error(`Refusing to set ${field} on file ${uid} to a path outside the configured media folders.`);
+        if (!utils.isPathInsideMediaRoots(filtered_change_obj[field], user_uid)) {
+            logger.error(`Refusing to set ${field} on file ${uid} to a path outside the caller's media folders.`);
             res.send({success: false, error: `${field} must be inside a configured media folder`});
             return;
         }
@@ -1804,6 +1813,13 @@ app.post('/api/incrementViewCount', async (req, res) => {
 
     if (req.isAuthenticated()) uuid = req.user.uid;
 
+    // getVideo drops its owner filter when the uuid is empty, so an anonymous caller who
+    // omitted it could name any file uid at all. In multi-user mode there has to be one.
+    if (config_api.getConfigItem('ytdl_multi_user_mode') && !uuid) {
+        res.sendStatus(401);
+        return;
+    }
+
     const file_obj = await files_api.getVideo(file_uid, uuid, sub_id);
     if (!file_obj) {
         // Used to fall through and write anyway, which incremented a counter on a record
@@ -1923,7 +1939,7 @@ app.post('/api/subscribe', optionalJwt, requirePermission('subscriptions'), asyn
         new_sub.custom_output = customOutput;
     }
 
-    const refusal = await refuseUnsafeDownloadOptions(req, {customArgs: customArgs, customOutput: customOutput});
+    const refusal = await refuseUnsafeDownloadOptions(req, {customArgs: customArgs, customOutput: customOutput}, url);
     if (refusal) {
         res.status(refusal.status).send({success: false, error: refusal.error});
         return;
@@ -2388,6 +2404,9 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
     let sub_id = req.body.sub_id;
 
     let file_path_to_download = null;
+    // The container's own name is now only ever a display name -- the archive on disk is
+    // named by the server -- so it is carried separately and used for the header.
+    let download_display_name = null;
 
     if (req.user && req.user.uid) uuid = req.user.uid;
 
@@ -2407,7 +2426,8 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
         }
 
         // generate zip
-        file_path_to_download = await utils.createContainerZipFile(playlist['name'], playlist_files_to_download);
+        download_display_name = playlist['name'];
+        file_path_to_download = await utils.createContainerZipFile(playlist['name'], playlist_files_to_download, uuid);
     } else if (sub_id && !uid) {
         zip_file_generated = true;
         const sub = await subscriptions_api.getSubscription(sub_id, req.isAuthenticated() ? req.user.uid : null);
@@ -2418,7 +2438,9 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
         const sub_files_to_download = await db_api.getRecords('files', {sub_id: sub_id, ...getScopedFilterByUser(req.isAuthenticated() ? req.user.uid : null)});
 
         // generate zip
-        file_path_to_download = await utils.createContainerZipFile(sub['name'], sub_files_to_download);
+        download_display_name = sub['name'];
+        file_path_to_download = await utils.createContainerZipFile(sub['name'], sub_files_to_download,
+            req.isAuthenticated() ? req.user.uid : null);
     } else {
         const file_obj = await files_api.getVideo(uid, uuid, sub_id)
         if (!file_obj) {
@@ -2435,19 +2457,37 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
             return;
         }
     }
+    if (!file_path_to_download) {
+        // The archive could not be built -- every record was refused, or the write failed.
+        logger.error('Failed to build an archive to send.');
+        res.sendStatus(500);
+        return;
+    }
+
     if (!path.isAbsolute(file_path_to_download)) file_path_to_download = path.join(__dirname, file_path_to_download);
-    res.sendFile(file_path_to_download, function (err) {
+
+    const afterSend = function (err) {
         if (err) {
           logger.error(err);
-        } else if (zip_file_generated) {
+        }
+        if (zip_file_generated) {
           try {
-            // delete generated zip file
+            // delete generated zip file, whether or not the send succeeded
             fs.unlinkSync(file_path_to_download);
           } catch(e) {
             logger.error(`Failed to remove file after sending to client: ${file_path_to_download}`);
           }
         }
-    });
+    };
+
+    if (download_display_name) {
+        // res.download builds the Content-Disposition header itself, which is where the
+        // caller's chosen name belongs -- it names the file in their browser and never
+        // touches a path on this machine.
+        res.download(file_path_to_download, `${download_display_name}.zip`, afterSend);
+    } else {
+        res.sendFile(file_path_to_download, afterSend);
+    }
 });
 
 app.post('/api/getArchives', optionalJwt, requirePermission('filemanager'), async (req, res) => {
@@ -2916,12 +2956,12 @@ app.get('/api/thumbnail/:path', optionalJwt, requireAuthenticated, async (req, r
         return;
     }
 
+    // Scoped to the caller in multi-user mode, so one user cannot read a thumbnail out of
+    // another user's directory just by naming its path.
+    const caller_uid = req.isAuthenticated() && req.user ? req.user.uid : null;
     const configuredRoots = [
         __dirname,
-        config_api.getConfigItem('ytdl_audio_folder_path'),
-        config_api.getConfigItem('ytdl_video_folder_path'),
-        config_api.getConfigItem('ytdl_subscriptions_base_path'),
-        config_api.getConfigItem('ytdl_users_base_path')
+        ...utils.getMediaRootsForUser(caller_uid)
     ]
         .filter(Boolean)
         .map(root => path.resolve(__dirname, root));

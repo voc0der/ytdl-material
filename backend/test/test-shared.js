@@ -41,6 +41,7 @@ const categories_api = require('../categories');
 const files_api = require('../files');
 const youtubedl_api = require('../youtube-dl');
 const config_api = require('../config');
+const downloader_api = require('../downloader');
 const CONSTS = require('../consts');
 
 db_api.initialize(db, users_db, 'local_db_test.json');
@@ -96,6 +97,7 @@ module.exports = {
     files_api,
     youtubedl_api,
     config_api,
+    downloader_api,
     CONSTS,
     sample_video_json,
     generateEmptyVideoFile,

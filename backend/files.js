@@ -662,6 +662,14 @@ exports.extractSubtitleSidecar = extractSubtitleSidecar;
 exports.ensureSubtitleSidecarForFile = async (file_obj = null, subtitle_track_index = 0) => {
     if (!file_obj || file_obj.isAudio || !file_obj.path) return null;
 
+    // ffprobe and ffmpeg are handed this path, so it gets the same check as the endpoints
+    // that read it directly -- a regular file inside its owner's media folders.
+    if (!utils.isServableMediaFile(file_obj.path, file_obj.user_uid)) {
+        logger.error(`Refusing to extract subtitles from ${file_obj.path}: it is not a regular file `
+            + `inside its owner's media folder.`);
+        return null;
+    }
+
     const available_tracks = await getAvailableSubtitleTracks(file_obj);
     if (available_tracks.length === 0) return null;
     if (!available_tracks.find(track => track.index === subtitle_track_index)) return null;

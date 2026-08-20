@@ -42,7 +42,6 @@ describe('MediaLibraryComponent', () => {
       path: '/api/',
       isLoggedIn: false,
       token: '',
-      auth_token: '',
       removePlaylist: vi.fn().mockName('removePlaylist').mockReturnValue(of({
         success: true,
         playlist_removed: true,

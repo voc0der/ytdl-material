@@ -37,13 +37,12 @@ describe('UnifiedFileCardComponent', () => {
 
   it('should build preview stream URLs without a trailing slash before the query string', () => {
     component.baseStreamPath = '/api/';
-    component.apiKeyString = 'public-token';
     component.file_obj = {
       uid: 'uid with spaces',
       isAudio: false
     } as any;
 
-    expect(component.generateStreamURL()).toBe('/api/stream?uid=uid%20with%20spaces&type=video&apiKey=public-token&t=,10');
+    expect(component.generateStreamURL()).toBe('/api/stream?uid=uid%20with%20spaces&type=video&t=,10');
   });
 
   it('should use the upload date as the displayed date when requested', () => {

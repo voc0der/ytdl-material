@@ -1,8 +1,9 @@
 const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto');
+const { v4: uuid } = require('uuid');
 const { Readable } = require('stream');
-const archiver = require('archiver');
+const { ZipArchive } = require('archiver');
 const ProgressBar = require('progress');
 const winston = require('winston');
 
@@ -128,40 +129,73 @@ exports.getDownloadedFilesByType = async (basePath, type, full_metadata = false)
     return files;
 }
 
-exports.createContainerZipFile = async (file_name, container_file_objs) => {
+/*************************************************
+ * The archive's name on disk used to be the
+ * playlist or subscription name, which a user
+ * chooses. That put a caller-controlled string into
+ * a path -- so it could name another .zip, which
+ * the download handler then deletes after sending
+ * -- and made two people downloading containers of
+ * the same name collide with each other.
+ *
+ * The name the user chose is still what they see:
+ * it goes in the Content-Disposition header, which
+ * is what a filename is actually for.
+ ************************************************/
+exports.createContainerZipFile = async (file_name, container_file_objs, user_uid = null) => {
     const container_files_to_download = [];
-    for (let i = 0; i < container_file_objs.length; i++) {
-        const container_file_obj = container_file_objs[i];
+    for (const container_file_obj of container_file_objs) {
+        // Every path here came out of a database record. Records written before the path
+        // stopped being client-writable can still point anywhere.
+        if (!exports.isServableMediaFile(container_file_obj.path, container_file_obj.user_uid || user_uid)) {
+            logger.error(`Leaving ${container_file_obj.path} out of the archive: it is not a regular file `
+                + `inside its owner's media folder.`);
+            continue;
+        }
         container_files_to_download.push(container_file_obj.path);
     }
-    return await exports.createZipFile(path.join('appdata', file_name + '.zip'), container_files_to_download);
+
+    const zip_file_path = path.join('appdata', `container-${uuid()}.zip`);
+    return await exports.createZipFile(zip_file_path, container_files_to_download);
 }
 
 exports.createZipFile = async (zip_file_path, file_paths) => {
-    let output = fs.createWriteStream(zip_file_path);
+    const output = fs.createWriteStream(zip_file_path);
 
-    var archive = archiver('zip', {
-        gzip: true,
+    // archiver 8 replaced the callable factory with exported classes, so archiver('zip')
+    // has been throwing TypeError since the dependency was bumped -- which is to say
+    // container downloads have simply been failing.
+    const archive = new ZipArchive({
         zlib: { level: 9 } // Sets the compression level.
     });
 
-    archive.on('error', function(err) {
-        logger.error(err);
-        throw err;
+    // Both ends need a handler. An unhandled 'error' on either stream is an uncaught
+    // exception, which takes the process down rather than failing the one request --
+    // a missing file is enough to cause it.
+    const archive_finished = new Promise((resolve, reject) => {
+        output.on('close', resolve);
+        output.on('error', reject);
+        archive.on('error', reject);
+        archive.on('warning', (err) => logger.warn(`Archiver warning: ${err.message}`));
     });
 
     // pipe archive data to the output file
     archive.pipe(output);
 
-    for (let file_path of file_paths) {
+    for (const file_path of file_paths) {
         const file_name = path.parse(file_path).base;
         archive.file(file_path, {name: file_name})
     }
 
-    await archive.finalize();
+    try {
+        archive.finalize();
+        await archive_finished;
+    } catch (err) {
+        logger.error(`Failed to build ${zip_file_path}: ${err.message}`);
+        await fs.remove(zip_file_path).catch(() => null);
+        return null;
+    }
 
-    // wait a tiny bit for the zip to reload in fs
-    await exports.wait(100);
     return zip_file_path;
 }
 
@@ -1002,24 +1036,33 @@ function realPathOrResolved(target_path) {
 }
 
 /*************************************************
- * In multi-user mode every one of a user's files
- * lives under users/<uid>/, subscriptions included.
- * Checking against the shared users/ root instead
- * treats every account's media as one directory --
- * so a record owned by one user, pointing at
- * another user's file, passes.
+ * Narrows the roots to those a given owner's media
+ * may legitimately live in.
  *
- * Given an owner, the check narrows to that owner's
- * directory. Without one -- single-user mode, or a
- * record with no owner -- it stays as it was.
+ * Not simply users/<uid>: media does not always
+ * move when ownership does. ytdl_oidc_migrate_videos
+ * reassigns unowned records to a user and leaves
+ * the files in the shared video/ and audio/ roots,
+ * so restricting to the per-user directory makes
+ * every migrated file unstreamable, undownloadable
+ * and undeletable.
+ *
+ * What is actually being excluded is *other*
+ * users' directories, so the shared roots stay and
+ * only this user's own directory is added back out
+ * of users/.
  ************************************************/
 exports.getMediaRootsForUser = (user_uid) => {
-    if (!user_uid || !config_api.getConfigItem('ytdl_multi_user_mode')) return exports.getMediaRoots();
+    const roots = exports.getMediaRoots();
+    if (!user_uid || !config_api.getConfigItem('ytdl_multi_user_mode')) return roots;
 
     const users_base_path = config_api.getConfigItem('ytdl_users_base_path');
-    if (!users_base_path) return exports.getMediaRoots();
+    if (!users_base_path) return roots;
 
-    return [realPathOrResolved(path.join(users_base_path, user_uid))];
+    const shared_users_root = realPathOrResolved(users_base_path);
+    const own_directory = realPathOrResolved(path.join(users_base_path, user_uid));
+
+    return [...roots.filter(root => root !== shared_users_root), own_directory];
 }
 
 exports.isPathInsideMediaRoots = (candidate_path, user_uid = null) => {
@@ -1047,63 +1090,77 @@ exports.isServableMediaFile = (candidate_path, user_uid = null) => {
 }
 
 /*************************************************
- * yt-dlp options that do more than describe a
- * download. Some run a command outright, some name
- * a binary for it to run, and some load a file that
- * can set any other option -- which makes allowing
- * one of them equivalent to allowing all of them.
+ * Which yt-dlp options a caller may supply.
  *
- * Refused for everybody, including holders of the
- * advanced_download permission. That permission is
- * meant to grant control over how a download runs,
- * not the ability to run commands as the server.
+ * This was a denylist of the dangerous options,
+ * which cannot work: yt-dlp's parser accepts any
+ * unambiguous abbreviation of a long option, so
+ * '--exec-before-d' reaches the same code as
+ * '--exec' while matching no denied name. It also
+ * accepts attached short values ('-o/tmp/x'),
+ * clustered short options, and user-defined
+ * aliases. A list of what to refuse can be walked
+ * around; a list of what to accept cannot.
  *
- * A denylist rather than an allowlist because
- * arbitrary arguments are the whole point of the
- * feature; only the ways out of it are closed.
+ * Everything here shapes a download -- what format,
+ * which subtitles, how fast, how many retries.
+ * Nothing here runs a command, names a binary,
+ * loads options from elsewhere, or chooses a path.
+ * An option that is not on this list is refused,
+ * abbreviations included, which is the point.
+ *
+ * The escape hatch for anything genuinely missing
+ * is Downloader.custom_args in the settings page,
+ * which is administrator-only and does not pass
+ * through here.
  ************************************************/
-const FORBIDDEN_DOWNLOAD_ARGS = [
-    // Run a command outright.
-    '--exec',
-    '--exec-before-download',
-    '--netrc-cmd',
-    // Name a binary for yt-dlp to run.
-    '--downloader',
-    '--external-downloader',
-    '--downloader-args',
-    '--external-downloader-args',
-    '--ffmpeg-location',
-    '--use-postprocessor',
-    '--postprocessor-args',
-    '--ppa',
-    // Load options from somewhere else, which can set any of the above.
-    '--config-location',
-    '--config-locations',
-    '--load-info-json',
-    '--load-info',
-    '--plugin-dirs',
-    '--netrc',
-    '--netrc-location',
-    // Read a file of the caller's choosing.
-    '--batch-file',
-    '-a',
-    '--cookies',
-    '--cookies-from-browser',
-    '--client-certificate',
-    '--client-certificate-key',
-    '--client-certificate-password',
-    // Write to a path of the caller's choosing. customOutput is the supported way to
-    // control where a download lands, and unlike these it is checked for containment.
-    '-o',
-    '--output',
-    '-P',
-    '--paths',
-    '--print-to-file',
-    '--download-archive',
-    '--cache-dir'
+const ALLOWED_DOWNLOAD_ARGS = [
+    // format and quality
+    '-f', '--format', '-S', '--format-sort', '--format-sort-force', '--merge-output-format',
+    '--audio-format', '--audio-quality', '-x', '--extract-audio', '--remux-video', '--recode-video',
+    '--prefer-free-formats', '--check-formats', '--no-check-formats',
+    '--video-multistreams', '--audio-multistreams',
+    // subtitles
+    '--write-subs', '--write-auto-subs', '--no-write-subs', '--no-write-auto-subs', '--all-subs',
+    '--sub-lang', '--sub-langs', '--sub-format', '--convert-subs', '--convert-subtitles',
+    '--embed-subs', '--no-embed-subs',
+    // metadata and thumbnails
+    '--embed-metadata', '--add-metadata', '--no-embed-metadata',
+    '--embed-thumbnail', '--no-embed-thumbnail', '--write-thumbnail', '--no-write-thumbnail',
+    '--write-description', '--write-info-json', '--no-write-info-json',
+    '--embed-chapters', '--no-embed-chapters', '--parse-metadata', '--replace-in-metadata', '--xattrs',
+    // playlists
+    '-I', '--playlist-items', '--playlist-start', '--playlist-end', '--yes-playlist', '--no-playlist',
+    '--playlist-reverse', '--playlist-random', '--max-downloads',
+    // filters
+    '--match-filter', '--match-filters', '--break-match-filter', '--break-match-filters',
+    '--min-filesize', '--max-filesize', '--date', '--datebefore', '--dateafter',
+    '--min-views', '--max-views', '--match-title', '--reject-title', '--age-limit',
+    '--break-on-existing', '--no-break-on-existing',
+    // network and retries
+    '-r', '--limit-rate', '--throttled-rate', '-R', '--retries', '--file-access-retries',
+    '--fragment-retries', '--retry-sleep', '--socket-timeout', '-N', '--concurrent-fragments',
+    '--buffer-size', '--http-chunk-size', '-4', '--force-ipv4', '-6', '--force-ipv6', '--source-address',
+    // pacing
+    '--sleep-requests', '--sleep-interval', '--min-sleep-interval', '--max-sleep-interval', '--sleep-subtitles',
+    // filenames and overwrite behaviour
+    '--no-mtime', '--mtime', '--no-part', '--part', '--continue', '--no-continue',
+    '-i', '--ignore-errors', '--no-abort-on-error', '--abort-on-error', '--skip-unavailable-fragments',
+    '--no-overwrites', '-w', '--force-overwrites',
+    '--windows-filenames', '--no-windows-filenames', '--trim-filenames',
+    '--restrict-filenames', '--no-restrict-filenames',
+    // geo
+    '--geo-bypass', '--no-geo-bypass', '--geo-bypass-country', '--geo-bypass-ip-block',
+    // sponsorblock
+    '--sponsorblock-mark', '--sponsorblock-remove', '--no-sponsorblock', '--sponsorblock-chapter-title',
+    // extractor and http shaping
+    '--extractor-args', '--user-agent', '--referer', '--add-header', '--impersonate',
+    // output verbosity
+    '-v', '--verbose', '-q', '--quiet', '--no-warnings', '--newline', '--progress', '--no-progress',
+    '-s', '--simulate', '--no-simulate', '--skip-download'
 ];
 
-exports.FORBIDDEN_DOWNLOAD_ARGS = FORBIDDEN_DOWNLOAD_ARGS;
+exports.ALLOWED_DOWNLOAD_ARGS = ALLOWED_DOWNLOAD_ARGS;
 
 const ADVANCED_DOWNLOAD_FIELDS = ['customArgs', 'additionalArgs', 'customOutput'];
 
@@ -1114,21 +1171,23 @@ exports.hasAdvancedDownloadOptions = (options) => {
     return ADVANCED_DOWNLOAD_FIELDS.some(field => typeof options[field] === 'string' && options[field].trim() !== '');
 }
 
-function isForbiddenDownloadArg(flag) {
-    if (FORBIDDEN_DOWNLOAD_ARGS.includes(flag)) return true;
-    // Long options are matched case-insensitively as well. Short ones are not: yt-dlp
-    // reads '-P' as --paths and '-p' as something else entirely, so folding case there
-    // would both miss '-P' and invent matches that are not real options.
-    return flag.startsWith('--') && FORBIDDEN_DOWNLOAD_ARGS.includes(flag.toLowerCase());
+function isAllowedDownloadArg(flag) {
+    // Long options are compared case-insensitively; short ones are not, because yt-dlp
+    // reads '-P' and '-p' as different options.
+    if (ALLOWED_DOWNLOAD_ARGS.includes(flag)) return true;
+    return flag.startsWith('--') && ALLOWED_DOWNLOAD_ARGS.includes(flag.toLowerCase());
 }
 
-exports.findForbiddenDownloadArgs = (raw_args) => {
+exports.findDisallowedDownloadArgs = (raw_args) => {
     if (typeof raw_args !== 'string' || !raw_args.trim()) return [];
+
     return raw_args.split(',,')
-        // yt-dlp accepts both '--exec CMD' and '--exec=CMD', and the delimiter splits on
-        // ',,' rather than whitespace, so either form can arrive as a single token.
+        // yt-dlp accepts '--format=best' and '--format best' alike, and the delimiter
+        // splits on ',,' rather than whitespace, so either form can be one token.
         .map(arg => arg.trim().split(/[=\s]/)[0])
-        .filter(arg => isForbiddenDownloadArg(arg));
+        // A token that does not begin with '-' is a value belonging to the option before
+        // it, not an option of its own.
+        .filter(arg => arg.startsWith('-') && !isAllowedDownloadArg(arg));
 }
 
 /*************************************************
@@ -1161,12 +1220,12 @@ exports.timingSafeEquals = (provided, expected) => {
  * subscription arguments and resumed queue entries
  * arrive without ever passing an HTTP handler.
  ************************************************/
-exports.quarantineForbiddenDownloadArgs = (raw_args, context = 'download') => {
-    const forbidden_args = exports.findForbiddenDownloadArgs(raw_args);
-    if (!forbidden_args.length) return raw_args;
+exports.quarantineDisallowedDownloadArgs = (raw_args, context = 'download') => {
+    const disallowed_args = exports.findDisallowedDownloadArgs(raw_args);
+    if (!disallowed_args.length) return raw_args;
 
-    logger.error(`Discarding the custom arguments for this ${context}: they contain `
-        + `${forbidden_args.join(', ')}, which can run a command or write outside the media folders. `
+    logger.error(`Discarding the custom arguments for this ${context}: ${disallowed_args.join(', ')} `
+        + `${disallowed_args.length === 1 ? 'is not an option' : 'are not options'} a download may set. `
         + `The download will continue with its ordinary arguments.`);
     return null;
 }
@@ -1185,11 +1244,42 @@ exports.sanitizeCustomOutput = (custom_output, folder_path) => {
         return null;
     }
 
-    const joined_path = path.resolve(path.join(folder_path, custom_output));
-    if (!exports.pathIsWithin(joined_path, path.resolve(folder_path))) {
+    // realpath rather than resolve: a directory inside the folder can be a symlink, and
+    // a lexical check walks straight through it.
+    const joined_path = realPathOrResolved(path.join(folder_path, custom_output));
+    if (!exports.pathIsWithin(joined_path, realPathOrResolved(folder_path))) {
         logger.error(`Ignoring a custom output that escapes its download folder: ${custom_output}`);
         return null;
     }
 
     return custom_output;
+}
+
+/*************************************************
+ * yt-dlp reads anything option-shaped as an
+ * option, wherever it sits on the command line. A
+ * URL that begins with '-' is therefore not data:
+ * '--update-to=owner/repo@tag' asks it to replace
+ * its own binary from another repository.
+ *
+ * The launchers put '--' between the options and
+ * the URL, which stops the parsing. This is the
+ * second half: a URL still has to be a URL, and one
+ * of a scheme worth fetching.
+ ************************************************/
+const ALLOWED_DOWNLOAD_URL_PROTOCOLS = ['http:', 'https:'];
+
+exports.ALLOWED_DOWNLOAD_URL_PROTOCOLS = ALLOWED_DOWNLOAD_URL_PROTOCOLS;
+
+exports.isAllowedDownloadURL = (candidate_url) => {
+    if (typeof candidate_url !== 'string' || !candidate_url.trim()) return false;
+    // Rejected before parsing as well: a value starting with '-' is an option to yt-dlp
+    // whatever the URL parser makes of it.
+    if (candidate_url.trim().startsWith('-')) return false;
+
+    try {
+        return ALLOWED_DOWNLOAD_URL_PROTOCOLS.includes(new URL(candidate_url.trim()).protocol);
+    } catch {
+        return false;
+    }
 }

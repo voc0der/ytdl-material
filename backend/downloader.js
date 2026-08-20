@@ -1406,6 +1406,13 @@ We use checkDownloads() to move downloads through the steps and call their respe
 */
 
 exports.createDownload = async (url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false, display_title = null) => {
+    // Every download record is made here, so this is where a URL stops being whatever a
+    // caller sent and starts being something we are willing to hand to yt-dlp.
+    if (!utils.isAllowedDownloadURL(url)) {
+        logger.error(`Refusing to queue a download for ${JSON.stringify(url)}: only http and https URLs are accepted.`);
+        return null;
+    }
+
     return await mutex.runExclusive(async () => {
         const download = {
             url: url,
@@ -1436,6 +1443,11 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
 }
 
 exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
+    if (!utils.isAllowedDownloadURL(url)) {
+        logger.error(`Refusing to queue downloads for ${JSON.stringify(url)}: only http and https URLs are accepted.`);
+        return [];
+    }
+
     const normalized_options = options && typeof options === 'object' ? options : {};
     const configured_playlist_chunk_size = getConfiguredPlaylistChunkSize();
     const should_mark_playlist_exclusive = shouldMarkPlaylistAsExclusive(url, normalized_options);
@@ -2297,7 +2309,7 @@ function buildSubtitleArgs(selected_subtitle_language, selected_subtitle_type = 
     return subtitle_args;
 }
 
-exports.generateArgs = async (url, type, options, user_uid = null, simulated = false) => {
+exports.generateArgs = async (url, type, options, user_uid = null, simulated = false, include_global_args = true) => {
     const default_downloader = getPreferredDownloaderFork(options);
 
     if (!simulated && (default_downloader === 'youtube-dl' || default_downloader === 'youtube-dlc')) {
@@ -2335,8 +2347,8 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
      * this existed -- or written by any other path --
      * are checked here as well.
      ************************************************/
-    const customArgs = utils.quarantineForbiddenDownloadArgs(options.customArgs, 'download');
-    const additionalArgs = utils.quarantineForbiddenDownloadArgs(options.additionalArgs, 'download');
+    const customArgs = utils.quarantineDisallowedDownloadArgs(options.customArgs, 'download');
+    const additionalArgs = utils.quarantineDisallowedDownloadArgs(options.additionalArgs, 'download');
     let customOutput = utils.sanitizeCustomOutput(options.customOutput, fileFolderPath);
     const customQualityConfiguration = options.customQualityConfiguration;
     const selectedAudioLanguage = normalizeSelectedAudioLanguage(options.selectedAudioLanguage);
@@ -2425,7 +2437,10 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             downloadConfig.push('--write-thumbnail');
         }
 
-        if (globalArgs && globalArgs !== '') {
+        // Withheld from a preview asked for by anybody who cannot already read them in the
+        // settings page: Downloader.custom_args is redacted out of /api/config for exactly
+        // the reason it would leak here -- it holds proxies, headers and credentials.
+        if (include_global_args && globalArgs && globalArgs !== '') {
             // adds global args
             if (downloadConfig.indexOf('-o') !== -1 && globalArgs.split(',,').indexOf('-o') !== -1) {
                 // if global args has an output, replce the original output with that of global args

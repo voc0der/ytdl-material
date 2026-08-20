@@ -60,8 +60,27 @@ exports.optionalJwt = async function (req, res, next) {
         const uuid = using_body ? req.body.uuid : req.query.uuid;
         const uid = using_body ? req.body.uid : req.query.uid;
         const playlist_id = using_body ? req.body.playlist_id : req.query.playlist_id;
-        const file = !playlist_id ? await auth_api.getUserVideo(uuid, uid, true) : await files_api.getPlaylist(playlist_id, uuid, true);
-        if (file) {
+        let authorized = false;
+        if (!playlist_id) {
+            authorized = !!await auth_api.getUserVideo(uuid, uid, true);
+        } else {
+            const playlist = await files_api.getPlaylist(playlist_id, uuid, true);
+            /*************************************************
+             * A shared playlist authorizes the files that are
+             * in it, not everything its owner happens to own.
+             *
+             * Only the playlist was being checked, so a share
+             * link plus any file uid belonging to the same
+             * user streamed that user's private media.
+             *
+             * A request with no uid is asking for the playlist
+             * itself, which is what the share is for.
+             ************************************************/
+            const playlist_uids = playlist && Array.isArray(playlist['uids']) ? playlist['uids'] : [];
+            authorized = !!playlist && (!uid || playlist_uids.includes(uid));
+        }
+
+        if (authorized) {
             req.can_watch = true;
             return next();
         } else {

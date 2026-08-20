@@ -828,6 +828,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.sub_id) {
       fullLocation += `&sub_id=${this.sub_id}`;
+    } else if (this.playlist_id) {
+      // Carried for the same reason the stream URL carries it: a shared playlist is what
+      // authorizes this request, and the server checks the file is one of its members.
+      fullLocation += `&playlist_id=${this.playlist_id}`;
     }
 
     return fullLocation;

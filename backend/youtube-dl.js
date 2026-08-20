@@ -233,7 +233,9 @@ exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl
     const base_args = getYoutubeDLRuntimeBaseArgs(selected_fork);
     logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
     logger.debug(`${selected_fork} streaming args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
-    const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, url, ...runtime_args], {
+    // '--' first, URL last: yt-dlp parses an option wherever it appears, so a URL of
+    // '--update-to=owner/repo@tag' would otherwise ask it to replace its own binary.
+    const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, ...runtime_args, '--', url], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getYoutubeDLRuntimeEnv(selected_fork)
     });
@@ -315,7 +317,8 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     const base_args = getYoutubeDLRuntimeBaseArgs(youtubedl_fork);
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
     logger.debug(`${youtubedl_fork} args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
-    const child_process = execa(youtubedl_path, [...base_args, url, ...runtime_args], {
+    // See the streaming launcher: options first, then '--', then the URL.
+    const child_process = execa(youtubedl_path, [...base_args, ...runtime_args, '--', url], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,
