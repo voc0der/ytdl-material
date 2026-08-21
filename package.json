@@ -75,13 +75,6 @@
   "overrides": {
     "@hono/node-server": "2.1.1",
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@angular/build": {
-      "picomatch": "4.0.5"
-    },
-    "@angular-devkit/core": {
-      "ajv": "8.20.0",
-      "picomatch": "4.0.5"
-    },
     "esbuild": "0.28.2",
     "express-rate-limit": "8.6.2",
     "ngx-avatars": {
