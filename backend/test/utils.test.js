@@ -442,7 +442,11 @@ describe('Utils', async function() {
             const first = fs.createReadStream(sample);
             const second = fs.createReadStream(sample);
             utils.pipeMediaFileToResponse(first, sink(), 'shared_uid');
-            utils.pipeMediaFileToResponse(second, sink(), 'shared_uid');
+            // Held open by a sink that never calls back, so this test asserts on which
+            // stream was released rather than on which one happened to finish first. With
+            // a draining sink both complete, and under coverage instrumentation they both
+            // completed before the assertion ran.
+            utils.pipeMediaFileToResponse(second, new Writable({write() {}}), 'shared_uid');
 
             await closed(first);
 
