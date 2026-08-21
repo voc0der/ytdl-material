@@ -2,7 +2,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto');
 const { v4: uuid } = require('uuid');
-const { Readable } = require('stream');
+const { Readable, pipeline } = require('stream');
 const { ZipArchive } = require('archiver');
 const ProgressBar = require('progress');
 const winston = require('winston');
@@ -1426,4 +1426,62 @@ exports.parseByteRange = (range_header, file_size) => {
     if (start >= file_size || start > end) return {satisfiable: false};
 
     return {start: start, end: end, length: (end - start) + 1};
+}
+
+/*************************************************
+ * Sends an open read stream to an HTTP response,
+ * and takes responsibility for closing it.
+ *
+ * Two things this replaces a bare .pipe() for.
+ *
+ * A read error had no listener. fs.existsSync runs
+ * before the stream is opened, so a file deleted in
+ * between -- which this application does to its own
+ * files, during playback -- emitted 'error' on an
+ * emitter nobody was listening to. That is an
+ * uncaught exception, and it takes the server down
+ * rather than the request.
+ *
+ * .pipe() also does not destroy the source when the
+ * destination goes away, and a client that walks
+ * away mid-response is not an edge case here: it is
+ * how a player seeks. Every abandoned seek left an
+ * open descriptor and an entry in the registry
+ * below, neither of which was ever released.
+ *
+ * The registry is what lets a delete release its
+ * file locks first (see files.js), so an entry that
+ * outlives its stream is not merely garbage -- it
+ * is a lock nobody can find their way back to.
+ ************************************************/
+exports.pipeMediaFileToResponse = (file, res, uid) => {
+    if (config_api.descriptors[uid]) config_api.descriptors[uid].push(file);
+    else                             config_api.descriptors[uid] = [file];
+
+    const forgetDescriptor = () => {
+        const open_descriptors = config_api.descriptors[uid];
+        if (!open_descriptors) return;
+        const index = open_descriptors.indexOf(file);
+        // splice(-1, 1) drops the last element, so an entry already removed used to take
+        // an unrelated live stream out of the registry with it.
+        if (index !== -1) open_descriptors.splice(index, 1);
+        // Otherwise the object keeps one empty array per uid ever streamed.
+        if (!open_descriptors.length) delete config_api.descriptors[uid];
+    };
+
+    pipeline(file, res, (err) => {
+        forgetDescriptor();
+        if (!err) {
+            logger.debug('Successfully closed stream and removed file reference.');
+            return;
+        }
+        // A client hanging up is ordinary -- a player seeking abandons the response it
+        // asked for -- so it is not logged as a failure. Anything else is a real read
+        // error, and the response is already committed by the time it surfaces.
+        if (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.code === 'ECONNRESET') {
+            logger.debug(`Client closed the connection while streaming ${uid}.`);
+            return;
+        }
+        logger.error(`Error while streaming ${uid}: ${err.message}`);
+    });
 }

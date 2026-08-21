@@ -332,4 +332,100 @@ describe('Utils', async function() {
         });
     });
 
+
+    /*************************************************
+     * /api/stream used a bare .pipe(), which neither
+     * listens for a read error nor closes the source
+     * when the client goes away. The first took the
+     * process down; the second leaked a descriptor
+     * per abandoned seek, which is how a player
+     * behaves normally.
+     ************************************************/
+    describe('pipeMediaFileToResponse', function() {
+        const { Writable } = require('stream');
+        const config_api = require('../config');
+        const sample = path.join(__dirname, 'sample_mp4.mp4');
+
+        function sink() {
+            return new Writable({write(chunk, encoding, callback) { callback(); }});
+        }
+
+        function closed(stream) {
+            return new Promise(resolve => stream.on('close', resolve));
+        }
+
+        afterEach(function() {
+            for (const key of Object.keys(config_api.descriptors)) delete config_api.descriptors[key];
+        });
+
+        it('registers an open stream so a delete can release its lock', function() {
+            const file = fs.createReadStream(sample);
+            utils.pipeMediaFileToResponse(file, sink(), 'register_uid');
+
+            assert.ok(config_api.descriptors['register_uid'].includes(file),
+                'files.js destroys these on delete -- a stream missing from the registry is a lock nothing can find');
+            file.destroy();
+        });
+
+        it('releases the registration when the response finishes', async function() {
+            const file = fs.createReadStream(sample);
+            utils.pipeMediaFileToResponse(file, sink(), 'finish_uid');
+            await closed(file);
+
+            assert.strictEqual('finish_uid' in config_api.descriptors, false,
+                'the uid should not keep an empty array once nothing is open for it');
+        });
+
+        it('survives a read error rather than taking the process down', async function() {
+            // fs.existsSync runs before the stream opens, so a file deleted in between --
+            // which this application does to its own files -- used to emit 'error' with no
+            // listener, which is an uncaught exception.
+            const uncaught = [];
+            const existing = process.listeners('uncaughtException');
+            process.removeAllListeners('uncaughtException');
+            process.on('uncaughtException', err => uncaught.push(err));
+
+            try {
+                const missing = fs.createReadStream(path.join(__dirname, 'no-such-media-file.mp4'));
+                utils.pipeMediaFileToResponse(missing, sink(), 'missing_uid');
+                await closed(missing);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } finally {
+                process.removeAllListeners('uncaughtException');
+                existing.forEach(listener => process.on('uncaughtException', listener));
+            }
+
+            assert.deepStrictEqual(uncaught.map(e => e.code), [], 'the read error must not escape as an uncaught exception');
+            assert.strictEqual('missing_uid' in config_api.descriptors, false, 'a failed stream must still be released');
+        });
+
+        it('destroys the source when the client goes away mid-response', async function() {
+            const file = fs.createReadStream(sample);
+            const destination = sink();
+            utils.pipeMediaFileToResponse(file, destination, 'abort_uid');
+
+            destination.destroy();
+            await closed(file);
+
+            assert.strictEqual(file.destroyed, true,
+                'a bare pipe leaves the source open, so every abandoned seek holds a descriptor open');
+            assert.strictEqual('abort_uid' in config_api.descriptors, false);
+        });
+
+        it('releases only the stream that closed', async function() {
+            // The cleanup used to splice(indexOf(...)) unguarded, and splice(-1, 1) removes
+            // the last element -- so releasing an entry twice took a live stream with it.
+            const first = fs.createReadStream(sample);
+            const second = fs.createReadStream(sample);
+            utils.pipeMediaFileToResponse(first, sink(), 'shared_uid');
+            utils.pipeMediaFileToResponse(second, sink(), 'shared_uid');
+
+            await closed(first);
+
+            assert.deepStrictEqual(config_api.descriptors['shared_uid'], [second],
+                'the other stream for this uid must still be reachable');
+            second.destroy();
+        });
+    });
+
 });

@@ -2848,15 +2848,7 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
             res.end();
             return;
         }
-        const file = fs.createReadStream(file_path, {start, end})
-        if (config_api.descriptors[uid]) config_api.descriptors[uid].push(file);
-        else                            config_api.descriptors[uid] = [file];
-        file.on('close', function() {
-            let index = config_api.descriptors[uid].indexOf(file);
-            config_api.descriptors[uid].splice(index, 1);
-            logger.debug('Successfully closed stream and removed file reference.');
-        });
-        file.pipe(res);
+        utils.pipeMediaFileToResponse(fs.createReadStream(file_path, {start, end}), res, uid);
     } else {
         head = {
         'Content-Length': fileSize,
@@ -2868,7 +2860,7 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
             res.end();
             return;
         }
-        fs.createReadStream(file_path).pipe(res)
+        utils.pipeMediaFileToResponse(fs.createReadStream(file_path), res, uid);
     }
 });
 
