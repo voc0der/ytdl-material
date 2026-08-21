@@ -1362,3 +1362,68 @@ exports.isAllowedDownloadURL = (candidate_url) => {
         return false;
     }
 }
+
+/*************************************************
+ * Parses one HTTP byte range against a known file
+ * size, per RFC 9110 section 14.
+ *
+ * The handler this replaces got the browser case
+ * right and every other case wrong, which is why
+ * nothing noticed: a browser sends one polite
+ * 'bytes=0-' and never asks again. Anything driving
+ * a remote file with ffmpeg does not behave that
+ * way -- it reads the tail of the container to find
+ * an index, and it seeks speculatively past the end
+ * -- and both of those used to hang the connection
+ * or throw.
+ *
+ * Returns one of:
+ *   null                     no range header, or one
+ *                            to ignore and answer 200
+ *   {satisfiable: false}     answer 416
+ *   {start, end, length}     answer 206, inclusive
+ *
+ * An unparseable header is deliberately ignored
+ * rather than refused. RFC 9110 says a recipient
+ * that does not understand a Range header must
+ * treat the request as though it had none, and a
+ * player that sends something odd is better served
+ * the whole file than a 500.
+ ************************************************/
+exports.parseByteRange = (range_header, file_size) => {
+    if (typeof range_header !== 'string') return null;
+    if (!Number.isInteger(file_size) || file_size < 0) return null;
+
+    // Only 'bytes' is defined, and only a single range is answered here. A multi-range
+    // request is answered with the whole file rather than a multipart body.
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range_header.trim());
+    if (!match) return null;
+
+    const [, raw_start, raw_end] = match;
+    if (raw_start === '' && raw_end === '') return null;
+
+    // An empty file cannot satisfy any range, including the suffix form.
+    if (file_size === 0) return {satisfiable: false};
+
+    let start;
+    let end;
+    if (raw_start === '') {
+        // Suffix form: 'bytes=-500' is the last 500 bytes, not 'from 0 to 500'. Asking for
+        // more than the file holds is satisfiable and means the whole file.
+        const suffix_length = parseInt(raw_end, 10);
+        if (suffix_length === 0) return {satisfiable: false};
+        start = Math.max(0, file_size - suffix_length);
+        end = file_size - 1;
+    } else {
+        start = parseInt(raw_start, 10);
+        // Clamped, because the read stream stops at EOF whatever was asked for. Without
+        // this the Content-Length promised more bytes than could ever arrive, and the
+        // client waited for the remainder until it gave up.
+        end = raw_end === '' ? file_size - 1 : Math.min(parseInt(raw_end, 10), file_size - 1);
+    }
+
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (start >= file_size || start > end) return {satisfiable: false};
+
+    return {start: start, end: end, length: (end - start) + 1};
+}

@@ -229,4 +229,107 @@ describe('Utils', async function() {
             assert.ok(Math.abs(duration - 2) < 0.5, `expected roughly 2s, got ${duration}s`);
         });
     });
+
+    /*************************************************
+     * The handler at /api/stream answered a browser
+     * correctly and everything else wrongly. Two
+     * shapes hung the connection outright: the
+     * Content-Length was computed from the range that
+     * was asked for rather than the bytes that could
+     * be sent, so the client waited forever for a
+     * remainder that did not exist.
+     *
+     * Every case below was observed failing against
+     * the previous implementation.
+     ************************************************/
+    describe('parseByteRange', function() {
+        const SIZE = 1000;
+
+        it('answers the range a browser actually sends', function() {
+            assert.deepStrictEqual(utils.parseByteRange('bytes=0-', SIZE), {start: 0, end: 999, length: 1000});
+            assert.deepStrictEqual(utils.parseByteRange('bytes=0-99', SIZE), {start: 0, end: 99, length: 100});
+        });
+
+        it('reads the tail of the file for a suffix range', function() {
+            // 'bytes=-500' is the last 500 bytes, not bytes 0 through 500. This used to
+            // parse as NaN and throw ERR_OUT_OF_RANGE out of createReadStream, which
+            // express turned into a 500 -- on what is often a player's first request,
+            // because the index of a container can live at the end of it.
+            assert.deepStrictEqual(utils.parseByteRange('bytes=-500', SIZE), {start: 500, end: 999, length: 500});
+            assert.deepStrictEqual(utils.parseByteRange('bytes=-1', SIZE), {start: 999, end: 999, length: 1});
+        });
+
+        it('treats a suffix longer than the file as the whole file', function() {
+            assert.deepStrictEqual(utils.parseByteRange('bytes=-5000', SIZE), {start: 0, end: 999, length: 1000});
+        });
+
+        it('refuses a zero-length suffix', function() {
+            assert.deepStrictEqual(utils.parseByteRange('bytes=-0', SIZE), {satisfiable: false});
+        });
+
+        it('clamps an end past the end of the file', function() {
+            // The read stream stops at EOF regardless. Before clamping, the response
+            // promised 4101 bytes and delivered 100, then never closed.
+            assert.deepStrictEqual(utils.parseByteRange('bytes=900-5000', SIZE), {start: 900, end: 999, length: 100});
+            assert.deepStrictEqual(utils.parseByteRange('bytes=999-2000', SIZE), {start: 999, end: 999, length: 1});
+        });
+
+        it('refuses a range that starts at or past the end of the file', function() {
+            // Previously a 206 carrying 'Content-Range: bytes 5000-6000/1000' -- a range
+            // outside the resource, which RFC 9110 does not allow -- and then no body.
+            assert.deepStrictEqual(utils.parseByteRange('bytes=5000-6000', SIZE), {satisfiable: false});
+            assert.deepStrictEqual(utils.parseByteRange('bytes=1000-', SIZE), {satisfiable: false});
+        });
+
+        it('refuses an inverted range', function() {
+            assert.deepStrictEqual(utils.parseByteRange('bytes=500-100', SIZE), {satisfiable: false});
+        });
+
+        it('refuses any range against an empty file', function() {
+            assert.deepStrictEqual(utils.parseByteRange('bytes=0-', 0), {satisfiable: false});
+            assert.deepStrictEqual(utils.parseByteRange('bytes=-10', 0), {satisfiable: false});
+        });
+
+        it('ignores a header it cannot parse rather than failing the request', function() {
+            // RFC 9110: a recipient that does not understand a Range header must act as
+            // though it were not there. Each of these used to reach createReadStream as
+            // NaN and produce a 500.
+            for (const header of ['bytes=abc-def', 'bytes=-', 'bytes=', 'items=0-99', 'bytes=0-99, 200-299', '', '   ']) {
+                assert.strictEqual(utils.parseByteRange(header, SIZE), null, `expected ${JSON.stringify(header)} to be ignored`);
+            }
+        });
+
+        it('ignores a missing header, and a size it cannot use', function() {
+            assert.strictEqual(utils.parseByteRange(undefined, SIZE), null);
+            assert.strictEqual(utils.parseByteRange(null, SIZE), null);
+            assert.strictEqual(utils.parseByteRange('bytes=0-', undefined), null);
+            assert.strictEqual(utils.parseByteRange('bytes=0-', -1), null);
+            assert.strictEqual(utils.parseByteRange('bytes=0-', 10.5), null);
+        });
+
+        it('tolerates surrounding whitespace', function() {
+            assert.deepStrictEqual(utils.parseByteRange('  bytes=10-20  ', SIZE), {start: 10, end: 20, length: 11});
+        });
+
+        /*************************************************
+         * The invariant the hang violated: whatever is
+         * promised in Content-Length must be exactly what
+         * a read of [start, end] can deliver.
+         ************************************************/
+        it('never describes more bytes than the file holds', function() {
+            const headers = [
+                'bytes=0-', 'bytes=0-0', 'bytes=0-99', 'bytes=-1', 'bytes=-500', 'bytes=-5000',
+                'bytes=1-', 'bytes=999-', 'bytes=900-5000', 'bytes=999-2000', 'bytes=500-499999'
+            ];
+            for (const header of headers) {
+                const parsed = utils.parseByteRange(header, SIZE);
+                assert.ok(parsed && parsed.satisfiable !== false, `expected ${header} to be satisfiable`);
+                assert.ok(parsed.start >= 0, `${header}: start below zero`);
+                assert.ok(parsed.end < SIZE, `${header}: end past the last byte`);
+                assert.ok(parsed.start <= parsed.end, `${header}: inverted`);
+                assert.strictEqual(parsed.length, (parsed.end - parsed.start) + 1, `${header}: length disagrees with the range`);
+            }
+        });
+    });
+
 });
