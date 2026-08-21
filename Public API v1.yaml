@@ -169,6 +169,127 @@ paths:
         - JWT token parameter: []
         - API bearer token: []
         - {}
+  /api/stream:
+    get:
+      tags:
+        - files
+      summary: Stream a media file
+      description: >-
+        Streams a file from disk by its uid. Supports HEAD and HTTP byte ranges,
+        so a client can probe the container and seek without fetching all of it.
+      operationId: get-stream
+      parameters:
+        - name: uid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: uid of the file to stream.
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - video
+              - audio
+          description: Picks the fallback content type when the extension is unrecognised.
+        - name: sub_id
+          in: query
+          schema:
+            type: string
+          description: Restricts the lookup to the files of one subscription.
+        - name: uuid
+          in: query
+          schema:
+            type: string
+          description: >-
+            Owner uid, for a share link. The file, or the playlist it was shared
+            in, must have sharing enabled.
+      responses:
+        '200':
+          description: The whole file.
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+              description: Always 'bytes'. Ranged requests are accepted.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: >-
+            The requested byte range. An end past the end of the file is clamped,
+            so Content-Length always equals the bytes delivered.
+          headers:
+            Content-Range:
+              schema:
+                type: string
+              description: 'bytes <start>-<end>/<size>'
+            Accept-Ranges:
+              schema:
+                type: string
+              description: Always 'bytes'.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: User is not authorized to view the file.
+        '404':
+          description: No such file, not the caller's, or its stored path is not servable.
+        '416':
+          description: >-
+            The range cannot be satisfied - it starts at or past the end of the
+            file, is inverted, or the file is empty.
+          headers:
+            Content-Range:
+              schema:
+                type: string
+              description: 'bytes */<size>, so the client can learn the real size.'
+      # A token identifies the caller when one is supplied; the route also answers
+      # anonymous callers (a share link, or single-user mode, which has no accounts).
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
+        - {}
+  /api/thumbnail/{uid}:
+    get:
+      tags:
+        - files
+      summary: Get a file's thumbnail
+      description: >-
+        Returns the thumbnail image for a file uid. It takes a uid rather than a
+        path because the media folders are shared between users, so a path
+        carries no ownership information.
+      operationId: get-thumbnail
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+          description: uid of the file whose thumbnail to return.
+      responses:
+        '200':
+          description: The thumbnail image.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Authentication required.
+        '404':
+          description: >-
+            No such file, not the caller's, or the stored thumbnail path is not
+            servable. All three answer the same way, so the route cannot be used
+            to enumerate uids.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/updateFile:
     post:
       tags:

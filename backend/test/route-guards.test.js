@@ -165,11 +165,23 @@ describe('API route guards', function() {
             return yaml.load(fs.readFileSync(path.join(__dirname, '..', '..', 'Public API v1.yaml'), 'utf8'));
         }
 
+        /*************************************************
+         * OpenAPI templates a path parameter as {uid};
+         * express writes it :uid. They spell the same
+         * route, so the comparison has to bridge them --
+         * otherwise the only way to document a
+         * parameterised route is to write a path
+         * generated clients would call literally.
+         ************************************************/
+        function toExpressPath(spec_route) {
+            return spec_route.replace(/\{([^/}]+)\}/g, ':$1');
+        }
+
         function documentedOperations(spec) {
             const operations = [];
             for (const [route, path_item] of Object.entries(spec.paths)) {
                 for (const [verb, operation] of Object.entries(path_item)) {
-                    if (HTTP_VERBS.has(verb)) operations.push({route, verb, operation});
+                    if (HTTP_VERBS.has(verb)) operations.push({route: toExpressPath(route), verb, operation});
                 }
             }
             return operations;
@@ -187,7 +199,7 @@ describe('API route guards', function() {
         it('documents only routes the server actually serves', function() {
             const spec = loadSpec();
             const defined_routes = new Set(routes.map(r => r.route));
-            const phantom = Object.keys(spec.paths).filter(route => !defined_routes.has(route));
+            const phantom = Object.keys(spec.paths).filter(route => !defined_routes.has(toExpressPath(route)));
 
             assert.deepStrictEqual(phantom, [],
                 'these are documented but not implemented -- a generated client would call them and get a 404');
