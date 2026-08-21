@@ -412,6 +412,30 @@ describe('Utils', async function() {
             assert.strictEqual('abort_uid' in config_api.descriptors, false);
         });
 
+        it('survives the delete path destroying every stream for a uid', async function() {
+            /*************************************************
+             * files.js walks this registry by index and
+             * destroys each entry to release the file locks
+             * before deleting. If the release ran
+             * synchronously inside destroy(), the array
+             * would shrink underneath that loop and skip
+             * every other stream.
+             ************************************************/
+            const streams = [fs.createReadStream(sample), fs.createReadStream(sample), fs.createReadStream(sample)];
+            // A sink that never calls back holds the streams open, as a slow client would.
+            streams.forEach(file => utils.pipeMediaFileToResponse(file, new Writable({write() {}}), 'delete_uid'));
+            assert.strictEqual(config_api.descriptors['delete_uid'].length, 3);
+
+            for (let i = 0; i < config_api.descriptors['delete_uid'].length; i++) {
+                config_api.descriptors['delete_uid'][i].destroy();
+            }
+            await Promise.all(streams.map(closed));
+
+            assert.deepStrictEqual(streams.map(file => file.destroyed), [true, true, true],
+                'the loop must reach every stream, or a delete proceeds with locks still held');
+            assert.strictEqual('delete_uid' in config_api.descriptors, false);
+        });
+
         it('releases only the stream that closed', async function() {
             // The cleanup used to splice(indexOf(...)) unguarded, and splice(-1, 1) removes
             // the last element -- so releasing an entry twice took a live stream with it.

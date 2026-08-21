@@ -236,6 +236,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        '400':
+          description: No uid was given.
         '401':
           description: User is not authorized to view the file.
         '404':
