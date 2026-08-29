@@ -47,7 +47,7 @@
     "mime-types": "^3.0.2",
     "moment": "^2.30.1",
     "mongodb": "^7.6.0",
-    "multer": "2.2.0",
+    "multer": "2.3.0",
     "node-id3": "^0.2.9",
     "openid-client": "^6.8.6",
     "passport": "^0.7.0",
@@ -72,14 +72,14 @@
     "diff": "8.0.4",
     "form-data": "4.0.6",
     "got": "11.8.6",
-    "js-yaml": "5.4.0",
+    "js-yaml": "5.4.1",
     "serialize-javascript": "7.1.0",
     "undici": "6.28.0",
     "ws": "8.21.3"
   },
   "devDependencies": {
     "c8": "^12.0.0",
-    "js-yaml": "5.4.0",
+    "js-yaml": "5.4.1",
     "mocha": "^11.7.6",
     "pg-mem": "^3.0.14",
     "supertest": "^7.2.2"
