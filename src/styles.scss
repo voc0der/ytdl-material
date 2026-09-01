@@ -220,9 +220,9 @@ app-player .player-page.theater-mode-active .theater-video-stage {
   align-items: center;
   background: #000;
   display: flex;
-  height: 100vh !important;
-  height: 100dvh !important;
-  inset: 0;
+  height: calc(100vh - 64px) !important;
+  height: calc(100dvh - 64px) !important;
+  inset: 0 0 auto;
   justify-content: center;
   position: fixed;
   width: 100vw;
@@ -230,25 +230,28 @@ app-player .player-page.theater-mode-active .theater-video-stage {
 }
 
 app-player .player-page.theater-mode-active vg-player {
-  height: 100vh !important;
-  height: 100dvh !important;
-  max-height: 100vh !important;
-  max-height: 100dvh !important;
+  height: calc(100vh - 64px) !important;
+  height: calc(100dvh - 64px) !important;
+  max-height: calc(100vh - 64px) !important;
+  max-height: calc(100dvh - 64px) !important;
   width: 100vw;
 }
 
 app-player .player-page.theater-mode-active .video-styles {
-  height: 100vh !important;
-  height: 100dvh !important;
-  max-height: 100vh;
-  max-height: 100dvh;
+  height: calc(100vh - 64px) !important;
+  height: calc(100dvh - 64px) !important;
+  max-height: calc(100vh - 64px);
+  max-height: calc(100dvh - 64px);
   object-fit: contain;
 }
 
 app-player .player-page.theater-mode-active .player-toolbar-section {
-  background: rgba(0, 0, 0, 0.82);
+  align-items: center;
+  background: #000;
   bottom: 0;
   color: #fff;
+  display: flex;
+  height: 64px;
   left: 0;
   margin: 0;
   opacity: 0;
@@ -260,8 +263,11 @@ app-player .player-page.theater-mode-active .player-toolbar-section {
   z-index: 1102;
 }
 
-app-player .player-page.theater-mode-active .player-toolbar-section.theater-toolbar-visible,
-app-player .player-page.theater-mode-active .player-toolbar-section:focus-within {
+app-player .player-page.theater-mode-active .player-toolbar-container {
+  width: 100%;
+}
+
+app-player .player-page.theater-mode-active .player-toolbar-section.theater-toolbar-visible {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
