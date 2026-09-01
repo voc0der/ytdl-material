@@ -245,6 +245,33 @@ app-player .player-page.theater-mode-active .video-styles {
   object-fit: contain;
 }
 
+app-player .player-page.theater-mode-active .player-toolbar-section {
+  background: rgba(0, 0, 0, 0.82);
+  bottom: 0;
+  color: #fff;
+  left: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 0.12s ease, visibility 0.12s linear;
+  visibility: hidden;
+  width: 100vw;
+  z-index: 1102;
+}
+
+app-player .player-page.theater-mode-active .player-toolbar-section.theater-toolbar-visible,
+app-player .player-page.theater-mode-active .player-toolbar-section:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+app-player .player-page.theater-mode-active .player-toolbar-section button,
+app-player .player-page.theater-mode-active .player-toolbar-section mat-icon {
+  color: inherit;
+}
+
 app-player .playlist-row {
   display: flex;
   min-width: 0;

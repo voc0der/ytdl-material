@@ -294,7 +294,7 @@ describe('PlayerComponent', () => {
     expect(buttons[theaterModeIndex].getAttribute('aria-pressed')).toBe('true');
     expect(playerPage()?.classList.contains('theater-mode-active')).toBe(true);
     expect(document.body.classList.contains('player-theater-mode-active')).toBe(true);
-    expect(playerToolbar()?.hidden).toBe(true);
+    expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
     expect(playerPlaylist()?.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('.watch-together-section')?.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('.video-player')).toBeTruthy();
@@ -302,24 +302,50 @@ describe('PlayerComponent', () => {
     expect(component.currentItem?.uid).toBe('f1');
   });
 
-  it('should exit theater mode with Escape and restore the surrounding controls', () => {
+  it('should reveal the theater toolbar on video hover, keep it usable, and hide it after inactivity', fakeAsync(() => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     fixture.detectChanges();
 
     const theaterMode = actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode');
+    theaterMode.focus();
+    expect(document.activeElement).toBe(theaterMode);
     theaterMode.click();
     fixture.detectChanges();
 
-    expect(playerToolbar()?.hidden).toBe(true);
+    expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
+    expect(document.activeElement).not.toBe(theaterMode);
     expect(playerPlaylist()?.hidden).toBe(true);
 
+    const playerElement = fixture.nativeElement.querySelector('vg-player') as HTMLElement;
+    component.onPlayerMouseMove({currentTarget: playerElement, clientY: 100} as unknown as MouseEvent);
+    fixture.detectChanges();
+
+    expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(true);
+
+    component.onTheaterToolbarMouseEnter();
+    tick(2500);
+    fixture.detectChanges();
+    expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(true);
+
+    component.onTheaterToolbarMouseLeave();
+    tick(2000);
+    fixture.detectChanges();
+    expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
+  }));
+
+  it('should exit theater mode with Escape and restore the surrounding controls', () => {
+    showPlayer();
+    component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
+    fixture.detectChanges();
+
+    actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode').click();
+    fixture.detectChanges();
     document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
     fixture.detectChanges();
 
     expect(component.theater_mode_enabled).toBe(false);
     expect(document.body.classList.contains('player-theater-mode-active')).toBe(false);
-    expect(playerToolbar()?.hidden).toBe(false);
     expect(playerPlaylist()?.hidden).toBe(false);
   });
 

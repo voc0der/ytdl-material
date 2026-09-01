@@ -47,6 +47,7 @@ const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 const MIN_SNIP_DURATION_SECONDS = 1;
 const SNIP_STATUS_POLL_INTERVAL_MS = 1000;
 const SNIP_SEEK_DEBOUNCE_MS = 80;
+const THEATER_TOOLBAR_HIDE_DELAY_MS = 2000;
 
 @Component({
     selector: 'app-player',
@@ -110,6 +111,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_enabled = false;
   repeat_enabled = false;
   theater_mode_enabled = false;
+  theater_toolbar_visible = false;
+  theater_toolbar_hide_timer: ReturnType<typeof setTimeout> | null = null;
   autoplay_queue_loading = false;
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
@@ -188,6 +191,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subtitleTrackRefreshToken += 1;
     // prevents volume save feature from running in the background
     clearInterval(this.save_volume_timer);
+    this.clearTheaterToolbarHideTimer();
     this.clearSnipPoll();
     if (this.subtitleTrackActivationTimer) {
       clearTimeout(this.subtitleTrackActivationTimer);
@@ -475,7 +479,43 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private setTheaterMode(enabled: boolean): void {
     this.theater_mode_enabled = enabled;
+    this.theater_toolbar_visible = false;
+    this.clearTheaterToolbarHideTimer();
+    if (enabled && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     document.body.classList.toggle('player-theater-mode-active', enabled);
+  }
+
+  onTheaterToolbarMouseEnter(): void {
+    if (!this.theater_mode_enabled) return;
+    this.theater_toolbar_visible = true;
+    this.clearTheaterToolbarHideTimer();
+  }
+
+  onTheaterToolbarMouseLeave(): void {
+    this.scheduleTheaterToolbarHide();
+  }
+
+  private revealTheaterToolbar(): void {
+    if (!this.theater_mode_enabled) return;
+    this.theater_toolbar_visible = true;
+    this.scheduleTheaterToolbarHide();
+  }
+
+  private scheduleTheaterToolbarHide(): void {
+    if (!this.theater_mode_enabled) return;
+    this.clearTheaterToolbarHideTimer();
+    this.theater_toolbar_hide_timer = setTimeout(() => {
+      this.theater_toolbar_visible = false;
+      this.theater_toolbar_hide_timer = null;
+    }, THEATER_TOOLBAR_HIDE_DELAY_MS);
+  }
+
+  private clearTheaterToolbarHideTimer(): void {
+    if (!this.theater_toolbar_hide_timer) return;
+    clearTimeout(this.theater_toolbar_hide_timer);
+    this.theater_toolbar_hide_timer = null;
   }
 
   getFileNames(): string[] {
@@ -1295,6 +1335,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onPlayerMouseMove(event: MouseEvent): void {
+    this.revealTheaterToolbar();
+
     if (this.currentItem?.type === 'audio/mp3' || this.currentChapters.length === 0) {
       this.chapterTimelineVisible = false;
       return;
