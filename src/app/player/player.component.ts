@@ -109,7 +109,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   autoplay_enabled = false;
   repeat_enabled = false;
-  blackout_enabled = false;
+  theater_mode_enabled = false;
   autoplay_queue_loading = false;
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
@@ -458,13 +458,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.saveRepeatMode();
   }
 
-  canToggleBlackout(): boolean {
+  canToggleTheaterMode(): boolean {
     return this.currentItem?.type !== 'audio/mp3';
   }
 
-  toggleBlackout(): void {
-    if (!this.canToggleBlackout()) return;
-    this.blackout_enabled = !this.blackout_enabled;
+  toggleTheaterMode(): void {
+    if (!this.canToggleTheaterMode()) return;
+    this.theater_mode_enabled = !this.theater_mode_enabled;
   }
 
   getFileNames(): string[] {

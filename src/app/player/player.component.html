@@ -1,5 +1,5 @@
 @if (playlist.length > 0 && show_player && currentItem) {
-  <div style="height: 100%">
+  <div class="player-page" [class.theater-mode-active]="theater_mode_enabled" style="height: 100%">
     <div style="height: 100%" [ngClass]="(currentItem.type === 'audio/mp3') ? null : 'container-video'">
       <div style="max-width: 100%; margin-left: 0px; height: 100%">
         <mat-drawer-container style="height: 100%" class="example-container" autosize>
@@ -10,9 +10,6 @@
                   <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
                 }
               </video>
-              @if (blackout_enabled && canToggleBlackout()) {
-                <div class="video-blackout-overlay" aria-hidden="true"></div>
-              }
               @if (currentChapters.length > 0 && currentItem.type !== 'audio/mp3') {
                 <div class="chapter-overlay" [class.visible]="chapterTimelineVisible">
                   <div class="chapter-overlay-header">
@@ -70,7 +67,7 @@
               </div>
             }
           </div>
-          <div class="player-toolbar-section">
+          <div class="player-toolbar-section" [class.theater-mode-active]="theater_mode_enabled">
             <div class="container-fluid player-toolbar-container">
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
@@ -115,6 +112,11 @@
                 </div>
                 <div class="col-auto action-column">
                   <span class="action-buttons-row">
+                    @if (canToggleTheaterMode()) {
+                      <button class="theater-mode-button playback-mode-button" [class.active]="theater_mode_enabled" [attr.aria-pressed]="theater_mode_enabled" (click)="toggleTheaterMode()" matTooltip="Theater mode" i18n-matTooltip="Theater mode toggle tooltip" aria-label="Theater mode" i18n-aria-label="Theater mode toggle label" mat-icon-button>
+                        <mat-icon>movie</mat-icon>
+                      </button>
+                    }
                     @if (db_playlist) {
                       <span class="buttons">
                         @if (!downloading) {
@@ -133,11 +135,6 @@
                           <mat-spinner class="spinner" [diameter]="35"></mat-spinner>
                         }
                       </span>
-                    }
-                    @if (canToggleBlackout()) {
-                      <button class="playback-mode-button" [class.active]="blackout_enabled" [attr.aria-pressed]="blackout_enabled" (click)="toggleBlackout()" matTooltip="Blackout video" i18n-matTooltip="Blackout video toggle tooltip" aria-label="Blackout video" i18n-aria-label="Blackout video toggle label" mat-icon-button>
-                        <mat-icon>movie</mat-icon>
-                      </button>
                     }
                     @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto) {
                       <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
