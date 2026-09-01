@@ -33,9 +33,9 @@ Please be respectful to maintainers and disclose AI assistance.
 
 ## Supported Versions
 
-Recommended: Use the `nightly` tag on Docker.
+Recommended: Use the `latest` tag on Docker or download the [latest release here](https://github.com/voc0der/ytdl-material/releases/latest).
 
-If you'd like to stick with more stable releases, use the `latest` tag on Docker or download the [latest release here](https://github.com/voc0der/ytdl-material/releases/latest).
+Use the `nightly` Docker tag only if you want changes before the next release and accept the additional risk.
 
 ## Reporting a Vulnerability
 

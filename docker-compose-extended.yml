@@ -1,6 +1,6 @@
 services:
   ytdl-material:
-    image: voc0der/ytdl-material:nightly
+    image: voc0der/ytdl-material:latest
     container_name: ytdl-material
     environment:
       ytdl_use_local_db: 'false'
