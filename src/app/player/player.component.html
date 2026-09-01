@@ -67,7 +67,7 @@
               </div>
             }
           </div>
-          <div class="player-toolbar-section" [hidden]="theater_mode_enabled">
+          <div class="player-toolbar-section" [class.theater-toolbar-visible]="theater_mode_enabled && theater_toolbar_visible" (mouseenter)="onTheaterToolbarMouseEnter()" (mouseleave)="onTheaterToolbarMouseLeave()">
             <div class="container-fluid player-toolbar-container">
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
