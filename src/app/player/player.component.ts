@@ -182,6 +182,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.setTheaterMode(false);
     this.playlistDownloadSubscription?.unsubscribe();
     this.playlistDownloadSubscription = null;
     this.subtitleTrackRefreshToken += 1;
@@ -204,6 +205,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('document:click')
   onDocumentClick(): void {
     this.chapterDropdownOpen = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  exitTheaterMode(): void {
+    if (this.theater_mode_enabled) this.setTheaterMode(false);
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
@@ -464,7 +470,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleTheaterMode(): void {
     if (!this.canToggleTheaterMode()) return;
-    this.theater_mode_enabled = !this.theater_mode_enabled;
+    this.setTheaterMode(!this.theater_mode_enabled);
+  }
+
+  private setTheaterMode(enabled: boolean): void {
+    this.theater_mode_enabled = enabled;
+    document.body.classList.toggle('player-theater-mode-active', enabled);
   }
 
   getFileNames(): string[] {

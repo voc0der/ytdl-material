@@ -27,6 +27,9 @@ describe('PlayerComponent', () => {
         },
         Subscriptions: {
           subscriptions_base_path: '/tmp/subscriptions'
+        },
+        Advanced: {
+          multi_user_mode: false
         }
       },
       theme: {
@@ -94,6 +97,10 @@ describe('PlayerComponent', () => {
 
   function playerToolbar(): HTMLElement | null {
     return fixture.nativeElement.querySelector('.player-toolbar-section');
+  }
+
+  function playerPlaylist(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.player-playlist-section');
   }
 
   function playerPage(): HTMLElement | null {
@@ -265,9 +272,10 @@ describe('PlayerComponent', () => {
     expect(playlistRows()[0].querySelector('.playlist-autoplay-button')).toBeTruthy();
   });
 
-  it('should place theater mode before download and keep the video visible', () => {
+  it('should place theater mode before download and make the video the only visible player content', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
+    component.api = {state: 'paused', time: {current: 0}} as unknown as VgApiService;
     postsServiceStub.isLoggedIn = false;
     fixture.detectChanges();
 
@@ -285,28 +293,34 @@ describe('PlayerComponent', () => {
     expect(component.theater_mode_enabled).toBe(true);
     expect(buttons[theaterModeIndex].getAttribute('aria-pressed')).toBe('true');
     expect(playerPage()?.classList.contains('theater-mode-active')).toBe(true);
+    expect(document.body.classList.contains('player-theater-mode-active')).toBe(true);
+    expect(playerToolbar()?.hidden).toBe(true);
+    expect(playerPlaylist()?.hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('.watch-together-section')?.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('.video-player')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.video-blackout-overlay')).toBeFalsy();
     expect(component.currentItem?.uid).toBe('f1');
   });
 
-  it('should keep the whole toolbar available as the theater mode hover target', () => {
+  it('should exit theater mode with Escape and restore the surrounding controls', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     fixture.detectChanges();
 
     const theaterMode = actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode');
-    expect(theaterMode.classList.contains('theater-mode-button')).toBe(true);
     theaterMode.click();
     fixture.detectChanges();
 
-    expect(playerToolbar()?.classList.contains('theater-mode-active')).toBe(true);
-    expect(playerToolbar()?.querySelector('[aria-label="Theater mode"]')).toBeTruthy();
+    expect(playerToolbar()?.hidden).toBe(true);
+    expect(playerPlaylist()?.hidden).toBe(true);
 
-    theaterMode.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
     fixture.detectChanges();
 
-    expect(playerToolbar()?.classList.contains('theater-mode-active')).toBe(false);
+    expect(component.theater_mode_enabled).toBe(false);
+    expect(document.body.classList.contains('player-theater-mode-active')).toBe(false);
+    expect(playerToolbar()?.hidden).toBe(false);
+    expect(playerPlaylist()?.hidden).toBe(false);
   });
 
   it('should not offer theater mode for audio', () => {

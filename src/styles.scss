@@ -188,11 +188,61 @@ app-player vg-player {
   position: relative;
 }
 
-app-player .player-page.theater-mode-active,
+body.player-theater-mode-active {
+  background: #000;
+  overflow: hidden;
+}
+
+body.player-theater-mode-active app-root > div > .mat-elevation-z3 {
+  display: none !important;
+}
+
+body.player-theater-mode-active app-root > div > .sidenav-container {
+  height: 100% !important;
+}
+
+app-player .player-page.theater-mode-active {
+  background: #000;
+  inset: 0;
+  position: fixed;
+  z-index: 1100;
+}
+
 app-player .player-page.theater-mode-active .example-container,
 app-player .player-page.theater-mode-active .mat-drawer-content {
-  background-color: #000 !important;
-  color: #fff;
+  background: #000 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden;
+}
+
+app-player .player-page.theater-mode-active .theater-video-stage {
+  align-items: center;
+  background: #000;
+  display: flex;
+  height: 100vh !important;
+  height: 100dvh !important;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  width: 100vw;
+  z-index: 1101;
+}
+
+app-player .player-page.theater-mode-active vg-player {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  width: 100vw;
+}
+
+app-player .player-page.theater-mode-active .video-styles {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100vh;
+  max-height: 100dvh;
+  object-fit: contain;
 }
 
 app-player .playlist-row {
@@ -223,18 +273,6 @@ app-player .playlist-autoplay-button {
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
-}
-
-@media (hover: hover) {
-  app-player .player-toolbar-section.theater-mode-active {
-    opacity: 0;
-    transition: opacity 0.12s ease;
-  }
-
-  app-player .player-toolbar-section.theater-mode-active:hover,
-  app-player .player-toolbar-section.theater-mode-active:has(:focus-visible) {
-    opacity: 1;
-  }
 }
 
 @media (hover: none), (pointer: coarse) {

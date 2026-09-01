@@ -3,7 +3,7 @@
     <div style="height: 100%" [ngClass]="(currentItem.type === 'audio/mp3') ? null : 'container-video'">
       <div style="max-width: 100%; margin-left: 0px; height: 100%">
         <mat-drawer-container style="height: 100%" class="example-container" autosize>
-          <div style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
+          <div class="theater-video-stage" style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
             <vg-player style="height: fit-content; max-height: 75vh" (onPlayerReady)="onPlayerReady($event)" (mousemove)="onPlayerMouseMove($event)" (mouseleave)="onPlayerMouseLeave()" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
               <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [vgMedia]="$any(media)" [src]="currentItem.src" id="singleVideo" preload="auto" controls playsinline>
                 @for (subtitle of currentSubtitleTracks; track subtitle.src ?? subtitle.language ?? $index) {
@@ -42,7 +42,7 @@
                 </div>
               }
             </vg-player>
-            @if (snip_mode) {
+            @if (snip_mode && !theater_mode_enabled) {
               <div class="snip-panel">
                 <div class="snip-header">
                   <span class="snip-title"><mat-icon class="snip-title-icon">content_cut</mat-icon><ng-container i18n="Snip panel title">Snip</ng-container></span>
@@ -67,7 +67,7 @@
               </div>
             }
           </div>
-          <div class="player-toolbar-section" [class.theater-mode-active]="theater_mode_enabled">
+          <div class="player-toolbar-section" [hidden]="theater_mode_enabled">
             <div class="container-fluid player-toolbar-container">
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
@@ -163,7 +163,7 @@
               </div>
             </div>
           </div>
-          <div style="height: fit-content; width: 100%; margin-top: 10px;">
+          <div class="player-playlist-section" [hidden]="theater_mode_enabled" style="height: fit-content; width: 100%; margin-top: 10px;">
             <mat-button-toggle-group cdkDropList [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical name="videoSelect" aria-label="Video Select" #group="matButtonToggleGroup">
               @for (playlist_item of playlist; track (playlist_item.uid ?? playlist_item.url ?? $index); let i = $index) {
                 <div cdkDrag class="playlist-row" [class.current]="currentItem === playlist_item">
@@ -178,11 +178,11 @@
             </mat-button-toggle-group>
           </div>
           @if (db_file && api && api.time && postsService.config) {
-            <div class="watch-together-section">
+            <div class="watch-together-section" [hidden]="theater_mode_enabled">
               <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
             </div>
           }
-          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [opened]="db_file && db_file['chat_exists']">
+          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists']">
             @if (api_ready && db_file && db_file.url.includes('twitch.tv')) {
               <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="api?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>
             }
