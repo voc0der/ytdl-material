@@ -92,6 +92,14 @@ describe('PlayerComponent', () => {
     return row ? Array.from(row.nativeElement.querySelectorAll('button')) : [];
   }
 
+  function playerToolbar(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.player-toolbar-section');
+  }
+
+  function playerPage(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.player-page');
+  }
+
   function playlistRows(): HTMLElement[] {
     return Array.from(fixture.nativeElement.querySelectorAll('.playlist-row'));
   }
@@ -185,30 +193,30 @@ describe('PlayerComponent', () => {
   it('should mark only the engaged playback toggles', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
-    component.blackout_enabled = true;
+    component.theater_mode_enabled = true;
     component.repeat_enabled = false;
     fixture.detectChanges();
 
     const toggles = actionBarButtons().filter(button => button.classList.contains('playback-mode-button'));
-    const blackout = toggles.find(button => button.getAttribute('aria-label') === 'Blackout video');
+    const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
     // Idle toggles carry no marker at all, so they render at the same colour as the
     // actions beside them rather than dimmed.
-    expect(blackout.classList.contains('active')).toBe(true);
+    expect(theaterMode.classList.contains('active')).toBe(true);
     expect(repeat.classList.contains('active')).toBe(false);
   });
 
   it('should mark playback toggles as pressed for assistive tech', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
-    component.blackout_enabled = true;
+    component.theater_mode_enabled = true;
     component.repeat_enabled = false;
     fixture.detectChanges();
 
     const toggles = actionBarButtons().filter(button => button.classList.contains('playback-mode-button'));
-    const blackout = toggles.find(button => button.getAttribute('aria-label') === 'Blackout video');
+    const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
-    expect(blackout.getAttribute('aria-pressed')).toBe('true');
+    expect(theaterMode.getAttribute('aria-pressed')).toBe('true');
     expect(repeat.getAttribute('aria-pressed')).toBe('false');
   });
 
@@ -257,28 +265,51 @@ describe('PlayerComponent', () => {
     expect(playlistRows()[0].querySelector('.playlist-autoplay-button')).toBeTruthy();
   });
 
-  it('should place blackout immediately before share and cover the video while it remains selected', () => {
+  it('should place theater mode before download and keep the video visible', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     postsServiceStub.isLoggedIn = false;
     fixture.detectChanges();
 
     const buttons = actionBarButtons();
-    const blackoutIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Blackout video');
+    const theaterModeIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Theater mode');
+    const downloadIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Download this file');
     const shareIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Share');
-    expect(blackoutIndex).toBeGreaterThan(-1);
-    expect(shareIndex).toBe(blackoutIndex + 1);
+    expect(theaterModeIndex).toBeGreaterThan(-1);
+    expect(downloadIndex).toBe(theaterModeIndex + 1);
+    expect(shareIndex).toBe(downloadIndex + 1);
 
-    buttons[blackoutIndex].click();
+    buttons[theaterModeIndex].click();
     fixture.detectChanges();
 
-    expect(component.blackout_enabled).toBe(true);
-    expect(buttons[blackoutIndex].getAttribute('aria-pressed')).toBe('true');
-    expect(fixture.nativeElement.querySelector('.video-blackout-overlay')).toBeTruthy();
+    expect(component.theater_mode_enabled).toBe(true);
+    expect(buttons[theaterModeIndex].getAttribute('aria-pressed')).toBe('true');
+    expect(playerPage()?.classList.contains('theater-mode-active')).toBe(true);
+    expect(fixture.nativeElement.querySelector('.video-player')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.video-blackout-overlay')).toBeFalsy();
     expect(component.currentItem?.uid).toBe('f1');
   });
 
-  it('should not offer blackout for audio', () => {
+  it('should keep the whole toolbar available as the theater mode hover target', () => {
+    showPlayer();
+    component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
+    fixture.detectChanges();
+
+    const theaterMode = actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode');
+    expect(theaterMode.classList.contains('theater-mode-button')).toBe(true);
+    theaterMode.click();
+    fixture.detectChanges();
+
+    expect(playerToolbar()?.classList.contains('theater-mode-active')).toBe(true);
+    expect(playerToolbar()?.querySelector('[aria-label="Theater mode"]')).toBeTruthy();
+
+    theaterMode.click();
+    fixture.detectChanges();
+
+    expect(playerToolbar()?.classList.contains('theater-mode-active')).toBe(false);
+  });
+
+  it('should not offer theater mode for audio', () => {
     component.playlist_id = 'playlist-1';
     component.file_objs = [
       {uid: 'a1', title: 'An audio track', isAudio: true, url: 'https://example.com/audio'} as DatabaseFile
@@ -287,12 +318,12 @@ describe('PlayerComponent', () => {
     component.parseFileNames();
     fixture.detectChanges();
 
-    expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Blackout video')).toBe(false);
-    component.toggleBlackout();
-    expect(component.blackout_enabled).toBe(false);
+    expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(false);
+    component.toggleTheaterMode();
+    expect(component.theater_mode_enabled).toBe(false);
   });
 
-  it('should expose row autoplay and blackout when playing a subscription', () => {
+  it('should expose row autoplay and theater mode when playing a subscription', () => {
     component.sub_id = 'subscription-1';
     component.subscription = {
       id: 'subscription-1',
@@ -307,7 +338,7 @@ describe('PlayerComponent', () => {
     fixture.detectChanges();
 
     expect(playlistAutoplayButtons()).toHaveLength(1);
-    expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Blackout video')).toBe(true);
+    expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(true);
   });
 
   it('should create', () => {
