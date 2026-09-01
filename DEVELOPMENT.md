@@ -68,7 +68,7 @@ behavior, so it would fail for reasons unrelated to any given change.
 
 ## Things worth knowing before debugging a 403
 
-- **The image tag does not control yt-dlp.** `voc0der/ytdl-material:nightly` versions the
+- **The image tag does not control yt-dlp.** `voc0der/ytdl-material:latest` versions the
   app; yt-dlp is downloaded separately, and defaults to the latest *stable* release. Use
   `ytdl_ytdlp_update_channel` to move it. See `docker-environment.md`.
 - **403s are format-dependent.** Stable `2026.07.04` returns 403 for higher-resolution
