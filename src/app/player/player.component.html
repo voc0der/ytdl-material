@@ -10,6 +10,9 @@
                   <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
                 }
               </video>
+              @if (blackout_enabled && canToggleBlackout()) {
+                <div class="video-blackout-overlay" aria-hidden="true"></div>
+              }
               @if (currentChapters.length > 0 && currentItem.type !== 'audio/mp3') {
                 <div class="chapter-overlay" [class.visible]="chapterTimelineVisible">
                   <div class="chapter-overlay-header">
@@ -121,9 +124,6 @@
                           <button (click)="cancelPlaylistDownload()" matTooltip="Cancel playlist download" i18n-matTooltip="Cancel playlist download tooltip" aria-label="Cancel playlist download" i18n-aria-label="Cancel playlist download label" mat-icon-button><mat-icon>cancel</mat-icon></button>
                           <mat-spinner class="spinner" [diameter]="35"></mat-spinner>
                         }
-                        @if ((!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto) {
-                          <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
-                        }
                       </span>
                     }
                     @if (db_file) {
@@ -132,10 +132,18 @@
                         @if (downloading) {
                           <mat-spinner class="spinner" [diameter]="35"></mat-spinner>
                         }
-                        @if (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) {
-                          <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
-                        }
                       </span>
+                    }
+                    @if (canToggleBlackout()) {
+                      <button class="playback-mode-button" [class.active]="blackout_enabled" [attr.aria-pressed]="blackout_enabled" (click)="toggleBlackout()" matTooltip="Blackout video" i18n-matTooltip="Blackout video toggle tooltip" aria-label="Blackout video" i18n-aria-label="Blackout video toggle label" mat-icon-button>
+                        <mat-icon>movie</mat-icon>
+                      </button>
+                    }
+                    @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto) {
+                      <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
+                    }
+                    @if (db_file && (!postsService.isLoggedIn || postsService.permissions.includes('sharing'))) {
+                      <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
                     }
                     @if (db_file || playlist[currentIndex]) {
                       @if (canToggleSubtitles()) {
@@ -143,9 +151,6 @@
                           <mat-icon>closed_caption</mat-icon>
                         </button>
                       }
-                      <button class="playback-mode-button" [class.active]="autoplay_enabled" [attr.aria-pressed]="autoplay_enabled" (click)="toggleAutoplay()" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" aria-label="Autoplay" i18n-aria-label="Autoplay toggle label" mat-icon-button>
-                        <mat-icon>playlist_play</mat-icon>
-                      </button>
                       <button class="playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
                         <mat-icon>repeat_one</mat-icon>
                       </button>
@@ -164,7 +169,14 @@
           <div style="height: fit-content; width: 100%; margin-top: 10px;">
             <mat-button-toggle-group cdkDropList [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical name="videoSelect" aria-label="Video Select" #group="matButtonToggleGroup">
               @for (playlist_item of playlist; track (playlist_item.uid ?? playlist_item.url ?? $index); let i = $index) {
-                <mat-button-toggle cdkDrag [checked]="currentItem.title === playlist_item.title" (click)="onClickPlaylistItem(playlist_item, i)" class="toggle-button" [value]="playlist_item.title">{{playlist_item.label}}</mat-button-toggle>
+                <div cdkDrag class="playlist-row" [class.current]="currentItem === playlist_item">
+                  <mat-button-toggle [checked]="currentItem === playlist_item" (click)="onClickPlaylistItem(playlist_item, i)" class="toggle-button" [value]="playlist_item.title">{{playlist_item.label}}</mat-button-toggle>
+                  @if (currentItem === playlist_item) {
+                    <button class="playlist-autoplay-button playback-mode-button" [class.active]="autoplay_enabled" [attr.aria-pressed]="autoplay_enabled" (click)="toggleAutoplayFromPlaylistRow($event)" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" aria-label="Autoplay" i18n-aria-label="Autoplay toggle label" mat-icon-button>
+                      <mat-icon>playlist_play</mat-icon>
+                    </button>
+                  }
+                </div>
               }
             </mat-button-toggle-group>
           </div>

@@ -109,6 +109,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   autoplay_enabled = false;
   repeat_enabled = false;
+  blackout_enabled = false;
   autoplay_queue_loading = false;
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
@@ -422,7 +423,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onClickPlaylistItem(item: IMedia, index: number): void {
-      this.updateCurrentItem(item, index);
+    if (item === this.currentItem) return;
+    this.updateCurrentItem(item, index);
+  }
+
+  toggleAutoplayFromPlaylistRow(event: MouseEvent): void {
+    event.stopPropagation();
+    this.toggleAutoplay();
   }
 
   toggleAutoplay(): void {
@@ -449,6 +456,15 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.collapseAutoplayQueueToCurrentItem();
     }
     this.saveRepeatMode();
+  }
+
+  canToggleBlackout(): boolean {
+    return this.currentItem?.type !== 'audio/mp3';
+  }
+
+  toggleBlackout(): void {
+    if (!this.canToggleBlackout()) return;
+    this.blackout_enabled = !this.blackout_enabled;
   }
 
   getFileNames(): string[] {
@@ -532,6 +548,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   drop(event: CdkDragDrop<string[]>): void {
     moveItemInArray(this.playlist, event.previousIndex, event.currentIndex);
+    this.currentIndex = this.playlist.indexOf(this.currentItem);
   }
 
    playlistChanged(): boolean {
