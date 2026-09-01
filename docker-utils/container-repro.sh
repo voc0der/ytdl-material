@@ -11,7 +11,7 @@
 #   docker-utils/container-repro.sh [options]
 #
 #   --channel <stable|nightly|master>  yt-dlp update channel to configure (default: stable)
-#   --tag <image-tag>                  ytdl-material image tag (default: latest)
+#   --tag <image-tag>                  ytdl-material image tag (default: nightly)
 #   --uid <uid> / --gid <gid>          runtime UID/GID (default: 1026/100, matching common NAS setups)
 #   --local                            mount the working tree's backend/*.js over /app,
 #                                      so uncommitted changes are exercised without a rebuild
@@ -26,7 +26,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CHANNEL="stable"
-IMAGE_TAG="latest"
+IMAGE_TAG="nightly"
 RUN_UID="1026"
 RUN_GID="100"
 USE_LOCAL=0
