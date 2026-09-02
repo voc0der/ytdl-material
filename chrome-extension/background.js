@@ -33,27 +33,27 @@ function isSupportedYouTubeUrl(url) {
 }
 
 function setActionState(tabId, enabled) {
-    chrome.browserAction.setPopup({
+    chrome.action.setPopup({
         tabId: tabId,
         popup: enabled ? 'popup.html' : ''
     });
 
-    chrome.browserAction.setIcon({
+    chrome.action.setIcon({
         tabId: tabId,
         path: enabled ? enabledIconPaths : hiddenIconPaths
     });
 
-    chrome.browserAction.setTitle({
+    chrome.action.setTitle({
         tabId: tabId,
         title: enabled ? 'ytdl-material' : 'ytdl-material (available on YouTube pages)'
     });
 
     if (enabled) {
-        chrome.browserAction.enable(tabId);
+        chrome.action.enable(tabId);
         return;
     }
 
-    chrome.browserAction.disable(tabId);
+    chrome.action.disable(tabId);
 }
 
 function updateActionForTab(tabId, tab) {
