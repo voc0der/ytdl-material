@@ -55,6 +55,8 @@ jobs:
       # would otherwise reach main unnoticed.
       - name: Type-check specs
         run: npx tsc -p src/tsconfig.spec.json --noEmit
+      - name: Test browser extension
+        run: npm run test:extension
       # Vitest runs in jsdom, so unlike the old karma suite this needs no browser.
       - name: Run Frontend Tests
         run: npm run test:headless
