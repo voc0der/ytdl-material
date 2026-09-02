@@ -85,7 +85,7 @@ test('Firefox manifest preserves the existing Manifest V2 contract', () => {
     assert.equal(manifest.browser_action.default_popup, 'popup.html');
     assert.equal(
         manifest.browser_specific_settings.gecko.id,
-        'IsaacMGrynsztein@gmail.com',
+        'ytdl-material@voc0der.github.io',
     );
     assert.ok(!manifest.permissions.includes('contextMenus'));
 });
