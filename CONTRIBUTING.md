@@ -19,6 +19,7 @@ For setup and local run instructions, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 - Run `npx tsc -p src/tsconfig.app.json --noEmit`
 - Run `npx tsc -p src/tsconfig.spec.json --noEmit`
 - Run `npm run test:headless`
+- Run `npm run package:extension` and `npm run test:extension` when browser extension files change
 - Run `npx ng build --configuration production`
 - If backend JavaScript changed, run `node --check` on each touched backend file
 

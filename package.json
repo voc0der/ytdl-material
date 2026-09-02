@@ -11,6 +11,8 @@
     "heroku-postbuild": "npm install --prefix backend",
     "test": "ng test --browsers Chromium",
     "test:headless": "ng test --watch=false",
+    "test:extension": "node --test chrome-extension/test/extension.test.mjs",
+    "package:extension": "node chrome-extension/package.mjs",
     "lint": "eslint --ext .ts,.js src",
     "generate": "openapi --input ./\"Public API v1.yaml\" --output ./src/api-types --exportCore false --exportServices false --exportModels true",
     "i18n-source": "ng extract-i18n --output-path=src/assets/i18n --out-file=messages.en.xlf"

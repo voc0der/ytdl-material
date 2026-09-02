@@ -14,6 +14,8 @@ var hiddenIconPaths = {
     128: 'icons/transparent-128.png'
 };
 
+var extensionAction = chrome.action || chrome.browserAction;
+
 function isSupportedYouTubeUrl(url) {
     if (!url) {
         return false;
@@ -33,27 +35,27 @@ function isSupportedYouTubeUrl(url) {
 }
 
 function setActionState(tabId, enabled) {
-    chrome.action.setPopup({
+    extensionAction.setPopup({
         tabId: tabId,
         popup: enabled ? 'popup.html' : ''
     });
 
-    chrome.action.setIcon({
+    extensionAction.setIcon({
         tabId: tabId,
         path: enabled ? enabledIconPaths : hiddenIconPaths
     });
 
-    chrome.action.setTitle({
+    extensionAction.setTitle({
         tabId: tabId,
         title: enabled ? 'ytdl-material' : 'ytdl-material (available on YouTube pages)'
     });
 
     if (enabled) {
-        chrome.action.enable(tabId);
+        extensionAction.enable(tabId);
         return;
     }
 
-    chrome.action.disable(tabId);
+    extensionAction.disable(tabId);
 }
 
 function updateActionForTab(tabId, tab) {

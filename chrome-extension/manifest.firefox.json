@@ -1,5 +1,5 @@
 {
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "ytdl-material",
     "version": "0.5",
     "description": "The Official Firefox & Chrome Extension of ytdl-material, an open-source and self-hosted YouTube downloader.",
@@ -11,9 +11,12 @@
         "128": "icons/icon-128.png"
     },
     "background": {
-        "service_worker": "background.js"
+        "scripts": [
+            "background.js"
+        ],
+        "persistent": false
     },
-    "action": {
+    "browser_action": {
         "default_icon": {
             "16": "icons/icon-16.png",
             "32": "icons/icon-32.png",
@@ -31,5 +34,11 @@
     "options_ui": {
         "page": "options.html",
         "open_in_tab": false
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "IsaacMGrynsztein@gmail.com",
+            "strict_min_version": "57.0"
+        }
     }
 }
