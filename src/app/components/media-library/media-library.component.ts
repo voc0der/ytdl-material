@@ -136,13 +136,25 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private fullFileRefreshInProgress = false;
   private queuedFullFileRefresh = false;
   private queuedFullFileRefreshCacheMode = false;
+  private gridPressElement: HTMLElement = null;
+  private gridPressActive = false;
+  private readonly deferredGridRefreshes = new Map<string, () => void>();
   private readonly destroy$ = new Subject<void>();
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
+  private readonly gridPressStartHandler = () => { this.gridPressActive = true; };
+  private readonly gridPressEndHandler = () => {
+    this.gridPressActive = false;
+    if (this.deferredGridRefreshes.size === 0) {
+      return;
+    }
+    this.ngZone.run(() => this.flushDeferredGridRefreshes());
+  };
 
   @ViewChild('videoGridContainer')
   set videoGridContainer(container: ElementRef<HTMLElement> | undefined) {
     this.videoGridContainerElement = container?.nativeElement ?? null;
     this.refreshScrollListener();
+    this.refreshGridPressListeners();
     this.refreshVideoGridResizeObserver();
     this.refreshVideoRowsForCurrentLayout();
     this.schedulePendingScrollRestore();
@@ -251,7 +263,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(changed => {
         if (changed) {
-          this.getAllFiles();
+          this.runWhenGridIdle('files', () => this.getAllFiles());
         }
       });
 
@@ -259,10 +271,12 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(changed => {
       if (changed) {
-        this.getAvailablePlaylists();
-        if (this.showLibraryTabs) {
-          this.getPlaylistLibraryItems();
-        }
+        this.runWhenGridIdle('playlists', () => {
+          this.getAvailablePlaylists();
+          if (this.showLibraryTabs) {
+            this.getPlaylistLibraryItems();
+          }
+        });
       }
     });
 
@@ -270,9 +284,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(changed => {
         if (!changed) return;
-        if (this.pruneUnavailableCategoryFilters() && this.isVideoLibraryActive()) {
-          this.getAllFiles();
-        }
+        this.runWhenGridIdle('categories', () => {
+          if (this.pruneUnavailableCategoryFilters() && this.isVideoLibraryActive()) {
+            this.getAllFiles();
+          }
+        });
       });
 
     
@@ -299,7 +315,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.deferredGridRefreshes.clear();
     this.unbindScrollListener();
+    this.unbindGridPressListeners();
     this.unbindVideoGridResizeObserver();
   }
 
@@ -1457,6 +1475,65 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     this.autoLoadQueued = false;
+  }
+
+  /**
+   * A click is dispatched to the nearest common ancestor of the press and the release that is
+   * still in the document, so losing an inner node mid-click is survivable -- but when a whole
+   * card is detached between the two, no click fires at all, even though mousedown, mouseup
+   * and the ripple all still happen. Rebuilding the grid does exactly that to every card whose
+   * position moves, so any download finishing at the wrong moment eats a click that was
+   * already underway. Rendering the grid as one flat @for tracked by uid does not help: that
+   * makes the teardown a view move, and a move loses the press just the same. So the refresh
+   * is what has to wait.
+   */
+  private runWhenGridIdle(key: string, refresh: () => void): void {
+    if (!this.gridPressActive) {
+      refresh();
+      return;
+    }
+
+    // Repeat events collapse onto one deferred refresh rather than queueing a burst of them.
+    this.deferredGridRefreshes.set(key, refresh);
+  }
+
+  private flushDeferredGridRefreshes(): void {
+    if (this.deferredGridRefreshes.size === 0) {
+      return;
+    }
+
+    const deferred_refreshes = [...this.deferredGridRefreshes.values()];
+    this.deferredGridRefreshes.clear();
+    deferred_refreshes.forEach(refresh => refresh());
+  }
+
+  private refreshGridPressListeners(): void {
+    this.unbindGridPressListeners();
+    if (!this.videoGridContainerElement || typeof window === 'undefined') {
+      return;
+    }
+
+    this.gridPressElement = this.videoGridContainerElement;
+    this.ngZone.runOutsideAngular(() => {
+      // The press is only interesting when it starts on the grid, but it can end anywhere --
+      // including outside the card it started on -- so the release is watched on the window.
+      this.gridPressElement.addEventListener('pointerdown', this.gridPressStartHandler);
+      window.addEventListener('pointerup', this.gridPressEndHandler);
+      window.addEventListener('pointercancel', this.gridPressEndHandler);
+    });
+  }
+
+  private unbindGridPressListeners(): void {
+    this.gridPressElement?.removeEventListener('pointerdown', this.gridPressStartHandler);
+    this.gridPressElement = null;
+
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pointerup', this.gridPressEndHandler);
+      window.removeEventListener('pointercancel', this.gridPressEndHandler);
+    }
+
+    // A queued refresh outlives the element it was queued on: the next release flushes it.
+    this.gridPressActive = false;
   }
 
   private refreshVideoGridResizeObserver(): void {
