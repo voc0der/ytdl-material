@@ -163,6 +163,9 @@
   color: black;
 }
 
+/* This strip is a sibling of the card rather than a child of it, so it covers the top
+   192x24px of the card without carrying the card's click handler. Left hit-testable it
+   swallows every click landing on it, which reads as the card not responding at all. */
 .download-time {
   position: absolute;
   top: 1px;
@@ -173,6 +176,7 @@
   overflow: hidden;
   display: block;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .audio-video-icon {
