@@ -834,4 +834,87 @@ describe('MediaLibraryComponent', () => {
     expect(get_all_files_spy).toHaveBeenCalled();
     expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist removed, but 2 file(s) could not be deleted.');
   });
+  describe('background refreshes during a press', () => {
+    let gridElement: HTMLElement;
+
+    const pressGrid = () => gridElement.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const releasePointer = () => window.dispatchEvent(new Event('pointerup'));
+
+    beforeEach(() => {
+      fixture.detectChanges();
+      gridElement = document.createElement('div');
+      document.body.appendChild(gridElement);
+      component.videoGridContainer = { nativeElement: gridElement } as any;
+    });
+
+    afterEach(() => {
+      gridElement.remove();
+    });
+
+    it('should hold a background file refresh until the pointer is released', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+
+      // Rebuilding here would detach the card being pressed, and a browser fires no click at
+      // all when the pressed element leaves the document before the release.
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should refresh straight away when nothing is being pressed', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      postsServiceStub.files_changed.next(true);
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should collapse repeated background events into a single deferred refresh', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+      postsServiceStub.files_changed.next(true);
+      postsServiceStub.files_changed.next(true);
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep a deferred refresh queued when the grid container is swapped mid-press', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+
+      // Switching library tabs swaps which element the view query resolves to, which rebinds
+      // the press listeners. A refresh already waiting must survive that, not be thrown away.
+      const replacement_grid = document.createElement('div');
+      document.body.appendChild(replacement_grid);
+      component.videoGridContainer = { nativeElement: replacement_grid } as any;
+
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+      replacement_grid.remove();
+    });
+
+    it('should drop a deferred refresh when the library is torn down mid-press', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+      component.ngOnDestroy();
+      releasePointer();
+
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+    });
+  });
 });
