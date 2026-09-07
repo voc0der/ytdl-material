@@ -436,9 +436,13 @@
     filter: blur(2px);
 }
 
+/* Downloading a file to the browser does not stop the card from opening, and the card stays
+   clickable all around this spinner, so the spinner must not be the one spot on it that
+   silently does nothing. */
 .downloading-spinner {
     align-self: center;
     position: absolute;
+    pointer-events: none;
 }
 
 .hide {

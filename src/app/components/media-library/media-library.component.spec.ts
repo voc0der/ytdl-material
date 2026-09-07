@@ -834,4 +834,132 @@ describe('MediaLibraryComponent', () => {
     expect(get_all_files_spy).toHaveBeenCalled();
     expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist removed, but 2 file(s) could not be deleted.');
   });
+  describe('background refreshes during a press', () => {
+    let gridElement: HTMLElement;
+
+    const pressGrid = () => gridElement.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const releasePointer = () => window.dispatchEvent(new Event('pointerup'));
+
+    beforeEach(() => {
+      fixture.detectChanges();
+      gridElement = document.createElement('div');
+      document.body.appendChild(gridElement);
+      component.videoGridContainer = { nativeElement: gridElement } as any;
+    });
+
+    afterEach(() => {
+      gridElement.remove();
+    });
+
+    it('should hold a background file refresh until the pointer is released', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+
+      // Rebuilding here would detach the card being pressed, and a browser fires no click at
+      // all when the pressed element leaves the document before the release.
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should refresh straight away when nothing is being pressed', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      postsServiceStub.files_changed.next(true);
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should collapse repeated background events into a single deferred refresh', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+      postsServiceStub.files_changed.next(true);
+      postsServiceStub.files_changed.next(true);
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep a deferred refresh queued when the grid container is swapped mid-press', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+
+      // Switching library tabs swaps which element the view query resolves to, which rebinds
+      // the press listeners. A refresh already waiting must survive that, not be thrown away.
+      const replacement_grid = document.createElement('div');
+      document.body.appendChild(replacement_grid);
+      component.videoGridContainer = { nativeElement: replacement_grid } as any;
+
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
+      replacement_grid.remove();
+    });
+
+    it('should hold a refresh already in flight when its response lands mid-press', () => {
+      const response_subject = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValue(response_subject);
+
+      // The request goes out before the press starts, so deferring the request is not enough:
+      // it is applying the response that rebuilds the grid and detaches the pressed card.
+      component.getAllFiles();
+      const rebuild_spy = vi.spyOn(component, 'rebuildVideoRows');
+
+      pressGrid();
+      response_subject.next({ files: [{ uid: 'file-1', duration: 10 }], file_count: 1 });
+
+      expect(rebuild_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(rebuild_spy).toHaveBeenCalledTimes(1);
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-1']);
+    });
+
+    it('should not start an auto-load append while a file response waits on the press', fakeAsync(() => {
+      component.autoPaginationEnabled = true;
+      component.file_count = 100;
+      const response_subject = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValue(response_subject);
+
+      component.getAllFiles();
+      pressGrid();
+      response_subject.next({ files: [{ uid: 'file-1', duration: 10 }], file_count: 100 });
+
+      // An append here would be ranged off paged_data that the waiting response has not
+      // updated yet, and would supersede that response by bumping the request id.
+      const load_more_spy = vi.spyOn(component, 'loadMoreAutoFiles').mockReturnValue(undefined);
+      component.maybeLoadMoreAutoFiles();
+      flushMicrotasks();
+
+      expect(load_more_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+      component.maybeLoadMoreAutoFiles();
+      flushMicrotasks();
+
+      expect(load_more_spy).toHaveBeenCalledTimes(1);
+    }));
+
+    it('should drop a deferred refresh when the library is torn down mid-press', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      postsServiceStub.files_changed.next(true);
+      component.ngOnDestroy();
+      releasePointer();
+
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+    });
+  });
 });

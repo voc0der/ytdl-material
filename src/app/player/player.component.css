@@ -51,10 +51,14 @@
     bottom: -1px;
 }
 
+/* This spinner is a sibling of the button it sits over, not a child of it, so it does not
+   pass clicks on. It covers 66% of that button including the icon at the centre, which left
+   "Cancel playlist download" unclickable for as long as the download it cancels was running. */
 .spinner {
     bottom: -2px;
     left: 6px;
     position: absolute;
+    pointer-events: none;
 }
 
 .buttons {
