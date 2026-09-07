@@ -906,6 +906,51 @@ describe('MediaLibraryComponent', () => {
       replacement_grid.remove();
     });
 
+    it('should hold a refresh already in flight when its response lands mid-press', () => {
+      const response_subject = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValue(response_subject);
+
+      // The request goes out before the press starts, so deferring the request is not enough:
+      // it is applying the response that rebuilds the grid and detaches the pressed card.
+      component.getAllFiles();
+      const rebuild_spy = vi.spyOn(component, 'rebuildVideoRows');
+
+      pressGrid();
+      response_subject.next({ files: [{ uid: 'file-1', duration: 10 }], file_count: 1 });
+
+      expect(rebuild_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+
+      expect(rebuild_spy).toHaveBeenCalledTimes(1);
+      expect(component.paged_data.map(file => file.uid)).toEqual(['file-1']);
+    });
+
+    it('should not start an auto-load append while a file response waits on the press', fakeAsync(() => {
+      component.autoPaginationEnabled = true;
+      component.file_count = 100;
+      const response_subject = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValue(response_subject);
+
+      component.getAllFiles();
+      pressGrid();
+      response_subject.next({ files: [{ uid: 'file-1', duration: 10 }], file_count: 100 });
+
+      // An append here would be ranged off paged_data that the waiting response has not
+      // updated yet, and would supersede that response by bumping the request id.
+      const load_more_spy = vi.spyOn(component, 'loadMoreAutoFiles').mockReturnValue(undefined);
+      component.maybeLoadMoreAutoFiles();
+      flushMicrotasks();
+
+      expect(load_more_spy).not.toHaveBeenCalled();
+
+      releasePointer();
+      component.maybeLoadMoreAutoFiles();
+      flushMicrotasks();
+
+      expect(load_more_spy).toHaveBeenCalledTimes(1);
+    }));
+
     it('should drop a deferred refresh when the library is torn down mid-press', () => {
       const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
 

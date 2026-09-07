@@ -866,27 +866,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const favoriteFilter = this.getFavoriteFilter();
     const categoryFilterUids = this.getCategoryFilterUids();
     this.postsService.getAllFiles(sort, this.usePaginator ? range : null, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
-      // A newer request (of either kind) may have superseded this one. Its data must not be
-      // applied, but the in-progress flags below still belong solely to this request and must
-      // always be cleared, or a stale response would leave future filter/sort/append calls stuck.
-      if (request_id === this.latestFileRequestId) {
-        const previous_loaded_count = this.paged_data?.length ?? 0;
-        this.file_count = res['file_count'];
-        const files = this.normalizeFiles(res['files'] ?? []);
-        this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
-        if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
-          // Stop auto-prefetch if the backend response did not advance the loaded range.
-          this.file_count = this.paged_data?.length ?? this.file_count;
-        }
-        this.rebuildVideoRows();
-
-        // set cached file count for future use, note that we convert the amount of files to a string
-        localStorage.setItem('cached_file_count', '' + this.file_count);
-
-        this.normal_files_received = true;
-        this.scheduleVirtualVideoWindowUpdate(true);
-        this.schedulePendingScrollRestore();
-      }
+      // Deferring the request is not enough on its own: a refresh asked for just before a card
+      // was pressed lands during it, and it is applying the response that rebuilds the grid.
+      // The in-progress flags below belong solely to this request and are cleared either way,
+      // or a stale response would leave future filter/sort/append calls stuck.
+      this.runWhenGridIdle('file-response', () => this.applyFileResponse(request_id, res, append));
 
       this.autoPageLoadInProgress = false;
       if (!append) {
@@ -907,6 +891,34 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         this.flushQueuedFullFileRefresh();
       }
     });
+  }
+
+  /**
+   * A newer request (of either kind) may have superseded this one, either before the response
+   * arrived or while it waited for a press to finish, so the check is made here rather than at
+   * the call site -- by the time this runs the answer may have changed.
+   */
+  private applyFileResponse(request_id: number, res: Record<string, unknown>, append: boolean): void {
+    if (request_id !== this.latestFileRequestId) {
+      return;
+    }
+
+    const previous_loaded_count = this.paged_data?.length ?? 0;
+    this.file_count = res['file_count'] as number;
+    const files = this.normalizeFiles((res['files'] ?? []) as DatabaseFile[]);
+    this.paged_data = append ? this.mergeFiles(this.paged_data ?? [], files) : files;
+    if (append && (this.paged_data?.length ?? 0) <= previous_loaded_count) {
+      // Stop auto-prefetch if the backend response did not advance the loaded range.
+      this.file_count = this.paged_data?.length ?? this.file_count;
+    }
+    this.rebuildVideoRows();
+
+    // set cached file count for future use, note that we convert the amount of files to a string
+    localStorage.setItem('cached_file_count', '' + this.file_count);
+
+    this.normal_files_received = true;
+    this.scheduleVirtualVideoWindowUpdate(true);
+    this.schedulePendingScrollRestore();
   }
 
   private queueFullFileRefresh(cache_mode = false): void {
@@ -1386,8 +1398,17 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * A file response waiting on a press has not reached paged_data yet, so an append started now
+   * would be ranged off stale data and, worse, would supersede the waiting response and discard
+   * it. The release applies that response and re-runs this, so nothing is lost by waiting.
+   */
+  private get fileResponseAwaitingRelease(): boolean {
+    return this.deferredGridRefreshes.has('file-response');
+  }
+
   maybeLoadMoreAutoFiles(): void {
-    if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.autoLoadQueued || this.fullFileRefreshInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
+    if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.autoLoadQueued || this.fullFileRefreshInProgress || this.fileResponseAwaitingRelease || (this.paged_data?.length ?? 0) >= this.file_count) {
       return;
     }
 
@@ -1399,7 +1420,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.autoLoadQueued = true;
     queueMicrotask(() => {
       this.autoLoadQueued = false;
-      if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.fullFileRefreshInProgress || (this.paged_data?.length ?? 0) >= this.file_count) {
+      if (!this.autoPaginationEnabled || this.autoPageLoadInProgress || this.fullFileRefreshInProgress || this.fileResponseAwaitingRelease || (this.paged_data?.length ?? 0) >= this.file_count) {
         return;
       }
 
