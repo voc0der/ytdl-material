@@ -85,7 +85,7 @@
     "flatted": "3.4.4",
     "hono": "4.13.7",
     "immutable": "5.1.9",
-    "js-yaml": "4.3.1",
+    "js-yaml": "4.3.2",
     "nanoid": "3.3.18",
     "postcss": "8.5.28"
   }
