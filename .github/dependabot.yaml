@@ -24,6 +24,25 @@ updates:
       minor-updates:
         update-types:
           - "minor"
+    ignore:
+      # These publishers move their major tag (@v4) to every new minor and patch
+      # release, so @v4 is already current. Letting Dependabot propose those rewrites
+      # @v4 into an exact tag that then goes stale silently; only offer new majors.
+      # Third-party actions are deliberately left out: their major tags are not
+      # always maintained (jsdaniell/create-json@v1 still points at v1.1), so they
+      # stay exact and keep receiving minor and patch updates.
+      - dependency-name: "actions/*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "docker/*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "github/*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
