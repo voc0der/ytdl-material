@@ -12,8 +12,6 @@ const FileSync = require('./lowdb-compat/adapters/FileSync');
 const { BehaviorSubject } = require('rxjs');
 
 let local_db = null;
-let db = null;
-let users_db = null;
 let mongo_client = null;
 let mongo_database = null;
 let postgres_pool = null;
@@ -373,7 +371,6 @@ function getDBLabel(dbType) {
 }
 
 function setDB(input_db, input_users_db) {
-    db = input_db; users_db = input_users_db;
     exports.db = input_db;
     exports.users_db = input_users_db
 }
@@ -589,7 +586,7 @@ exports.connectToDB = async (retries = 5, no_fallback = false, custom_connection
             }
         }
     }
-    
+
     if (no_fallback) {
         logger.error(`Failed to connect to ${getDBLabel(target_db_type)}. Verify your connection string is valid.`);
         return false;
@@ -998,7 +995,7 @@ exports.updateRecord = async (table, filter_obj, update_obj, nested_mode = false
         return false;
     }
 
-    let sanitized_update_obj = null;
+    let sanitized_update_obj;
     try {
         sanitized_update_obj = sanitizeMongoUpdateSetObject(update_obj);
     } catch (err) {
@@ -1018,7 +1015,7 @@ exports.updateRecord = async (table, filter_obj, update_obj, nested_mode = false
         return true;
     }
 
-    let sanitized_filter_obj = null;
+    let sanitized_filter_obj;
     try {
         sanitized_filter_obj = sanitizeMongoLiteralFilter(filter_obj || {});
     } catch (err) {
@@ -1061,7 +1058,7 @@ exports.updateRecords = async (table, filter_obj, update_obj) => {
         return true;
     }
 
-    let sanitized_filter_obj = null;
+    let sanitized_filter_obj;
     try {
         sanitized_filter_obj = sanitizeMongoLiteralFilter(filter_obj || {});
     } catch (err) {
@@ -1223,7 +1220,7 @@ exports.findDuplicatesByKey = async (table, key) => {
     if (getActiveDBType() === DB_TYPES.postgres) {
         return await postgres_store.findDuplicatesByKey(postgres_pool, tables, table, key);
     }
-    
+
     const duplicated_values = await mongo_database.collection(table).aggregate([
         {"$group" : { "_id": `$${key}`, "count": { "$sum": 1 } } },
         {"$match": {"_id" :{ "$ne" : null } , "count" : {"$gt": 1} } }, 
@@ -1339,7 +1336,7 @@ exports.generateJSONTables = async (db_json, users_json) => {
     }
 
     const tables_obj = {};
-    
+
     // TODO: use create*Records funcs to strip unnecessary properties
     tables_obj.files = createFilesRecords(files, subscriptions);
     tables_obj.playlists = playlists;
@@ -1348,7 +1345,7 @@ exports.generateJSONTables = async (db_json, users_json) => {
     tables_obj.users = createUsersRecords(users);
     tables_obj.roles = createRolesRecords(users_json['roles']);
     tables_obj.downloads = createDownloadsRecords(db_json['downloads'])
-    
+
     return tables_obj;
 }
 
@@ -1360,7 +1357,7 @@ exports.importJSONToDB = async (db_json, users_json) => {
     const tables_obj = await exports.generateJSONTables(db_json, users_json);
 
     const table_keys = Object.keys(tables_obj);
-    
+
     let success = true;
     for (let i = 0; i < table_keys.length; i++) {
         const table_key = table_keys[i];
@@ -1382,13 +1379,6 @@ const createFilesRecords = (files, subscriptions) => {
     return files;
 }
 
-const createPlaylistsRecords = async (playlists) => {
-
-}
-
-const createCategoriesRecords = async (categories) => {
-
-}
 
 const createSubscriptionsRecords = (subscriptions) => {
     for (let i = 0; i < subscriptions.length; i++) {

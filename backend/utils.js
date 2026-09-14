@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { v4: uuid } = require('uuid');
 const { Readable, pipeline } = require('stream');
 const { ZipArchive } = require('archiver');
-const ProgressBar = require('progress');
 const winston = require('winston');
 
 const config_api = require('./config');
@@ -214,8 +213,8 @@ exports.createZipFile = async (zip_file_path, file_paths, options = {}) => {
     return zip_file_path;
 }
 
-exports.getJSONMp4 = (name, customPath, openReadPerms = false) => {
-    var obj = null; // output
+exports.getJSONMp4 = (name, customPath) => {
+    var obj; // output
     if (!customPath) customPath = config_api.getConfigItem('ytdl_video_folder_path');
     var jsonPath = path.join(customPath, name + ".info.json");
     var alternateJsonPath = path.join(customPath, name + ".mp4.info.json");
@@ -229,8 +228,8 @@ exports.getJSONMp4 = (name, customPath, openReadPerms = false) => {
     return obj;
 }
 
-exports.getJSONMp3 = (name, customPath, openReadPerms = false) => {
-    var obj = null;
+exports.getJSONMp3 = (name, customPath) => {
+    var obj;
     if (!customPath) customPath = config_api.getConfigItem('ytdl_audio_folder_path');
     var jsonPath = path.join(customPath, name + ".info.json");
     var alternateJsonPath = path.join(customPath, name + ".mp3.info.json");
@@ -248,7 +247,7 @@ exports.getJSONMp3 = (name, customPath, openReadPerms = false) => {
 
 exports.getJSON = (file_path, type) => {
     const ext = type === 'audio' ? '.mp3' : '.mp4';
-    let obj = null;
+    let obj;
     const file_path_no_extension = exports.removeFileExtension(file_path);
     const actual_ext = path.extname(file_path);
     const json_paths = [
@@ -475,7 +474,7 @@ exports.recFindByExt = async (base, ext, files, result, recursive = true) => {
             } else {
                 entries = await fs.readdir(current_dir, {withFileTypes: true});
             }
-        } catch (err) {
+        } catch {
             continue;
         }
 
@@ -532,7 +531,7 @@ exports.createEdgeNGrams = (str) => {
         return str.split(" ").reduce((ngrams, token) => {
             if (token.length > minGram) {
                 for (let i = minGram; i <= maxGram && i <= token.length; ++i) {
-                    ngrams = [...ngrams, token.substr(0, i)]
+                    ngrams = [...ngrams, token.slice(0, i)]
                 }
             } else {
                 ngrams = [...ngrams, token]
@@ -627,7 +626,7 @@ exports.snipFile = async (source_path, output_path, start, end, ext, on_progress
     if (!snip_success) {
         try {
             fs.removeSync(output_path);
-        } catch (e) {
+        } catch {
             // Non-fatal, the ladder already removes its own partial output.
         }
     }
@@ -691,7 +690,7 @@ async function cropFileAttempt(source_path, output_path, start, end, hardware_se
     logger.error(error);
     try {
         fs.removeSync(output_path);
-    } catch (e) {
+    } catch {
         // Non-fatal.
     }
     return false;
@@ -737,15 +736,7 @@ exports.checkExistsWithTimeout = async (filePath, timeout) => {
 
 // helper function to write an already-fetched response body to disk
 exports.writeFetchResponseToFile = async (res, fileStream, file_label) => {
-    var len = null;
-    len = parseInt(res.headers.get("Content-Length"), 10);
-
-    var bar = new ProgressBar(`  Downloading ${file_label} [:bar] :percent :etas`, {
-        complete: '=',
-        incomplete: ' ',
-        width: 20,
-        total: len
-    });
+    logger.verbose(`Downloading ${file_label}`);
 
     let bodyStream = res.body;
     if (!bodyStream) {
@@ -764,9 +755,6 @@ exports.writeFetchResponseToFile = async (res, fileStream, file_label) => {
         bodyStream.pipe(fileStream);
         bodyStream.on("error", (err) => {
           reject(err);
-        });
-        bodyStream.on('data', function (chunk) {
-            bar.tick(chunk.length);
         });
         fileStream.on("error", function(err) {
           reject(err);
@@ -960,7 +948,7 @@ exports.getDirectoriesInDirectory = async (basePath) => {
         return files
             .filter((file) => file.isDirectory())
             .map((file) => path.join(basePath, file.name));
-    } catch (err) {
+    } catch {
         return [];
     }
 }
@@ -1006,7 +994,7 @@ exports.parseOutputJSON = (output, err) => {
 
     try {
         return split_output.map(str => JSON.parse(str));
-    } catch (e) {
+    } catch {
         return null;
     }
 }

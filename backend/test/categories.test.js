@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, uuid, db_api, categories_api, sample_video_json } = require('./test-shared');
 
 describe('Categories', async function() {

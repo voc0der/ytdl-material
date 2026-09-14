@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const os = require('os');
 const postgres_store = require('../postgres-store');
 const { assert, db_api, config_api, fs, path } = require('./test-shared');

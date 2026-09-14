@@ -2,8 +2,7 @@ const fs = require('fs-extra');
 const fetch = globalThis.fetch;
 const path = require('path');
 const { spawn } = require('child_process');
-const execa_module = require('execa');
-const execa = typeof execa_module === 'function' ? execa_module : execa_module.execa;
+const { execa } = require('execa');
 const kill = require('tree-kill');
 
 const logger = require('./logger');
@@ -14,6 +13,26 @@ const config_api = require('./config.js');
 const is_windows = process.platform === 'win32';
 const STREAMING_ERROR_BUFFER_LIMIT = 20000;
 const KILL_PROCESS_TIMEOUT_MS = 10000;
+const active_processes = new Set();
+
+function trackYoutubeDLProcess(child_process) {
+    active_processes.add(child_process);
+    child_process.once('close', () => active_processes.delete(child_process));
+    child_process.once('error', () => {
+        if (!child_process.pid) active_processes.delete(child_process);
+    });
+    return child_process;
+}
+
+// Snapshot the children this instance owns, including subscription discovery and Python
+// impersonation runtimes. Process names cannot identify either reliably.
+exports.killAllDownloads = async () => {
+    const results = await Promise.allSettled(
+        [...active_processes].map(async child_process => exports.killYoutubeDLProcess(child_process))
+    );
+    return {success: results.every(result => result.status === 'fulfilled' && result.value === true)};
+};
+
 const DEFAULT_YTDLP_IMPERSONATION_PATH = path.join('appdata', 'ytdlp-impersonation', 'python');
 
 // The version check and the download must read the same source. Tags are created before
@@ -212,7 +231,7 @@ exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl
     if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
         await exports.checkForYoutubeDLUpdate(selected_fork);
     }
-    let callback = null;
+    let callback;
     let child_process = null;
     if (customDownloadHandler) {
         callback = runYoutubeDLCustom(url, args, customDownloadHandler);
@@ -236,10 +255,10 @@ exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl
     logger.debug(`${selected_fork} streaming args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     // '--' first, URL last: yt-dlp parses an option wherever it appears, so a URL of
     // '--update-to=owner/repo@tag' would otherwise ask it to replace its own binary.
-    const child_process = spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, ...runtime_args, '--', url], {
+    const child_process = trackYoutubeDLProcess(spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, ...runtime_args, '--', url], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getYoutubeDLRuntimeEnv(selected_fork)
-    });
+    }));
 
     let recent_stdout = '';
     let recent_stderr = '';
@@ -319,7 +338,7 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
     logger.debug(`${youtubedl_fork} args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     // See the streaming launcher: options first, then '--', then the URL.
-    const child_process = execa(youtubedl_path, [...base_args, ...runtime_args, '--', url], {
+    const subprocess = execa(youtubedl_path, [...base_args, ...runtime_args, '--', url], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,
@@ -327,25 +346,28 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         killSignal: 'SIGKILL',  // Force kill instead of graceful SIGTERM
         env: getYoutubeDLRuntimeEnv(youtubedl_fork)
     });
+    const child_process = trackYoutubeDLProcess(subprocess.nodeChildProcess);
 
     // Log when process exits
-    child_process.then(() => {
+    subprocess.then(() => {
+        active_processes.delete(child_process);
         logger.debug(`yt-dlp process completed for URL: ${url}`);
     }).catch((e) => {
+        active_processes.delete(child_process);
         logger.debug(`yt-dlp process failed for URL: ${url} - Error: ${e.message}`);
     });
 
-    const callback = new Promise(async resolve => {
+    const callback = (async () => {
         try {
             logger.debug(`Waiting for yt-dlp process to complete for URL: ${url}`);
-            const {stdout, stderr} = await child_process;
+            const {stdout, stderr} = await subprocess;
             logger.debug('yt-dlp process exited successfully');
             logger.debug(`yt-dlp stdout length: ${stdout ? stdout.length : 0}, stderr length: ${stderr ? stderr.length : 0}`);
             logger.debug(`yt-dlp stdout (first 500 chars): ${stdout ? stdout.substring(0, 500) : 'N/A'}`);
             if (stderr) logger.debug(`yt-dlp stderr (first 500 chars): ${stderr.substring(0, 500)}`);
             const parsed_output = utils.parseOutputJSON(stdout.trim().split(/\r?\n/), stderr);
             logger.debug(`Parsed output length: ${parsed_output ? parsed_output.length : 'null'}`);
-            resolve({parsed_output, err: stderr});
+            return {parsed_output, err: stderr};
         } catch (e) {
             logger.debug(`Error in callback: ${e.message}`);
             if (e.stdout) logger.debug(`stdout from failed process: ${e.stdout.substring(0, 500)}`);
@@ -357,9 +379,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             // instead of being masked by stale info-lookup JSON that printed before the
             // download itself failed.
             const parsed_output = utils.parseOutputJSON(null, e);
-            resolve({parsed_output: parsed_output, err: e})
+            return {parsed_output, err: e};
         }
-    });
+    })();
     return {child_process, callback}
 }
 
@@ -401,32 +423,33 @@ exports.getAllYoutubeDLDetails = () => {
 // cancel a check and immediately drop their reference to the process, so returning early
 // leaves yt-dlp writing to a download that has already been marked cancelled.
 exports.killYoutubeDLProcess = async (child_process, timeout_ms = KILL_PROCESS_TIMEOUT_MS) => {
-    if (!child_process) return;
+    if (!child_process) return true;
 
     // A remote db round-trips a subscription's child_process into a plain {pid} object, so the
     // pid is all we can rely on. Still kill it -- there is just no handle left to wait on.
     const pid = parseInt(child_process['pid'], 10);
     if (Number.isNaN(pid)) {
         logger.warn('Skipping kill of youtube-dl process: no pid was recorded for it.');
-        return;
+        return true;
     }
 
     const live_handle = typeof child_process.once === 'function';
     const already_exited = live_handle && (child_process.exitCode !== null || child_process.signalCode !== null);
+    if (already_exited) return true;
     // Registered before the kill so a child that dies in between cannot be missed. Waiting on a
     // 'close' that has already fired would never resolve, hence the already_exited check.
     const closed = live_handle && !already_exited
         ? new Promise(resolve => child_process.once('close', resolve))
         : null;
 
-    await new Promise(resolve => kill(pid, 'SIGKILL', (err) => {
+    const killed = await new Promise(resolve => kill(pid, 'SIGKILL', (err) => {
         // tree-kill swallows ESRCH itself. Anything else -- EPERM, a `ps` that failed to run --
         // would otherwise throw straight out of here and reject on callers that only cancel.
         if (err) logger.warn(`Failed to fully kill youtube-dl process ${pid}: ${err.message}`);
-        resolve();
+        resolve(!err);
     }));
 
-    if (!closed) return;
+    if (!closed) return killed;
 
     let timeout_handle = null;
     const timed_out = await Promise.race([
@@ -439,6 +462,7 @@ exports.killYoutubeDLProcess = async (child_process, timeout_ms = KILL_PROCESS_T
     // that never returns is worse than a late reap. Node keeps the process handle registered
     // either way, so it still gets reaped once the kernel lets the process go.
     if (timed_out) logger.warn(`Timed out waiting for youtube-dl process ${pid} to exit after SIGKILL.`);
+    return killed && !timed_out;
 }
 
 exports.checkForYoutubeDLUpdate = async (youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {

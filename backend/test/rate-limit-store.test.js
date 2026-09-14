@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { DelegatingRateLimitStore } = require('../rate-limit-store');
 const { assert } = require('./test-shared');
 

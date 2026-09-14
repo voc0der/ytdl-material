@@ -7,7 +7,6 @@ const { v4: uuid } = require('uuid');
 
 const fetch = globalThis.fetch;
 const axios = require('axios');
-const { gotify } = require("gotify");
 let telegram_bot = null;
 const REST = require('@discordjs/rest').REST;
 const API = require('@discordjs/core').API;
@@ -59,7 +58,7 @@ exports.sendNotification = async (notification) => {
         sendNtfyNotification(data);
     }
     if (config_api.getConfigItem('ytdl_use_gotify_API') && config_api.getConfigItem('ytdl_gotify_server_url') && config_api.getConfigItem('ytdl_gotify_app_token')) {
-        sendGotifyNotification(data);
+        await sendGotifyNotification(data);
     }
     if (config_api.getConfigItem('ytdl_use_telegram_API') && config_api.getConfigItem('ytdl_telegram_bot_token') && config_api.getConfigItem('ytdl_telegram_chat_id')) {
         exports.sendTelegramNotification(data);
@@ -195,22 +194,29 @@ function sendNtfyNotification({body, title, type, url, thumbnail}) {
 
 // Gotify
 
-async function sendGotifyNotification({body, title, type, url, thumbnail}) {
+async function sendGotifyNotification({body, title, url, thumbnail}) {
     logger.verbose('Sending notification to gotify');
-    await gotify({
-        server: config_api.getConfigItem('ytdl_gotify_server_url'),
-        app: config_api.getConfigItem('ytdl_gotify_app_token'),
-        title: title,
-        message: body,
-        tag: type,
-        priority: 5, // Keeping default from docs, may want to change this,
-        extras: {
-            "client::notification": {
-                click: { url: url },
-                bigImageUrl: thumbnail
+    try {
+        // Preserve reverse-proxy base paths whether or not the configured URL ends in '/'.
+        const server = config_api.getConfigItem('ytdl_gotify_server_url').replace(/\/+$/, '');
+        await axios.post(`${server}/message`, {
+            title,
+            message: body,
+            priority: 5,
+            extras: {
+                "client::notification": {
+                    click: { url },
+                    bigImageUrl: thumbnail
+                }
             }
-        }
-      });
+        }, {
+            headers: {'X-Gotify-Key': config_api.getConfigItem('ytdl_gotify_app_token')},
+            timeout: 15000
+        });
+    } catch (err) {
+        // Axios errors include the request headers; do not log the application token.
+        logger.warn(`Failed to send Gotify notification: ${err.response?.status || err.code || 'request failed'}`);
+    }
 }
 
 // Telegram
@@ -261,7 +267,7 @@ async function setupTelegramBot() {
     await telegram_bot.setWebHook(webhook_url, exports.ensureTelegramWebhookSecret());
 }
 
-exports.sendTelegramNotification = async ({body, title, type, url, thumbnail}) => {
+exports.sendTelegramNotification = async ({body, title, url, thumbnail}) => {
     if (!telegram_bot){
         logger.error('Telegram bot not found!');
         return;

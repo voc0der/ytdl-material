@@ -63,8 +63,8 @@ async function getCommentsForVOD(vodId) {
 async function getTwitchChatByFileID(id, type, user_uid, uuid, sub) {
     const usersFileFolder = config_api.getConfigItem('ytdl_users_base_path');
     const subscriptionsFileFolder = config_api.getConfigItem('ytdl_subscriptions_base_path');
-    let file_path = null;
-    let base_path = null;
+    let file_path;
+    let base_path;
     const safeType = type === 'audio' || type === 'video' ? type : null;
 
     if (user_uid) {
@@ -112,8 +112,8 @@ async function downloadTwitchChatByVODID(vodId, id, type, user_uid, sub, customF
     const chat = await getCommentsForVOD(vodId);
 
     // save file if needed params are included
-    let file_path = null;
-    let base_path = null;
+    let file_path;
+    let base_path;
     const safeType = type === 'audio' || type === 'video' ? type : null;
     if (customFileFolderPath) {
         base_path = customFileFolderPath;

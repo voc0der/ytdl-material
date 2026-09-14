@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, archive_api, db_api } = require('./test-shared');
 
 describe('Archive', async function() {

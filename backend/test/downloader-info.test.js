@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, path, fs, youtubedl_api, config_api, CONSTS } = require('./test-shared');
 
 describe('downloader info', function() {

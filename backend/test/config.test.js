@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, config_api } = require('./test-shared');
 
 describe('Config', async function() {

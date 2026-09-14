@@ -24,7 +24,8 @@
             "index": "src/index.html",
             "tsConfig": "src/tsconfig.app.json",
             "polyfills": [
-              "src/polyfills.ts"
+              "@angular/localize/init",
+              "zone.js"
             ],
             "assets": [
               "src/assets",
@@ -42,10 +43,6 @@
             "sourceMap": true,
             "optimization": false,
             "namedChunks": true,
-            "allowedCommonJsDependencies": [
-              "rxjs",
-              "crypto-js"
-            ],
             "browser": "src/main.ts"
           },
           "configurations": {
@@ -83,10 +80,10 @@
             "testing": {
               "aot": false,
               "polyfills": [
+                "@angular/localize/init",
                 "zone.js",
                 "zone.js/testing",
-                "zone.js/plugins/vitest-patch",
-                "src/polyfills.ts"
+                "zone.js/plugins/vitest-patch"
               ]
             }
           },

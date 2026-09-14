@@ -239,7 +239,7 @@ async function getSubtitleSidecarPaths(file_path) {
         subtitle_sidecar_files
             .filter(file_name => subtitle_sidecar_regex.test(file_name))
             .forEach(file_name => subtitle_sidecar_paths.push(path.resolve(path.join(subtitle_sidecar_directory, file_name))));
-    } catch (e) {
+    } catch {
         // Ignore directory read failures here; media deletion can continue.
     }
 
@@ -627,9 +627,7 @@ async function getAvailableSubtitleTracks(file_obj = null) {
     });
 }
 
-function buildRequestedSubtitleTracks(file_obj = null) {
-    return getRequestedSubtitleTracks(file_obj);
-}
+
 
 function getSubtitleSidecarPath(file_path = '', subtitle_track_index = 0) {
     if (typeof file_path !== 'string' || file_path.trim() === '') return null;
@@ -657,7 +655,7 @@ async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) 
 
     try {
         await fs.remove(subtitle_sidecar_path);
-    } catch (e) {
+    } catch {
         logger.warn(`Failed to remove stale subtitle sidecar '${subtitle_sidecar_path}'.`);
     }
 
@@ -672,7 +670,7 @@ async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) 
     if (!success) {
         try {
             await fs.remove(subtitle_sidecar_path);
-        } catch (e) {
+        } catch {
             // Non-fatal.
         }
         logger.warn(`Failed to extract subtitle sidecar for '${file_path}': ${error}`);
@@ -681,7 +679,7 @@ async function extractSubtitleSidecar(file_path = '', subtitle_track_index = 0) 
 
     try {
         await fs.chmod(subtitle_sidecar_path, 0o644);
-    } catch (e) {
+    } catch {
         // Non-fatal.
     }
     return subtitle_sidecar_path;
@@ -836,7 +834,7 @@ function extractYouTubeIDFromUrl(raw_url = '') {
         if ((path_parts[0] === 'shorts' || path_parts[0] === 'embed' || path_parts[0] === 'v' || path_parts[0] === 'vi') && path_parts[1]) {
             return normalizeSourceValue(path_parts[1]);
         }
-    } catch (e) {
+    } catch {
         return null;
     }
 
@@ -853,7 +851,7 @@ function extractTwitchVideoIDFromUrl(raw_url = '') {
 
         const path_parts = parsed_url.pathname.split('/').filter(Boolean);
         if (path_parts[0] === 'videos' && path_parts[1]) return normalizeSourceValue(path_parts[1]);
-    } catch (e) {
+    } catch {
         return null;
     }
 
@@ -1509,7 +1507,7 @@ exports.createPlaylist = async (playlist_name, uids, user_uid = null) => {
     const first_video = await exports.getVideo(uids[0], user_uid);
     if (!first_video) return null;
     const thumbnailToUse = first_video['thumbnailURL'];
-    
+
     let new_playlist = {
         name: playlist_name,
         uids: uids,
@@ -1522,7 +1520,7 @@ exports.createPlaylist = async (playlist_name, uids, user_uid = null) => {
     new_playlist.user_uid = user_uid ? user_uid : undefined;
 
     await db_api.insertRecordIntoTable('playlists', new_playlist);
-    
+
     const duration = await exports.calculatePlaylistDuration(new_playlist);
     await db_api.updateRecord('playlists', {id: new_playlist.id}, {duration: duration});
 
@@ -1813,8 +1811,8 @@ exports.deleteFileObject = async (file_obj, blacklistMode = false) => {
             for (let i = 0; i < config_api.descriptors[file_obj.uid].length; i++) {
                 config_api.descriptors[file_obj.uid][i].destroy();
             }
-        } catch(e) {
-
+        } catch {
+            // Continue removing media if an already-closed descriptor cannot be destroyed.
         }
     }
 

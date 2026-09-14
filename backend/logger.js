@@ -36,7 +36,7 @@ function resolveLogLevelFromEnv() {
 
 const {logLevel, invalidRawLogLevel} = resolveLogLevelFromEnv();
 
-const defaultFormat = winston.format.printf(({ level, message, label, timestamp }) => {
+const defaultFormat = winston.format.printf(({ level, message, timestamp }) => {
     return `${timestamp} ${level.toUpperCase()}: ${message}`;
 });
 const logger = winston.createLogger({

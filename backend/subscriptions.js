@@ -9,7 +9,7 @@ const utils = require('./utils');
 const logger = require('./logger');
 const CONSTS = require('./consts');
 
-const debugMode = process.env.YTDL_MODE === 'debug';
+
 
 const db_api = require('./db');
 const downloader_api = require('./downloader');
@@ -608,7 +608,7 @@ function parseSubscriptionRefreshOutputLine(output_line = '') {
             playlist_state: playlist_state,
             output_json: JSON.parse(output_line.slice(start_idx).trim())
         };
-    } catch (e) {
+    } catch {
         return {
             playlist_state: playlist_state,
             output_json: null
@@ -1021,38 +1021,34 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
         success: false,
         error: ''
     };
-    return new Promise(async resolve => {
-        normalizeSubscriptionStorageOptions(sub);
-        // sub should just have url and name. here we will get isPlaylist and path
-        sub.isPlaylist = sub.isPlaylist || sub.url.includes('playlist');
-        sub.videos = [];
+    normalizeSubscriptionStorageOptions(sub);
+    // sub should just have url and name. here we will get isPlaylist and path
+    sub.isPlaylist = sub.isPlaylist || sub.url.includes('playlist');
+    sub.videos = [];
 
-        let url_exists = !!(await db_api.getRecord('subscriptions', {url: sub.url, user_uid: user_uid}));
+    let url_exists = !!(await db_api.getRecord('subscriptions', {url: sub.url, user_uid: user_uid}));
 
-        if (!sub.name && url_exists) {
-            logger.error(`Sub with the same URL "${sub.url}" already exists -- please provide a custom name for this new subscription.`);
-            result_obj.error = 'Subcription with URL ' + sub.url + ' already exists! Custom name is required.';
-            resolve(result_obj);
-            return;
-        }
+    if (!sub.name && url_exists) {
+        logger.error(`Sub with the same URL "${sub.url}" already exists -- please provide a custom name for this new subscription.`);
+        result_obj.error = 'Subcription with URL ' + sub.url + ' already exists! Custom name is required.';
+        return result_obj;
+    }
 
-        sub['user_uid'] = user_uid ? user_uid : undefined;
-        await db_api.insertRecordIntoTable('subscriptions', JSON.parse(JSON.stringify(sub)));
+    sub['user_uid'] = user_uid ? user_uid : undefined;
+    await db_api.insertRecordIntoTable('subscriptions', JSON.parse(JSON.stringify(sub)));
 
-        let success = skip_get_info ? true : await getSubscriptionInfo(sub);
-        exports.writeSubscriptionMetadata(sub);
+    let success = skip_get_info ? true : await getSubscriptionInfo(sub);
+    exports.writeSubscriptionMetadata(sub);
 
-        if (success) {
-            if (!sub.paused) exports.getVideosForSub(sub.id);
-        } else {
-            logger.error('Subscribe: Failed to get subscription info. Subscribe failed.')
-        }
+    if (success) {
+        if (!sub.paused) exports.getVideosForSub(sub.id);
+    } else {
+        logger.error('Subscribe: Failed to get subscription info. Subscribe failed.')
+    }
 
-        result_obj.success = success;
-        result_obj.sub = sub;
-        resolve(result_obj);
-    });
-
+    result_obj.success = success;
+    result_obj.sub = sub;
+    return result_obj;
 }
 
 async function getSubscriptionInfo(sub) {
@@ -1132,7 +1128,7 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
                 for (let i = 0; i < config_api.descriptors[sub_file['uid']].length; i++) {
                     config_api.descriptors[sub_file['uid']][i].destroy();
                 }
-            } catch(e) {
+            } catch {
                 continue;
             }
         }
@@ -1505,7 +1501,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
     let downloadConfig = ['--dump-json', '-o', fullOutput, !redownload ? '-ciw' : '-ci', '--write-info-json', '--print-json'];
 
-    let qualityPath = null;
+    let qualityPath;
     if (sub.type && sub.type === 'audio') {
         qualityPath = ['-f', 'bestaudio']
         qualityPath.push('-x');
@@ -1916,10 +1912,10 @@ async function getSubscriptionSubtitleSidecarPaths(media_path) {
     const media_basename = path.basename(utils.removeFileExtension(media_path)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const subtitle_regex = new RegExp(`^${media_basename}\\.player-subtitles(?:\\.\\d+)?\\.vtt$`);
 
-    let directory_entries = [];
+    let directory_entries;
     try {
         directory_entries = await fs.readdir(media_directory);
-    } catch (e) {
+    } catch {
         return subtitle_sidecar_paths;
     }
 
@@ -2051,10 +2047,10 @@ async function cleanupEmptyDirectory(directory_path, stop_path) {
     const resolved_stop_path = path.resolve(stop_path);
 
     while (current_path !== resolved_stop_path && isPathInsideOrSame(current_path, resolved_stop_path)) {
-        let directory_entries = null;
+        let directory_entries;
         try {
             directory_entries = await fs.readdir(current_path);
-        } catch (e) {
+        } catch {
             return;
         }
 
@@ -2241,7 +2237,7 @@ async function checkVideoIfBetterExists(file_obj, sub, user_uid) {
     const downloadConfig = await generateArgsForSubscription(sub, user_uid, true, new_path);
     logger.verbose(`Checking if a better version of the fresh upload ${file_obj['id']} exists.`);
     // simulate a download to verify that a better version exists
-    
+
     const info = await downloader_api.getVideoInfoByURL(file_obj['url'], downloadConfig);
     if (info && info.length === 1) {
         const metric_to_compare = sub.type === 'audio' ? 'abr' : 'height';

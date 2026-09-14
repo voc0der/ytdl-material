@@ -77,9 +77,8 @@ function walk(dir, keep) {
     return found;
 }
 
-// Removes comments so that a commented-out import is not mistaken for a live one --
-// src/polyfills.ts carries `// import 'intl';` from the Angular template, and the block
-// comment at the top of this file names packages it does not import.
+// Removes comments so that a commented-out import is not mistaken for a live one.
+// The block comment at the top of this file names packages it does not import.
 //
 // String and template literals are stepped over rather than scanned, so a `//` inside a
 // URL survives. This is a heuristic, not a parser: a regex literal containing a quote can

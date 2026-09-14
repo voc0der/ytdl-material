@@ -143,7 +143,7 @@ exports.optionalJwt = async function (req, res, next) {
         const uuid = using_body ? req.body.uuid : req.query.uuid;
         const uid = using_body ? req.body.uid : req.query.uid;
         const playlist_id = using_body ? req.body.playlist_id : req.query.playlist_id;
-        let authorized = false;
+        let authorized;
         if (!playlist_id) {
             authorized = !!await auth_api.getUserVideo(uuid, uid, true);
         } else {

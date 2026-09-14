@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, fs, path, exec, utils } = require('./test-shared');
 
 describe('Utils', async function() {

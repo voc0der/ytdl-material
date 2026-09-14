@@ -466,7 +466,7 @@ exports.ensureAuthenticatedElseError = (req, res, next) => {
       // check if user still exists in database if you'd like
       res.locals.user = payload.user;
       next();
-    } catch(err) {
+    } catch {
       res.status(401).send('Invalid Authentication');
     }
   } else {
@@ -494,7 +494,7 @@ exports.changeUserPassword = async (user_uid, new_pass) => {
     const hash = await bcrypt.hash(new_pass, saltRounds);
     await db_api.updateRecord('users', {uid: user_uid}, {passhash: hash});
     return true;
-  } catch (err) {
+  } catch {
     return false;
   }
 }

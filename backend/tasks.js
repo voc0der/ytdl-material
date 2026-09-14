@@ -265,7 +265,7 @@ async function setupTasks() {
                 const option_key = `options.${key}`;
                 // Remove any potential mangled option keys (#861)
                 await db_api.removePropertyFromRecord('tasks', {key: task_key}, {[option_key]: true});
-                if (!(task_in_db.options && task_in_db.options.hasOwnProperty(key))) {
+                if (!(task_in_db.options && Object.hasOwn(task_in_db.options, key))) {
                     await db_api.updateRecord('tasks', {key: task_key}, {[option_key]: mergedDefaultOptions[key]}, true);
                 }
             }

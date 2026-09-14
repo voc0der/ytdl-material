@@ -15,7 +15,7 @@ async function recFindByExt(base,ext,files,result)
         }
         else
         {
-            if ( file.substr(-1*(ext.length+1)) == '.' + ext )
+            if ( file.endsWith('.' + ext) )
             {
                 result.push(newbase)
             }

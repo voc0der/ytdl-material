@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, path, fs, logger, youtubedl_api, config_api, CONSTS } = require('./test-shared');
 
 describe('youtube-dl', function() {
