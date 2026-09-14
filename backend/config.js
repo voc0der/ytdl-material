@@ -75,9 +75,23 @@ const RETIRED_CONFIG_ITEMS = [
     {path: 'YtdlMaterial.API.API_key'}
 ];
 
+// Setting values that are no longer accepted. The setting itself stays; a stored retired
+// value is replaced on startup, with a warning, so the instance keeps working.
+const RETIRED_CONFIG_VALUES = [
+    {
+        path: 'YtdlMaterial.Advanced.default_downloader',
+        value: 'youtube-dlc',
+        replacement: 'yt-dlp',
+        warning: 'The youtube-dlc downloader has been removed; its upstream stopped publishing releases in 2020.'
+            + ' The default downloader has been switched to yt-dlp. The old appdata/bin/youtube-dlc binary is no'
+            + ' longer used and can be deleted.'
+    }
+];
+
 exports.initialize = () => {
     ensureConfigFileExists();
     removeRetiredConfigItems();
+    replaceRetiredConfigValues();
     ensureConfigItemsExist();
 }
 
@@ -104,6 +118,21 @@ function removeRetiredConfigItems() {
     // absent secret fields, which is correct for a redacted client save but would restore a
     // retired secret during this startup migration.
     if (removed_any) fs.writeFileSync(configPath, JSON.stringify(config_json, null, 2));
+}
+
+function replaceRetiredConfigValues() {
+    const config_json = exports.getConfigFile();
+    if (!config_json) return;
+
+    let replaced_any = false;
+    for (const retired_value of RETIRED_CONFIG_VALUES) {
+        if (_.get(config_json, retired_value.path) !== retired_value.value) continue;
+        logger.warn(retired_value.warning);
+        _.set(config_json, retired_value.path, retired_value.replacement);
+        replaced_any = true;
+    }
+
+    if (replaced_any) fs.writeFileSync(configPath, JSON.stringify(config_json, null, 2));
 }
 
 function ensureConfigItemsExist() {

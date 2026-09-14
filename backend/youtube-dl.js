@@ -44,10 +44,6 @@ exports.youtubedl_forks = {
         'download_url': 'https://github.com/ytdl-org/youtube-dl/releases/latest/download/youtube-dl',
         'releases_url': 'https://api.github.com/repos/ytdl-org/youtube-dl/releases/latest'
     },
-    'youtube-dlc': {
-        'download_url': 'https://github.com/blackjack4494/yt-dlc/releases/latest/download/youtube-dlc',
-        'releases_url': 'https://api.github.com/repos/blackjack4494/yt-dlc/releases/latest'
-    },
     'yt-dlp': {
         'download_url': 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
         'releases_url': 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest'

@@ -605,7 +605,6 @@
                 <mat-label><ng-container i18n="Default downloader select label">Select a downloader</ng-container></mat-label>
                 <mat-select color="accent" [(ngModel)]="selectedDownloader">
                   <mat-option value="youtube-dl">{{ getDownloaderLabel('youtube-dl') }}</mat-option>
-                  <mat-option value="youtube-dlc">{{ getDownloaderLabel('youtube-dlc') }}</mat-option>
                   <mat-option value="yt-dlp">{{ getDownloaderLabel('yt-dlp', 'stable') }}</mat-option>
                   <mat-option value="yt-dlp@nightly">{{ getDownloaderLabel('yt-dlp', 'nightly') }}</mat-option>
                   <mat-option value="yt-dlp@master">{{ getDownloaderLabel('yt-dlp', 'master') }}</mat-option>
