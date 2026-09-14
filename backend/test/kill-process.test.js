@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, youtubedl_api } = require('./test-shared');
 const { spawn } = require('child_process');
 const fs = require('fs-extra');

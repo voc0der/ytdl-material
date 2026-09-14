@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const assert = require('assert');
 const low = require('../lowdb-compat');
 const winston = require('winston');

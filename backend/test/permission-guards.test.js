@@ -1,8 +1,7 @@
-/* eslint-disable no-undef */
 const express = require('express');
 const request = require('supertest');
 
-const { assert, auth_api, config_api, db_api } = require('./test-shared');
+const { assert, config_api, db_api } = require('./test-shared');
 const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('../authentication/permissions');
 
 // The guards are middleware, so they are exercised as middleware: mounted on a bare

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { PassThrough } = require('stream');
 const {
     assert,
@@ -2431,7 +2430,7 @@ describe('Downloader', function() {
                 try {
                     await exec('sh ../docker-utils/fetch-twitchdownloader.sh');
                     fs.copyFileSync('../docker-utils/TwitchDownloaderCLI', 'TwitchDownloaderCLI');
-                } catch (e) {
+                } catch {
                     logger.info('TwitchDownloaderCLI fetch failed, file may exist regardless.');
                 }
             }

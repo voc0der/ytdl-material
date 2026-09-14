@@ -170,7 +170,7 @@ exports.getConfigFile = () => {
             logger.info(`Migrated config root key to '${CONFIG_ROOT_KEY}'.`);
         }
         return normalized_config;
-    } catch(e) {
+    } catch {
         logger.error('Failed to get config file');
         return null;
     }
@@ -187,7 +187,7 @@ exports.setConfigFile = (config) => {
             for (const change of changes) exports.config_updated.next(change);
         }
         return true;
-    } catch(e) {
+    } catch {
         return false;
     }
 }
@@ -210,7 +210,7 @@ exports.getConfigItem = (key) => {
 }
 
 exports.setConfigItem = (key, value) => {
-    let success = false;
+    let success;
     let config_json = exports.getConfigFile();
     let path = exports.CONFIG_ITEMS[key]['path'];
     let element_name = getElementNameInConfig(path);
@@ -234,7 +234,7 @@ exports.setConfigItem = (key, value) => {
 }
 
 exports.setConfigItems = (items) => {
-    let success = false;
+    let success;
     let config_json = exports.getConfigFile();
     for (let i = 0; i < items.length; i++) {
         let key = items[i].key;

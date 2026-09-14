@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, uuid, db_api } = require('./test-shared');
 
 describe('Database', async function() {
@@ -305,7 +304,7 @@ describe('Database', async function() {
                         test_records.push({"id":"RandomTextRandomText","title":"RandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomText","thumbnailURL":"https://i.ytimg.com/vi/randomurl/maxresdefault.jpg","isAudio":true,"duration":312,"url":"https://www.youtube.com/watch?v=randomvideo","uploader":"randomUploader","size":5060157,"path":"audio\\RandomTextRandomText.mp3","upload_date":"2016-05-11","description":"RandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomTextRandomText","view_count":118689353,"height":null,"abr":160,"uid": uid,"registered":1626672120632});
                     }
                     const insert_start = Date.now();
-                    let success = await db_api.bulkInsertRecordsIntoTable('test', test_records);
+                    await db_api.bulkInsertRecordsIntoTable('test', test_records);
                     const insert_end = Date.now();
 
                     console.log(`Insert time: ${(insert_end - insert_start)/1000}s`);
@@ -318,7 +317,7 @@ describe('Database', async function() {
 
                     console.log(`Query time: ${(query_end - query_start)/1000}s`);
 
-                    success = !!random_record;
+                    const success = !!random_record;
 
                     assert(success);
                 });

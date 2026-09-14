@@ -231,7 +231,7 @@ exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl
     if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
         await exports.checkForYoutubeDLUpdate(selected_fork);
     }
-    let callback = null;
+    let callback;
     let child_process = null;
     if (customDownloadHandler) {
         callback = runYoutubeDLCustom(url, args, customDownloadHandler);
@@ -357,7 +357,7 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
         logger.debug(`yt-dlp process failed for URL: ${url} - Error: ${e.message}`);
     });
 
-    const callback = new Promise(async resolve => {
+    const callback = (async () => {
         try {
             logger.debug(`Waiting for yt-dlp process to complete for URL: ${url}`);
             const {stdout, stderr} = await subprocess;
@@ -367,7 +367,7 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             if (stderr) logger.debug(`yt-dlp stderr (first 500 chars): ${stderr.substring(0, 500)}`);
             const parsed_output = utils.parseOutputJSON(stdout.trim().split(/\r?\n/), stderr);
             logger.debug(`Parsed output length: ${parsed_output ? parsed_output.length : 'null'}`);
-            resolve({parsed_output, err: stderr});
+            return {parsed_output, err: stderr};
         } catch (e) {
             logger.debug(`Error in callback: ${e.message}`);
             if (e.stdout) logger.debug(`stdout from failed process: ${e.stdout.substring(0, 500)}`);
@@ -379,9 +379,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
             // instead of being masked by stale info-lookup JSON that printed before the
             // download itself failed.
             const parsed_output = utils.parseOutputJSON(null, e);
-            resolve({parsed_output: parsed_output, err: e})
+            return {parsed_output, err: e};
         }
-    });
+    })();
     return {child_process, callback}
 }
 

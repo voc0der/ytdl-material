@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const redis_store = require('../redis-store');
 const { assert } = require('./test-shared');
 

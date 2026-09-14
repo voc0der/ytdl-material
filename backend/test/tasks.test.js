@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, fs, os, path, uuid, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
 
 describe('Tasks', function() {

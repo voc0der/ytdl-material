@@ -267,7 +267,7 @@ async function setupTelegramBot() {
     await telegram_bot.setWebHook(webhook_url, exports.ensureTelegramWebhookSecret());
 }
 
-exports.sendTelegramNotification = async ({body, title, type, url, thumbnail}) => {
+exports.sendTelegramNotification = async ({body, title, url, thumbnail}) => {
     if (!telegram_bot){
         logger.error('Telegram bot not found!');
         return;

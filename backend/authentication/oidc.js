@@ -91,7 +91,7 @@ function normalizeURL(url_value, field_name) {
   try {
     return new URL(normalized);
   } catch (_err) {
-    throw new Error(`OIDC ${field_name} is not a valid URL.`);
+    throw new Error(`OIDC ${field_name} is not a valid URL.`, { cause: _err });
   }
 }
 

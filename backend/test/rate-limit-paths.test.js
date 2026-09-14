@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert } = require('./test-shared');
 
 const {

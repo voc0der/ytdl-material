@@ -27,11 +27,11 @@ function normalizeRedisConnectionString(connectionString = '') {
         throw new Error('Redis connection string is empty.');
     }
 
-    let parsedUrl = null;
+    let parsedUrl;
     try {
         parsedUrl = new URL(normalized);
     } catch (error) {
-        throw new Error('Redis connection string is invalid.');
+        throw new Error('Redis connection string is invalid.', { cause: error });
     }
 
     if (parsedUrl.protocol !== 'redis:' && parsedUrl.protocol !== 'rediss:') {

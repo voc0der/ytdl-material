@@ -249,7 +249,7 @@ var validDownloadingAgents = [
     'wget'
 ];
 
-const subscription_timeouts = {};
+
 
 let version_info = null;
 if (fs.existsSync('version.json')) {
@@ -280,7 +280,7 @@ app.use(reverseProxyWhitelistMiddleware);
 
 async function checkMigrations() {
     // 4.1->4.2 migration
-    
+
     const simplified_db_migration_complete = db.get('simplified_db_migration_complete').value();
     if (!simplified_db_migration_complete) {
         logger.info('Beginning migration: 4.1->4.2+')
@@ -359,7 +359,7 @@ async function simplifyDBFileStructure() {
         const playlists = db.get('playlists.video').value().concat(db.get('playlists.audio').value());
         db.assign({playlists: playlists}).write();
     }
-    
+
 
     return true;
 }
@@ -394,7 +394,7 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
             if (ipInCIDR(proxyIp, range)) {
                 return next();
             }
-        } catch (e) {
+        } catch {
             logger.warn(`Invalid CIDR range in whitelist: ${range}`);
         }
     }
@@ -452,7 +452,7 @@ async function updateServer(tag) {
         }
     }
 
-    return new Promise(async resolve => {
+    try {
         // backup current dir
         updaterStatus = {
             updating: true,
@@ -460,7 +460,6 @@ async function updateServer(tag) {
         }
         let backup_succeeded = await backupServerLite();
         if (!backup_succeeded) {
-            resolve(false);
             return false;
         }
 
@@ -469,7 +468,7 @@ async function updateServer(tag) {
             'details': 'Downloading requested release...'
         }
         // grab new package.json and public folder
-        await downloadReleaseFiles(tag);
+        if (!await downloadReleaseFiles(tag)) throw new Error('Failed to download release files.');
 
         updaterStatus = {
             updating: true,
@@ -483,14 +482,16 @@ async function updateServer(tag) {
             'details': 'Update complete! Restarting server...'
         }
         utils.restartServer(true);
-    }, err => {
+        return true;
+    } catch (err) {
         logger.error(err);
         updaterStatus = {
             updating: false,
             error: true,
             'details': 'Update failed. Check error logs for more info.'
         }
-    });
+        return false;
+    }
 }
 
 async function downloadReleaseFiles(tag) {
@@ -502,28 +503,28 @@ async function downloadReleaseFiles(tag) {
         return false;
     }
 
-    return new Promise(async resolve => {
-        logger.info('Downloading new files...')
+    logger.info('Downloading new files...')
 
-        // downloads the latest release zip file
-        const zipDownloaded = await downloadReleaseZip(safeTag);
-        if (!zipDownloaded) {
-            resolve(false);
-            return;
-        }
+    // downloads the latest release zip file
+    const zipDownloaded = await downloadReleaseZip(safeTag);
+    if (!zipDownloaded) {
+        return false;
+    }
 
-        // deletes contents of public dir
-        fs.removeSync(path.join(__dirname, 'public'));
-        fs.mkdirSync(path.join(__dirname, 'public'));
+    // deletes contents of public dir
+    fs.removeSync(path.join(__dirname, 'public'));
+    fs.mkdirSync(path.join(__dirname, 'public'));
 
-        let replace_ignore_list = ['ytdl-material/appdata/default.json',
-                                    'ytdl-material/appdata/db.json',
-                                    'ytdl-material/appdata/users.json',
-                                    'ytdl-material/appdata/*']
-        logger.info(`Installing update ${safeTag}...`)
+    let replace_ignore_list = ['ytdl-material/appdata/default.json',
+                                'ytdl-material/appdata/db.json',
+                                'ytdl-material/appdata/users.json',
+                                'ytdl-material/appdata/*']
+    logger.info(`Installing update ${safeTag}...`)
 
-        // downloads new package.json and adds new public dir files from the downloaded zip
-        fs.createReadStream(releaseZipPath).pipe(unzipper.Parse())
+    // downloads new package.json and adds new public dir files from the downloaded zip
+    return new Promise((resolve, reject) => {
+        fs.createReadStream(releaseZipPath).on('error', reject).pipe(unzipper.Parse())
+        .on('error', reject)
         .on('entry', function (entry) {
             var fileName = entry.path;
             var is_dir = fileName.substring(fileName.length-1, fileName.length) === '/'
@@ -541,7 +542,7 @@ async function downloadReleaseFiles(tag) {
                     }
 
                     fs.ensureDirSync(path.dirname(targetPublicPath));
-                    entry.pipe(fs.createWriteStream(targetPublicPath));
+                    entry.pipe(fs.createWriteStream(targetPublicPath)).on('error', reject);
                 } else {
                     entry.autodrain();
                 }
@@ -557,7 +558,7 @@ async function downloadReleaseFiles(tag) {
                     return;
                 }
                 logger.verbose('Downloading file ' + actualFileName);
-                entry.pipe(fs.createWriteStream(targetFilePath));
+                entry.pipe(fs.createWriteStream(targetFilePath)).on('error', reject);
             } else {
                 entry.autodrain();
             }
@@ -569,31 +570,26 @@ async function downloadReleaseFiles(tag) {
 }
 
 async function downloadReleaseZip(tag) {
-    return new Promise(async resolve => {
-        const safeTag = getValidatedReleaseTag(tag);
-        const resolvedOutputPath = getSafeReleaseZipPath(tag);
-        if (!safeTag || !resolvedOutputPath) {
-            logger.error(`Refusing to download release with invalid tag: ${tag}`);
-            resolve(false);
-            return;
-        }
+    const safeTag = getValidatedReleaseTag(tag);
+    const resolvedOutputPath = getSafeReleaseZipPath(tag);
+    if (!safeTag || !resolvedOutputPath) {
+        logger.error(`Refusing to download release with invalid tag: ${tag}`);
+        return false;
+    }
 
-        // get name of zip file, which depends on the version
-        const tag_without_v = safeTag.substring(1, safeTag.length);
-        const zip_file_name = `ytdl-material-${tag_without_v}.zip`;
-        const latest_zip_link = `https://github.com/voc0der/ytdl-material/releases/download/${encodeURIComponent(safeTag)}/${encodeURIComponent(zip_file_name)}`;
+    // get name of zip file, which depends on the version
+    const tag_without_v = safeTag.substring(1, safeTag.length);
+    const zip_file_name = `ytdl-material-${tag_without_v}.zip`;
+    const latest_zip_link = `https://github.com/voc0der/ytdl-material/releases/download/${encodeURIComponent(safeTag)}/${encodeURIComponent(zip_file_name)}`;
 
-        // download zip from release
-        const res = await fetch(latest_zip_link);
-        if (!res.ok) {
-            logger.error(`Failed to download release zip for ${safeTag}: HTTP ${res.status}`);
-            resolve(false);
-            return;
-        }
-        await utils.writeFetchResponseToFile(res, fs.createWriteStream(resolvedOutputPath), 'update ' + safeTag);
-        resolve(true);
-    });
-
+    // download zip from release
+    const res = await fetch(latest_zip_link);
+    if (!res.ok) {
+        logger.error(`Failed to download release zip for ${safeTag}: HTTP ${res.status}`);
+        return false;
+    }
+    await utils.writeFetchResponseToFile(res, fs.createWriteStream(resolvedOutputPath), 'update ' + safeTag);
+    return true;
 }
 
 async function installDependencies() {
@@ -863,7 +859,7 @@ function loadConfigValues() {
     allowSubscriptions = config_api.getConfigItem('ytdl_allow_subscriptions');
 
     if (!useDefaultDownloadingAgent && validDownloadingAgents.indexOf(customDownloadingAgent) !== -1 ) {
-        logger.info(`Using non-default downloading agent \'${customDownloadingAgent}\'`)
+        logger.info(`Using non-default downloading agent '${customDownloadingAgent}'`)
     } else {
         customDownloadingAgent = null;
     }
@@ -1207,7 +1203,7 @@ app.get('/api/getDBInfo', optionalJwt, requireAdmin, async (req, res) => {
 
 app.post('/api/transferDB', optionalJwt, requireAdmin, async (req, res) => {
     const local_to_remote = req.body.local_to_remote;
-    let success = null;
+    let success;
     let error = '';
     const configured_remote_db_type = db_api.getConfiguredRemoteDBType({ preferMigrationTarget: true });
     const configured_remote_db_label = db_api.getDBLabel(configured_remote_db_type);
@@ -1226,7 +1222,7 @@ app.post('/api/transferDB', optionalJwt, requireAdmin, async (req, res) => {
 
 app.post('/api/testConnectionString', optionalJwt, requireAdmin, async (req, res) => {
     const connection_string = req.body.connection_string;
-    let success = null;
+    let success;
     let error = '';
     if (redis_store.isRedisConnectionString(connection_string)) {
         const result = await redis_store.testConnectionString(connection_string);
@@ -1409,7 +1405,7 @@ app.get('/api/getMp4s', optionalJwt, requireAuthenticated, async function(req, r
 app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, async function (req, res) {
     const uid = req.body.uid;
     const uuid = req.body.uuid;
-    let file = null;
+    let file;
     if (req.isAuthenticated()) {
         file = await files_api.getVideo(uid, req.user.uid);
     } else if (uuid) {
@@ -1626,7 +1622,7 @@ app.post('/api/downloadTwitchChatByVODID', optionalJwt, requireAuthenticated, as
 app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async (req, res) => {
     var uid = req.body.uid;
     var is_playlist = req.body.is_playlist;
-    let success = false;
+    let success;
     // multi-user mode
     if (req.isAuthenticated()) {
         // if multi user mode, use this method instead
@@ -1642,8 +1638,6 @@ app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async 
             await db_api.updateRecord('files', {uid: uid}, {sharingEnabled: true})
         } else if (is_playlist) {
             await db_api.updateRecord(`playlists`, {id: uid}, {sharingEnabled: true});
-        } else if (false) {
-            // TODO: Implement.
         } else {
             // error
             success = false;
@@ -1663,7 +1657,7 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
     var type = req.body.type;
     var uid = req.body.uid;
     var is_playlist = req.body.is_playlist;
-    let success = null;
+    let success;
 
     // Was unscoped in exactly the way enableSharing was, and is fixed the same way: the
     // owner check lives in changeSharingMode so both directions go through it.
@@ -1684,7 +1678,7 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
             success = false;
         }
 
-    } catch(err) {
+    } catch {
         success = false;
     }
 
@@ -2105,7 +2099,7 @@ app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, async (req, res
 app.post('/api/addFileToPlaylist', optionalJwt, requireAuthenticated, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let file_uid = req.body.file_uid;
-    
+
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
     const playlist = await files_api.getPlaylist(playlist_id, user_uid);
     if (!playlist) {
@@ -2155,7 +2149,7 @@ app.post('/api/deletePlaylist', optionalJwt, requireAuthenticated, async (req, r
         return;
     }
 
-    let success = false;
+    let success;
     let playlist_removed = false;
     let deleted_file_count = 0;
     let failed_file_count = 0;
@@ -2170,7 +2164,7 @@ app.post('/api/deletePlaylist', optionalJwt, requireAuthenticated, async (req, r
         }
 
         success = playlist_removed && failed_file_count === 0;
-    } catch(e) {
+    } catch {
         success = false;
     }
 
@@ -2188,7 +2182,7 @@ app.post('/api/deleteFile', optionalJwt, requirePermission('filemanager'), async
     const blacklistMode = req.body.blacklistMode;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
-    let wasDeleted = false;
+    let wasDeleted;
     wasDeleted = await files_api.deleteFile(uid, blacklistMode, user_uid);
     res.send(wasDeleted);
 });
@@ -2280,7 +2274,7 @@ app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), a
     const blacklistMode = false;
     const uuid = req.isAuthenticated() ? req.user.uid : null;
 
-    let files = null;
+    let files;
     let text_search = req.body.text_search;
     let file_type_filter = req.body.file_type_filter;
 
@@ -2296,14 +2290,14 @@ app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), a
 
     if (file_type_filter === 'audio_only') filter_obj['isAudio'] = true;
     else if (file_type_filter === 'video_only') filter_obj['isAudio'] = false;
-    
+
     files = await db_api.getRecords('files', filter_obj);
 
     let file_count = await db_api.getRecords('files', filter_obj, true);
     let delete_count = 0;
 
     for (let i = 0; i < files.length; i++) {    
-        let wasDeleted = false;
+        let wasDeleted;
         wasDeleted = await files_api.deleteFile(files[i].uid, blacklistMode, uuid);
         if (wasDeleted) {
             delete_count++;
@@ -2410,7 +2404,7 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
           try {
             // delete generated zip file, whether or not the send succeeded
             fs.unlinkSync(file_path_to_download);
-          } catch(e) {
+          } catch {
             logger.error(`Failed to remove file after sending to client: ${file_path_to_download}`);
           }
         }
@@ -2551,7 +2545,7 @@ function getCookiesFileSummary(cookies_text) {
 function normalizeCookieTestError(err) {
     if (!err) return 'Unknown error.';
 
-    let message = null;
+    let message;
     if (typeof err === 'string') {
         message = err;
     } else if (err.stderr) {
@@ -2591,10 +2585,10 @@ app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, requireAdmin, 
         return;
     }
 
-    let parsed_test_url = null;
+    let parsed_test_url;
     try {
         parsed_test_url = new URL(test_url);
-    } catch (err) {
+    } catch {
         parsed_test_url = null;
     }
 
@@ -2657,7 +2651,7 @@ app.post('/api/testCookies', testCookiesRateLimiter, optionalJwt, requireAdmin, 
     logs.push(`Testing URL: ${test_url}`);
     logs.push(`Executing test command with cookies at ${relative_cookie_path}.`);
 
-    let run_response = null;
+    let run_response;
     try {
         run_response = await youtubedl_api.runYoutubeDL(test_url, args);
     } catch (err) {
@@ -3825,11 +3819,11 @@ app.post('/api/telegramRequest', async (req, res) => {
     }
 
     const text = req.body.message.text;
-    const regex_exp = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)?/gi;
+    const regex_exp = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)?/gi;
     const url_regex = new RegExp(regex_exp);
     const matched_urls = text.match(url_regex);
     if (matched_urls && matched_urls.length) {
-        let parsed_url = null;
+        let parsed_url;
         try {
             parsed_url = new URL(matched_urls[0]);
         } catch {

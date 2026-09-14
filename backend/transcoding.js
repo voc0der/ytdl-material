@@ -239,7 +239,7 @@ async function runDecodeFlightTest(mode_info) {
     } finally {
         try {
             await fs.promises.unlink(sample_path);
-        } catch (e) {
+        } catch {
             // probe file may never have been created; nothing to clean up
         }
     }
@@ -285,7 +285,7 @@ function runFfmpeg(args, {on_progress_seconds = null} = {}) {
             resolve({success: success, error: error});
         };
 
-        let ffmpeg_process = null;
+        let ffmpeg_process;
         try {
             ffmpeg_process = spawn(ffmpeg_binary, full_args);
         } catch (err) {
@@ -338,10 +338,10 @@ function probeStreams(file_path) {
             resolve(streams);
         };
 
-        let ffprobe_process = null;
+        let ffprobe_process;
         try {
             ffprobe_process = spawn(ffprobe_binary, args);
-        } catch (err) {
+        } catch {
             finish(null);
             return;
         }
@@ -353,7 +353,7 @@ function probeStreams(file_path) {
             try {
                 const parsed = JSON.parse(stdout);
                 finish(Array.isArray(parsed.streams) ? parsed.streams : null);
-            } catch (e) {
+            } catch {
                 finish(null);
             }
         });

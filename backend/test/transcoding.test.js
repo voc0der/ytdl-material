@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, config_api } = require('./test-shared');
 const transcoding_api = require('../transcoding');
 

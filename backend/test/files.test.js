@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, fs, path, exec, utils, files_api, config_api, db_api, useTemporaryMediaRoots } = require('./test-shared');
 
 describe('Files', function() {

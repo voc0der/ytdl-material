@@ -12,7 +12,9 @@ const scopedTsConfigs = tsPlugin.configs['flat/recommended'].map((config) => ({
 
 module.exports = [
   {
-    ignores: ['node_modules/**', 'dist/**', 'coverage/**'],
+    ignores: ['**/node_modules/**', 'dist/**', '**/coverage/**', 'backend/public/**', 'backend/appdata/**'],
+  },
+  {
     linterOptions: {
       reportUnusedDisableDirectives: false,
     },
@@ -44,6 +46,21 @@ module.exports = [
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  {
+    ...js.configs.recommended,
+    files: ['backend/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: globals.node,
+    },
+  },
+  {
+    files: ['backend/test/**/*.js'],
+    languageOptions: {
+      globals: globals.mocha,
     },
   },
 ];

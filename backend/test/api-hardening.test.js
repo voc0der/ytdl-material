@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const path = require('path');
 
 const {
@@ -881,7 +880,7 @@ describe('Custom output containment', function() {
 });
 
 describe('Containment against the record owner', function() {
-    const {assert, config_api, fs, path, utils, useTemporaryMediaRoots} = require('./test-shared');
+    const {assert, fs, path, utils, useTemporaryMediaRoots} = require('./test-shared');
 
     let media = null;
     let alice_file = null;

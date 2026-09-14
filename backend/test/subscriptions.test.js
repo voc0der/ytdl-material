@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 const { assert, path, fs, uuid, db_api, utils, subscriptions_api, archive_api, youtubedl_api, config_api } = require('./test-shared');
 
 describe('Subscriptions', function() {

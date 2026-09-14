@@ -55,10 +55,7 @@ function getPrimaryKey(tableMeta = {}) {
     return tableMeta.primary_key || null;
 }
 
-function getDocKeyPath(tableMeta = {}) {
-    const primaryKey = getPrimaryKey(tableMeta);
-    return primaryKey ? toPathLiteral(getFieldPathParts(primaryKey)) : null;
-}
+
 
 function getFieldType(tableMeta = {}, fieldPath, value = undefined) {
     const hintedType = tableMeta.field_types && tableMeta.field_types[fieldPath];
@@ -110,12 +107,7 @@ function buildIndexBooleanExpr(tableMeta, fieldPath, docRef = 'doc') {
     ].join(' ');
 }
 
-function buildIndexComparableExpr(tableMeta, fieldPath, value = undefined, docRef = 'doc') {
-    const fieldType = getFieldType(tableMeta, fieldPath, value);
-    if (fieldType === 'numeric') return buildIndexNumericExpr(tableMeta, fieldPath, docRef);
-    if (fieldType === 'boolean') return buildIndexBooleanExpr(tableMeta, fieldPath, docRef);
-    return buildIndexTextExpr(tableMeta, fieldPath, docRef);
-}
+
 
 function buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef = 'doc') {
     validateFieldPath(fieldPath);
@@ -134,7 +126,7 @@ function buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef = 'doc') {
     };
 }
 
-function buildRuntimeNumericExpr(tableMeta, fieldPath, params, value = undefined, docRef = 'doc') {
+function buildRuntimeNumericExpr(tableMeta, fieldPath, params, docRef = 'doc') {
     const fieldRef = buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef);
     return [
         'CASE',
@@ -158,7 +150,7 @@ function buildRuntimeBooleanExpr(tableMeta, fieldPath, params, docRef = 'doc') {
 
 function buildRuntimeComparableExpr(tableMeta, fieldPath, params, value = undefined, docRef = 'doc') {
     const fieldType = getFieldType(tableMeta, fieldPath, value);
-    if (fieldType === 'numeric') return buildRuntimeNumericExpr(tableMeta, fieldPath, params, value, docRef);
+    if (fieldType === 'numeric') return buildRuntimeNumericExpr(tableMeta, fieldPath, params, docRef);
     if (fieldType === 'boolean') return buildRuntimeBooleanExpr(tableMeta, fieldPath, params, docRef);
     return buildRuntimeFieldRef(tableMeta, fieldPath, params, docRef).textExpr;
 }
@@ -264,7 +256,7 @@ function buildFilterClause(tableMeta, fieldPath, filterValue, params, docRef = '
             }
             if (values.every(value => typeof value === 'number')) {
                 const placeholder = addParam(params, values);
-                return `${buildRuntimeNumericExpr(tableMeta, fieldPath, params, undefined, docRef)} = ANY(${placeholder}::numeric[])`;
+                return `${buildRuntimeNumericExpr(tableMeta, fieldPath, params, docRef)} = ANY(${placeholder}::numeric[])`;
             }
             if (values.every(value => typeof value === 'boolean')) {
                 const placeholder = addParam(params, values);
