@@ -12,6 +12,9 @@ description: A Helm chart for https://github.com/voc0der/ytdl-material
 # pipeline. Library charts do not define any templates and therefore cannot be deployed.
 type: application
 
+# networking.k8s.io/v1 Ingress, used by templates/ingress.yaml, requires Kubernetes 1.19.
+kubeVersion: ">=1.19.0-0"
+
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
