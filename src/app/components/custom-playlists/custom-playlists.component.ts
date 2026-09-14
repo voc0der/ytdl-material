@@ -5,16 +5,20 @@ import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistResponse, Playlist } from 'api-types';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 import { filter, take } from 'rxjs/operators';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
+import { NgClass } from '@angular/common';
+import { UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
+import { MatFabButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
     selector: 'app-custom-playlists',
     templateUrl: './custom-playlists.component.html',
     styleUrls: ['./custom-playlists.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgClass, UnifiedFileCardComponent, MatFabButton, MatIcon]
 })
 export class CustomPlaylistsComponent implements OnInit {
 
@@ -89,7 +93,7 @@ export class CustomPlaylistsComponent implements OnInit {
     this.postsService.downloadPlaylistFromServer(playlist_id).subscribe(res => {
       this.downloading_content[playlist_id] = false;
       const blob: any = res;
-      saveAs(blob, playlist_name + '.zip');
+      saveBlob(blob, playlist_name + '.zip');
     });
 
   }

@@ -1,6 +1,7 @@
 const logger = require('./logger');
 
 const fs = require('fs');
+const _ = require('lodash');
 const { BehaviorSubject } = require('rxjs');
 
 exports.CONFIG_ITEMS = require('./consts.js')['CONFIG_ITEMS'];
@@ -38,7 +39,7 @@ function getDefaultConfig() {
 
 function getDefaultConfigItemValue(key) {
     const default_config = getDefaultConfig();
-    return Object.byString(default_config, exports.CONFIG_ITEMS[key]['path']);
+    return _.get(default_config, exports.CONFIG_ITEMS[key]['path']);
 }
 
 function normalizeConfigRoot(config_json) {
@@ -74,9 +75,23 @@ const RETIRED_CONFIG_ITEMS = [
     {path: 'YtdlMaterial.API.API_key'}
 ];
 
+// Setting values that are no longer accepted. The setting itself stays; a stored retired
+// value is replaced on startup, with a warning, so the instance keeps working.
+const RETIRED_CONFIG_VALUES = [
+    {
+        path: 'YtdlMaterial.Advanced.default_downloader',
+        value: 'youtube-dlc',
+        replacement: 'yt-dlp',
+        warning: 'The youtube-dlc downloader has been removed; its upstream stopped publishing releases in 2020.'
+            + ' The default downloader has been switched to yt-dlp. The old appdata/bin/youtube-dlc binary is no'
+            + ' longer used and can be deleted.'
+    }
+];
+
 exports.initialize = () => {
     ensureConfigFileExists();
     removeRetiredConfigItems();
+    replaceRetiredConfigValues();
     ensureConfigItemsExist();
 }
 
@@ -86,7 +101,7 @@ function removeRetiredConfigItems() {
 
     let removed_any = false;
     for (const retired_item of RETIRED_CONFIG_ITEMS) {
-        const parent_object = Object.byString(config_json, getParentPath(retired_item.path));
+        const parent_object = _.get(config_json, getParentPath(retired_item.path));
         const element_name = getElementNameInConfig(retired_item.path);
         if (!parent_object || !(element_name in parent_object)) continue;
 
@@ -105,6 +120,21 @@ function removeRetiredConfigItems() {
     if (removed_any) fs.writeFileSync(configPath, JSON.stringify(config_json, null, 2));
 }
 
+function replaceRetiredConfigValues() {
+    const config_json = exports.getConfigFile();
+    if (!config_json) return;
+
+    let replaced_any = false;
+    for (const retired_value of RETIRED_CONFIG_VALUES) {
+        if (_.get(config_json, retired_value.path) !== retired_value.value) continue;
+        logger.warn(retired_value.warning);
+        _.set(config_json, retired_value.path, retired_value.replacement);
+        replaced_any = true;
+    }
+
+    if (replaced_any) fs.writeFileSync(configPath, JSON.stringify(config_json, null, 2));
+}
+
 function ensureConfigItemsExist() {
     const config_keys = Object.keys(exports.CONFIG_ITEMS);
     for (let i = 0; i < config_keys.length; i++) {
@@ -118,22 +148,6 @@ function ensureConfigFileExists() {
         logger.info('Cannot find config file. Creating one with default values...');
         fs.writeFileSync(configPath, JSON.stringify(getDefaultConfig(), null, 2));
     }
-}
-
-// https://stackoverflow.com/questions/6491463/accessing-nested-javascript-objects-with-string-key
-Object.byString = function(o, s) {
-    s = s.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-    s = s.replace(/^\./, '');           // strip a leading dot
-    var a = s.split('.');
-    for (var i = 0, n = a.length; i < n; ++i) {
-        var k = a[i];
-        if (k in o) {
-            o = o[k];
-        } else {
-            return;
-        }
-    }
-    return o;
 }
 
 function getParentPath(path) {
@@ -199,14 +213,14 @@ exports.getConfigItem = (key) => {
         return null;
     }
     let path = exports.CONFIG_ITEMS[key]['path'];
-    const val = Object.byString(config_json, path);
-    if (val === undefined && Object.byString(DEFAULT_CONFIG, path) !== undefined) {
+    const val = _.get(config_json, path);
+    if (val === undefined && _.get(DEFAULT_CONFIG, path) !== undefined) {
         logger.warn(`Cannot find config with key '${key}'. Creating one with the default value...`);
         const default_value = getDefaultConfigItemValue(key);
         exports.setConfigItem(key, default_value);
         return default_value;
     }
-    return Object.byString(config_json, path);
+    return _.get(config_json, path);
 }
 
 exports.setConfigItem = (key, value) => {
@@ -215,14 +229,14 @@ exports.setConfigItem = (key, value) => {
     let path = exports.CONFIG_ITEMS[key]['path'];
     let element_name = getElementNameInConfig(path);
     let parent_path = getParentPath(path);
-    let parent_object = Object.byString(config_json, parent_path);
+    let parent_object = _.get(config_json, parent_path);
     if (!parent_object) {
         let parent_parent_path = getParentPath(parent_path);
-        let parent_parent_object = Object.byString(config_json, parent_parent_path);
+        let parent_parent_object = _.get(config_json, parent_parent_path);
         let parent_path_arr = parent_path.split('.');
         let parent_parent_single_key = parent_path_arr[parent_path_arr.length-1];
         parent_parent_object[parent_parent_single_key] = {};
-        parent_object = Object.byString(config_json, parent_path);
+        parent_object = _.get(config_json, parent_path);
     }
     if (value === 'false') value = false;
     if (value === 'true') value = true;
@@ -249,7 +263,7 @@ exports.setConfigItems = (items) => {
         let item_parent_path = getParentPath(item_path);
         let item_element_name = getElementNameInConfig(item_path);
 
-        let item_parent_object = Object.byString(config_json, item_parent_path);
+        let item_parent_object = _.get(config_json, item_parent_path);
         item_parent_object[item_element_name] = value;
     }
 

@@ -95,6 +95,30 @@ describe('Config', async function() {
         assert(!('API_key' in api_config));
     });
 
+    it('Switches a retired youtube-dlc downloader to yt-dlp on initialize', async function() {
+        const config_json = config_api.getConfigFile();
+        config_json['YtdlMaterial']['Advanced']['default_downloader'] = 'youtube-dlc';
+        config_api.setConfigFile(config_json);
+
+        config_api.initialize();
+
+        assert.strictEqual(config_api.getConfigItem('ytdl_default_downloader'), 'yt-dlp');
+    });
+
+    it('Keeps a supported downloader selection on initialize', async function() {
+        const config_json = config_api.getConfigFile();
+        const original_downloader = config_json['YtdlMaterial']['Advanced']['default_downloader'];
+        config_json['YtdlMaterial']['Advanced']['default_downloader'] = 'youtube-dl';
+        config_api.setConfigFile(config_json);
+
+        try {
+            config_api.initialize();
+            assert.strictEqual(config_api.getConfigItem('ytdl_default_downloader'), 'youtube-dl');
+        } finally {
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+    });
+
     it('Leaves the config alone when no retired settings are stored', async function() {
         config_api.initialize();
         const before = JSON.stringify(config_api.getConfigFile());

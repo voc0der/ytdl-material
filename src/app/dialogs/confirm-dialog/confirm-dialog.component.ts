@@ -1,5 +1,10 @@
 import { Component, OnInit, Inject, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatSelectionList, MatListOption } from '@angular/material/list';
+import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 interface ConfirmDialogAction {
   text: string;
@@ -12,7 +17,7 @@ interface ConfirmDialogAction {
     templateUrl: './confirm-dialog.component.html',
     styleUrls: ['./confirm-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatSelectionList, FormsModule, MatListOption, MatDialogActions, MatButton, MatProgressSpinner, MatDialogClose]
 })
 export class ConfirmDialogComponent implements OnInit {
 

@@ -40,7 +40,7 @@ const files_api = require('./files');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 
-var app = express();
+const app = express();
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
 const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
 
@@ -238,7 +238,7 @@ if (fs.existsSync('restart_general.json')) fs.unlinkSync('restart_general.json')
 // updates & starts youtubedl (commented out b/c of repo takedown)
 // startYoutubeDL();
 
-var validDownloadingAgents = [
+const validDownloadingAgents = [
     'aria2c',
     'avconv',
     'axel',
@@ -525,8 +525,8 @@ async function downloadReleaseFiles(tag) {
         fs.createReadStream(releaseZipPath).on('error', reject).pipe(unzipper.Parse())
         .on('error', reject)
         .on('entry', function (entry) {
-            var fileName = entry.path;
-            var is_dir = fileName.substring(fileName.length-1, fileName.length) === '/'
+            const fileName = entry.path;
+            const is_dir = fileName.substring(fileName.length-1, fileName.length) === '/'
             if (!is_dir && fileName.includes('ytdl-material/public/')) {
                 // get public folder files
                 const actualFileName = fileName.replace('ytdl-material/public/', '');
@@ -592,8 +592,8 @@ async function downloadReleaseZip(tag) {
 }
 
 async function installDependencies() {
-    var child_process = require('child_process');
-    var exec = promisify(child_process.exec);
+    const child_process = require('child_process');
+    const exec = promisify(child_process.exec);
 
     await exec('npm install',{stdio:[0,1,2]});
     return true;
@@ -607,7 +607,7 @@ async function backupServerLite() {
 
     await new Promise(resolve => {
         // archiver 8 exports classes rather than a callable factory; the old form threw.
-        var archive = new ZipArchive({
+        const archive = new ZipArchive({
             zlib: { level: 9 } // Sets the compression level.
         });
 
@@ -1572,11 +1572,11 @@ app.post('/api/updateConcurrentStream', optionalJwt, requireAuthenticated, async
 });
 
 app.post('/api/getFullTwitchChat', optionalJwt, requireAuthenticated, async (req, res) => {
-    var id = req.body.id;
-    var type = req.body.type;
-    var uuid = req.body.uuid;
-    var sub = req.body.sub;
-    var user_uid = null;
+    const id = req.body.id;
+    const type = req.body.type;
+    let uuid = req.body.uuid;
+    const sub = req.body.sub;
+    let user_uid = null;
 
     if (req.isAuthenticated()) {
         user_uid = req.user.uid;
@@ -1591,12 +1591,12 @@ app.post('/api/getFullTwitchChat', optionalJwt, requireAuthenticated, async (req
 });
 
 app.post('/api/downloadTwitchChatByVODID', optionalJwt, requireAuthenticated, async (req, res) => {
-    var id = req.body.id;
-    var type = req.body.type;
-    var vodId = req.body.vodId;
-    var uuid = req.body.uuid;
-    var sub = req.body.sub;
-    var user_uid = null;
+    const id = req.body.id;
+    const type = req.body.type;
+    const vodId = req.body.vodId;
+    let uuid = req.body.uuid;
+    const sub = req.body.sub;
+    let user_uid = null;
 
     if (req.isAuthenticated()) {
         user_uid = req.user.uid;
@@ -1619,8 +1619,8 @@ app.post('/api/downloadTwitchChatByVODID', optionalJwt, requireAuthenticated, as
 
 // video sharing
 app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async (req, res) => {
-    var uid = req.body.uid;
-    var is_playlist = req.body.is_playlist;
+    const uid = req.body.uid;
+    const is_playlist = req.body.is_playlist;
     let success;
     // multi-user mode
     if (req.isAuthenticated()) {
@@ -1653,9 +1653,9 @@ app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async 
 });
 
 app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async function(req, res) {
-    var type = req.body.type;
-    var uid = req.body.uid;
-    var is_playlist = req.body.is_playlist;
+    const type = req.body.type;
+    const uid = req.body.uid;
+    const is_playlist = req.body.is_playlist;
     let success;
 
     // Was unscoped in exactly the way enableSharing was, and is fixed the same way: the
@@ -1936,7 +1936,7 @@ app.post('/api/getSubscription', optionalJwt, requirePermission('subscriptions')
         subscription['file_count'] = file_count;
 
         if (include_videos) {
-            var parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
+            const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
             subscription['videos'] = parsed_files;
             // loop through files for extra processing
             for (let i = 0; i < parsed_files.length; i++) {
@@ -2485,7 +2485,7 @@ app.post('/api/deleteArchiveItems', optionalJwt, requirePermission('filemanager'
 // The limit matters as much as the guard: multer writes the body to disk while it parses,
 // so without one an upload is a way to fill the volume before any handler runs.
 const MAX_COOKIE_UPLOAD_BYTES = 2 * 1024 * 1024;
-var upload_multer = multer({
+const upload_multer = multer({
     dest: __dirname + '/appdata/',
     limits: {fileSize: MAX_COOKIE_UPLOAD_BYTES, files: 1}
 });
@@ -2750,7 +2750,7 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
     const type = req.query.type;
     const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
-    var head;
+    let head;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
     const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
 
@@ -3950,13 +3950,13 @@ app.use(function(req, res, next) {
 
 app.use(function(req, res, next) {
     //if the request is not html then move along
-    var accept = req.accepts('html', 'json', 'xml');
+    const accept = req.accepts('html', 'json', 'xml');
     if (accept !== 'html') {
         return next();
     }
 
     // if the request has a '.' assume that it's for a file, move along
-    var ext = path.extname(req.path);
+    const ext = path.extname(req.path);
     if (ext !== '') {
         return next();
     }

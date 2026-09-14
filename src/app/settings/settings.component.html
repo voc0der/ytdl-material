@@ -106,7 +106,7 @@
               <mat-form-field class="text-field" color="accent">
                 <mat-label i18n="Default file output">Default file output</mat-label>
                 <input matInput [(ngModel)]="new_config['Downloader']['default_file_output']" matInput>
-                <mat-hint><a target="_blank" href="https://github.com/ytdl-org/youtube-dl/blob/master/README.md#output-template">
+                <mat-hint><a target="_blank" href="https://github.com/yt-dlp/yt-dlp#output-template">
                   <ng-container i18n="Youtube-dl output template documentation link">Documentation</ng-container></a>.
                   <ng-container i18n="Custom Output input hint">Path is relative to the above download paths. Don't include extension.</ng-container>
                 </mat-hint>
@@ -605,7 +605,6 @@
                 <mat-label><ng-container i18n="Default downloader select label">Select a downloader</ng-container></mat-label>
                 <mat-select color="accent" [(ngModel)]="selectedDownloader">
                   <mat-option value="youtube-dl">{{ getDownloaderLabel('youtube-dl') }}</mat-option>
-                  <mat-option value="youtube-dlc">{{ getDownloaderLabel('youtube-dlc') }}</mat-option>
                   <mat-option value="yt-dlp">{{ getDownloaderLabel('yt-dlp', 'stable') }}</mat-option>
                   <mat-option value="yt-dlp@nightly">{{ getDownloaderLabel('yt-dlp', 'nightly') }}</mat-option>
                   <mat-option value="yt-dlp@master">{{ getDownloaderLabel('yt-dlp', 'master') }}</mat-option>

@@ -239,16 +239,16 @@ describe('yt-dlp update channel', function() {
         }
     });
 
-    it('Leaves non yt-dlp forks on their own upstreams', function() {
+    it('Leaves youtube-dl on its own upstream', function() {
         config_api.setConfigItem('ytdl_ytdlp_update_channel', 'nightly');
-        for (const fork of ['youtube-dl', 'youtube-dlc']) {
-            const urls = youtubedl_api.getYoutubeDLSourceUrls(fork);
-            assert.strictEqual(urls['download_url'], youtubedl_api.youtubedl_forks[fork]['download_url']);
-            assert.strictEqual(urls['releases_url'], youtubedl_api.youtubedl_forks[fork]['releases_url']);
-        }
+        const urls = youtubedl_api.getYoutubeDLSourceUrls('youtube-dl');
+        assert.strictEqual(urls['download_url'], youtubedl_api.youtubedl_forks['youtube-dl']['download_url']);
+        assert.strictEqual(urls['releases_url'], youtubedl_api.youtubedl_forks['youtube-dl']['releases_url']);
     });
 
     it('Throws for an unsupported fork', function() {
-        assert.throws(() => youtubedl_api.getYoutubeDLSourceUrls('not-a-fork'), /Unsupported downloader fork/);
+        for (const fork of ['not-a-fork', 'youtube-dlc']) {
+            assert.throws(() => youtubedl_api.getYoutubeDLSourceUrls(fork), /Unsupported downloader fork/);
+        }
     });
 });

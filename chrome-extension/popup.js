@@ -1,6 +1,6 @@
 function audioOnlyClicked() {
     console.log('audio only clicked');
-    var audio_only = document.getElementById("audio_only").checked;
+    const audio_only = document.getElementById("audio_only").checked;
 
     // save state
 
@@ -10,13 +10,13 @@ function audioOnlyClicked() {
 }
 
 function downloadVideo() {
-    var input_url = document.getElementById("url_input").value
+    const input_url = document.getElementById("url_input").value
     // get the frontend_url
     chrome.storage.sync.get({
         frontend_url: 'http://localhost',
         audio_only: false
     }, function(items) {
-        var download_url = items.frontend_url + '/#/home;url=' + encodeURIComponent(input_url) + ';audioOnly=' + items.audio_only;
+        const download_url = items.frontend_url + '/#/home;url=' + encodeURIComponent(input_url) + ';audioOnly=' + items.audio_only;
         chrome.tabs.create({ url: download_url });
     });
 }
@@ -32,8 +32,8 @@ function loadInputs() {
     
     // load url input
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        var activeTab = tabs[0];
-        var current_url = activeTab.url;
+        const activeTab = tabs[0];
+        const current_url = activeTab.url;
         console.log(current_url);
         if (current_url) {
             try {

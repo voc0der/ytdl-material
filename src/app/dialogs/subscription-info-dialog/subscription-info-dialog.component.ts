@@ -1,16 +1,18 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { Subscription } from 'api-types';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatButton } from '@angular/material/button';
 
 @Component({
     selector: 'app-subscription-info-dialog',
     templateUrl: './subscription-info-dialog.component.html',
     styleUrls: ['./subscription-info-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDialogActions, MatButton, MatDialogClose]
 })
 export class SubscriptionInfoDialogComponent implements OnInit {
 
@@ -54,7 +56,7 @@ export class SubscriptionInfoDialogComponent implements OnInit {
   downloadArchive() {
     this.postsService.downloadArchive(null, this.sub.id).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, 'archive.txt');
+      saveBlob(blob, 'archive.txt');
     });
   }
 

@@ -221,7 +221,7 @@
                 <mat-form-field style="margin-bottom: 42px;" color="accent" class="advanced-input">
                   <mat-label i18n="Custom output">Custom output</mat-label>
                   <input [(ngModel)]="customOutput" [ngModelOptions]="{standalone: true}" [disabled]="!customOutputEnabled" matInput (ngModelChange)="argsChanged()">
-                  <mat-hint><a target="_blank" href="https://github.com/ytdl-org/youtube-dl/blob/master/README.md#output-template">
+                  <mat-hint><a target="_blank" href="https://github.com/yt-dlp/yt-dlp#output-template">
                     <ng-container i18n="Youtube-dl output template documentation link">Documentation</ng-container></a>.
                     <ng-container i18n="Custom Output input hint">Path is relative to the config download path. Don't include extension.</ng-container>
                   </mat-hint>

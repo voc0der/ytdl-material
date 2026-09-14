@@ -9,7 +9,7 @@ describe('ArgModifierDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ArgModifierDialogComponent, HighlightPipe ]
+      imports: [ ArgModifierDialogComponent, HighlightPipe ]
     })
     .compileComponents();
   }));

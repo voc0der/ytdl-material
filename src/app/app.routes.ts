@@ -1,5 +1,4 @@
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { MainComponent } from './main/main.component';
 import { PlayerComponent } from './player/player.component';
 import { SubscriptionsComponent } from './subscriptions/subscriptions.component';
@@ -11,7 +10,7 @@ import { DuplicatesComponent } from './components/duplicates/duplicates.componen
 import { SettingsComponent } from './settings/settings.component';
 import { TasksComponent } from './components/tasks/tasks.component';
 
-const routes: Routes = [
+export const routes: Routes = [
   { path: 'home', component: MainComponent, canActivate: [PostsService] },
   { path: 'player', component: PlayerComponent, canActivate: [PostsService]},
   { path: 'subscriptions', component: SubscriptionsComponent, canActivate: [PostsService] },
@@ -23,9 +22,3 @@ const routes: Routes = [
   { path: 'tasks', component: TasksComponent, canActivate: [PostsService] },
   { path: '', redirectTo: '/home', pathMatch: 'full' }
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes, { useHash: true })],
-  exports: [RouterModule]
-})
-export class AppRoutingModule { }

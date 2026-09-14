@@ -9,7 +9,7 @@ describe('TwitchChatComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ TwitchChatComponent ]
+      imports: [ TwitchChatComponent ]
     })
     .compileComponents();
   }));

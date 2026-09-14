@@ -13,8 +13,7 @@ describe('PlaylistDownloadProgressDialogComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [PlaylistDownloadProgressDialogComponent],
-      imports: [MatDialogModule, MatProgressBarModule, MatTooltipModule],
+      imports: [PlaylistDownloadProgressDialogComponent, MatDialogModule, MatProgressBarModule, MatTooltipModule],
       providers: [
         {
           provide: MAT_DIALOG_DATA,

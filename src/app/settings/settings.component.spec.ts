@@ -11,7 +11,7 @@ describe('SettingsComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [SettingsComponent]
+      imports: [SettingsComponent]
     })
       .compileComponents();
   }));
@@ -208,11 +208,14 @@ describe('SettingsComponent downloader + yt-dlp channel selection', () => {
     expect(component.getDownloaderLabel('yt-dlp', 'stable')).toBe('yt-dlp stable');
   });
 
-  it('keeps the unchannelled label format for the other forks', () => {
+  it('keeps the unchannelled label format for youtube-dl', () => {
     component.downloaderInfo['youtube-dl'] = {
       downloader: 'youtube-dl', version: '2021.12.17', binary_exists: true, loaded: true
     };
     expect(component.getDownloaderLabel('youtube-dl')).toBe('youtube-dl (2021.12.17)');
-    expect(component.getDownloaderLabel('youtube-dlc')).toBe('youtube-dlc');
+    component.downloaderInfo['youtube-dl'] = {
+      downloader: 'youtube-dl', version: null, binary_exists: false, loaded: false
+    };
+    expect(component.getDownloaderLabel('youtube-dl')).toBe('youtube-dl');
   });
 });

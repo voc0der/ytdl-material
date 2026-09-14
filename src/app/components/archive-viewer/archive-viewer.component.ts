@@ -1,21 +1,30 @@
 import { SelectionModel } from '@angular/cdk/collections';
 import { Component, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSort } from '@angular/material/sort';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatSort, MatSortHeader } from '@angular/material/sort';
+import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { FileType } from 'api-types';
 import { Archive } from 'api-types/models/Archive';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { PostsService } from 'app/posts.services';
-import { saveAs } from 'file-saver';
-import { NgxFileDropEntry } from 'ngx-file-drop';
+import { saveBlob } from '../../utils/save-blob';
+import { NgxFileDropEntry, NgxFileDropModule } from 'ngx-file-drop';
+import { MatFormField, MatPrefix, MatLabel, MatInput } from '@angular/material/input';
+import { MatIcon } from '@angular/material/icon';
+import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatButton, MatMiniFabButton } from '@angular/material/button';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { DatePipe } from '@angular/common';
 
 @Component({
     selector: 'app-archive-viewer',
     templateUrl: './archive-viewer.component.html',
     styleUrls: ['./archive-viewer.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatFormField, MatIcon, MatPrefix, MatLabel, MatInput, FormsModule, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCheckbox, MatCellDef, MatCell, MatSortHeader, MatTooltip, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatButton, MatSelect, MatOption, NgxFileDropModule, MatMiniFabButton, MatProgressSpinner, DatePipe]
 })
 export class ArchiveViewerComponent {
   // table
@@ -145,7 +154,7 @@ export class ArchiveViewerComponent {
   downloadArchive(): void {
     this.postsService.downloadArchive(this.type === 'both' ? null : this.type, this.sub_id === 'none' ? null : this.sub_id).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, 'archive.txt');
+      saveBlob(blob, 'archive.txt');
     });
   }
 

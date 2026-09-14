@@ -9,7 +9,7 @@ describe('EditSubscriptionDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ EditSubscriptionDialogComponent ]
+      imports: [ EditSubscriptionDialogComponent ]
     })
     .compileComponents();
   }));

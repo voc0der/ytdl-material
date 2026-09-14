@@ -9,7 +9,7 @@ describe('LogsViewerComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ LogsViewerComponent ]
+      imports: [ LogsViewerComponent ]
     })
     .compileComponents();
   }));

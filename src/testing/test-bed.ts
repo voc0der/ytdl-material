@@ -3,20 +3,14 @@
 // The unit-test builder compiles each spec as its own bundle, so a setup file that patched
 // TestBed.configureTestingModule globally (as the karma setup did) could not reach them, and
 // a class token registered from a separate bundle is not the same object the spec injects.
-// Specs therefore call configureTestBed() and get the shared stubs, module imports and
-// schemas merged into their own module definition.
+// Specs therefore call configureTestBed() and get the shared stubs and schemas merged into
+// their own module definition.
 
 import { DatePipe } from '@angular/common';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Router, UrlSerializer } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatMenuModule } from '@angular/material/menu';
-// The player template resolves #group="matButtonToggleGroup", and an exportAs reference
-// needs the real directive -- NO_ERRORS_SCHEMA does not cover it, so without this the whole
-// template fails to render with NG0301.
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MATERIAL_ANIMATIONS, provideNativeDateAdapter } from '@angular/material/core';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
@@ -211,21 +205,19 @@ function createActivatedRouteStub() {
 }
 
 /**
- * TestBed.configureTestingModule with the stubs and module imports every component spec
- * depends on. errorOnUnknownElements/Properties are disabled to match NO_ERRORS_SCHEMA:
- * most specs declare a single component without its Material dependencies.
+ * TestBed.configureTestingModule with the stubs every component spec depends on. Components
+ * are standalone, so a spec imports its component and gets that component's own template
+ * dependencies. The root providers mirror app.config.ts where a template needs them (the
+ * datepicker's DateAdapter), and Material animations are disabled. Unknown elements and
+ * properties stay tolerated for specs that render a host template of their own.
  */
 export function configureTestBed(moduleDef: any = {}) {
   return TestBed.configureTestingModule({
     ...moduleDef,
-    imports: [
-      NoopAnimationsModule,
-      MatAutocompleteModule,
-      MatMenuModule,
-      MatButtonToggleModule,
-      ...(moduleDef.imports || [])
-    ],
+    imports: [...(moduleDef.imports || [])],
     providers: [
+      { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
+      provideNativeDateAdapter(),
       { provide: PostsService, useValue: createPostsServiceStub() },
       { provide: MatDialogRef, useValue: createUniversalStub() },
       { provide: MAT_DIALOG_DATA, useValue: createDialogDataStub() },

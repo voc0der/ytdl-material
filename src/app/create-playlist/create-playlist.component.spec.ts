@@ -9,7 +9,7 @@ describe('CreatePlaylistComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ CreatePlaylistComponent ]
+      imports: [ CreatePlaylistComponent ]
     })
     .compileComponents();
   }));

@@ -9,7 +9,7 @@ describe('ManageUserComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ManageUserComponent ]
+      imports: [ ManageUserComponent ]
     })
     .compileComponents();
   }));

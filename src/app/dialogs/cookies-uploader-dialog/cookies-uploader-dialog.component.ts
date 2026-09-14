@@ -1,6 +1,15 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { NgxFileDropEntry, FileSystemFileEntry, FileSystemDirectoryEntry } from 'ngx-file-drop';
+import { NgxFileDropEntry, FileSystemFileEntry, FileSystemDirectoryEntry, NgxFileDropModule } from 'ngx-file-drop';
 import { PostsService } from 'app/posts.services';
+import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatButton, MatMiniFabButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatDivider } from '@angular/material/list';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
 
 type CookiesTestResponse = {
   success: boolean;
@@ -12,7 +21,7 @@ type CookiesTestResponse = {
     templateUrl: './cookies-uploader-dialog.component.html',
     styleUrls: ['./cookies-uploader-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, NgxFileDropModule, MatButton, MatMiniFabButton, MatTooltip, MatIcon, MatProgressSpinner, MatDivider, MatFormField, MatLabel, MatInput, FormsModule, MatDialogActions, MatDialogClose]
 })
 export class CookiesUploaderDialogComponent implements OnInit {
   public files: NgxFileDropEntry[] = [];

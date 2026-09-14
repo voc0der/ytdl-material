@@ -1,8 +1,8 @@
 import { Component, OnInit, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
-import { MatMenuTrigger } from '@angular/material/menu';
-import { registerLocaleData } from '@angular/common';
+import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
+import { registerLocaleData, NgClass, DatePipe } from '@angular/common';
 import localeGB from '@angular/common/locales/en-GB';
 import localeFR from '@angular/common/locales/fr';
 import localeES from '@angular/common/locales/es';
@@ -10,6 +10,13 @@ import localeDE from '@angular/common/locales/de';
 import localeZH from '@angular/common/locales/zh';
 import localeNB from '@angular/common/locales/nb';
 import { DatabaseFile, Playlist } from 'api-types';
+import { MatIcon } from '@angular/material/icon';
+import { ContentLoaderModule } from '@ngneat/content-loader';
+import { MatIconButton } from '@angular/material/button';
+import { MatDivider } from '@angular/material/list';
+import { MatCard } from '@angular/material/card';
+import { MatRipple } from '@angular/material/core';
+import { MatTooltip } from '@angular/material/tooltip';
 
 registerLocaleData(localeGB);
 registerLocaleData(localeFR);
@@ -23,7 +30,7 @@ registerLocaleData(localeNB);
     templateUrl: './unified-file-card.component.html',
     styleUrls: ['./unified-file-card.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatIcon, ContentLoaderModule, MatMenuTrigger, MatIconButton, MatMenu, MatMenuItem, MatDivider, MatCard, MatRipple, MatTooltip, NgClass, DatePipe]
 })
 export class UnifiedFileCardComponent implements OnInit {
 

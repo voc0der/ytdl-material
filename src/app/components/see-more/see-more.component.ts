@@ -1,10 +1,9 @@
 import { Component, Input, OnInit, Pipe, PipeTransform, ChangeDetectionStrategy } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
+import { NgStyle } from '@angular/common';
+import { RouterLink } from '@angular/router';
 
-@Pipe({
-    name: 'linkify',
-    standalone: false
-})
+@Pipe({ name: 'linkify' })
 export class LinkifyPipe implements PipeTransform {
 
   constructor(private _domSanitizer: DomSanitizer) {}
@@ -40,7 +39,7 @@ export class LinkifyPipe implements PipeTransform {
     providers: [LinkifyPipe],
     styleUrls: ['./see-more.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgStyle, RouterLink, LinkifyPipe]
 })
 export class SeeMoreComponent implements OnInit {
 

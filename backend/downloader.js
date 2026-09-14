@@ -348,7 +348,7 @@ function appendFilenameSanitizationArgs(download_args = [], default_downloader =
         return download_args;
     }
 
-    // youtube-dl/youtube-dlc do not support configurable metadata replacements like yt-dlp.
+    // youtube-dl does not support configurable metadata replacements like yt-dlp.
     download_args.push('--windows-filenames');
     if (!filename_sanitization_non_ytdlp_warned) {
         logger.warn('Custom filename character replacement requires yt-dlp. Falling back to --windows-filenames.');
@@ -2148,8 +2148,8 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             const filepath_no_extension = utils.removeFileExtension(output_json['_filename']);
 
             const ext = type === 'audio' ? '.mp3' : '.mp4';
-            var full_file_path = filepath_no_extension + ext;
-            var file_name = filepath_no_extension.substring(fileFolderPath.length, filepath_no_extension.length);
+            const full_file_path = filepath_no_extension + ext;
+            const file_name = filepath_no_extension.substring(fileFolderPath.length, filepath_no_extension.length);
 
             if (type === 'video' && url.includes('twitch.tv/videos/') && url.split('twitch.tv/videos/').length > 1
                 && config_api.getConfigItem('ytdl_twitch_auto_download_chat')) {
@@ -2309,7 +2309,7 @@ function buildSubtitleArgs(selected_subtitle_language, selected_subtitle_type = 
 exports.generateArgs = async (url, type, options, user_uid = null, simulated = false, include_global_args = true) => {
     const default_downloader = getPreferredDownloaderFork(options);
 
-    if (!simulated && (default_downloader === 'youtube-dl' || default_downloader === 'youtube-dlc')) {
+    if (!simulated && default_downloader === 'youtube-dl') {
         logger.warn('It is recommended you use yt-dlp! To prevent failed downloads, change the downloader in your settings menu to yt-dlp and restart your instance.')
     }
 

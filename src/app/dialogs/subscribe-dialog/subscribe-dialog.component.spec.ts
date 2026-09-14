@@ -11,7 +11,7 @@ describe('SubscribeDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ SubscribeDialogComponent ]
+      imports: [ SubscribeDialogComponent ]
     })
     .compileComponents();
   }));

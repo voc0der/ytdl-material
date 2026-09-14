@@ -1,14 +1,23 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialogRef, MatDialog } from '@angular/material/dialog';
+import { MatDialogRef, MatDialog, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { ArgModifierDialogComponent } from '../arg-modifier-dialog/arg-modifier-dialog.component';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput, MatHint } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatDivider } from '@angular/material/list';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-subscribe-dialog',
     templateUrl: './subscribe-dialog.component.html',
     styleUrls: ['./subscribe-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatHint, MatDivider, MatCheckbox, MatSelect, MatOption, MatIconButton, MatIcon, MatDialogActions, MatButton, MatDialogClose, MatProgressSpinner]
 })
 export class SubscribeDialogComponent implements OnInit {
   // inputs

@@ -2,10 +2,7 @@
 
 import { Directive, ElementRef, HostListener } from '@angular/core';
 
-@Directive({
-    selector: '[onlyNumber]',
-    standalone: false
-})
+@Directive({ selector: '[onlyNumber]' })
 export class OnlyNumberDirective {
 
   private navigationKeys = [
@@ -22,8 +19,8 @@ export class OnlyNumberDirective {
     'Copy',
     'Paste'
   ];
-  inputElement: HTMLElement;
-  constructor(public el: ElementRef) {
+  inputElement: HTMLInputElement;
+  constructor(public el: ElementRef<HTMLInputElement>) {
     this.inputElement = el.nativeElement;
   }
 
@@ -55,19 +52,27 @@ export class OnlyNumberDirective {
   @HostListener('paste', ['$event'])
   onPaste(event: ClipboardEvent) {
     event.preventDefault();
-    const pastedInput: string = event.clipboardData
-      .getData('text/plain')
-      .replace(/\D/g, ''); // get a digit-only string
-    document.execCommand('insertText', false, pastedInput);
+    const pastedInput = (event.clipboardData?.getData('text/plain') ?? '').replace(/\D/g, ''); // get a digit-only string
+    this.insertText(pastedInput);
   }
 
   @HostListener('drop', ['$event'])
   onDrop(event: DragEvent) {
     event.preventDefault();
-    const textData = event.dataTransfer.getData('text').replace(/\D/g, '');
+    const textData = (event.dataTransfer?.getData('text') ?? '').replace(/\D/g, '');
     this.inputElement.focus();
-    document.execCommand('insertText', false, textData);
+    this.insertText(textData);
   }
 
-
+  // Replaces the current selection with text, then fires 'input' so ngModel sees the change
+  // the same way it would for typing. Inputs without a text selection (type="number") append.
+  private insertText(text: string) {
+    const input = this.inputElement;
+    if (input.selectionStart === null) {
+      input.value += text;
+    } else {
+      input.setRangeText(text, input.selectionStart, input.selectionEnd ?? input.selectionStart, 'end');
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }

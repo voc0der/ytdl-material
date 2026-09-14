@@ -347,5 +347,13 @@ describe('Database', async function() {
             const result = db_api.applyFilterLocalDB([{test1: {test2: 'test3'}}, {test4: 'test5'}], {'test1.test2': 'test3'}, 'find');
             assert(result && result['test1']['test2'] === 'test3');
         });
+
+        it('Nested path through a null or primitive value', async function() {
+            const records = [{test1: null}, {test1: 'flat'}, {test1: {test2: 'test3'}}];
+            const result = db_api.applyFilterLocalDB(records, {'test1.test2': 'test3'}, 'find');
+            assert(result && result['test1']['test2'] === 'test3');
+            const regex_result = db_api.applyFilterLocalDB(records, {'test1.test2': {$regex: 'test'}}, 'filter');
+            assert.strictEqual(regex_result.length, 1);
+        });
     })
 });

@@ -51,7 +51,7 @@ describe('killAllDownloads', function() {
         })));
     });
 
-    for (const fork of ['yt-dlp', 'youtube-dl', 'youtube-dlc', 'python']) {
+    for (const fork of ['yt-dlp', 'youtube-dl', 'python']) {
         it(`waits for buffered and streaming ${fork} children and leaves unrelated processes alone`, async function() {
             impersonation = fork === 'python';
             const selectedFork = impersonation ? 'yt-dlp' : fork;

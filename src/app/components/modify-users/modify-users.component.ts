@@ -1,7 +1,7 @@
 import { Component, OnInit, Input, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatSort, MatSortHeader } from '@angular/material/sort';
+import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { PostsService } from 'app/posts.services';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -9,13 +9,21 @@ import { AddUserDialogComponent } from 'app/dialogs/add-user-dialog/add-user-dia
 import { ManageUserComponent } from '../manage-user/manage-user.component';
 import { ManageRoleComponent } from '../manage-role/manage-role.component';
 import { User } from 'api-types';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-modify-users',
     templateUrl: './modify-users.component.html',
     styleUrls: ['./modify-users.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatFormField, MatLabel, MatInput, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, FormsModule, MatSelect, MatOption, MatIconButton, MatTooltip, MatIcon, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, MatButton, MatMenuTrigger, MatMenu, MatMenuItem, MatProgressSpinner]
 })
 export class ModifyUsersComponent implements OnInit, AfterViewInit {
 
@@ -66,7 +74,7 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
   }
 
   applyFilter(event: KeyboardEvent) {
-    let filterValue = (event.target as HTMLInputElement).value; // "as HTMLInputElement" is required: https://angular.io/guide/user-input#type-the-event
+    let filterValue = (event.target as HTMLInputElement).value; // event.target is only typed as EventTarget
     filterValue = filterValue.trim(); // Remove whitespace
     filterValue = filterValue.toLowerCase(); // Datasource defaults to lowercase matches
     this.dataSource.filter = filterValue;

@@ -66,7 +66,7 @@ describe('MediaLibraryComponent', () => {
     };
 
     configureTestBed({
-      declarations: [MediaLibraryComponent],
+      imports: [MediaLibraryComponent],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: Router, useValue: routerStub },

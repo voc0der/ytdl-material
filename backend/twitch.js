@@ -1,16 +1,14 @@
 const config_api = require('./config');
 const logger = require('./logger');
 
-const moment = require('moment');
 const fs = require('fs-extra')
 const path = require('path');
 const { promisify } = require('util');
 const child_process = require('child_process');
-const commandExistsSync = require('command-exists').sync;
 
 async function getCommentsForVOD(vodId) {
-    const exec = promisify(child_process.exec);
-    
+    const execFile = promisify(child_process.execFile);
+
     // Reject invalid params to prevent command injection attack
     if (!vodId.match(/^[0-9a-z]+$/)) {
         logger.error('VOD ID must be purely alphanumeric. Twitch chat download failed!');
@@ -22,12 +20,18 @@ async function getCommentsForVOD(vodId) {
     const cliExt = is_windows ? '.exe' : ''
     const cliPath = `TwitchDownloaderCLI${cliExt}`
 
-    if (!commandExistsSync(cliPath)) {
-        logger.error(`${cliPath} does not exist. Twitch chat download failed! Get it here: https://github.com/lay295/TwitchDownloader`);
+    let result;
+    try {
+        result = await execFile(cliPath, ['chatdownload', '-u', safeVodId, '-o', path.join('appdata', `${safeVodId}.json`)]);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            logger.error(`${cliPath} does not exist. Twitch chat download failed! Get it here: https://github.com/lay295/TwitchDownloader`);
+        } else {
+            logger.error(`Failed to download twitch comments for ${safeVodId}`);
+            logger.error(err.stderr || err.message);
+        }
         return null;
     }
-
-    const result = await exec(`${cliPath} chatdownload -u ${safeVodId} -o appdata/${safeVodId}.json`, {stdio:[0,1,2]});
 
     if (result['stderr']) {
         logger.error(`Failed to download twitch comments for ${safeVodId}`);
@@ -88,7 +92,7 @@ async function getTwitchChatByFileID(id, type, user_uid, uuid, sub) {
         }
     }
 
-    var chat_file = null;
+    let chat_file = null;
     if (file_path && base_path) {
         const resolvedBasePath = path.resolve(base_path);
         const resolvedFilePath = path.resolve(file_path);
@@ -153,16 +157,18 @@ async function downloadTwitchChatByVODID(vodId, id, type, user_uid, sub, customF
     return chat;
 }
 
-const convertTimestamp = (timestamp) => moment.duration(timestamp, 'seconds')
-                    .toISOString()
-                    .replace(/P.*?T(?:(\d+?)H)?(?:(\d+?)M)?(?:(\d+).*?S)?/,
-                        (_, ...ms) => {
-                            const seg = v => v ? v.padStart(2, '0') : '00';
-                            return `${seg(ms[0])}:${seg(ms[1])}:${seg(ms[2])}`;
-});
+// Formats an offset in seconds as HH:MM:SS. Hours do not roll over into days.
+const convertTimestamp = (timestamp) => {
+    const total_seconds = Math.max(0, Math.floor(Number(timestamp) || 0));
+    const hours = Math.floor(total_seconds / 3600);
+    const minutes = Math.floor(total_seconds % 3600 / 60);
+    const seconds = total_seconds % 60;
+    return [hours, minutes, seconds].map(value => String(value).padStart(2, '0')).join(':');
+};
 
 module.exports = {
     getCommentsForVOD: getCommentsForVOD,
     getTwitchChatByFileID: getTwitchChatByFileID,
-    downloadTwitchChatByVODID: downloadTwitchChatByVODID
+    downloadTwitchChatByVODID: downloadTwitchChatByVODID,
+    convertTimestamp: convertTimestamp
 }

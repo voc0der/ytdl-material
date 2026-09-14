@@ -9,7 +9,7 @@ describe('ShareMediaDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ShareMediaDialogComponent ]
+      imports: [ ShareMediaDialogComponent ]
     })
     .compileComponents();
   }));

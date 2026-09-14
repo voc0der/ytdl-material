@@ -9,7 +9,7 @@ describe('ArchiveViewerComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ ArchiveViewerComponent ]
+      imports: [ ArchiveViewerComponent ]
     })
     .compileComponents();
 

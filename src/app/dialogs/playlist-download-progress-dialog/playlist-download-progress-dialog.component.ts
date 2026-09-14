@@ -1,13 +1,18 @@
 import { Component, Inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { Download } from 'api-types';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatButton } from '@angular/material/button';
+import { DecimalPipe } from '@angular/common';
 
 @Component({
     selector: 'app-playlist-download-progress-dialog',
     templateUrl: './playlist-download-progress-dialog.component.html',
     styleUrls: ['./playlist-download-progress-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatTooltip, MatProgressBar, MatDialogActions, MatButton, MatDialogClose, DecimalPipe]
 })
 export class PlaylistDownloadProgressDialogComponent implements OnInit {
   download: DownloadWithPlaylistProgress = null;

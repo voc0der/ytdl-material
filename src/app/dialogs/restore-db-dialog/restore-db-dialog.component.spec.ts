@@ -9,7 +9,7 @@ describe('RestoreDbDialogComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ RestoreDbDialogComponent ]
+      imports: [ RestoreDbDialogComponent ]
     })
     .compileComponents();
   });

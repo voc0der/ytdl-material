@@ -1,4 +1,4 @@
-var enabledIconPaths = {
+const enabledIconPaths = {
     16: 'icons/icon-16.png',
     32: 'icons/icon-32.png',
     48: 'icons/icon-48.png',
@@ -6,7 +6,7 @@ var enabledIconPaths = {
     128: 'icons/icon-128.png'
 };
 
-var hiddenIconPaths = {
+const hiddenIconPaths = {
     16: 'icons/transparent-16.png',
     32: 'icons/transparent-32.png',
     48: 'icons/transparent-48.png',
@@ -14,7 +14,7 @@ var hiddenIconPaths = {
     128: 'icons/transparent-128.png'
 };
 
-var extensionAction = chrome.action || chrome.browserAction;
+const extensionAction = chrome.action || chrome.browserAction;
 
 function isSupportedYouTubeUrl(url) {
     if (!url) {
@@ -22,8 +22,8 @@ function isSupportedYouTubeUrl(url) {
     }
 
     try {
-        var parsed = new URL(url);
-        var hostname = parsed.hostname.replace(/^www\./, '').toLowerCase();
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.replace(/^www\./, '').toLowerCase();
 
         return hostname === 'youtube.com' ||
             hostname === 'm.youtube.com' ||

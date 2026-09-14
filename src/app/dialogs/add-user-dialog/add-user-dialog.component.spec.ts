@@ -9,7 +9,7 @@ describe('AddUserDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ AddUserDialogComponent ]
+      imports: [ AddUserDialogComponent ]
     })
     .compileComponents();
   }));
