@@ -1,0 +1,68 @@
+// Bootstrap is compiled from source rather than loaded from bootstrap/dist/css: the prebuilt file
+// carries vendor prefixes for Bootstrap's own browser targets, 36 of them -moz-column-gap
+// declarations that Firefox reports as warnings. Built here, prefixes follow this project's
+// browserslist instead.
+//
+// The UI was laid out against Bootstrap 4, and Bootstrap 5 changed a number of defaults underneath
+// it. The settings and rules below restore those, so the upgrade does not change how the app looks
+// or behaves. Removing one adopts the Bootstrap 5 default it was holding back.
+//
+// This file loads after styles.scss (see angular.json), so these rules win over it at equal
+// specificity, as Bootstrap 4 did.
+@use "bootstrap/scss/bootstrap" with (
+  // Every Material component without its own typography inherits the body font, so 5.x putting
+  // system-ui first changed the font across the whole app on Linux.
+  $font-family-sans-serif: (-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"),
+
+  // 5.x underlines links until hovered and uses a different blue.
+  $link-color: #007bff,
+  $link-hover-color: #0056b3,
+  $link-decoration: none,
+  $link-hover-decoration: underline,
+  $code-color: #e83e8c,
+
+  // 5.x scrolls smoothly. The media library restores its scroll position with window.scrollTo and
+  // then measures where the cards landed, which a scroll still animating would throw off.
+  $enable-smooth-scroll: false,
+
+  // 5.x scales headings down below 1200px, shrinking settings section titles on phones.
+  $enable-rfs: false,
+
+  // Gutters went from 30px to 24px.
+  $grid-gutter-width: 30px,
+
+  // 5.x added a 1320px step at 1400px, which fits a fifth card into each library row. Leaving xxl
+  // out keeps containers at the xl width from there up, and only drops .container-xxl.
+  $container-max-widths: (sm: 540px, md: 720px, lg: 960px, xl: 1140px),
+);
+
+// 4.x positioned columns, which the library's download spinner is placed against.
+.col,
+[class^="col-"],
+[class*=" col-"] {
+  position: relative;
+  min-height: 1px;
+}
+
+// 5.x gives every child of .row a column's gutters and full width, not just .col* elements. The
+// library filter chips sit directly in a .row and were pushed full width by it.
+.row > :where(:not(.col, [class^="col-"], [class*=" col-"])) {
+  flex-shrink: 1;
+  width: auto;
+  max-width: none;
+  padding-right: 0;
+  padding-left: 0;
+  margin-top: 0;
+}
+
+// 5.x paints table cells with the page background and text colour, which turns them white in the
+// dark theme. 4.x left them transparent, padded them more, and ruled them above rather than below.
+.table td,
+.table th {
+  padding: .75rem;
+  color: inherit;
+  background-color: transparent;
+  border-top-width: 1px;
+  border-bottom-width: 0;
+  box-shadow: none;
+}
