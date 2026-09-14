@@ -1,6 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, Input, EventEmitter, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
-import { trigger, transition, animateChild, stagger, query, style, animate } from '@angular/animations';
 import { Router } from '@angular/router';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';

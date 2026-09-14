@@ -10,8 +10,7 @@ import { DatePipe } from '@angular/common';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Router, UrlSerializer } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { provideNativeDateAdapter } from '@angular/material/core';
+import { MATERIAL_ANIMATIONS, provideNativeDateAdapter } from '@angular/material/core';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
@@ -209,17 +208,15 @@ function createActivatedRouteStub() {
  * TestBed.configureTestingModule with the stubs every component spec depends on. Components
  * are standalone, so a spec imports its component and gets that component's own template
  * dependencies. The root providers mirror app.config.ts where a template needs them (the
- * datepicker's DateAdapter). Unknown elements and properties stay tolerated for specs that
- * render a host template of their own.
+ * datepicker's DateAdapter), and Material animations are disabled. Unknown elements and
+ * properties stay tolerated for specs that render a host template of their own.
  */
 export function configureTestBed(moduleDef: any = {}) {
   return TestBed.configureTestingModule({
     ...moduleDef,
-    imports: [
-      NoopAnimationsModule,
-      ...(moduleDef.imports || [])
-    ],
+    imports: [...(moduleDef.imports || [])],
     providers: [
+      { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       provideNativeDateAdapter(),
       { provide: PostsService, useValue: createPostsServiceStub() },
       { provide: MatDialogRef, useValue: createUniversalStub() },
