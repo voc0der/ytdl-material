@@ -55,7 +55,6 @@
     "passport-local": "^1.0.0",
     "pg": "^8.23.0",
     "progress": "^2.0.3",
-    "ps-node": "^0.1.6",
     "rate-limit-redis": "^6.0.0",
     "read-last-lines": "^1.8.0",
     "redis": "^6.2.1",

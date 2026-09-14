@@ -26,7 +26,6 @@ const fetch = globalThis.fetch;
 const URL = require('url').URL;
 const CONSTS = require('./consts')
 const read_last_lines = require('read-last-lines');
-const ps = require('ps-node');
 const mime = require('mime-types');
 
 const logger = require('./logger');
@@ -714,44 +713,6 @@ async function getLatestVersion() {
     return json['tag_name'];
 }
 
-async function killAllDownloads() {
-    const lookupAsync = promisify(ps.lookup);
-    let resultList = null;
-
-    try {
-        resultList = await lookupAsync({
-            command: 'youtube-dl'
-        });
-    } catch (err) {
-        // failed to get list of processes
-        logger.error('Failed to get a list of running youtube-dl processes.');
-        logger.error(err);
-        return {
-            details: err,
-            success: false
-        };
-    }
-
-    // processes that contain the string 'youtube-dl' in the name will be looped
-    resultList.forEach(function( process ){
-        if (process) {
-            ps.kill(process.pid, 'SIGKILL', function( err ) {
-                if (err) {
-                    // failed to kill, process may have ended on its own
-                    logger.warn(`Failed to kill process with PID ${process.pid}`);
-                    logger.warn(err);
-                }
-                else {
-                    logger.verbose(`Process ${process.pid} has been killed!`);
-                }
-            });
-        }
-    });
-
-    return {
-        success: true
-    };
-}
 
 async function setPortItemFromENV() {
     config_api.setConfigItem('ytdl_port', backendPort.toString());
@@ -1356,7 +1317,7 @@ app.post('/api/downloadFile', optionalJwt, requireAuthenticated, async function(
 });
 
 app.post('/api/killAllDownloads', optionalJwt, requireAdmin, async function(req, res) {
-    const result_obj = await killAllDownloads();
+    const result_obj = await youtubedl_api.killAllDownloads();
     res.send(result_obj);
 });
 
