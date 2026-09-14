@@ -23,16 +23,17 @@ describe('saveBlob', () => {
 
   it('clicks a download link for the blob and removes it', () => {
     const blob = new Blob(['data'], { type: 'text/plain' });
-    let clicked: HTMLAnchorElement | null = null;
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-      clicked = this;
-      expect(this.isConnected).toBe(true);
+    let connectedWhenClicked = false;
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      connectedWhenClicked = this.isConnected;
     });
 
     saveBlob(blob, 'archive.txt');
 
     expect(createObjectURL).toHaveBeenCalledWith(blob);
-    expect(clicked).not.toBeNull();
+    expect(click).toHaveBeenCalledTimes(1);
+    const clicked = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(connectedWhenClicked).toBe(true);
     expect(clicked.href).toBe('blob:test-url');
     expect(clicked.download).toBe('archive.txt');
     expect(clicked.isConnected).toBe(false);
