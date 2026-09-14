@@ -1731,7 +1731,7 @@ exports.applyFilterLocalDB = (db_path, filter_obj, operation) => {
             } else {
                 if (typeof filter_prop_value === 'object') {
                     const record_value = filter_prop.includes('.')
-                        ? utils.searchObjectByString(record, filter_prop)
+                        ? _.get(record, filter_prop)
                         : record[filter_prop];
                     if ('$regex' in filter_prop_value) {
                         filtered &= typeof record_value === 'string'
@@ -1752,7 +1752,7 @@ exports.applyFilterLocalDB = (db_path, filter_obj, operation) => {
                 } else {
                     // handle case of nested property check
                     if (filter_prop.includes('.'))
-                        filtered &= utils.searchObjectByString(record, filter_prop) === filter_prop_value;
+                        filtered &= _.get(record, filter_prop) === filter_prop_value;
                     else
                         filtered &= record[filter_prop] === filter_prop_value;
                 }
