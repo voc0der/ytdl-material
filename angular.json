@@ -43,8 +43,7 @@
             "optimization": false,
             "namedChunks": true,
             "allowedCommonJsDependencies": [
-              "rxjs",
-              "crypto-js"
+              "rxjs"
             ],
             "browser": "src/main.ts"
           },
