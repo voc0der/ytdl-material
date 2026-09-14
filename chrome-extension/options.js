@@ -7,9 +7,10 @@ function save_options() {
         audio_only: audio_only
     }, function() {
       // Update status to let user know options were saved.
-      $('#collapseExample').collapse('show');
+      var status = bootstrap.Collapse.getOrCreateInstance('#collapseExample', { toggle: false });
+      status.show();
       setTimeout(function() {
-        $('#collapseExample').collapse('hide');
+        status.hide();
       }, 2000);
     });
   }

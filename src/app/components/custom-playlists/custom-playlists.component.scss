@@ -16,3 +16,10 @@
 .small-col {
     max-width: 240px;
 }
+
+// Bootstrap 5 sizes columns with width instead of flex-basis, so a column no longer grows to fit a
+// card wider than its share of the row. Without this the cards overlap on narrow screens instead
+// of wrapping onto their own rows.
+.large-col, .medium-col, .small-col {
+    min-width: min-content;
+}
