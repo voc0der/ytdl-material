@@ -9,7 +9,7 @@ describe('NotificationsComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ NotificationsComponent ]
+      imports: [ NotificationsComponent ]
     })
     .compileComponents();
   }));

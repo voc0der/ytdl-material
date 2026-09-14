@@ -1,15 +1,21 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PostsService } from 'app/posts.services';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { MatButton } from '@angular/material/button';
+import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
 
 @Component({
     selector: 'app-share-media-dialog',
     templateUrl: './share-media-dialog.component.html',
     styleUrls: ['./share-media-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatCheckbox, FormsModule, MatFormField, MatLabel, MatInput, MatButton, CdkCopyToClipboard, MatDialogActions, MatDialogClose]
 })
 export class ShareMediaDialogComponent implements OnInit {
 

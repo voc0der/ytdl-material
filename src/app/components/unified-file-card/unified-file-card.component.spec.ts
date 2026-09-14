@@ -14,7 +14,7 @@ describe('UnifiedFileCardComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ UnifiedFileCardComponent ],
+      imports: [ UnifiedFileCardComponent ],
       providers: [
         { provide: MatDialog, useValue: {} }
       ],

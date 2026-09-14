@@ -8,13 +8,22 @@ import { Subscription, SubscriptionRefreshStatus } from 'api-types';
 import { saveBlob } from '../../utils/save-blob';
 import { Subscription as RxSubscription } from 'rxjs';
 import { filter, finalize, take } from 'rxjs/operators';
+import { MatIconButton, MatButton, MatFabButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatDivider } from '@angular/material/list';
+import { MatCard } from '@angular/material/card';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatChipSet, MatChip } from '@angular/material/chips';
+import { MediaLibraryComponent } from '../../components/media-library/media-library.component';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-subscription',
     templateUrl: './subscription.component.html',
     styleUrls: ['./subscription.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatIconButton, MatIcon, MatTooltip, MatDivider, MatCard, MatButton, MatProgressBar, MatChipSet, MatChip, MediaLibraryComponent, MatFabButton, MatProgressSpinner]
 })
 export class SubscriptionComponent implements OnInit, OnDestroy {
 

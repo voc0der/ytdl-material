@@ -1,12 +1,13 @@
 import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
+import { MatButton } from '@angular/material/button';
 
 @Component({
     selector: 'app-concurrent-stream',
     templateUrl: './concurrent-stream.component.html',
     styleUrls: ['./concurrent-stream.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatButton]
 })
 export class ConcurrentStreamComponent implements OnInit {
 

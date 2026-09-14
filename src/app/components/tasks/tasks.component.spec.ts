@@ -9,7 +9,7 @@ describe('TasksComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ TasksComponent ]
+      imports: [ TasksComponent ]
     })
     .compileComponents();
   });

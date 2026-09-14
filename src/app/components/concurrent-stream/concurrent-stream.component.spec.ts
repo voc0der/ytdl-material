@@ -9,7 +9,7 @@ describe('ConcurrentStreamComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ ConcurrentStreamComponent ]
+      imports: [ ConcurrentStreamComponent ]
     })
     .compileComponents();
   });

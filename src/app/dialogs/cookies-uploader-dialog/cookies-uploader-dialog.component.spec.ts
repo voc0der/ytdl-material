@@ -9,7 +9,7 @@ describe('CookiesUploaderDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ CookiesUploaderDialogComponent ]
+      imports: [ CookiesUploaderDialogComponent ]
     })
     .compileComponents();
   }));

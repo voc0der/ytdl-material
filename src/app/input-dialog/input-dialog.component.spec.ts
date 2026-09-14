@@ -9,7 +9,7 @@ describe('InputDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ InputDialogComponent ]
+      imports: [ InputDialogComponent ]
     })
     .compileComponents();
   }));

@@ -9,7 +9,7 @@ describe('UpdateTaskScheduleDialogComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ UpdateTaskScheduleDialogComponent ]
+      imports: [ UpdateTaskScheduleDialogComponent ]
     })
     .compileComponents();
   });

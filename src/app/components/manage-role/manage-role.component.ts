@@ -1,13 +1,18 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatListItemTitle, MatListItemLine } from '@angular/material/list';
+import { MatRadioGroup, MatRadioButton } from '@angular/material/radio';
+import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 @Component({
     selector: 'app-manage-role',
     templateUrl: './manage-role.component.html',
     styleUrls: ['./manage-role.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatListItemTitle, MatListItemLine, MatRadioGroup, FormsModule, MatRadioButton, MatDialogActions, MatButton, MatDialogClose]
 })
 export class ManageRoleComponent implements OnInit {
 

@@ -9,7 +9,7 @@ describe('SortPropertyComponent', () => {
 
  beforeEach(async () => {
   await configureTestBed({
-   declarations: [SortPropertyComponent]
+   imports: [SortPropertyComponent]
   })
    .compileComponents();
 

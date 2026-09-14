@@ -2,13 +2,21 @@ import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from '../../posts.services';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { NgStyle } from '@angular/common';
+import { MatMiniFabButton, MatButton } from '@angular/material/button';
+import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
+import { MatIcon } from '@angular/material/icon';
+import { MatFormField } from '@angular/material/input';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { FormsModule } from '@angular/forms';
 
 @Component({
     selector: 'app-logs-viewer',
     templateUrl: './logs-viewer.component.html',
     styleUrls: ['./logs-viewer.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatProgressSpinner, NgStyle, MatMiniFabButton, CdkCopyToClipboard, MatIcon, MatFormField, MatSelect, FormsModule, MatOption, MatButton]
 })
 export class LogsViewerComponent implements OnInit {
 

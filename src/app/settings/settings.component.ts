@@ -5,10 +5,10 @@ import {DomSanitizer} from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
 import { CURRENT_VERSION } from 'app/consts';
-import { MatCheckboxChange } from '@angular/material/checkbox';
+import { MatCheckboxChange, MatCheckbox } from '@angular/material/checkbox';
 import { CookiesUploaderDialogComponent } from 'app/dialogs/cookies-uploader-dialog/cookies-uploader-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { moveItemInArray, CdkDragDrop } from '@angular/cdk/drag-drop';
+import { moveItemInArray, CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder } from '@angular/cdk/drag-drop';
 import { InputDialogComponent } from 'app/input-dialog/input-dialog.component';
 import { EditCategoryDialogComponent } from 'app/dialogs/edit-category-dialog/edit-category-dialog.component';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,6 +16,19 @@ import { Category, DBInfoResponse } from 'api-types';
 import { GenerateRssUrlComponent } from 'app/dialogs/generate-rss-url/generate-rss-url.component';
 import { filter, take } from 'rxjs/operators';
 import { WebhookTemplateDialogComponent, WebhookTemplateDialogResult } from 'app/dialogs/webhook-template-dialog/webhook-template-dialog.component';
+import { MatTabGroup, MatTab, MatTabContent, MatTabLabel } from '@angular/material/tabs';
+import { MatFormField, MatLabel, MatInput, MatHint } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatDivider, MatList, MatListItem } from '@angular/material/list';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatIconButton, MatMiniFabButton, MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { UpdaterComponent } from '../updater/updater.component';
+import { ModifyUsersComponent } from '../components/modify-users/modify-users.component';
+import { LogsViewerComponent } from '../components/logs-viewer/logs-viewer.component';
+import { KeyValuePipe } from '@angular/common';
 
 type CookiesTestResponse = {
   success: boolean;
@@ -41,7 +54,7 @@ const YTDLP_UPDATE_CHANNELS = ['stable', 'nightly', 'master'];
     templateUrl: './settings.component.html',
     styleUrls: ['./settings.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatTabGroup, MatTab, MatTabContent, MatFormField, MatLabel, MatInput, FormsModule, MatHint, MatDivider, MatCheckbox, MatTooltip, MatSelect, MatOption, MatIconButton, MatIcon, CdkDropList, CdkDrag, CdkDragPlaceholder, MatMiniFabButton, MatButton, MatList, MatListItem, MatProgressSpinner, UpdaterComponent, MatTabLabel, ModifyUsersComponent, LogsViewerComponent, KeyValuePipe]
 })
 export class SettingsComponent implements OnInit {
   initial_config = null;

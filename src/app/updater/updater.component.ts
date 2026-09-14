@@ -3,6 +3,11 @@ import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 import { MatDialog } from '@angular/material/dialog';
 import { UpdateProgressDialogComponent } from 'app/dialogs/update-progress-dialog/update-progress-dialog.component';
+import { MatFormField } from '@angular/material/input';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 type ParsedReleaseVersion = {
   major: number;
@@ -16,7 +21,7 @@ type ParsedReleaseVersion = {
     templateUrl: './updater.component.html',
     styleUrls: ['./updater.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatFormField, MatSelect, FormsModule, MatOption, MatButton, MatIcon]
 })
 export class UpdaterComponent implements OnInit {
 

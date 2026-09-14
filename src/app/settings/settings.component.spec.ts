@@ -11,7 +11,7 @@ describe('SettingsComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [SettingsComponent]
+      imports: [SettingsComponent]
     })
       .compileComponents();
   }));

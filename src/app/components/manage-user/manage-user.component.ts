@@ -1,14 +1,20 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { User } from 'api-types';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatListItemTitle, MatListItemLine } from '@angular/material/list';
+import { MatRadioGroup, MatRadioButton } from '@angular/material/radio';
 
 @Component({
     selector: 'app-manage-user',
     templateUrl: './manage-user.component.html',
     styleUrls: ['./manage-user.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatButton, MatListItemTitle, MatListItemLine, MatRadioGroup, MatRadioButton, MatDialogActions, MatDialogClose]
 })
 export class ManageUserComponent implements OnInit {
 

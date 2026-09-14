@@ -1,15 +1,24 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { isoLangs } from './locales_list';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatDivider } from '@angular/material/list';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { DatePipe } from '@angular/common';
 
 @Component({
     selector: 'app-user-profile-dialog',
     templateUrl: './user-profile-dialog.component.html',
     styleUrls: ['./user-profile-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDivider, MatButton, MatIconButton, MatTooltip, MatIcon, MatFormField, MatLabel, MatInput, FormsModule, MatSelect, MatOption, MatDialogActions, MatDialogClose, DatePipe]
 })
 export class UserProfileDialogComponent implements OnInit {
 

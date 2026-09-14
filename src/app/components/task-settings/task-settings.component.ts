@@ -1,14 +1,20 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { Task, TaskType } from 'api-types';
 import { PostsService } from 'app/posts.services';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { OnlyNumberDirective } from '../../directives/only-number.directive';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatButton } from '@angular/material/button';
 
 @Component({
     selector: 'app-task-settings',
     templateUrl: './task-settings.component.html',
     styleUrls: ['./task-settings.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, OnlyNumberDirective, MatSuffix, MatCheckbox, MatDialogActions, MatButton, MatDialogClose]
 })
 export class TaskSettingsComponent {
   task_key: TaskType;

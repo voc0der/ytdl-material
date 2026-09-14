@@ -9,7 +9,7 @@ describe('ManageRoleComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ManageRoleComponent ]
+      imports: [ ManageRoleComponent ]
     })
     .compileComponents();
   }));

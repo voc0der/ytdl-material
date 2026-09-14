@@ -3,15 +3,18 @@ import { Router } from '@angular/router';
 import { PostsService } from 'app/posts.services';
 import { Notification, NotificationType } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
-import { MatChipListboxChange } from '@angular/material/chips';
+import { MatChipListboxChange, MatChipListbox, MatChipOption } from '@angular/material/chips';
 import { filter, take } from 'rxjs/operators';
+import { NotificationsListComponent } from '../notifications-list/notifications-list.component';
+import { MatButton } from '@angular/material/button';
+import { KeyValuePipe } from '@angular/common';
 
 @Component({
     selector: 'app-notifications',
     templateUrl: './notifications.component.html',
     styleUrls: ['./notifications.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatChipListbox, MatChipOption, NotificationsListComponent, MatButton, KeyValuePipe]
 })
 export class NotificationsComponent implements OnInit {
 

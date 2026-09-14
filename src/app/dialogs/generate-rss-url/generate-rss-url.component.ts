@@ -3,13 +3,22 @@ import { Router, UrlSerializer } from '@angular/router';
 import { Sort } from 'api-types';
 import { PostsService } from 'app/posts.services';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput, MatHint, MatSuffix } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { SortPropertyComponent } from '../../components/sort-property/sort-property.component';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
     selector: 'app-generate-rss-url',
     templateUrl: './generate-rss-url.component.html',
     styleUrls: ['./generate-rss-url.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatHint, MatSelect, MatOption, SortPropertyComponent, MatCheckbox, MatButton, MatIconButton, MatSuffix, MatIcon, MatDialogActions, MatDialogClose]
 })
 export class GenerateRssUrlComponent {
   titleFilter = '';

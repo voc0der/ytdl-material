@@ -1,15 +1,20 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { UntypedFormControl } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions } from '@angular/material/dialog';
+import { UntypedFormControl, FormsModule } from '@angular/forms';
 import { PostsService } from 'app/posts.services';
 import { Playlist } from 'api-types';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { MediaLibraryComponent } from '../components/media-library/media-library.component';
+import { MatButton } from '@angular/material/button';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-create-playlist',
     templateUrl: './create-playlist.component.html',
     styleUrls: ['./create-playlist.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, FormsModule, MatFormField, MatLabel, MatInput, MediaLibraryComponent, MatDialogActions, MatButton, MatProgressSpinner]
 })
 export class CreatePlaylistComponent implements OnInit {
   // really "createAndModifyPlaylistDialogComponent"

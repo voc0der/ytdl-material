@@ -9,7 +9,7 @@ describe('ConfirmDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ConfirmDialogComponent ]
+      imports: [ ConfirmDialogComponent ]
     })
     .compileComponents();
   }));

@@ -9,7 +9,7 @@ describe('EditCategoryDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ EditCategoryDialogComponent ]
+      imports: [ EditCategoryDialogComponent ]
     })
     .compileComponents();
   }));

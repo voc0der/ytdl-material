@@ -45,7 +45,7 @@ describe('VideoInfoDialogComponent', () => {
     };
 
     configureTestBed({
-      declarations: [VideoInfoDialogComponent],
+      imports: [VideoInfoDialogComponent],
       providers: [
         DatePipe,
         { provide: PostsService, useValue: postsServiceStub },

@@ -1,16 +1,25 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { filesize } from 'filesize';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { Category, DatabaseFile } from 'api-types';
-import { DatePipe } from '@angular/common';
+import { DatePipe, KeyValuePipe } from '@angular/common';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatDatepickerInput, MatDatepickerToggle, MatDatepicker } from '@angular/material/datepicker';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatDivider } from '@angular/material/list';
+import { MatTooltip } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-video-info-dialog',
     templateUrl: './video-info-dialog.component.html',
     styleUrls: ['./video-info-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, MatIconButton, MatIcon, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatSuffix, MatDatepickerInput, MatDatepickerToggle, MatDatepicker, MatSelect, MatOption, MatDivider, MatDialogActions, MatButton, MatDialogClose, MatTooltip, KeyValuePipe]
 })
 export class VideoInfoDialogComponent implements OnInit {
   file: DatabaseFile;

@@ -4,9 +4,9 @@ import { Router } from '@angular/router';
 import { Category, DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort, Subscription } from 'api-types';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
-import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { MatChipListboxChange } from '@angular/material/chips';
-import { MatSelectionListChange } from '@angular/material/list';
+import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
+import { MatChipListboxChange, MatChipListbox, MatChipOption } from '@angular/material/chips';
+import { MatSelectionListChange, MatSelectionList, MatListOption } from '@angular/material/list';
 import { saveBlob } from '../../utils/save-blob';
 import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
@@ -17,6 +17,20 @@ import {
   MediaLibraryRestoreState,
   PLAYER_NAVIGATOR_STORAGE_KEY
 } from 'app/media-library-navigation-state.service';
+import { NgTemplateOutlet, NgClass, DatePipe } from '@angular/common';
+import { SortPropertyComponent } from '../sort-property/sort-property.component';
+import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
+import { UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatSelect, MatSelectTrigger, MatOption } from '@angular/material/select';
+import { MatPaginator } from '@angular/material/paginator';
+import { MatTabGroup, MatTab } from '@angular/material/tabs';
+import { MatButtonToggleGroup, MatButtonToggle } from '@angular/material/button-toggle';
+import { ContentLoaderModule } from '@ngneat/content-loader';
+
 
 type PageSizeOption = number | 'auto';
 interface MediaLibraryRow<T> {
@@ -36,7 +50,7 @@ interface MediaLibraryFilter {
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgTemplateOutlet, SortPropertyComponent, MatFormField, NgClass, MatLabel, MatInput, FormsModule, MatIcon, MatSuffix, UnifiedFileCardComponent, MatProgressSpinner, MatButton, MatChipListbox, MatChipOption, MatSelect, MatSelectTrigger, MatOption, MatPaginator, MatTabGroup, MatTab, MatIconButton, MatButtonToggleGroup, CdkDropList, MatButtonToggle, CdkDrag, MatSelectionList, MatListOption, ContentLoaderModule, DatePipe]
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'media_library_page_size';

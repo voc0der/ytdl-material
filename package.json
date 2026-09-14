@@ -32,7 +32,6 @@
     "@angular/localize": "^22.1.2",
     "@angular/material": "^22.1.0",
     "@angular/platform-browser": "^22.1.2",
-    "@angular/platform-browser-dynamic": "^22.1.2",
     "@angular/router": "^22.1.2",
     "@ngneat/content-loader": "^7.0.0",
     "@videogular/ngx-videogular": "^20.0.0",

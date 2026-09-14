@@ -1,8 +1,8 @@
 import { Component, EventEmitter, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatSort, MatSortHeader } from '@angular/material/sort';
+import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { RestoreDbDialogComponent } from 'app/dialogs/restore-db-dialog/restore-db-dialog.component';
 import { UpdateTaskScheduleDialogComponent } from 'app/dialogs/update-task-schedule-dialog/update-task-schedule-dialog.component';
@@ -11,13 +11,18 @@ import { Task, TaskType } from 'api-types';
 import { TaskSettingsComponent } from '../task-settings/task-settings.component';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { filter, take } from 'rxjs/operators';
+import { NgClass, DatePipe } from '@angular/common';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton, MatIconButton } from '@angular/material/button';
 
 @Component({
     selector: 'app-tasks',
     templateUrl: './tasks.component.html',
     styleUrls: ['./tasks.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgClass, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, MatTooltip, MatProgressSpinner, MatIcon, MatButton, MatIconButton, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, DatePipe]
 })
 export class TasksComponent implements OnInit {
 

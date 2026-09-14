@@ -1,13 +1,15 @@
 import { Component, ElementRef, Input, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren, ChangeDetectionStrategy } from '@angular/core';
 import { DatabaseFile } from 'api-types';
 import { PostsService } from 'app/posts.services';
+import { MatButton } from '@angular/material/button';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-twitch-chat',
     templateUrl: './twitch-chat.component.html',
     styleUrls: ['./twitch-chat.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatButton, MatProgressSpinner]
 })
 export class TwitchChatComponent implements OnInit, OnDestroy {
 

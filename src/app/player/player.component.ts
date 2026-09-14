@@ -1,9 +1,9 @@
 import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
-import { VgApiService } from '@videogular/ngx-videogular/core';
+import { VgApiService, VgCoreModule } from '@videogular/ngx-videogular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
 import { ShareMediaDialogComponent } from '../dialogs/share-media-dialog/share-media-dialog.component';
 import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../api-types';
 import { TwitchChatComponent } from 'app/components/twitch-chat/twitch-chat.component';
@@ -13,6 +13,19 @@ import { saveBlob } from '../utils/save-blob';
 import { filesize } from 'filesize';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
+import { NgClass } from '@angular/common';
+import { MatDrawerContainer, MatDrawer } from '@angular/material/sidenav';
+import { MatIcon } from '@angular/material/icon';
+import { MatSlider, MatSliderRangeThumb } from '@angular/material/slider';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { SeeMoreComponent } from '../components/see-more/see-more.component';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatButtonToggleGroup, MatButtonToggle } from '@angular/material/button-toggle';
+import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
+import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
+
 
 export interface IMedia {
   title: string;
@@ -54,7 +67,7 @@ const THEATER_TOOLBAR_HIDE_DELAY_MS = 2000;
     templateUrl: './player.component.html',
     styleUrls: ['./player.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgClass, MatDrawerContainer, VgCoreModule, MatIcon, MatSlider, MatSliderRangeThumb, MatProgressBar, MatButton, MatTooltip, SeeMoreComponent, MatIconButton, MatProgressSpinner, MatButtonToggleGroup, CdkDropList, CdkDrag, MatButtonToggle, ConcurrentStreamComponent, MatDrawer, TwitchChatComponent_1]
 })
 export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 

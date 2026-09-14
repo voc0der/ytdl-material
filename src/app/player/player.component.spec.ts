@@ -55,7 +55,7 @@ describe('PlayerComponent', () => {
     };
 
     configureTestBed({
-      declarations: [PlayerComponent],
+      imports: [PlayerComponent],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: MatDialog, useValue: matDialogStub },

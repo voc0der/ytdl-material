@@ -9,7 +9,7 @@ describe('SetDefaultAdminDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ SetDefaultAdminDialogComponent ]
+      imports: [ SetDefaultAdminDialogComponent ]
     })
     .compileComponents();
   }));

@@ -3,23 +3,30 @@ import { PostsService } from 'app/posts.services';
 import { trigger, transition, animateChild, stagger, query, style, animate } from '@angular/animations';
 import { Router } from '@angular/router';
 import { MatPaginator, PageEvent } from '@angular/material/paginator';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { MatSort } from '@angular/material/sort';
+import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Download, GetAllDownloadsResponse, RestartDownloadResponse, SuccessObject } from 'api-types';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
+import { NgClass, NgStyle, DatePipe } from '@angular/common';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatIcon } from '@angular/material/icon';
+import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
+
 
 @Component({
     selector: 'app-downloads',
     templateUrl: './downloads.component.html',
     styleUrls: ['./downloads.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgClass, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, MatTooltip, MatButton, NgStyle, MatProgressSpinner, MatIconButton, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, DatePipe]
 })
 export class DownloadsComponent implements OnInit, OnDestroy {
 

@@ -9,7 +9,7 @@ describe('SeeMoreComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ SeeMoreComponent, LinkifyPipe ]
+      imports: [ SeeMoreComponent, LinkifyPipe ]
     })
     .compileComponents();
   }));

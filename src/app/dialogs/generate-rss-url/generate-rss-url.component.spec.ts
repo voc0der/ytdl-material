@@ -11,7 +11,7 @@ describe('GenerateRssUrlComponent', () => {
 
   beforeEach(async () => {
     await configureTestBed({
-      declarations: [ GenerateRssUrlComponent ],
+      imports: [ GenerateRssUrlComponent ],
       providers: [
         {
           provide: Router,

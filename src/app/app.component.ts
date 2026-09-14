@@ -2,10 +2,10 @@ import { Component, OnInit, ElementRef, ViewChild, HostBinding, AfterViewInit, O
 import {MatDialogRef} from '@angular/material/dialog';
 import {PostsService} from './posts.services';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSidenav } from '@angular/material/sidenav';
-import { MatMenuTrigger } from '@angular/material/menu';
+import { MatSidenav, MatSidenavContainer, MatSidenavContent } from '@angular/material/sidenav';
+import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router, NavigationStart, NavigationEnd } from '@angular/router';
+import { Router, NavigationStart, NavigationEnd, RouterLink, RouterOutlet } from '@angular/router';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { THEMES_CONFIG } from '../themes';
 import { SettingsComponent } from './settings/settings.component';
@@ -18,6 +18,15 @@ import { PlaylistDownloadProgressDialogComponent } from './dialogs/playlist-down
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from './media-library-navigation-state.service';
+import { MatToolbar } from '@angular/material/toolbar';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatBadge } from '@angular/material/badge';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatNavList, MatListItem, MatDivider } from '@angular/material/list';
+import { AvatarComponent } from 'ngx-avatars';
 
 @Component({
     selector: 'app-root',
@@ -28,7 +37,7 @@ import { PLAYER_NAVIGATOR_STORAGE_KEY } from './media-library-navigation-state.s
             useValue: {}
         }],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatToolbar, MatIconButton, MatIcon, RouterLink, MatMenuTrigger, MatBadge, MatMenu, MatTooltip, MatProgressBar, MatMenuItem, NotificationsComponent, MatSlideToggle, MatSidenavContainer, MatSidenav, MatNavList, MatListItem, MatDivider, AvatarComponent, MatSidenavContent, RouterOutlet]
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 

@@ -4,13 +4,19 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
 import { filter, take } from 'rxjs/operators';
+import { MatCard } from '@angular/material/card';
+import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatButton } from '@angular/material/button';
+import { MatTabGroup, MatTab } from '@angular/material/tabs';
+import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
 
 @Component({
     selector: 'app-login',
     templateUrl: './login.component.html',
     styleUrls: ['./login.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatCard, MatProgressBar, MatButton, MatTabGroup, MatTab, MatFormField, MatLabel, MatInput, FormsModule]
 })
 export class LoginComponent implements OnInit {
 

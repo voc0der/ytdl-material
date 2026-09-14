@@ -8,13 +8,18 @@ import { SubscriptionInfoDialogComponent } from 'app/dialogs/subscription-info-d
 import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { Subscription } from 'api-types';
+import { MatDivider, MatNavList, MatListItem, MatListItemTitle, MatListItemMeta } from '@angular/material/list';
+import { MatIconButton, MatFabButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressBar } from '@angular/material/progress-bar';
 
 @Component({
     selector: 'app-subscriptions',
     templateUrl: './subscriptions.component.html',
     styleUrls: ['./subscriptions.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDivider, MatNavList, MatListItem, MatListItemTitle, MatListItemMeta, MatIconButton, MatTooltip, MatIcon, MatProgressBar, MatFabButton]
 })
 export class SubscriptionsComponent implements OnInit {
 

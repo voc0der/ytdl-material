@@ -1,7 +1,7 @@
 import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList, ChangeDetectionStrategy } from '@angular/core';
 import {PostsService} from '../posts.services';
 import { fromEvent, Subject } from 'rxjs';
-import {UntypedFormControl, Validators} from '@angular/forms';
+import { UntypedFormControl, Validators, FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { saveBlob } from '../utils/save-blob';
@@ -14,13 +14,26 @@ import { MediaLibraryComponent } from 'app/components/media-library/media-librar
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
 import { debounceTime, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
+import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
+import { NgClass } from '@angular/common';
+import { MatFormField, MatInput, MatSuffix, MatLabel, MatHint } from '@angular/material/input';
+import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
+import { MatIcon } from '@angular/material/icon';
+import { MatDivider } from '@angular/material/list';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MediaLibraryComponent as MediaLibraryComponent_1 } from '../components/media-library/media-library.component';
 
 @Component({
     selector: 'app-root',
     templateUrl: './main.component.html',
     styleUrls: ['./main.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatCard, NgClass, MatCardContent, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatCardActions, MatSelect, MatOption, MatTooltip, MatProgressSpinner, MatSuffix, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1]
 })
 export class MainComponent implements OnInit {
   youtubeAuthDisabledOverride = false;

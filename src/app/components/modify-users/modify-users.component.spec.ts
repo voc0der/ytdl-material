@@ -9,7 +9,7 @@ describe('ModifyUsersComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ ModifyUsersComponent ]
+      imports: [ ModifyUsersComponent ]
     })
     .compileComponents();
   }));

@@ -1,12 +1,18 @@
 import { Component, Input, EventEmitter, Output, ChangeDetectionStrategy } from '@angular/core';
 import { Sort } from 'api-types';
+import { MatFormField } from '@angular/material/input';
+import { MatSelect, MatOption } from '@angular/material/select';
+import { FormsModule } from '@angular/forms';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { KeyValuePipe } from '@angular/common';
 
 @Component({
     selector: 'app-sort-property',
     templateUrl: './sort-property.component.html',
     styleUrls: ['./sort-property.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatFormField, MatSelect, FormsModule, MatOption, MatIconButton, MatIcon, KeyValuePipe]
 })
 export class SortPropertyComponent {
   sortProperties = {

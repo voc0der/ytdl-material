@@ -8,13 +8,17 @@ import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/d
 import { saveBlob } from '../../utils/save-blob';
 import { filter, take } from 'rxjs/operators';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
+import { NgClass } from '@angular/common';
+import { UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
+import { MatFabButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
     selector: 'app-custom-playlists',
     templateUrl: './custom-playlists.component.html',
     styleUrls: ['./custom-playlists.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [NgClass, UnifiedFileCardComponent, MatFabButton, MatIcon]
 })
 export class CustomPlaylistsComponent implements OnInit {
 

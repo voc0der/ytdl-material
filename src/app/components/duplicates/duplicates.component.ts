@@ -1,19 +1,25 @@
 import { Component, HostListener, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
+import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { filter, take } from 'rxjs/operators';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { DuplicateGroup, DuplicateRemovalMode, PostsService } from 'app/posts.services';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+
+import { DatePipe } from '@angular/common';
 
 @Component({
     selector: 'app-duplicates',
     templateUrl: './duplicates.component.html',
     styleUrls: ['./duplicates.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, MatTooltip, MatProgressSpinner, MatIconButton, MatIcon, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, DatePipe]
 })
 export class DuplicatesComponent implements OnInit, OnDestroy {
   duplicate_groups: DuplicateGroup[] = [];

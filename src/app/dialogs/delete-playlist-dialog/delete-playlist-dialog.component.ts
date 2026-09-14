@@ -1,7 +1,9 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { take } from 'rxjs/operators';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatButton } from '@angular/material/button';
 
 export type DeletePlaylistDialogAction = 'playlist_only' | 'playlist_and_files';
 
@@ -10,7 +12,7 @@ export type DeletePlaylistDialogAction = 'playlist_only' | 'playlist_and_files';
     templateUrl: './delete-playlist-dialog.component.html',
     styleUrls: ['./delete-playlist-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDialogActions, MatButton, MatDialogClose]
 })
 export class DeletePlaylistDialogComponent {
   playlistName = $localize`this playlist`;

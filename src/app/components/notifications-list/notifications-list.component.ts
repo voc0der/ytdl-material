@@ -2,13 +2,19 @@ import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from 
 import { Notification } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
 import { NotificationType } from 'api-types/models/NotificationType';
+import { CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf } from '@angular/cdk/scrolling';
+import { MatCard, MatCardHeader, MatCardSubtitle, MatCardTitle, MatCardContent, MatCardActions } from '@angular/material/card';
+import { MatIconButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { DatePipe } from '@angular/common';
 
 @Component({
     selector: 'app-notifications-list',
     templateUrl: './notifications-list.component.html',
     styleUrls: ['./notifications-list.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf, MatCard, MatCardHeader, MatCardSubtitle, MatCardTitle, MatCardContent, MatCardActions, MatIconButton, MatTooltip, MatIcon, DatePipe]
 })
 export class NotificationsListComponent {
   @Input() notifications = null;

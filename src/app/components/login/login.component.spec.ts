@@ -9,7 +9,7 @@ describe('LoginComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ LoginComponent ]
+      imports: [ LoginComponent ]
     })
     .compileComponents();
   }));

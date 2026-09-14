@@ -1,17 +1,25 @@
 import { Component, OnInit, Inject, Pipe, PipeTransform, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { COMMA, ENTER } from '@angular/cdk/keycodes';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
-import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { UntypedFormControl } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialog, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
+import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
+import { UntypedFormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { args, ArgsByCategory, args_info } from './youtubedl_args';
 import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
-import { MatAutocompleteTrigger } from '@angular/material/autocomplete';
+import { MatAutocompleteTrigger, MatAutocomplete } from '@angular/material/autocomplete';
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { MatCard, MatCardContent } from '@angular/material/card';
+import { MatChipGrid, MatChipRow, MatChipRemove, MatChipInput } from '@angular/material/chips';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { MatFormField, MatInput, MatLabel } from '@angular/material/input';
+import { MatOption } from '@angular/material/select';
+import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { AsyncPipe, KeyValuePipe } from '@angular/common';
 
-@Pipe({
-    name: 'highlight',
-    standalone: false
-})
+@Pipe({ name: 'highlight' })
 export class HighlightPipe implements PipeTransform {
   transform(text: string, search): string {
     const pattern = search ? search
@@ -31,7 +39,7 @@ export class HighlightPipe implements PipeTransform {
     providers: [HighlightPipe],
     styleUrls: ['./arg-modifier-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    standalone: false
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatCard, MatCardContent, MatChipGrid, CdkDropList, MatChipRow, CdkDrag, MatTooltip, MatIcon, MatChipRemove, MatFormField, MatInput, FormsModule, MatAutocompleteTrigger, MatChipInput, ReactiveFormsModule, MatAutocomplete, MatOption, MatIconButton, MatLabel, MatMenu, MatMenuItem, MatMenuTrigger, MatButton, MatCheckbox, MatDialogActions, MatDialogClose, AsyncPipe, KeyValuePipe, HighlightPipe]
 })
 export class ArgModifierDialogComponent implements OnInit, AfterViewInit {
   myGroup = new UntypedFormControl();

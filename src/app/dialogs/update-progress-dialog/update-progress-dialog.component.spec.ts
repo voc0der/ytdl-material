@@ -9,7 +9,7 @@ describe('UpdateProgressDialogComponent', () => {
 
   beforeEach(waitForAsync(() => {
     configureTestBed({
-      declarations: [ UpdateProgressDialogComponent ]
+      imports: [ UpdateProgressDialogComponent ]
     })
     .compileComponents();
   }));
