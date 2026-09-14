@@ -66,7 +66,7 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
   }
 
   applyFilter(event: KeyboardEvent) {
-    let filterValue = (event.target as HTMLInputElement).value; // "as HTMLInputElement" is required: https://angular.io/guide/user-input#type-the-event
+    let filterValue = (event.target as HTMLInputElement).value; // event.target is only typed as EventTarget
     filterValue = filterValue.trim(); // Remove whitespace
     filterValue = filterValue.toLowerCase(); // Datasource defaults to lowercase matches
     this.dataSource.filter = filterValue;
