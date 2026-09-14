@@ -3,11 +3,14 @@
   "compilerOptions": {
     "outDir": "../out-tsc/app",
     "baseUrl": "",
-    "types": []
+    "typeRoots": [
+      "../node_modules/@types",
+      "../node_modules"
+    ],
+    "types": ["@angular/localize"]
   },
   "files": [
-    "main.ts",
-    "polyfills.ts"
+    "main.ts"
   ],
   "include": [
     "src/**/*.d.ts"

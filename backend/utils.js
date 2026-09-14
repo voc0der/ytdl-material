@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { v4: uuid } = require('uuid');
 const { Readable, pipeline } = require('stream');
 const { ZipArchive } = require('archiver');
-const ProgressBar = require('progress');
 const winston = require('winston');
 
 const config_api = require('./config');
@@ -532,7 +531,7 @@ exports.createEdgeNGrams = (str) => {
         return str.split(" ").reduce((ngrams, token) => {
             if (token.length > minGram) {
                 for (let i = minGram; i <= maxGram && i <= token.length; ++i) {
-                    ngrams = [...ngrams, token.substr(0, i)]
+                    ngrams = [...ngrams, token.slice(0, i)]
                 }
             } else {
                 ngrams = [...ngrams, token]
@@ -737,15 +736,7 @@ exports.checkExistsWithTimeout = async (filePath, timeout) => {
 
 // helper function to write an already-fetched response body to disk
 exports.writeFetchResponseToFile = async (res, fileStream, file_label) => {
-    var len;
-    len = parseInt(res.headers.get("Content-Length"), 10);
-
-    var bar = new ProgressBar(`  Downloading ${file_label} [:bar] :percent :etas`, {
-        complete: '=',
-        incomplete: ' ',
-        width: 20,
-        total: len
-    });
+    logger.verbose(`Downloading ${file_label}`);
 
     let bodyStream = res.body;
     if (!bodyStream) {
@@ -764,9 +755,6 @@ exports.writeFetchResponseToFile = async (res, fileStream, file_label) => {
         bodyStream.pipe(fileStream);
         bodyStream.on("error", (err) => {
           reject(err);
-        });
-        bodyStream.on('data', function (chunk) {
-            bar.tick(chunk.length);
         });
         fileStream.on("error", function(err) {
           reject(err);

@@ -13,7 +13,6 @@ const compression = require('compression');
 const multer  = require('multer');
 const express = require("express");
 const rateLimit = require('express-rate-limit');
-const bodyParser = require("body-parser");
 const { ZipArchive } = require('archiver');
 const unzipper = require('unzipper');
 const db_api = require('./db');
@@ -267,8 +266,8 @@ config_api.configExistsCheck();
 
 setAndLoadConfig();
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 // use passport
 app.use(auth_api.passport.initialize());

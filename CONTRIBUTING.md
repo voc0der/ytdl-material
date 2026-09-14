@@ -55,7 +55,7 @@ into the README. Nothing about this runs in CI — see the note at the end.
 | `backend/public/**` | The compiled frontend bundles, which would swamp everything else |
 | `backend/*.config.js` | Process-manager configuration, not application logic |
 
-Everything else counts, including `main.ts`, `polyfills.ts`, the environment files, and every
+Everything else counts, including `main.ts`, the environment files, and every
 untested component and backend module.
 
 ### Two things that make the number wrong if you ignore them
