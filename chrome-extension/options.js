@@ -1,13 +1,13 @@
 // Saves options to chrome.storage
 function save_options() {
-    var frontend_url = document.getElementById('frontend_url').value;
-    var audio_only = document.getElementById('audio_only').checked;
+    const frontend_url = document.getElementById('frontend_url').value;
+    const audio_only = document.getElementById('audio_only').checked;
     chrome.storage.sync.set({
         frontend_url: frontend_url,
         audio_only: audio_only
     }, function() {
       // Update status to let user know options were saved.
-      var status = bootstrap.Collapse.getOrCreateInstance('#collapseExample', { toggle: false });
+      const status = bootstrap.Collapse.getOrCreateInstance('#collapseExample', { toggle: false });
       status.show();
       setTimeout(function() {
         status.hide();

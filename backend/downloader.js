@@ -2148,8 +2148,8 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             const filepath_no_extension = utils.removeFileExtension(output_json['_filename']);
 
             const ext = type === 'audio' ? '.mp3' : '.mp4';
-            var full_file_path = filepath_no_extension + ext;
-            var file_name = filepath_no_extension.substring(fileFolderPath.length, filepath_no_extension.length);
+            const full_file_path = filepath_no_extension + ext;
+            const file_name = filepath_no_extension.substring(fileFolderPath.length, filepath_no_extension.length);
 
             if (type === 'video' && url.includes('twitch.tv/videos/') && url.split('twitch.tv/videos/').length > 1
                 && config_api.getConfigItem('ytdl_twitch_auto_download_chat')) {

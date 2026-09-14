@@ -8,7 +8,7 @@ async function recFindByExt(base,ext,files,result)
     result = result || []
 
     for (const file of files) {
-        var newbase = path.join(base,file)
+        const newbase = path.join(base,file)
         if ( (await fs.stat(newbase)).isDirectory() )
         {
             result = await recFindByExt(newbase,ext,await fs.readdir(newbase),result)

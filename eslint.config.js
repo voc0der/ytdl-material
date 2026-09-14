@@ -56,6 +56,10 @@ module.exports = [
       sourceType: 'commonjs',
       globals: globals.node,
     },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-var': 'error',
+    },
   },
   {
     files: ['backend/test/**/*.js'],

@@ -9,10 +9,10 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs-extra');
 const path = require('path');
 
-var LocalStrategy = require('passport-local').Strategy;
-var LdapStrategy = require('./ldap');
-var JwtStrategy = require('passport-jwt').Strategy,
-    ExtractJwt = require('passport-jwt').ExtractJwt;
+const LocalStrategy = require('passport-local').Strategy;
+const LdapStrategy = require('./ldap');
+const JwtStrategy = require('passport-jwt').Strategy;
+const ExtractJwt = require('passport-jwt').ExtractJwt;
 
 // other required vars
 let SERVER_SECRET = null;
@@ -400,7 +400,7 @@ exports.passport.use(new LocalStrategy({
     }
 ));
 
-var getLDAPConfiguration = function(req, callback) {
+const getLDAPConfiguration = function(req, callback) {
   const ldap_config = config_api.getConfigItem('ytdl_ldap_config');
   const opts = {server: ldap_config};
   callback(null, opts);
@@ -458,10 +458,10 @@ exports.returnAuthResponse = async function(req, res) {
  * middleware through res.locals
  **************************************/
 exports.ensureAuthenticatedElseError = (req, res, next) => {
-  var token = getToken(req.query);
+  const token = getToken(req.query);
   if( token ) {
     try {
-      var payload = jwt.verify(token, SERVER_SECRET);
+      const payload = jwt.verify(token, SERVER_SECRET);
       // console.log('payload: ' + JSON.stringify(payload));
       // check if user still exists in database if you'd like
       res.locals.user = payload.user;
@@ -699,7 +699,7 @@ exports.userPermissions = async function(user_uid) {
 
 function getToken(queryParams) {
   if (queryParams && queryParams.jwt) {
-    var parted = queryParams.jwt.split(' ');
+    const parted = queryParams.jwt.split(' ');
     if (parted.length === 2) {
       return parted[1];
     } else {

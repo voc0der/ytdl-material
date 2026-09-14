@@ -103,25 +103,25 @@ exports.getDownloadedFilesByType = async (basePath, type, full_metadata = false)
 
     let files = [];
     const ext = type === 'audio' ? 'mp3' : 'mp4';
-    var located_files = await exports.recFindByExt(basePath, ext);
+    const located_files = await exports.recFindByExt(basePath, ext);
     for (let i = 0; i < located_files.length; i++) {
         let file = located_files[i];
-        var file_path = file.substring(basePath.includes('\\') ? basePath.length+1 : basePath.length, file.length);
+        const file_path = file.substring(basePath.includes('\\') ? basePath.length+1 : basePath.length, file.length);
 
-        var stats = await fs.stat(file);
+        const stats = await fs.stat(file);
 
-        var id = file_path.substring(0, file_path.length-4);
-        var jsonobj = await exports.getJSONByType(type, id, basePath);
+        const id = file_path.substring(0, file_path.length-4);
+        const jsonobj = await exports.getJSONByType(type, id, basePath);
         if (!jsonobj) continue;
         if (full_metadata) {
             jsonobj['id'] = id;
             files.push(jsonobj);
             continue;
         }
-        var upload_date = exports.formatDateString(jsonobj.upload_date);
+        const upload_date = exports.formatDateString(jsonobj.upload_date);
 
-        var isaudio = type === 'audio';
-        var file_obj = new exports.File(id, jsonobj.title, jsonobj.thumbnail, isaudio, jsonobj.duration, jsonobj.webpage_url, jsonobj.uploader,
+        const isaudio = type === 'audio';
+        const file_obj = new exports.File(id, jsonobj.title, jsonobj.thumbnail, isaudio, jsonobj.duration, jsonobj.webpage_url, jsonobj.uploader,
                                 stats.size, file, upload_date, jsonobj.description, jsonobj.view_count, jsonobj.height, jsonobj.abr);
         files.push(file_obj);
     }
@@ -214,10 +214,10 @@ exports.createZipFile = async (zip_file_path, file_paths, options = {}) => {
 }
 
 exports.getJSONMp4 = (name, customPath) => {
-    var obj; // output
+    let obj; // output
     if (!customPath) customPath = config_api.getConfigItem('ytdl_video_folder_path');
-    var jsonPath = path.join(customPath, name + ".info.json");
-    var alternateJsonPath = path.join(customPath, name + ".mp4.info.json");
+    const jsonPath = path.join(customPath, name + ".info.json");
+    const alternateJsonPath = path.join(customPath, name + ".mp4.info.json");
     if (fs.existsSync(jsonPath))
     {
         obj = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -229,10 +229,10 @@ exports.getJSONMp4 = (name, customPath) => {
 }
 
 exports.getJSONMp3 = (name, customPath) => {
-    var obj;
+    let obj;
     if (!customPath) customPath = config_api.getConfigItem('ytdl_audio_folder_path');
-    var jsonPath = path.join(customPath, name + ".info.json");
-    var alternateJsonPath = path.join(customPath, name + ".mp3.info.json");
+    const jsonPath = path.join(customPath, name + ".info.json");
+    const alternateJsonPath = path.join(customPath, name + ".mp3.info.json");
     if (fs.existsSync(jsonPath)) {
         obj = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     }
@@ -708,8 +708,10 @@ exports.wait = async (ms) => {
 
 exports.checkExistsWithTimeout = async (filePath, timeout) => {
     return new Promise(function (resolve, reject) {
+        // Declared up front: the timer and access callbacks can run after fs.watch throws.
+        let watcher = null;
 
-        var timer = setTimeout(function () {
+        const timer = setTimeout(function () {
             if (watcher) watcher.close();
             reject(new Error('File did not exists and was not created during the timeout.'));
         }, timeout);
@@ -722,9 +724,9 @@ exports.checkExistsWithTimeout = async (filePath, timeout) => {
             }
         });
 
-        var dir = path.dirname(filePath);
-        var basename = path.basename(filePath);
-        var watcher = fs.watch(dir, function (eventType, filename) {
+        const dir = path.dirname(filePath);
+        const basename = path.basename(filePath);
+        watcher = fs.watch(dir, function (eventType, filename) {
             if (eventType === 'rename' && filename === basename) {
                 clearTimeout(timer);
                 if (watcher) watcher.close();

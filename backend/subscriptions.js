@@ -1187,10 +1187,10 @@ exports.deleteSubscriptionFile = async (sub, file, deleteForever, file_uid = nul
 
     let filePath = appendedBasePath;
     const ext = (sub.type && sub.type === 'audio') ? '.mp3' : '.mp4'
-    var jsonPath = path.join(__dirname,filePath,name+'.info.json');
-    var videoFilePath = path.join(__dirname,filePath,name+ext);
-    var imageFilePath = path.join(__dirname,filePath,name+'.jpg');
-    var altImageFilePath = path.join(__dirname,filePath,name+'.webp');
+    const jsonPath = path.join(__dirname,filePath,name+'.info.json');
+    const videoFilePath = path.join(__dirname,filePath,name+ext);
+    const imageFilePath = path.join(__dirname,filePath,name+'.jpg');
+    const altImageFilePath = path.join(__dirname,filePath,name+'.webp');
 
     const [jsonExists, videoFileExists, imageFileExists, altImageFileExists] = await Promise.all([
         fs.pathExists(jsonPath),
