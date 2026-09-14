@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { Subscription, SubscriptionRefreshStatus } from 'api-types';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 import { Subscription as RxSubscription } from 'rxjs';
 import { filter, finalize, take } from 'rxjs/operators';
 
@@ -151,7 +151,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       this.downloading = false;
       this.archiveDownloadSubscription = null;
       const blob: Blob = res;
-      saveAs(blob, zip_name + '.zip');
+      saveBlob(blob, zip_name + '.zip');
     }, err => {
       console.error(err);
       this.downloading = false;

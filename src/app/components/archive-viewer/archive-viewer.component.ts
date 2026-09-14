@@ -7,7 +7,7 @@ import { FileType } from 'api-types';
 import { Archive } from 'api-types/models/Archive';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { PostsService } from 'app/posts.services';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 import { NgxFileDropEntry } from 'ngx-file-drop';
 
 @Component({
@@ -145,7 +145,7 @@ export class ArchiveViewerComponent {
   downloadArchive(): void {
     this.postsService.downloadArchive(this.type === 'both' ? null : this.type, this.sub_id === 'none' ? null : this.sub_id).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, 'archive.txt');
+      saveBlob(blob, 'archive.txt');
     });
   }
 

@@ -9,7 +9,7 @@ import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../ap
 import { TwitchChatComponent } from 'app/components/twitch-chat/twitch-chat.component';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../utils/save-blob';
 import { filesize } from 'filesize';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
@@ -558,7 +558,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.downloading = false;
       this.playlistDownloadSubscription = null;
       const blob: Blob = res;
-      saveAs(blob, zipName + '.zip');
+      saveBlob(blob, zipName + '.zip');
     }, err => {
       console.error(err);
       this.downloading = false;
@@ -583,7 +583,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.postsService.downloadFileFromServer(uid, this.uuid).subscribe(res => {
       this.downloading = false;
       const blob: Blob = res;
-      saveAs(blob, filename + ext);
+      saveBlob(blob, filename + ext);
     }, err => {
       console.error(err);
       this.downloading = false;

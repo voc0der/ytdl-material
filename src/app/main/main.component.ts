@@ -4,7 +4,7 @@ import { fromEvent, Subject } from 'rxjs';
 import {UntypedFormControl, Validators} from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../utils/save-blob';
 import { YoutubeSearchService, Result } from '../youtube-search.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Platform } from '@angular/cdk/platform';
@@ -669,7 +669,7 @@ export class MainComponent implements OnInit {
     const ext = type === 'audio' ? 'mp3' : 'mp4'
     this.postsService.downloadFileFromServer(file.uid).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, decodeURIComponent(file.id) + `.${ext}`);
+      saveBlob(blob, decodeURIComponent(file.id) + `.${ext}`);
 
       if (!this.fileManagerEnabled) {
         // tell server to delete the file once downloaded
@@ -681,7 +681,7 @@ export class MainComponent implements OnInit {
   downloadPlaylist(playlist: Playlist): void {
     this.postsService.downloadPlaylistFromServer(playlist.id).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, playlist.name + '.zip');
+      saveBlob(blob, playlist.name + '.zip');
     });
 
   }

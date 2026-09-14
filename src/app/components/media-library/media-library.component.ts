@@ -7,7 +7,7 @@ import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxj
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatChipListboxChange } from '@angular/material/chips';
 import { MatSelectionListChange } from '@angular/material/list';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
@@ -1002,7 +1002,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.postsService.downloadFileFromServer(file.uid).subscribe(res => {
       this.downloading_content[file.uid] = false;
       const blob: Blob = res;
-      saveAs(blob, decodeURIComponent(name) + ext);
+      saveBlob(blob, decodeURIComponent(name) + ext);
 
       if (!this.postsService.config.Extra.file_manager_enabled && !file.sub_id) {
         // tell server to delete the file once downloaded
@@ -1831,7 +1831,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.postsService.downloadPlaylistFromServer(playlist_id).subscribe(res => {
       this.downloading_content[playlist_id] = false;
       const blob: Blob = res;
-      saveAs(blob, playlist_name + '.zip');
+      saveBlob(blob, playlist_name + '.zip');
     });
   }
 

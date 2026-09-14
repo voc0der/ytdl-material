@@ -3,7 +3,7 @@ import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dial
 import { PostsService } from 'app/posts.services';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 import { Subscription } from 'api-types';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 
 @Component({
     selector: 'app-subscription-info-dialog',
@@ -54,7 +54,7 @@ export class SubscriptionInfoDialogComponent implements OnInit {
   downloadArchive() {
     this.postsService.downloadArchive(null, this.sub.id).subscribe(res => {
       const blob: Blob = res;
-      saveAs(blob, 'archive.txt');
+      saveBlob(blob, 'archive.txt');
     });
   }
 

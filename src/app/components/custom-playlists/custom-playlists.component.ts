@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistResponse, Playlist } from 'api-types';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
-import { saveAs } from 'file-saver';
+import { saveBlob } from '../../utils/save-blob';
 import { filter, take } from 'rxjs/operators';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
@@ -89,7 +89,7 @@ export class CustomPlaylistsComponent implements OnInit {
     this.postsService.downloadPlaylistFromServer(playlist_id).subscribe(res => {
       this.downloading_content[playlist_id] = false;
       const blob: any = res;
-      saveAs(blob, playlist_name + '.zip');
+      saveBlob(blob, playlist_name + '.zip');
     });
 
   }
