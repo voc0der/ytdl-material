@@ -66,11 +66,11 @@ This writes build output to `backend/public`.
 
 Note: `npm start` in the repo root starts the Angular dev server (`ng serve`). To run the backend app, use `npm start --prefix backend`.
 
-### Angular 21 / Videogular install note
+### Peer dependency install note
 
-The repo currently uses Angular 21 and `@videogular/ngx-videogular@20`. Videogular 20 still declares Angular 20 peer ranges, so the repository includes a temporary `.npmrc` with `legacy-peer-deps=true`.
+The repo uses Angular 22, but three packages still declare older peer ranges: `@videogular/ngx-videogular` 20 (Angular 20), `ngx-avatars` (Angular 21), and `@angular/build` (Vitest 4, while the tests run on Vitest 5). The repository includes a temporary `.npmrc` with `legacy-peer-deps=true` so the install succeeds anyway.
 
-Keep this file when building locally or in Docker until Videogular publishes Angular 21 peer support.
+Keep this file when building locally or in Docker until those peer ranges catch up.
 
 ### Run backend
 
