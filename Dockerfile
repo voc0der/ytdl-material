@@ -36,11 +36,16 @@ RUN (groupadd -g $GID $USER || groupadd $USER) && \
 RUN mkdir /usr/local/nvm
 ENV PATH="/usr/local/nvm/current/bin:${PATH}"
 ENV NVM_DIR=/usr/local/nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-RUN . "$NVM_DIR/nvm.sh" && \
+# install.sh already installs NODE_VERSION because it is set. nvm keeps the downloaded
+# tarball in its cache, and Node ships C++ headers that are only needed to compile native
+# addons (nothing here does), so both are removed in this same layer or they stay in the image.
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash && \
+    . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
     nvm alias default v${NODE_VERSION} && \
+    nvm cache clear && \
+    rm -rf "$NVM_DIR"/versions/node/*/include && \
     rm -f "$NVM_DIR/current" && \
     ln -s "$(dirname "$(dirname "$(command -v node)")")" "$NVM_DIR/current"
 
@@ -58,16 +63,19 @@ RUN npm ci && \
 FROM base AS backend
 WORKDIR /app
 COPY [ "backend/","/app/" ]
+# npm_config_cache points inside /app, so the cache would be copied into the final image.
 RUN npm config set strict-ssl false && \
-    npm ci --omit=dev
+    npm ci --omit=dev && \
+    npm cache clean --force
 
 # Final image
 FROM base
 RUN command -v setpriv >/dev/null && \
     npm install -g pm2 && \
+    npm cache clean --force && \
     apt update && \
     apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
-    pip install --break-system-packages pycryptodomex && \
+    pip install --no-cache-dir --break-system-packages pycryptodomex && \
     apt remove -y --purge build-essential && \
     apt autoremove -y --purge && \
     apt clean && \
@@ -77,8 +85,8 @@ RUN command -v setpriv >/dev/null && \
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
 # Ensure yt-dlp and yt-dlp-ejs are up to date
-RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
-    pip install --upgrade yt-dlp yt-dlp-ejs
+RUN pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
+    pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
