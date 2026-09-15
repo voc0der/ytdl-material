@@ -1068,7 +1068,7 @@ async function getSubscriptionInfo(sub) {
         }
     }
 
-    // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+    // yt-dlp-ejs ships inside the yt-dlp binary (and is pip-installed with it in impersonation mode), so it is detected automatically
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
     let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig, null, downloader_fork);
@@ -1554,7 +1554,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
     if (default_downloader === 'yt-dlp') {
         downloadConfig.push('--no-clean-info-json');
-        // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+        // yt-dlp-ejs ships inside the yt-dlp binary (and is pip-installed with it in impersonation mode), so it is detected automatically
         // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
     }
 

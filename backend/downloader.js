@@ -2501,7 +2501,7 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
             // in yt-dlp -j --no-simulate is preferable
             downloadConfig.push('--no-clean-info-json', '-j', '--no-simulate');
 
-            // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+            // yt-dlp-ejs ships inside the yt-dlp binary (and is pip-installed with it in impersonation mode), so it is detected automatically
             // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
         }
 
@@ -2598,7 +2598,7 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options 
         new_args.push('--cookies', path.join('appdata', 'cookies.txt'));
     }
 
-    // Note: yt-dlp-ejs is installed via pip and will be automatically detected
+    // yt-dlp-ejs ships inside the yt-dlp binary (and is pip-installed with it in impersonation mode), so it is detected automatically
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
     logger.debug(`About to call runYoutubeDL with args: ${utils.redactCommandArgsForLogging(new_args).join(' ')}`);

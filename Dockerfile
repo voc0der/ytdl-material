@@ -82,12 +82,10 @@ RUN command -v setpriv >/dev/null && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Deno system-wide for yt-dlp YouTube support
+# Install Deno system-wide as yt-dlp's JavaScript runtime. The yt-dlp-ejs scripts it runs
+# ship inside the downloaded yt-dlp binary, so no system-wide yt-dlp install is needed.
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
-# Ensure yt-dlp and yt-dlp-ejs are up to date
-RUN pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
-    pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # ffmpeg and ffprobe load their libraries from ../lib, so bin/ and lib/ land side by side.
 COPY --from=utils [ "/ffmpeg/bin/", "/usr/local/bin/" ]
