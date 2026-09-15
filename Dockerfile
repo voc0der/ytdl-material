@@ -65,8 +65,7 @@ FROM base AS backend
 WORKDIR /app
 COPY [ "backend/","/app/" ]
 # npm_config_cache points inside /app, so the cache would be copied into the final image.
-RUN npm config set strict-ssl false && \
-    npm ci --omit=dev && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Final image
