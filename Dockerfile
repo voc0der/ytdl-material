@@ -4,9 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Use script due local build compability
 COPY docker-utils/*.sh .
 RUN chmod +x *.sh
+# Running both binaries also proves they resolve their shared libraries.
 RUN sh ./ffmpeg-fetch.sh && \
-    test -x /usr/local/bin/ffmpeg && \
-    test -x /usr/local/bin/ffprobe
+    /ffmpeg/bin/ffmpeg -hide_banner -version >/dev/null && \
+    /ffmpeg/bin/ffprobe -hide_banner -version >/dev/null
 RUN sh ./fetch-twitchdownloader.sh
 
 
@@ -88,9 +89,10 @@ RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 RUN pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
     pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
+# ffmpeg and ffprobe load their libraries from ../lib, so bin/ and lib/ land side by side.
+COPY --from=utils [ "/ffmpeg/bin/", "/usr/local/bin/" ]
+COPY --from=utils [ "/ffmpeg/lib/", "/usr/local/lib/" ]
 # User 1000 already exist from base image
-COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
-COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffprobe", "/usr/local/bin/ffprobe" ]
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/TwitchDownloaderCLI", "/usr/local/bin/TwitchDownloaderCLI"]
 COPY --chown=$UID:$GID [ "Public API v1.yaml", "/app/Public API v1.yaml" ]
 COPY --chown=$UID:$GID --from=backend ["/app/","/app/"]

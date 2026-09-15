@@ -7,13 +7,18 @@ set -eu
 
 # amd64/arm64 use BtbN's GPL builds because they include the hardware encoders
 # (h264_amf, h264_nvenc, h264_qsv, h264_vaapi) needed for the ytdl_transcoding setting.
+#
+# These are the shared-library variants: same source, configuration and encoders as the
+# static builds, but the codec libraries are stored once under lib/ instead of being linked
+# into both ffmpeg and ffprobe. The binaries find them through an $ORIGIN/../lib rpath, so
+# bin/ and lib/ have to be installed next to each other.
 case $(uname -m) in
   x86_64)
     ARCH=amd64
-    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz";;
+    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-shared-9.0.tar.xz";;
   aarch64)
     ARCH=arm64
-    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linuxarm64-gpl-9.0.tar.xz";;
+    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linuxarm64-gpl-shared-9.0.tar.xz";;
   *)
     echo "Unsupported architecture: $(uname -m)"
     exit 1
@@ -36,16 +41,23 @@ tar xf ffmpeg.txz -C /tmp/ffmpeg
 echo "(3/5) CLEANUP - Remove temp dependencies from ffmpeg obtain layer"
 apt-get -y remove curl xz-utils
 apt-get -y autoremove
-echo "(4/5) PROVISION - Provide ffmpeg and ffprobe from ffmpeg obtain layer"
-FFMPEG_SRC="$(find /tmp/ffmpeg -type f -name ffmpeg | head -n 1)"
-FFPROBE_SRC="$(find /tmp/ffmpeg -type f -name ffprobe | head -n 1)"
-if [ -z "$FFMPEG_SRC" ] || [ -z "$FFPROBE_SRC" ]; then
-  echo "Could not locate ffmpeg/ffprobe in extracted archive."
+echo "(4/5) PROVISION - Stage ffmpeg, ffprobe and their shared libraries in /ffmpeg"
+FFMPEG_SRC="$(find /tmp/ffmpeg -type f -path '*/bin/ffmpeg' | head -n 1)"
+if [ -z "$FFMPEG_SRC" ]; then
+  echo "Could not locate ffmpeg in extracted archive."
   exit 1
 fi
-install -m 0755 "$FFMPEG_SRC" /usr/local/bin/ffmpeg
-install -m 0755 "$FFPROBE_SRC" /usr/local/bin/ffprobe
-test -x /usr/local/bin/ffmpeg
-test -x /usr/local/bin/ffprobe
+FFMPEG_ROOT="$(dirname "$(dirname "$FFMPEG_SRC")")"
+if [ ! -f "$FFMPEG_ROOT/bin/ffprobe" ] || ! ls "$FFMPEG_ROOT"/lib/*.so.* >/dev/null 2>&1; then
+  echo "Could not locate ffprobe and the shared libraries in extracted archive."
+  exit 1
+fi
+install -d /ffmpeg/bin /ffmpeg/lib
+install -m 0755 "$FFMPEG_ROOT/bin/ffmpeg" "$FFMPEG_ROOT/bin/ffprobe" /ffmpeg/bin/
+# The versioned objects and their soname links are all the binaries load. The unversioned
+# .so links, headers, pkg-config files, ffplay, docs and man pages are left behind.
+cp -P "$FFMPEG_ROOT"/lib/*.so.* /ffmpeg/lib/
+test -x /ffmpeg/bin/ffmpeg
+test -x /ffmpeg/bin/ffprobe
 echo "(5/5) CLEANUP - Remove temporary downloads from ffmpeg obtain layer"
 rm -rf /tmp/ffmpeg ffmpeg.txz
