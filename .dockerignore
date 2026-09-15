@@ -1,11 +1,33 @@
 .git
 .github
+backend/test
+docker-utils/container-repro.sh
+
+# Bind-mount directories created next to docker-compose.yml.
 db
 appdata
 audio
 video
 subscriptions
 users
-backend/test
-backend/tmp-progress-sanitize
-docker-utils/container-repro.sh
+
+# Local development state. The backend stage copies all of backend/, so anything a dev
+# checkout accumulates there (dependencies, coverage, a previous frontend build, the local
+# database, cookies, downloads) would otherwise end up in a locally built image. Tracked
+# placeholders are re-included so the result matches a clean checkout.
+backend/node_modules
+backend/public
+backend/coverage
+backend/coverage-run.log
+backend/users
+backend/db.json
+backend/*.exe
+backend/appdata/*
+!backend/appdata/default.json
+backend/audio/*
+!backend/audio/.gitignore
+backend/video/*
+!backend/video/.gitignore
+backend/subscriptions/*
+!backend/subscriptions/channels/.gitignore
+!backend/subscriptions/playlists/.gitignore

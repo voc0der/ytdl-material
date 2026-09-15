@@ -36,17 +36,16 @@ RUN (groupadd -g $GID $USER || groupadd $USER) && \
 RUN mkdir /usr/local/nvm
 ENV PATH="/usr/local/nvm/current/bin:${PATH}"
 ENV NVM_DIR=/usr/local/nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-RUN apt update && \
-    apt install -y --no-install-recommends python3 python-is-python3 make g++ && \
+# install.sh already installs NODE_VERSION because it is set. nvm keeps the downloaded
+# tarball in its cache, and Node ships C++ headers that are only needed to compile native
+# addons (nothing here does), so both are removed in this same layer or they stay in the image.
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
     nvm alias default v${NODE_VERSION} && \
-    apt purge -y python3 python-is-python3 make g++ && \
-    apt autoremove -y --purge && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    nvm cache clear && \
+    rm -rf "$NVM_DIR"/versions/node/*/include && \
     rm -f "$NVM_DIR/current" && \
     ln -s "$(dirname "$(dirname "$(command -v node)")")" "$NVM_DIR/current"
 
@@ -64,27 +63,19 @@ RUN npm ci && \
 FROM base AS backend
 WORKDIR /app
 COPY [ "backend/","/app/" ]
+# npm_config_cache points inside /app, so the cache would be copied into the final image.
 RUN npm config set strict-ssl false && \
-    npm ci --omit=dev
-
-#FROM base as python
-# armv7 need build from source
-#WORKDIR /app
-#COPY docker-utils/GetTwitchDownloader.py .
-#RUN apt update && \
-#    apt install -y --no-install-recommends python3-minimal python-is-python3 python3-pip python3-dev build-essential libffi-dev && \
-#    apt clean && \
-#    rm -rf /var/lib/apt/lists/*
-#RUN pip install PyGithub requests
-#RUN python GetTwitchDownloader.py
+    npm ci --omit=dev && \
+    npm cache clean --force
 
 # Final image
 FROM base
 RUN command -v setpriv >/dev/null && \
     npm install -g pm2 && \
+    npm cache clean --force && \
     apt update && \
     apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
-    pip install --break-system-packages pycryptodomex && \
+    pip install --no-cache-dir --break-system-packages pycryptodomex && \
     apt remove -y --purge build-essential && \
     apt autoremove -y --purge && \
     apt clean && \
@@ -94,8 +85,8 @@ RUN command -v setpriv >/dev/null && \
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
 # Ensure yt-dlp and yt-dlp-ejs are up to date
-RUN pip install --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
-    pip install --upgrade yt-dlp yt-dlp-ejs
+RUN pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
+    pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
 # User 1000 already exist from base image
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
@@ -104,7 +95,6 @@ COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/TwitchDownloaderCLI", "/us
 COPY --chown=$UID:$GID [ "Public API v1.yaml", "/app/Public API v1.yaml" ]
 COPY --chown=$UID:$GID --from=backend ["/app/","/app/"]
 COPY --chown=$UID:$GID --from=frontend [ "/build/backend/public/", "/app/public/" ]
-#COPY --chown=$UID:$GID --from=python ["/app/TwitchDownloaderCLI","/usr/local/bin/TwitchDownloaderCLI"]
 RUN chmod +x /app/fix-scripts/*.sh && \
     mkdir -p /app/pm2 /app/.npm && \
     chmod 777 /app/pm2 /app/.npm
