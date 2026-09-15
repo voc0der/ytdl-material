@@ -4,9 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Use script due local build compability
 COPY docker-utils/*.sh .
 RUN chmod +x *.sh
+# Running both binaries also proves they resolve their shared libraries.
 RUN sh ./ffmpeg-fetch.sh && \
-    test -x /usr/local/bin/ffmpeg && \
-    test -x /usr/local/bin/ffprobe
+    /ffmpeg/bin/ffmpeg -hide_banner -version >/dev/null && \
+    /ffmpeg/bin/ffprobe -hide_banner -version >/dev/null
 RUN sh ./fetch-twitchdownloader.sh
 
 
@@ -64,8 +65,7 @@ FROM base AS backend
 WORKDIR /app
 COPY [ "backend/","/app/" ]
 # npm_config_cache points inside /app, so the cache would be copied into the final image.
-RUN npm config set strict-ssl false && \
-    npm ci --omit=dev && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Final image
@@ -81,16 +81,15 @@ RUN command -v setpriv >/dev/null && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Deno system-wide for yt-dlp YouTube support
+# Install Deno system-wide as yt-dlp's JavaScript runtime. The yt-dlp-ejs scripts it runs
+# ship inside the downloaded yt-dlp binary, so no system-wide yt-dlp install is needed.
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
 
-# Ensure yt-dlp and yt-dlp-ejs are up to date
-RUN pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs --break-system-packages || \
-    pip install --no-cache-dir --upgrade yt-dlp yt-dlp-ejs
 WORKDIR /app
+# ffmpeg and ffprobe load their libraries from ../lib, so bin/ and lib/ land side by side.
+COPY --from=utils [ "/ffmpeg/bin/", "/usr/local/bin/" ]
+COPY --from=utils [ "/ffmpeg/lib/", "/usr/local/lib/" ]
 # User 1000 already exist from base image
-COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffmpeg", "/usr/local/bin/ffmpeg" ]
-COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/ffprobe", "/usr/local/bin/ffprobe" ]
 COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/TwitchDownloaderCLI", "/usr/local/bin/TwitchDownloaderCLI"]
 COPY --chown=$UID:$GID [ "Public API v1.yaml", "/app/Public API v1.yaml" ]
 COPY --chown=$UID:$GID --from=backend ["/app/","/app/"]
