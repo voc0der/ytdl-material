@@ -37,16 +37,10 @@ RUN mkdir /usr/local/nvm
 ENV PATH="/usr/local/nvm/current/bin:${PATH}"
 ENV NVM_DIR=/usr/local/nvm
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
-RUN apt update && \
-    apt install -y --no-install-recommends python3 python-is-python3 make g++ && \
-    . "$NVM_DIR/nvm.sh" && \
+RUN . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
     nvm alias default v${NODE_VERSION} && \
-    apt purge -y python3 python-is-python3 make g++ && \
-    apt autoremove -y --purge && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/* && \
     rm -f "$NVM_DIR/current" && \
     ln -s "$(dirname "$(dirname "$(command -v node)")")" "$NVM_DIR/current"
 
@@ -66,17 +60,6 @@ WORKDIR /app
 COPY [ "backend/","/app/" ]
 RUN npm config set strict-ssl false && \
     npm ci --omit=dev
-
-#FROM base as python
-# armv7 need build from source
-#WORKDIR /app
-#COPY docker-utils/GetTwitchDownloader.py .
-#RUN apt update && \
-#    apt install -y --no-install-recommends python3-minimal python-is-python3 python3-pip python3-dev build-essential libffi-dev && \
-#    apt clean && \
-#    rm -rf /var/lib/apt/lists/*
-#RUN pip install PyGithub requests
-#RUN python GetTwitchDownloader.py
 
 # Final image
 FROM base
@@ -104,7 +87,6 @@ COPY --chown=$UID:$GID --from=utils [ "/usr/local/bin/TwitchDownloaderCLI", "/us
 COPY --chown=$UID:$GID [ "Public API v1.yaml", "/app/Public API v1.yaml" ]
 COPY --chown=$UID:$GID --from=backend ["/app/","/app/"]
 COPY --chown=$UID:$GID --from=frontend [ "/build/backend/public/", "/app/public/" ]
-#COPY --chown=$UID:$GID --from=python ["/app/TwitchDownloaderCLI","/usr/local/bin/TwitchDownloaderCLI"]
 RUN chmod +x /app/fix-scripts/*.sh && \
     mkdir -p /app/pm2 /app/.npm && \
     chmod 777 /app/pm2 /app/.npm

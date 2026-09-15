@@ -7,15 +7,6 @@ set -eu
 
 # amd64/arm64 use BtbN's GPL builds because they include the hardware encoders
 # (h264_amf, h264_nvenc, h264_qsv, h264_vaapi) needed for the ytdl_transcoding setting.
-# 32-bit ARM falls back to John van Sickle's static builds, which are software-only, so
-# ytdl_transcoding cannot work there regardless of how it is configured.
-#
-# These match `uname -m`, which reports the machine name (armv7l, armv6l) and never the
-# Debian port name -- so armhf/armel are only ever the names of the builds we fetch, never
-# values to match on. armv7 and up gets the hard-float armhf build; armv6 gets soft-float
-# armel. Unlike the BtbN URLs these are unversioned, because John van Sickle publishes no
-# archived URL for anything newer than 5.1.1. They currently serve 7.0.2 and have not
-# changed since August 2024, so the floating URL is stable in practice.
 case $(uname -m) in
   x86_64)
     ARCH=amd64
@@ -23,12 +14,6 @@ case $(uname -m) in
   aarch64)
     ARCH=arm64
     FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linuxarm64-gpl-9.0.tar.xz";;
-  armv7|armv7l|armv8l)
-    ARCH=armhf
-    FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${ARCH}-static.tar.xz";;
-  armv6l|arm)
-    ARCH=armel
-    FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-${ARCH}-static.tar.xz";;
   *)
     echo "Unsupported architecture: $(uname -m)"
     exit 1
