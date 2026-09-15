@@ -28,11 +28,13 @@
               "zone.js"
             ],
             "assets": [
-              "src/assets",
-              "src/favicon.ico",
-              "src/backend/audio",
-              "src/backend/video",
-              "src/backend"
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets",
+                "ignore": ["i18n/*.xlf"]
+              },
+              "src/favicon.ico"
             ],
             "styles": [
               "src/styles.scss",
@@ -57,6 +59,7 @@
               "outputHashing": "all",
               "namedChunks": false,
               "extractLicenses": true,
+              "sourceMap": false,
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
