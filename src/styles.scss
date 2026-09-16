@@ -267,6 +267,21 @@ app-player .player-page.theater-mode-active .player-toolbar-container {
   width: 100%;
 }
 
+app-player .player-page.theater-mode-active .media-info-row {
+  align-items: center;
+}
+
+app-player .player-page.theater-mode-active .media-description-column {
+  min-height: 0;
+  max-height: 48px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+app-player .player-page.theater-mode-active .media-description {
+  line-height: 1.2;
+}
+
 app-player .player-page.theater-mode-active .player-toolbar-section.theater-toolbar-visible {
   opacity: 1;
   pointer-events: auto;
@@ -279,10 +294,16 @@ app-player .player-page.theater-mode-active .player-toolbar-section mat-icon {
 }
 
 app-player .playlist-row {
+  align-items: center;
   display: flex;
   min-width: 0;
   position: relative;
   width: 100%;
+}
+
+app-player .playlist-row.current {
+  background-color: var(--mat-button-toggle-selected-state-background-color, var(--mat-sys-secondary-container));
+  color: var(--mat-button-toggle-selected-state-text-color, var(--mat-sys-on-secondary-container));
 }
 
 app-player .playlist-row .toggle-button {
@@ -291,21 +312,47 @@ app-player .playlist-row .toggle-button {
   width: 100%;
 }
 
+app-player .playlist-row.current .toggle-button {
+  background-color: transparent;
+}
+
 app-player .playlist-row + .playlist-row {
   border-top: solid 1px var(--mat-button-toggle-divider-color, var(--mat-sys-outline));
 }
 
 app-player .playlist-row.current .mat-button-toggle-label-content {
   padding-left: 48px;
-  padding-right: 48px;
+  padding-right: 16px;
 }
 
-app-player .playlist-autoplay-button {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
+app-player .playlist-row-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  padding: 0 4px;
+}
+
+app-player .playlist-row-actions .mat-mdc-icon-button {
+  --mdc-icon-button-state-layer-size: 40px;
+  height: 40px;
+  padding: 8px;
+  width: 40px;
+}
+
+@media (max-width: 767px) {
+  app-player .player-page:not(.theater-mode-active) .media-info-row {
+    flex-wrap: wrap;
+  }
+
+  app-player .player-page:not(.theater-mode-active) .media-description-column {
+    flex: 1 0 100%;
+    margin-top: 8px;
+    order: 1;
+  }
+
+  app-player .player-page:not(.theater-mode-active) .action-column {
+    margin-left: auto;
+  }
 }
 
 @media (hover: none), (pointer: coarse) {

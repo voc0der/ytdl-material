@@ -78,7 +78,7 @@
 }
 
 .media-info-row {
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: nowrap;
     width: 100%;
 }
@@ -86,6 +86,7 @@
 .view-column {
     align-items: center;
     display: flex;
+    min-height: 40px;
     padding-right: 0;
 }
 
@@ -107,16 +108,19 @@
 .chapter-column {
     align-items: center;
     display: flex;
+    min-height: 40px;
     padding-right: 0;
 }
 
 .media-description-column {
+    min-height: 7em;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .media-description {
     font-size: 0.9rem;
-    line-height: 1.2;
+    line-height: 1.4;
     margin: 0;
 }
 
@@ -273,9 +277,9 @@
     white-space: nowrap;
 }
 
-.watch-together-section {
-    padding-left: 12px;
-    padding-right: 12px;
+.player-playlist-section {
+    height: fit-content;
+    margin-top: 20px;
     width: 100%;
 }
 
@@ -365,11 +369,6 @@
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
-}
-
-.watch-together-section app-concurrent-stream {
-    display: block;
-    width: 100%;
 }
 
 .save-button {

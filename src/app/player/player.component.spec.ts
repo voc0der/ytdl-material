@@ -204,7 +204,7 @@ describe('PlayerComponent', () => {
     component.repeat_enabled = false;
     fixture.detectChanges();
 
-    const toggles = actionBarButtons().filter(button => button.classList.contains('playback-mode-button'));
+    const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
     const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
     // Idle toggles carry no marker at all, so they render at the same colour as the
@@ -220,14 +220,14 @@ describe('PlayerComponent', () => {
     component.repeat_enabled = false;
     fixture.detectChanges();
 
-    const toggles = actionBarButtons().filter(button => button.classList.contains('playback-mode-button'));
+    const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
     const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
     expect(theaterMode.getAttribute('aria-pressed')).toBe('true');
     expect(repeat.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('should put autoplay only on the current playlist row and keep its click on that control', () => {
+  it('should keep repeat and autoplay clicks on the current playlist row without restarting playback', () => {
     showPlayer();
     const currentItem = component.currentItem;
     const updateCurrentItem = vi.spyOn(component, 'updateCurrentItem');
@@ -244,6 +244,17 @@ describe('PlayerComponent', () => {
     expect(updateCurrentItem).not.toHaveBeenCalled();
     expect(component.autoplay_enabled).toBe(true);
     expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('true');
+
+    const repeat = playlistRows()[0].querySelector('.playlist-repeat-button') as HTMLButtonElement;
+    repeat.click();
+    fixture.detectChanges();
+
+    expect(component.currentItem).toBe(currentItem);
+    expect(updateCurrentItem).not.toHaveBeenCalled();
+    expect(component.repeat_enabled).toBe(true);
+    expect(component.autoplay_enabled).toBe(false);
+    expect(repeat.getAttribute('aria-pressed')).toBe('true');
+    expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('false');
   });
 
   it('should move the autoplay control with the playing item', () => {
@@ -296,7 +307,7 @@ describe('PlayerComponent', () => {
     expect(document.body.classList.contains('player-theater-mode-active')).toBe(true);
     expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
     expect(playerPlaylist()?.hidden).toBe(true);
-    expect(fixture.nativeElement.querySelector('.watch-together-section')?.hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-concurrent-stream')?.closest('.player-playlist-section')?.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('.video-player')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.video-blackout-overlay')).toBeFalsy();
     expect(component.currentItem?.uid).toBe('f1');
