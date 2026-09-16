@@ -84,6 +84,11 @@ describe('Rate limit exemptions', function() {
             }
         });
 
+        it('counts search, which starts a yt-dlp process per request', function() {
+            // Named anything under /api/get, it would fall into the listing exemption.
+            assert.strictEqual(skipApiRateLimit(requestFor('/api/searchVideos')), false);
+        });
+
         it('matches by prefix rather than anywhere in the path', function() {
             // A substring test says nothing about where it matched -- the same defect that
             // let a share link issued for /api/getFile reach /api/getFileFormats.

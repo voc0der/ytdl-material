@@ -60,6 +60,32 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/searchVideos:
+    post:
+      tags:
+        - downloader
+      summary: Search for videos
+      description: Runs a yt-dlp search on the server and returns the first five videos. Used when no search API key is configured.
+      operationId: post-searchVideos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchVideosRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchVideosResponse'
+        '400':
+          description: The query is empty or longer than 200 characters.
+        '500':
+          description: The search failed.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/getMp3s:
     get:
       tags:
@@ -2843,6 +2869,45 @@ components:
                 type: array
                 items:
                   type: object
+    SearchVideosRequest:
+      required:
+        - query
+      type: object
+      properties:
+        query:
+          type: string
+          maxLength: 200
+    SearchVideosResponse:
+      required:
+        - results
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoSearchResult'
+    VideoSearchResult:
+      required:
+        - id
+        - title
+        - channelTitle
+        - thumbnailUrl
+        - videoUrl
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        channelTitle:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        videoUrl:
+          type: string
     IncrementViewCountRequest:
       required:
         - file_uid

@@ -12,7 +12,7 @@
                     [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
                     [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
                     [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
-                    (keydown.enter)="inputMode === 'search' && $event.preventDefault()" (keydown.escape)="dismissSearch()"
+                    (keydown.enter)="inputMode === 'search' && submitSearch($event)" (keydown.escape)="dismissSearch()"
                     autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
                   <button type="button" mat-icon-button matSuffix class="input-mode-toggle"
                     [class.search-mode]="inputMode === 'search'" (click)="toggleInputMode()"
@@ -24,7 +24,7 @@
                   </button>
                 </mat-form-field>
                 @if (inputMode === 'search' && (!youtubeSearchEnabled || results_showing)) {
-                  <app-youtube-search-results [enabled]="youtubeSearchEnabled" [loading]="results_loading"
+                  <app-youtube-search-results [interactive]="youtubeSearchEnabled" [active]="results_showing" [loading]="results_loading"
                     [failed]="searchFailed" [results]="results" (selected)="useURL($event)" (keydown.escape)="dismissSearch()" />
                 }
               </div>

@@ -92,6 +92,8 @@ import {
     DBInfoResponse,
     GetFileFormatsRequest,
     GetFileFormatsResponse,
+    SearchVideosRequest,
+    SearchVideosResponse,
     GetTaskRequest,
     GetTaskResponse,
     UpdateTaskScheduleRequest,
@@ -597,6 +599,11 @@ export class PostsService {
     getFileFormats(url: string) {
         const body: GetFileFormatsRequest = {url: url};
         return this.http.post<GetFileFormatsResponse>(this.path + 'getFileFormats', body, this.httpOptions);
+    }
+
+    searchVideos(query: string) {
+        const body: SearchVideosRequest = {query: query};
+        return this.http.post<SearchVideosResponse>(this.path + 'searchVideos', body, this.httpOptions);
     }
 
     getLogs(lines = 50) {

@@ -1,6 +1,6 @@
 import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList, ChangeDetectionStrategy } from '@angular/core';
 import {PostsService} from '../posts.services';
-import { EMPTY, of, Subject, timer } from 'rxjs';
+import { EMPTY, Observable, of, Subject, timer } from 'rxjs';
 import { UntypedFormControl, Validators, FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -14,7 +14,7 @@ import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialo
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
-import { catchError, debounceTime, distinctUntilChanged, filter, switchMap, take, takeUntil } from 'rxjs/operators';
+import { catchError, debounceTime, filter, map, switchMap, take, takeUntil } from 'rxjs/operators';
 import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
 import { NgClass } from '@angular/common';
 import { MatFormField, MatInput, MatSuffix, MatLabel, MatHint } from '@angular/material/input';
@@ -710,8 +710,14 @@ export class MainComponent implements OnInit {
 
   toggleInputMode(): void {
     this.inputMode = this.inputMode === 'url' ? 'search' : 'url';
-    this.searchChangedSubject.next(this.inputMode === 'search' ? this.searchQuery.trim() : '');
+    this.searchChangedSubject.next(this.inputMode === 'search' && this.youtubeSearchEnabled ? this.searchQuery.trim() : '');
     this.urlInput.nativeElement.focus();
+  }
+
+  submitSearch(event: Event): void {
+    event.preventDefault();
+    // API results already follow the input; without a key, Enter is what runs the search.
+    if (!this.youtubeSearchEnabled) this.searchChangedSubject.next(this.searchQuery.trim());
   }
 
   dismissSearch(): void {
@@ -728,8 +734,12 @@ export class MainComponent implements OnInit {
 
   inputChanged(new_val: string): void {
     if (this.inputMode === 'search') {
+      const query = new_val.trim();
+      const query_changed = query !== this.searchQuery.trim();
       this.searchQuery = new_val;
-      this.searchChangedSubject.next(new_val.trim());
+      // Without an API key each search starts yt-dlp on the server, so edits wait for Enter;
+      // emptying the box still clears.
+      if (query_changed && (this.youtubeSearchEnabled || !query)) this.searchChangedSubject.next(query);
       return;
     }
 
@@ -971,17 +981,18 @@ export class MainComponent implements OnInit {
   attachToInput(): void {
     this.searchChangedSubject
       .pipe(
-        distinctUntilChanged(),
         // Cancel immediately on edits or mode changes, including during the debounce.
         switchMap(query => {
           this.results = [];
           this.searchFailed = false;
-          this.results_showing = this.inputMode === 'search' && this.youtubeSearchEnabled && query.length > 1;
+          this.results_showing = this.inputMode === 'search' && query.length > 1;
           this.results_loading = this.results_showing;
           if (!this.results_showing) return EMPTY;
 
-          return timer(250).pipe(
-            switchMap(() => this.youtubeSearch.search(query)),
+          const results$: Observable<Result[]> = this.youtubeSearchEnabled
+            ? timer(250).pipe(switchMap(() => this.youtubeSearch.search(query)))
+            : this.postsService.searchVideos(query).pipe(map(response => response.results.map(result => new Result(result))));
+          return results$.pipe(
             catchError(() => {
               this.searchFailed = true;
               return of([] as Result[]);

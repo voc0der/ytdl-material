@@ -56,12 +56,16 @@ describe('MainComponent', () => {
 
   describe('URL and YouTube search modes', () => {
     let search: ReturnType<typeof vi.fn>;
+    let serverSearch: ReturnType<typeof vi.fn>;
     const result = new Result({ id: 'video-1', title: 'Moon landing', channelTitle: 'NASA' });
+    const enter = () => ({ preventDefault: vi.fn() }) as unknown as Event;
 
     beforeEach(() => {
       vi.useFakeTimers();
       search = vi.fn().mockReturnValue(of([result]));
+      serverSearch = vi.fn().mockReturnValue(of({ results: [{ ...result }] }));
       (component as any).youtubeSearch.search = search;
+      (component as any).postsService.searchVideos = serverSearch;
       component.youtubeSearchEnabled = true;
       component.urlInput = { nativeElement: { focus: vi.fn() } } as any;
       component.attachToInput();
@@ -96,8 +100,10 @@ describe('MainComponent', () => {
       expect(search).toHaveBeenCalledExactlyOnceWith('moon landing');
       expect(component.results).toEqual([result]);
       component.inputChanged('moon landing ');
+      component.submitSearch(enter());
       vi.advanceTimersByTime(1000);
       expect(search).toHaveBeenCalledTimes(1);
+      expect(serverSearch).not.toHaveBeenCalled();
       expect(probe).not.toHaveBeenCalled();
       expect(component.url).toBe('');
     });
@@ -188,17 +194,68 @@ describe('MainComponent', () => {
       expect(probe).toHaveBeenCalledExactlyOnceWith(result.videoUrl);
     });
 
-    it('does not request search when the API is disabled or after destruction', () => {
-      component.youtubeSearchEnabled = false;
+    it('does not request search after destruction', () => {
       component.toggleInputMode();
-      component.inputChanged('moon');
-      vi.advanceTimersByTime(250);
-      expect(search).not.toHaveBeenCalled();
-      component.youtubeSearchEnabled = true;
       component.inputChanged('mars');
       component.ngOnDestroy();
       vi.advanceTimersByTime(250);
       expect(search).not.toHaveBeenCalled();
+    });
+
+    it('without an API key, waits for Enter and searches through the server', () => {
+      component.youtubeSearchEnabled = false;
+      component.toggleInputMode();
+      component.inputChanged('moon landing');
+      vi.advanceTimersByTime(1000);
+      expect(serverSearch).not.toHaveBeenCalled();
+      expect(component.results_showing).toBe(false);
+
+      const event = enter();
+      component.submitSearch(event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(serverSearch).toHaveBeenCalledExactlyOnceWith('moon landing');
+      expect(search).not.toHaveBeenCalled();
+      expect(component.results_loading).toBe(false);
+      expect(component.results).toEqual([result]);
+      expect(component.results[0]).toBeInstanceOf(Result);
+    });
+
+    it('without an API key, keeps submitted results while editing and never searches on a mode switch', () => {
+      component.youtubeSearchEnabled = false;
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      component.submitSearch(enter());
+      component.inputChanged('moon landing');
+      vi.advanceTimersByTime(1000);
+      expect(component.results).toEqual([result]);
+
+      component.toggleInputMode();
+      component.toggleInputMode();
+      vi.advanceTimersByTime(1000);
+      expect(component.results_showing).toBe(false);
+      expect(serverSearch).toHaveBeenCalledTimes(1);
+
+      component.submitSearch(enter());
+      component.inputChanged('');
+      expect(component.results_showing).toBe(false);
+      expect(component.results).toEqual([]);
+    });
+
+    it('without an API key, retries the same query on Enter after a failure', () => {
+      serverSearch.mockReturnValueOnce(throwError(() => new Error('unavailable'))).mockReturnValueOnce(of({ results: [] }));
+      component.youtubeSearchEnabled = false;
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      component.submitSearch(enter());
+      expect(component.searchFailed).toBe(true);
+      expect(component.results_loading).toBe(false);
+
+      component.submitSearch(enter());
+      expect(serverSearch).toHaveBeenCalledTimes(2);
+      expect(component.searchFailed).toBe(false);
+      expect(component.results_showing).toBe(true);
+      expect(component.results).toEqual([]);
     });
 
     it('starts a waiting search when the API configuration arrives after the view', async () => {
