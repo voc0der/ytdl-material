@@ -73,3 +73,16 @@ updates:
       minor-updates:
         update-types:
           - "minor"
+  # The README screenshot harness. Nothing in CI runs it, so a bump is only exercised the
+  # next time someone regenerates the screenshot. A Playwright bump also brings a new
+  # Chromium, which can shift rendering and change docs/images/readme-home.png even though
+  # the UI did not. dev/screenshots/capture.sh installs the bump on its next run.
+  - package-ecosystem: "npm"
+    directory: "/dev/screenshots/"
+    schedule:
+      interval: "weekly"
+    # npm ci runs on a workstation. Holding a release back a week gives a compromised
+    # publish time to be caught and pulled before it is proposed. Security updates are not
+    # held back.
+    cooldown:
+      default-days: 7

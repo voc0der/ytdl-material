@@ -1,0 +1,114 @@
+{
+  "$comment": "The library the README screenshot shows. Every video, description and thumbnail is NASA material, which NASA publishes for free use. Videos are in download order, newest first: capture.mjs stamps each one a minute apart counting back from `downloaded`, so the Download Date sort reproduces it and the date on every card is fixed. Playlists only need to exist for the tab count; they are built from the videos above by id.",
+  "downloaded": "2026-03-25T12:00:00Z",
+  "videos": [
+    {
+      "id": "perseverance-descent-and-touchdown",
+      "title": "Perseverance Rover’s Descent and Touchdown on Mars (Official NASA Video)",
+      "uploader": "NASA",
+      "upload_date": "20210222",
+      "duration": 205,
+      "height": 2160,
+      "view_count": 17935887,
+      "description": "NASA's Mars 2020 Perseverance mission captured thrilling footage of its rover landing in Mars' Jezero Crater on Feb. 18, 2021.  The real footage in this video was captured by several cameras that are part of the rover's entry, descent, and landing suite. The views include a camera looking down from the spacecraft's descent stage (a kind of rocket-powered jet pack that helps fly the rover to its landing site), a camera on the rover looking up at the descent stage, a camera on the top of the aeroshell (a capsule protecting the rover) looking up at that parachute, and a camera on the bottom of the rover looking down at the Martian surface.\n\nThe audio embedded in the video comes from the mission control call-outs during entry, descent, and landing.\n\nFor more information about Perseverance, visit https://mars.nasa.gov/perseverance\n\nCredit: NASA/JPL-Caltech"
+    },
+    {
+      "id": "apollo-11-moonwalk",
+      "title": "Restored Apollo 11 Moonwalk - Original NASA EVA Mission Video - Walking on the Moon",
+      "uploader": "NASA",
+      "upload_date": "20140717",
+      "duration": 10950,
+      "height": 1080,
+      "view_count": 20353199,
+      "description": "Original Mission Video as aired in July 1969 depicting the Apollo 11 astronauts conducting several tasks during extravehicular activity (EVA) operations on the surface of the moon.  The EVA lasted approximately 2.5 hours with all scientific activities being completed satisfactorily.  The Apollo 11 (EVA) began at 10:39:33 p.m. EDT on July 20, 1969 when Astronaut Neil Armstrong emerged from the spacecraft first. While descending, he released the Modularized Equipment Stowage Assembly on the Lunar Module's descent stage. A camera on this module provided live television coverage of man's first step on the Moon. On this, their one and only EVA, the astronauts had a great deal to do in a short time. During this first visit to the Moon, the astronauts remained within about 100 meters of the lunar module, collected about 47 pounds of samples, and deployed four experiments. After spending approximately 2 hours and 31 minutes on the surface, the astronauts ended the EVA at 1:11:13 a.m. EDT on July 21."
+    },
+    {
+      "id": "sts-129-launch",
+      "title": "STS-129 HD Launch",
+      "uploader": "NASA",
+      "upload_date": "20091116",
+      "duration": 692,
+      "height": 720,
+      "view_count": 16531621,
+      "description": "Space shuttle Atlantis and its six-member crew began an 11-day delivery flight to the International Space Station on Monday with a 2:28 p.m. EST launch from NASA's Kennedy Space Center in Florida. The shuttle will transport spare hardware to the outpost and return a station crew member who spent more than two months in space. \r\n\r\nAtlantis is carrying about 30,000 pounds of replacement parts for systems that provide power to the station, keep it from overheating, and maintain a proper orientation in space. The large equipment can best be transported using the shuttle's unique capabilities."
+    },
+    {
+      "id": "station-commander-tour",
+      "title": "Departing Space Station Commander Provides Tour of Orbital Laboratory",
+      "uploader": "NASA",
+      "upload_date": "20121119",
+      "duration": 1504,
+      "height": 720,
+      "view_count": 13130670,
+      "description": "In her final days as Commander of the International Space Station, Sunita Williams of NASA recorded an extensive tour of the orbital laboratory and downlinked the video on Nov. 18, just hours before she, cosmonaut Yuri Malenchenko and Flight Engineer Aki Hoshide of the Japan Aerospace Exploration Agency departed in their Soyuz TMA-05M spacecraft for a landing on the steppe of Kazakhstan. The tour includes scenes of each of the station's modules and research facilities with a running narrative by Williams of the work that has taken place and which is ongoing aboard the orbital outpost."
+    },
+    {
+      "id": "jupiter-great-red-spot",
+      "title": "Fly into the Great Red Spot of Jupiter with NASA’s Juno Mission",
+      "uploader": "NASA",
+      "upload_date": "20171211",
+      "duration": 75,
+      "height": 1080,
+      "view_count": 3654568,
+      "description": "This animation takes the viewer on a simulated flight into, and then out of, Jupiter’s upper atmosphere at the location of the Great Red Spot. It was created by combining an image from the JunoCam imager on NASA's Juno spacecraft with a computer-generated animation.\n\nThe perspective begins about 2,000 miles (3,000 kilometers) above the cloud tops of the planet's southern hemisphere. The bar at far left indicates altitude during the quick descent; a second gauge next to that depicts the dramatic increase in temperature that occurs as the perspective dives deeper down. The clouds turn crimson as the perspective passes through the Great Red Spot. Finally, the view ascends out of the spot.\n\nFor more, visit https://www.nasa.gov/feature/jpl/nasas-juno-probes-the-depths-of-jupiters-great-red-spot"
+    },
+    {
+      "id": "zero-g-daily-life",
+      "title": "Waking up, working, and going to sleep in Zero G",
+      "uploader": "NASA",
+      "upload_date": "20110118",
+      "duration": 1030,
+      "height": 720,
+      "view_count": 4774319,
+      "description": "Expedition 26 NASA Flight Engineer Cady Coleman discusses what daily life is like aboard an orbiting space laboratory on CBS' news program \"The Talk\" on January 18, 2011."
+    },
+    {
+      "id": "apollo-13-houston",
+      "title": "Apollo 13: ‘Houston, We’ve Had a Problem’",
+      "uploader": "NASA",
+      "upload_date": "20200413",
+      "duration": 420,
+      "height": 720,
+      "view_count": 6745743,
+      "description": "“Houston, we've had a problem” is the now famous phrase radioed from Apollo 13 to Mission Control upon the catastrophic explosion that dramatically changed the mission.\nOn the 50th Anniversary of the Apollo 13 mission, we recognize the triumph of the mission control team and the astronauts, and look at the lessons learned. The Apollo 13 mission has become known as “a successful failure” that saw the safe return of its crew  Commander James (Jim) Lovell Jr., Command Module Pilot John Swigert Jr. and Lunar Module Pilot Fred Haise Jr.\n\nThanks to Stephen Slater and Ben Feist/Apollo in Real Time (apolloinrealtime.org/13) for providing additional footage and audio. Thanks for Andy Saunders for providing additional enhanced images.\n\nVideo Credit:\nProducer/Editor: Amy Leniart"
+    },
+    {
+      "id": "crew-dragon-tour",
+      "title": "Tour from Space: Inside the SpaceX Crew Dragon Spacecraft on Its Way to the Space Station",
+      "uploader": "NASA",
+      "upload_date": "20200531",
+      "duration": 507,
+      "height": 720,
+      "view_count": 5656216,
+      "description": "In this video, NASA astronauts Robert Behnken and Douglas Hurley take viewers on a tour of the SpaceX Crew Dragon spacecraft that will take them on a 19-hour-journey to their new home in orbit.\n\nThe SpaceX Falcon 9 rocket and Crew Dragon spacecraft successfully launched from Kennedy Space Center’s historic Launch Pad 39A at 3:22 p.m. EDT on May 30 with the astronauts aboard for a mission to the orbiting laboratory. Crew Dragon will perform a series of phasing maneuvers to gradually approach and autonomously dock with the International Space Station on Sunday, May 31, at approximately 10:29 a.m. EDT.\n\nLearn more about the mission by visiting https://www.nasa.gov/launchamerica"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "apollo",
+      "name": "Apollo",
+      "videos": [
+        "apollo-11-moonwalk",
+        "apollo-13-houston"
+      ]
+    },
+    {
+      "id": "space-station",
+      "name": "Space Station",
+      "videos": [
+        "sts-129-launch",
+        "station-commander-tour",
+        "zero-g-daily-life",
+        "crew-dragon-tour"
+      ]
+    },
+    {
+      "id": "planetary-science",
+      "name": "Planetary Science",
+      "videos": [
+        "perseverance-descent-and-touchdown",
+        "jupiter-great-red-spot"
+      ]
+    }
+  ]
+}
