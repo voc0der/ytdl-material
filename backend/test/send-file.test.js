@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const request = require('supertest');
 
 const { assert, files_api, fs, os, path, useTemporaryMediaRoots, utils } = require('./test-shared');
@@ -56,22 +57,29 @@ describe('Sending files from under a dot-directory', function() {
     });
 
     // One route per call shape app.js uses: plain, with a completion callback, and a
-    // download under a display name.
-    function appSending(options_for_call) {
+    // download under a display name. Built like the real routes: the file is decided on
+    // the server, never taken from the request, and reading it is rate limited.
+    function appSending(file_path, options_for_call) {
         const app = express();
         // The unhandled 404 in the default case would otherwise print a stack trace.
         app.set('env', 'test');
+        app.use(rateLimit({
+            windowMs: 60 * 1000,
+            max: 100,
+            standardHeaders: false,
+            legacyHeaders: false
+        }));
         app.get('/send', (req, res) => {
-            res.sendFile(req.query.file, options_for_call());
+            res.sendFile(file_path, options_for_call());
         });
         app.get('/send-with-callback', (req, res) => {
-            res.sendFile(req.query.file, options_for_call(), (err) => {
+            res.sendFile(file_path, options_for_call(), (err) => {
                 if (!err || res.headersSent) return;
                 res.sendStatus(err.statusCode === 404 ? 404 : 500);
             });
         });
         app.get('/download', (req, res) => {
-            res.download(req.query.file, 'Display Name.zip', options_for_call(), (err) => {
+            res.download(file_path, 'Display Name.zip', options_for_call(), (err) => {
                 if (err && !res.headersSent) res.sendStatus(err.statusCode || 500);
             });
         });
@@ -81,30 +89,28 @@ describe('Sending files from under a dot-directory', function() {
     it('is refused by Express\'s own default', async function() {
         // The reason sendFileOptions exists. If this starts passing, Express has changed
         // its default and the option may no longer be needed.
-        const app = appSending(() => ({}));
-
-        await request(app).get('/send').query({file: files.thumbnail}).expect(404);
-        await request(app).get('/download').query({file: files.media}).expect(404);
+        await request(appSending(files.thumbnail, () => ({}))).get('/send').expect(404);
+        await request(appSending(files.media, () => ({}))).get('/download').expect(404);
     });
 
     it('serves a file with sendFileOptions', async function() {
-        const response = await request(appSending(utils.sendFileOptions))
-            .get('/send').query({file: files.subtitle}).expect(200);
+        const response = await request(appSending(files.subtitle, utils.sendFileOptions))
+            .get('/send').expect(200);
 
         assert.strictEqual(response.text, 'WEBVTT\n');
     });
 
     it('serves through a completion callback, as the thumbnail route does', async function() {
-        const response = await request(appSending(utils.sendFileOptions))
-            .get('/send-with-callback').query({file: files.thumbnail}).buffer(true).parse(binaryParser)
+        const response = await request(appSending(files.thumbnail, utils.sendFileOptions))
+            .get('/send-with-callback').buffer(true).parse(binaryParser)
             .expect(200);
 
         assert.strictEqual(response.body.toString(), 'thumbnail bytes');
     });
 
     it('downloads under a display name', async function() {
-        const response = await request(appSending(utils.sendFileOptions))
-            .get('/download').query({file: files.media}).buffer(true).parse(binaryParser)
+        const response = await request(appSending(files.media, utils.sendFileOptions))
+            .get('/download').buffer(true).parse(binaryParser)
             .expect(200);
 
         assert.strictEqual(response.body.toString(), 'media bytes');
@@ -112,17 +118,17 @@ describe('Sending files from under a dot-directory', function() {
     });
 
     it('serves a dot-directory inside the media folder too', async function() {
-        const response = await request(appSending(utils.sendFileOptions))
-            .get('/send').query({file: files.nested}).buffer(true).parse(binaryParser)
+        const response = await request(appSending(files.nested, utils.sendFileOptions))
+            .get('/send').buffer(true).parse(binaryParser)
             .expect(200);
 
         assert.strictEqual(response.body.toString(), 'nested thumbnail bytes');
     });
 
     it('still answers 404 for a file that does not exist', async function() {
-        await request(appSending(utils.sendFileOptions))
-            .get('/send-with-callback').query({file: path.join(path.dirname(files.media), 'missing.jpg')})
-            .expect(404);
+        const missing = path.join(path.dirname(files.media), 'missing.jpg');
+
+        await request(appSending(missing, utils.sendFileOptions)).get('/send-with-callback').expect(404);
     });
 
     it('lets the media path checks through before the send', async function() {
