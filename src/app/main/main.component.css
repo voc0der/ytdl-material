@@ -1,7 +1,3 @@
-.demo-card {
-    margin: 16px;
-}
-
 .demo-basic {
     padding: 0;
 }
@@ -10,93 +6,59 @@
     padding: 16px;
 }
 
-mat-toolbar.top {
-    height: 60px;
-    width: 100%;
-    text-align: center;
-}
-
-/*::ng-deep .mat-form-field-placeholder{
-
-    transform: scale(.75) translateY(20px) !important;
-  }*/
-
 .big {
     max-width: 800px;
     margin: 0 auto;
-}
-
-.centered {
-    margin: 0 auto;
-    top: 50%;
-    left: 50%;
 }
 
 .example-full-width {
     width: 100%;
 }
 
-.example-80-width {
-    width: 80%
-}
-
 mat-form-field.mat-mdc-form-field {
     font-size: 24px;
   }
 
-.spinner {
-    position: absolute;
+.entry-bar {
+    margin: 20px 0 12px;
+}
+
+.input-mode-toggle {
+    margin-inline: 4px;
+}
+
+.input-mode-glyph {
     display: inline-block;
-    margin-left: -28px;
-    margin-top: -10px;
-}
-
-.make-room-for-spinner {
-    padding-right: 40px;
-}
-
-.equal-sizes {
-    padding-right: 20px;
-}
-
-.search-card-title {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-.input-clear-button {
-    position: absolute;
-    right: 5px;
-    top: 22px;
-}
-
-.margined {
-    margin-left: 20px;
-    margin-right: 20px;
-}
-
-.results-div {
     position: relative;
-    top: -15px;
+    width: 24px;
+    height: 24px;
 }
 
-.first-result-card {
-    border-radius: 4px 4px 0px 0px !important;
+.input-mode-glyph .mat-icon {
+    position: absolute;
+    inset: 0;
+    transition: transform 160ms ease, opacity 160ms ease;
 }
 
-.last-result-card {
-    border-radius: 0px 0px 4px 4px !important;
+.mode-search {
+    opacity: 0;
+    transform: rotate(-90deg);
 }
 
-.only-result-card {
-    border-radius: 4px !important;
+.search-mode .mode-link {
+    opacity: 0;
+    transform: rotate(90deg);
 }
 
-.result-card {
-    height: 120px;
-    border-radius: 0px;
-    padding-bottom: 5px;
+.search-mode .mode-search {
+    opacity: 1;
+    transform: rotate(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .input-mode-glyph .mat-icon {
+        transition: none;
+    }
 }
 
 .main-pane-card-actions {
@@ -117,10 +79,7 @@ mat-form-field.mat-mdc-form-field {
     transition: opacity 160ms ease;
 }
 
-.playlist-shortcut-action.mat-mdc-button-base:hover {
-    opacity: 0.92;
-}
-
+.playlist-shortcut-action.mat-mdc-button-base:hover,
 .playlist-shortcut-action.mat-mdc-button-base:focus-visible {
     opacity: 0.92;
 }
@@ -131,20 +90,6 @@ mat-form-field.mat-mdc-form-field {
     width: 18px;
     height: 18px;
     opacity: 0.84;
-}
-
-.download-progress-bar {
-    z-index: 999;
-    position: absolute;
-    bottom: 0px;
-    width: 150px;
-    border-radius: 0px 0px 4px 4px;
-    overflow: hidden;
-    bottom: 12px;
-}
-
-.add-playlist-button {
-    float: right;
 }
 
 .advanced-input {
@@ -200,7 +145,6 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .url-input {
-    padding-right: 25px;
     overflow-y: hidden;
 }
 
@@ -210,8 +154,8 @@ mat-form-field.mat-mdc-form-field {
 
 .download-split-button {
     display: inline-flex;
-    margin: 0;
     align-items: stretch;
+    align-self: flex-end;
 }
 
 .download-split-button .mat-mdc-button-base {
@@ -279,15 +223,9 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .download-split-button,
-.main-pane-action-button.mat-mdc-outlined-button,
 .main-pane-select-group,
 .main-pane-download-group {
     margin: 0 0 8px 0 !important;
-}
-
-.download-split-button,
-.main-pane-action-button.mat-mdc-outlined-button {
-    align-self: flex-end;
 }
 
 .main-pane-select-group {
@@ -297,8 +235,7 @@ mat-form-field.mat-mdc-form-field {
 }
 
 .download-main-action.mat-mdc-outlined-button,
-.download-menu-action.mat-mdc-outlined-button,
-.main-pane-action-button.mat-mdc-outlined-button {
+.download-menu-action.mat-mdc-outlined-button {
     height: var(--main-pane-action-control-height);
     min-height: var(--main-pane-action-control-height);
 }
@@ -383,10 +320,6 @@ mat-form-field.mat-mdc-form-field {
 }
 
 @media (max-width: 576px) {
-    .download-progress-bar {
-        width: 125px;
-    }
-
     .main-pane-actions-row {
         align-items: stretch;
         flex-wrap: wrap;
