@@ -101,7 +101,7 @@
                 <div style="white-space: pre-line;" class="col media-description-column">
                   @if (currentFile && currentFile['description']) {
                     <p class="media-description">
-                      <app-see-more [text]="currentFile['description']" [line_limit]="1"></app-see-more>
+                      <app-see-more [text]="currentFile['description']" [line_limit]="theater_mode_enabled ? 1 : 4"></app-see-more>
                     </p>
                   }
                   @if (!currentFile || !currentFile['description']) {
@@ -148,9 +148,6 @@
                           <mat-icon>closed_caption</mat-icon>
                         </button>
                       }
-                      <button class="playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
-                        <mat-icon>repeat_one</mat-icon>
-                      </button>
                     }
                     @if (db_file || db_playlist) {
                       <button (click)="openFileInfoDialog()" matTooltip="Details" i18n-matTooltip="Details tooltip" aria-label="Details" i18n-aria-label="Details label" mat-icon-button><mat-icon>info</mat-icon></button>
@@ -163,25 +160,28 @@
               </div>
             </div>
           </div>
-          <div class="player-playlist-section" [hidden]="theater_mode_enabled" style="height: fit-content; width: 100%; margin-top: 10px;">
+          <div class="player-playlist-section" [hidden]="theater_mode_enabled">
             <mat-button-toggle-group cdkDropList [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical name="videoSelect" aria-label="Video Select" #group="matButtonToggleGroup">
               @for (playlist_item of playlist; track (playlist_item.uid ?? playlist_item.url ?? $index); let i = $index) {
                 <div cdkDrag class="playlist-row" [class.current]="currentItem === playlist_item">
                   <mat-button-toggle [checked]="currentItem === playlist_item" (click)="onClickPlaylistItem(playlist_item, i)" class="toggle-button" [value]="playlist_item.title">{{playlist_item.label}}</mat-button-toggle>
                   @if (currentItem === playlist_item) {
-                    <button class="playlist-autoplay-button playback-mode-button" [class.active]="autoplay_enabled" [attr.aria-pressed]="autoplay_enabled" (click)="toggleAutoplayFromPlaylistRow($event)" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" aria-label="Autoplay" i18n-aria-label="Autoplay toggle label" mat-icon-button>
-                      <mat-icon>playlist_play</mat-icon>
-                    </button>
+                    <div class="playlist-row-actions" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
+                      @if (db_file && api && api.time && postsService.config) {
+                        <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="currentItem.uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
+                      }
+                      <button class="playlist-repeat-button playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
+                        <mat-icon>repeat_one</mat-icon>
+                      </button>
+                      <button class="playlist-autoplay-button playback-mode-button" [class.active]="autoplay_enabled" [attr.aria-pressed]="autoplay_enabled" (click)="toggleAutoplayFromPlaylistRow($event)" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" aria-label="Autoplay" i18n-aria-label="Autoplay toggle label" mat-icon-button>
+                        <mat-icon>playlist_play</mat-icon>
+                      </button>
+                    </div>
                   }
                 </div>
               }
             </mat-button-toggle-group>
           </div>
-          @if (db_file && api && api.time && postsService.config) {
-            <div class="watch-together-section" [hidden]="theater_mode_enabled">
-              <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
-            </div>
-          }
           <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists']">
             @if (api_ready && db_file && db_file.url.includes('twitch.tv')) {
               <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="api?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>

@@ -1,14 +1,29 @@
-<div class="buttons-container">
-  @if (!watch_together_clicked) {
-    <button (click)="startWatching()" mat-flat-button>Watch together</button>
+<button mat-icon-button class="watch-together-button" [class.active]="watch_together_clicked" [matMenuTriggerFor]="streamMenu" (click)="startWatching()" matTooltip="Watch together" i18n-matTooltip="Watch together tooltip" aria-label="Watch together" i18n-aria-label="Watch together label">
+  <mat-icon>groups</mat-icon>
+</button>
+<mat-menu #streamMenu="matMenu">
+  @if (!started && server_already_exists === null) {
+    <button mat-menu-item disabled i18n="Checking for watch together streams">Checking for streams…</button>
   }
-  @if (watch_together_clicked && !started && server_mode && server_already_exists === false) {
-    <button (click)="startServer()" mat-flat-button>Start stream</button>
+  @if (!started && server_mode && server_already_exists === false) {
+    <button mat-menu-item (click)="startServer()">
+      <mat-icon>cast</mat-icon>
+      <span i18n="Start watch together stream">Start stream</span>
+    </button>
   }
-  @if (watch_together_clicked && !started && server_already_exists === true) {
-    <button (click)="startClient()" mat-flat-button>Join stream</button>
+  @if (!started && server_already_exists === true) {
+    <button mat-menu-item (click)="startClient()">
+      <mat-icon>group_add</mat-icon>
+      <span i18n="Join watch together stream">Join stream</span>
+    </button>
+  }
+  @if (!started && !server_mode && server_already_exists === false) {
+    <button mat-menu-item disabled i18n="No watch together stream available">No stream available</button>
   }
   @if (watch_together_clicked) {
-    <button style="margin-left: 10px;" (click)="stop()" mat-flat-button>Stop</button>
+    <button mat-menu-item (click)="stop()">
+      <mat-icon>stop</mat-icon>
+      <span i18n="Stop watching together">Stop</span>
+    </button>
   }
-</div>
+</mat-menu>

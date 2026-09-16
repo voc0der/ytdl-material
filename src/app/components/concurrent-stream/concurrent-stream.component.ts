@@ -1,13 +1,16 @@
 import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
-import { MatButton } from '@angular/material/button';
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatTooltip } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-concurrent-stream',
     templateUrl: './concurrent-stream.component.html',
     styleUrls: ['./concurrent-stream.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatButton]
+    imports: [MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger, MatTooltip]
 })
 export class ConcurrentStreamComponent implements OnInit {
 
@@ -130,7 +133,10 @@ export class ConcurrentStreamComponent implements OnInit {
   }
 
   startWatching() {
+    if (this.watch_together_clicked) { return; }
     this.watch_together_clicked = true;
+    this.server_already_exists = null;
+    this.checkStream();
     this.check_timeout = setInterval(() => {
       this.checkStream();
     }, 1000);

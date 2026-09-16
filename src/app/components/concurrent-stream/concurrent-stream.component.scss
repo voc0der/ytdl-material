@@ -1,13 +1,8 @@
 :host {
-    display: block;
-    width: 100%;
+    display: inline-flex;
+    flex: 0 0 auto;
 }
 
-.buttons-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin-top: 15px;
-    margin-bottom: 15px;
+.watch-together-button.active {
+    background-color: rgba(128, 128, 128, 0.28);
 }
