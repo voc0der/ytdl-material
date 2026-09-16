@@ -148,9 +148,8 @@ dev/screenshots/capture.sh --keep        # leave the backend running on :17449 a
 
 The first run installs Playwright into `dev/screenshots/node_modules` and downloads its
 Chromium. After that a run takes about ten seconds. Nothing it does touches
-`backend/public` or `backend/appdata`: the build is cached under
-`~/.cache/ytdl-material/screenshots`, and the backend runs from a copy in
-`$TMPDIR/ytdl-material-screenshot`, where its data and log also live.
+`backend/public` or `backend/appdata`: the build, the backend copy it runs from, and that
+copy's data and log all live under `~/.cache/ytdl-material/screenshots`.
 
 The output is byte-identical between runs, so if a re-run changes the PNG, the page changed.
 Commit the image in the same PR as the UI change that moved it. Like the coverage badge, it
@@ -176,9 +175,5 @@ The media files themselves are empty placeholders. The home page never opens one
   empties the seeded tables.
 - **Every file record needs a `thumbnailURL`.** The card renders no image without one,
   even though the image it then shows is loaded from `thumbnailPath` through the API.
-- **The backend's working directory cannot have a dot-directory in its path.** Thumbnails
-  are served with `res.sendFile`, which answers 404 for such paths, while the page itself
-  still loads, so the failure shows up as blank cards. That is why the run is staged in the
-  temp dir rather than beside the build in `~/.cache`.
 - **The shipped `appdata/default.json` is copied in.** The backend cannot create it on a
   first boot: modules read config as they are required, before anything gets the chance.

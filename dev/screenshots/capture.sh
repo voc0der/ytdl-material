@@ -5,8 +5,7 @@
 # Builds the frontend from the working tree, boots the backend against a throwaway
 # library of NASA videos (dev/screenshots/fixtures), and captures the home page in
 # headless Chromium. Nothing it runs touches backend/appdata or backend/public: the
-# build is cached under ~/.cache/ytdl-material/screenshots, and the backend copy and
-# its data are staged in the system temp dir, both printed as it runs.
+# build, the backend copy and its data all live under the cache dir it prints.
 #
 # Not part of CI. See "Regenerating the README screenshot" in DEVELOPMENT.md.
 #

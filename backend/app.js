@@ -1177,7 +1177,7 @@ app.get('/openapi.yaml', docsRateLimiter, (req, res) => {
     }
 
     res.type('application/yaml');
-    res.sendFile(openapi_spec_path);
+    res.sendFile(openapi_spec_path, utils.sendFileOptions());
 });
 
 app.use('/docs', docsRateLimiter, (req, res, next) => {
@@ -2413,9 +2413,9 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
         // res.download builds the Content-Disposition header itself, which is where the
         // caller's chosen name belongs -- it names the file in their browser and never
         // touches a path on this machine.
-        res.download(file_path_to_download, `${download_display_name}.zip`, afterSend);
+        res.download(file_path_to_download, `${download_display_name}.zip`, utils.sendFileOptions(), afterSend);
     } else {
-        res.sendFile(file_path_to_download, afterSend);
+        res.sendFile(file_path_to_download, utils.sendFileOptions(), afterSend);
     }
 });
 
@@ -2877,7 +2877,7 @@ app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, async 
     }
 
     res.type('text/vtt; charset=utf-8');
-    res.sendFile(resolved_subtitle_path);
+    res.sendFile(resolved_subtitle_path, utils.sendFileOptions());
 });
 
 app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, async (req, res) => {
@@ -2899,7 +2899,7 @@ app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, async (req, re
         return;
     }
 
-    res.sendFile(thumbnail_path, (err) => {
+    res.sendFile(thumbnail_path, utils.sendFileOptions(), (err) => {
         if (!err) return;
         if (res.headersSent) return;
         if (err.statusCode === 404) {

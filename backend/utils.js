@@ -1011,6 +1011,28 @@ function File(id, title, thumbnailURL, isAudio, duration, url, uploader, size, p
 exports.File = File;
 
 /*************************************************
+ * Options for every res.sendFile and res.download.
+ *
+ * Express hands those to `send`, which by default
+ * answers 404 for a path with any segment starting
+ * with a dot -- and for an absolute path it checks
+ * every segment, not only the part a request named.
+ * Media under ~/.local/share, or an install inside
+ * a hidden directory, therefore got no thumbnails,
+ * downloads or subtitles, while the library itself
+ * listed fine.
+ *
+ * That check protects nothing here. Every path the
+ * routes send is one they resolved themselves and,
+ * where it came out of a record, confirmed to be
+ * inside the media roots first.
+ *
+ * A fresh object per call, because Express writes
+ * its etag setting onto the options it is given.
+ ************************************************/
+exports.sendFileOptions = () => ({dotfiles: 'allow'});
+
+/*************************************************
  * Media paths live in the database, and database
  * rows are editable through the API, so a stored
  * path is not trustworthy on its own. Anything that

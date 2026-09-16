@@ -2,9 +2,9 @@
 //
 // The screenshot is of the real app, not a mock: the frontend is built from the working
 // tree and served by the real backend. Only the library is staged. The backend runs from
-// a copy in a temp dir, so its working directory -- which is where it keeps appdata/ and
-// the media folders -- is throwaway, and the copy is what lets it serve a build that did
-// not overwrite backend/public.
+// a copy under the cache dir, so its working directory -- which is where it keeps
+// appdata/ and the media folders -- is throwaway, and the copy is what lets it serve a
+// build that did not overwrite backend/public.
 //
 // The library is written straight into the local database rather than imported, because
 // importing stamps each file with the time it was imported and the card shows that date.
@@ -15,8 +15,8 @@ import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cp, mkdir, open, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -30,10 +30,7 @@ const OUTPUT = join(REPO_ROOT, 'docs', 'images', 'readme-home.png');
 const CACHE = process.env.YTDL_SCREENSHOT_CACHE
     ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ytdl-material', 'screenshots');
 const BUILD_DIR = join(CACHE, 'frontend');
-// Not under CACHE: the backend serves thumbnails with res.sendFile, which answers 404 for
-// any path with a dot-directory in it -- and ~/.cache is one. The page itself would still
-// load, because express.static only checks the request path, so it fails as blank cards.
-const RUN_DIR = join(tmpdir(), 'ytdl-material-screenshot');
+const RUN_DIR = join(CACHE, 'run');
 
 // Not 17442, so a dev backend left running on the default port is neither reused nor
 // in the way.
@@ -313,10 +310,6 @@ async function capture(videoCount) {
 async function main() {
     const keep = process.argv.includes('--keep');
     const skipBuild = process.argv.includes('--skip-build');
-
-    if (RUN_DIR.split(sep).some(segment => segment.startsWith('.'))) {
-        throw new Error(`${RUN_DIR} has a dot-directory in it, so the backend would refuse to serve the thumbnails. Point TMPDIR somewhere else.`);
-    }
 
     if (await isListening()) {
         throw new Error(`something is already listening on ${BASE}. If it is a --keep run, stop it with: kill -- -$(cat ${join(RUN_DIR, 'backend.pid')})`);
