@@ -1,0 +1,36 @@
+<div role="status" aria-live="polite" [class.search-status]="!enabled || loading || failed || !results.length">
+  @if (!enabled) {
+    <span i18n="YouTube search configuration hint">Enable the YouTube API and add a key in Settings to search.</span>
+  } @else {
+    @if (loading) {
+      <span i18n="YouTube search loading">Searching YouTube…</span>
+    } @else if (failed) {
+      <span i18n="YouTube search error">Couldn’t search YouTube. Check your connection or API settings.</span>
+    } @else if (!results.length) {
+      <span i18n="YouTube search empty results">No videos found.</span>
+    } @else {
+      <span class="cdk-visually-hidden" i18n="YouTube search result count">{{results.length}} videos found.</span>
+    }
+  }
+</div>
+@if (results.length) {
+  <ul class="search-results" aria-label="YouTube search results" i18n-aria-label="YouTube search results list">
+    @for (result of results; track result.videoUrl) {
+      <li class="search-result">
+        <button type="button" class="search-result-select" (click)="selected.emit(result.videoUrl)"
+          aria-label="Use URL: {{result.title}}" i18n-aria-label="Select YouTube result for download">
+          <img class="search-thumbnail" [src]="result.thumbnailUrl" alt="" loading="lazy" decoding="async" width="96" height="54">
+          <span class="search-result-copy">
+            <span class="search-result-title">{{result.title}}</span>
+            <span class="search-result-channel">{{result.channelTitle}}</span>
+          </span>
+          <mat-icon class="search-result-use" aria-hidden="true">add_link</mat-icon>
+        </button>
+        <a mat-icon-button class="search-result-view" [href]="result.videoUrl" target="_blank" rel="noopener noreferrer"
+          aria-label="View on YouTube" i18n-aria-label="View search result on YouTube" matTooltip="View on YouTube" i18n-matTooltip="View search result tooltip">
+          <mat-icon>open_in_new</mat-icon>
+        </a>
+      </li>
+    }
+  </ul>
+}

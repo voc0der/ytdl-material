@@ -1,5 +1,6 @@
 import { MainComponent } from './main.component';
-import { of } from 'rxjs';
+import { Observable, of, Subject, throwError } from 'rxjs';
+import { Result } from '../youtube-search.service';
 
 describe('MainComponent', () => {
   let component: MainComponent;
@@ -51,6 +52,167 @@ describe('MainComponent', () => {
 
   it('should create component instance', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('URL and YouTube search modes', () => {
+    let search: ReturnType<typeof vi.fn>;
+    const result = new Result({ id: 'video-1', title: 'Moon landing', channelTitle: 'NASA' });
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      search = vi.fn().mockReturnValue(of([result]));
+      (component as any).youtubeSearch.search = search;
+      component.youtubeSearchEnabled = true;
+      component.urlInput = { nativeElement: { focus: vi.fn() } } as any;
+      component.attachToInput();
+    });
+
+    afterEach(() => {
+      component.ngOnDestroy();
+      vi.useRealTimers();
+    });
+
+    it('defaults to URL mode and never searches URL input or plain text', () => {
+      expect(component.inputMode).toBe('url');
+      component.inputChanged('moon landing');
+      component.inputChanged('https://www.youtube.com/watch?v=video-1');
+      vi.advanceTimersByTime(1000);
+
+      expect(search).not.toHaveBeenCalled();
+      expect(component.results_showing).toBe(false);
+    });
+
+    it('debounces input changes (including paste) without probing formats or repeating the same query', () => {
+      const probe = vi.spyOn(component, 'getURLInfo');
+      component.allowQualitySelect = true;
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      vi.advanceTimersByTime(200);
+      component.inputChanged('moon landing');
+      vi.advanceTimersByTime(249);
+      expect(search).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+
+      expect(search).toHaveBeenCalledExactlyOnceWith('moon landing');
+      expect(component.results).toEqual([result]);
+      component.inputChanged('moon landing ');
+      vi.advanceTimersByTime(1000);
+      expect(search).toHaveBeenCalledTimes(1);
+      expect(probe).not.toHaveBeenCalled();
+      expect(component.url).toBe('');
+    });
+
+    it('cancels an in-flight request as soon as the query changes', () => {
+      const pending = new Subject<Result[]>();
+      const cancelled = vi.fn();
+      search.mockReturnValueOnce(new Observable<Result[]>(subscriber => {
+        const subscription = pending.subscribe(subscriber);
+        return () => { cancelled(); subscription.unsubscribe(); };
+      }));
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      vi.advanceTimersByTime(250);
+      component.inputChanged('mars');
+
+      expect(cancelled).toHaveBeenCalledTimes(1);
+      pending.next([result]);
+      expect(component.results).toEqual([]);
+      vi.advanceTimersByTime(250);
+      expect(search).toHaveBeenLastCalledWith('mars');
+    });
+
+    it('keeps separate drafts and URL options, and cancels a pending search when switching modes', () => {
+      const url = 'https://www.youtube.com/watch?v=original';
+      component.inputChanged(url);
+      component.selectedQuality = '720';
+      component.toggleInputMode();
+      component.inputChanged('moon landing');
+      component.downloadClicked();
+      expect(component.downloadingfile).toBe(false);
+      component.toggleInputMode();
+      vi.advanceTimersByTime(1000);
+
+      expect(search).not.toHaveBeenCalled();
+      expect(component.url).toBe(url);
+      expect(component.selectedQuality).toBe('720');
+      expect(component.results_loading).toBe(false);
+      component.toggleInputMode();
+      expect(component.searchQuery).toBe('moon landing');
+      vi.advanceTimersByTime(250);
+      expect(search).toHaveBeenCalledExactlyOnceWith('moon landing');
+    });
+
+    it('clears stale results on short queries, empty input, and Escape', () => {
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      vi.advanceTimersByTime(250);
+      component.inputChanged('m');
+      expect(component.results).toEqual([]);
+      expect(component.results_showing).toBe(false);
+      component.inputChanged('mars');
+      component.clearInput();
+      vi.advanceTimersByTime(250);
+      expect(component.searchQuery).toBe('');
+      component.inputChanged('venus');
+      component.dismissSearch();
+      vi.advanceTimersByTime(250);
+      expect(component.results_showing).toBe(false);
+      expect(search).toHaveBeenCalledTimes(1);
+    });
+
+    it('recovers after an API failure and distinguishes empty results', () => {
+      search.mockReturnValueOnce(throwError(() => new Error('unavailable'))).mockReturnValueOnce(of([]));
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      vi.advanceTimersByTime(250);
+      expect(component.searchFailed).toBe(true);
+      expect(component.results_loading).toBe(false);
+      component.inputChanged('mars');
+      vi.advanceTimersByTime(250);
+      expect(component.searchFailed).toBe(false);
+      expect(component.results_showing).toBe(true);
+      expect(component.results).toEqual([]);
+    });
+
+    it('selects a result into URL mode and probes only the selected URL', () => {
+      const probe = vi.spyOn(component, 'getURLInfo').mockReturnValue(undefined);
+      component.allowQualitySelect = true;
+      component.toggleInputMode();
+      component.inputChanged('moon landing');
+      vi.advanceTimersByTime(250);
+      component.useURL(result.videoUrl);
+
+      expect(component.inputMode).toBe('url');
+      expect(component.url).toBe(result.videoUrl);
+      expect(component.results_showing).toBe(false);
+      expect(probe).toHaveBeenCalledExactlyOnceWith(result.videoUrl);
+    });
+
+    it('does not request search when the API is disabled or after destruction', () => {
+      component.youtubeSearchEnabled = false;
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      vi.advanceTimersByTime(250);
+      expect(search).not.toHaveBeenCalled();
+      component.youtubeSearchEnabled = true;
+      component.inputChanged('mars');
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(250);
+      expect(search).not.toHaveBeenCalled();
+    });
+
+    it('starts a waiting search when the API configuration arrives after the view', async () => {
+      component.youtubeSearchEnabled = false;
+      component.toggleInputMode();
+      component.inputChanged('moon');
+      (component as any).postsService.config.API = { use_youtube_API: true, youtube_API_key: 'test-key' };
+
+      await component.loadConfig();
+      vi.advanceTimersByTime(250);
+
+      expect(component.youtubeSearchEnabled).toBe(true);
+      expect(search).toHaveBeenCalledExactlyOnceWith('moon');
+    });
   });
 
   it('keeps polling state for unfinished downloads even when percent is null', () => {

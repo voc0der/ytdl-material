@@ -1,46 +1,39 @@
 <br/>
 <div class="big demo-basic">
-  <mat-card id="card" style="margin-right: 20px; margin-left: 20px;" [ngClass]="isAdvancedModeActive() ? 'no-border-radius-bottom' : 'border-radius-both'">
+  <mat-card id="card" style="margin-right: 20px; margin-left: 20px;" [ngClass]="inputMode === 'url' && isAdvancedModeActive() ? 'no-border-radius-bottom' : 'border-radius-both'">
     <mat-card-content style="padding: 0px 8px 0px 8px;">
-      <div style="position: relative; margin-right: 15px; margin-top: 20px;">
+      <div class="entry-bar">
         <form class="example-form">
           <div class="container-fluid">
             <div class="row">
               <div class="col-12">
-                <mat-form-field color="accent" class="example-full-width">
-                  <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off" matInput (ngModelChange)="inputChanged($event)" [(ngModel)]="url" [placeholder]="'URL' + (youtubeSearchEnabled ? ' or search' : '')" type="url" name="url" #urlinput></textarea>
+                <mat-form-field color="accent" class="example-full-width entry-field" subscriptSizing="dynamic">
+                  <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off" matInput
+                    [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
+                    [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
+                    [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
+                    (keydown.enter)="inputMode === 'search' && $event.preventDefault()" (keydown.escape)="dismissSearch()"
+                    autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
+                  <button type="button" mat-icon-button matSuffix class="input-mode-toggle"
+                    [class.search-mode]="inputMode === 'search'" (click)="toggleInputMode()"
+                    [attr.aria-label]="toggleLabels[inputMode]" [matTooltip]="toggleLabels[inputMode]">
+                    <span class="input-mode-glyph" aria-hidden="true">
+                      <mat-icon class="mode-link">link</mat-icon>
+                      <mat-icon class="mode-search">search</mat-icon>
+                    </span>
+                  </button>
                 </mat-form-field>
-                <!--<button type="button" class="input-clear-button" mat-icon-button (click)="clearInput()"><mat-icon>clear</mat-icon></button>-->
+                @if (inputMode === 'search' && (!youtubeSearchEnabled || results_showing)) {
+                  <app-youtube-search-results [enabled]="youtubeSearchEnabled" [loading]="results_loading"
+                    [failed]="searchFailed" [results]="results" (selected)="useURL($event)" (keydown.escape)="dismissSearch()" />
+                }
               </div>
             </div>
           </div>
-          @if (results_showing) {
-            <div class="results-div">
-              @for (result of results; track result.videoUrl; let i = $index) {
-                <span>
-                  <mat-card appearance="outlined" class="result-card mat-elevation-z7" [ngClass]="[(i === 0 && results.length > 1) ? 'first-result-card' : '', ((i === results.length-1) && results.length > 1) ? 'last-result-card' : '', (results.length === 1) ? 'only-result-card' : '']">
-                    <div class="search-card-title">
-                      {{result.title}}
-                    </div>
-                    <div style="font-size: 12px; margin-bottom: 10px;">
-                      {{result.uploaded}}
-                    </div>
-                    <button mat-flat-button color="primary" style="float: left;" (click)="useURL(result.videoUrl)">
-                      <ng-container i18n="YT search Use URL button for searched video">Use URL</ng-container>
-                    </button>
-                    <button mat-stroked-button color="primary" (click)="visitURL(result.videoUrl)" style="float: right">
-                      <ng-container i18n="YT search View button for searched video">
-                                        View
-                                    </ng-container>
-                    </button>
-                  </mat-card>
-                </span>
-              }
-            </div>
-          }
         </form>
       </div>
     </mat-card-content>
+    @if (inputMode === 'url') {
     <mat-card-actions class="main-pane-card-actions">
       <div class="main-pane-actions-row">
         <div class="main-pane-action-controls">
@@ -166,9 +159,10 @@
         </button>
       }
     </mat-card-actions>
+    }
   </mat-card>
 </div>
-@if (isAdvancedModeActive()) {
+@if (inputMode === 'url' && isAdvancedModeActive()) {
   <div class="big demo-basic">
     <form style="margin-left: 20px; margin-right: 20px;">
       <mat-card class="big no-border-radius-top advanced-panel">

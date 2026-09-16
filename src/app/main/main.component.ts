@@ -1,11 +1,12 @@
 import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList, ChangeDetectionStrategy } from '@angular/core';
 import {PostsService} from '../posts.services';
-import { fromEvent, Subject } from 'rxjs';
+import { EMPTY, of, Subject, timer } from 'rxjs';
 import { UntypedFormControl, Validators, FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { saveBlob } from '../utils/save-blob';
 import { YoutubeSearchService, Result } from '../youtube-search.service';
+import { YoutubeSearchResultsComponent } from '../components/youtube-search-results/youtube-search-results.component';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Platform } from '@angular/cdk/platform';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
@@ -13,7 +14,7 @@ import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialo
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
-import { debounceTime, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, filter, switchMap, take, takeUntil } from 'rxjs/operators';
 import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
 import { NgClass } from '@angular/common';
 import { MatFormField, MatInput, MatSuffix, MatLabel, MatHint } from '@angular/material/input';
@@ -33,7 +34,7 @@ import { MediaLibraryComponent as MediaLibraryComponent_1 } from '../components/
     templateUrl: './main.component.html',
     styleUrls: ['./main.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatCard, NgClass, MatCardContent, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatCardActions, MatSelect, MatOption, MatTooltip, MatProgressSpinner, MatSuffix, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1]
+    imports: [MatCard, NgClass, MatCardContent, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatCardActions, MatSelect, MatOption, MatTooltip, MatProgressSpinner, MatSuffix, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1, YoutubeSearchResultsComponent]
 })
 export class MainComponent implements OnInit {
   youtubeAuthDisabledOverride = false;
@@ -79,11 +80,17 @@ export class MainComponent implements OnInit {
   cachedFileManagerEnabled = localStorage.getItem('cached_filemanager_enabled') === 'true';
 
   // youtube api
+  inputMode: 'url' | 'search' = 'url';
+  searchQuery = '';
+  readonly inputLabels = { url: $localize`:URL input placeholder:URL`, search: $localize`:YouTube search input placeholder:Search` };
+  readonly toggleLabels = { url: $localize`:Switch input to search:Switch to Search`, search: $localize`:Switch input to URL:Switch to URL` };
   youtubeSearchEnabled = false;
   youtubeAPIKey = null;
   results_loading = false;
-  results_showing = true;
-  results = [];
+  results_showing = false;
+  searchFailed = false;
+  results: Result[] = [];
+  private readonly searchChangedSubject = new Subject<string>();
 
   playlists = {'audio': [], 'video': []};
   playlist_thumbnails = {};
@@ -221,9 +228,12 @@ export class MainComponent implements OnInit {
     this.downloadOnlyMode = this.postsService.config['Extra']['download_only_mode'];
     this.forceAutoplay = this.postsService.config['Extra']['force_autoplay'];
     this.globalCustomArgs = this.postsService.config['Downloader']['custom_args'];
-    this.youtubeSearchEnabled = this.postsService.config['API'] && this.postsService.config['API']['use_youtube_API'] &&
-        this.postsService.config['API']['youtube_API_key'];
+    this.youtubeSearchEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_youtube_API'] &&
+        this.postsService.config['API']['youtube_API_key']);
     this.youtubeAPIKey = this.youtubeSearchEnabled ? this.postsService.config['API']['youtube_API_key'] : null;
+    this.youtubeSearch.initializeAPI(this.youtubeAPIKey);
+    this.searchChangedSubject.next('');
+    if (this.inputMode === 'search' && this.youtubeSearchEnabled) this.searchChangedSubject.next(this.searchQuery.trim());
     this.sponsorBlockDownloadsEnabled = !!(this.postsService.config['API'] && this.postsService.config['API']['use_sponsorblock_API']);
     this.allowQualitySelect = this.postsService.config['Extra']['allow_quality_select'];
     // Advanced download mode is always available; access is governed by the per-user
@@ -283,6 +293,7 @@ export class MainComponent implements OnInit {
 
   // app initialization.
   ngOnInit(): void {
+    this.attachToInput();
     if (this.postsService.initialized) {
       this.configLoad();
     } else {
@@ -325,13 +336,6 @@ export class MainComponent implements OnInit {
       .subscribe((should_simulate) => {
         if (should_simulate) this.getSimulatedOutput();
     });
-  }
-
-  ngAfterViewInit(): void {
-    if (this.youtubeSearchEnabled && this.youtubeAPIKey) {
-      this.youtubeSearch.initializeAPI(this.youtubeAPIKey);
-      this.attachToInput();
-    }
   }
 
   ngOnDestroy(): void {
@@ -476,6 +480,7 @@ export class MainComponent implements OnInit {
   }
 
   downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true, channelSearchPlaylist = false): void {
+    if (this.inputMode === 'search' && urlOverride === null) return;
     let effective_url = typeof urlOverride === 'string' ? urlOverride : (this.url || '');
 
     // Sanitize single YouTube watch URLs (keep only v=...)
@@ -700,33 +705,35 @@ export class MainComponent implements OnInit {
   }
 
   clearInput(): void {
-    this.url = '';
-    this.selectedQuality = '';
-    this.selectedAudioLanguage = '';
-    this.selectedSubtitleLanguage = '';
-    this.selectedSubtitleSource = '';
-    this.results_showing = false;
+    this.inputChanged('');
   }
 
-  onInputBlur(): void {
-    this.results_showing = false;
+  toggleInputMode(): void {
+    this.inputMode = this.inputMode === 'url' ? 'search' : 'url';
+    this.searchChangedSubject.next(this.inputMode === 'search' ? this.searchQuery.trim() : '');
+    this.urlInput.nativeElement.focus();
   }
 
-  visitURL(url: string): void {
-    window.open(url);
+  dismissSearch(): void {
+    this.searchChangedSubject.next('');
+    this.urlInput.nativeElement.focus();
   }
 
   useURL(url: string): void {
-    this.results_showing = false;
-    this.selectedQuality = '';
-    this.selectedAudioLanguage = '';
-    this.selectedSubtitleLanguage = '';
-    this.selectedSubtitleSource = '';
-    this.url = url;
-    this.ValidURL(url);
+    this.inputMode = 'url';
+    this.searchChangedSubject.next('');
+    this.inputChanged(url);
+    this.urlInput.nativeElement.focus();
   }
 
   inputChanged(new_val: string): void {
+    if (this.inputMode === 'search') {
+      this.searchQuery = new_val;
+      this.searchChangedSubject.next(new_val.trim());
+      return;
+    }
+
+    this.url = new_val;
     this.selectedQuality = '';
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
@@ -962,34 +969,31 @@ export class MainComponent implements OnInit {
   }
 
   attachToInput(): void {
-    fromEvent(this.urlInput.nativeElement, 'keyup')
+    this.searchChangedSubject
       .pipe(
-        map((e: any) => e.target.value),            // extract the value of input
-        filter((text: string) => text.length > 1),  // filter out if empty
-        debounceTime(250),                          // only once every 250ms
-        tap(() => this.results_loading = true),     // enable loading
-        switchMap((query: string) => this.youtubeSearch.search(query)),
+        distinctUntilChanged(),
+        // Cancel immediately on edits or mode changes, including during the debounce.
+        switchMap(query => {
+          this.results = [];
+          this.searchFailed = false;
+          this.results_showing = this.inputMode === 'search' && this.youtubeSearchEnabled && query.length > 1;
+          this.results_loading = this.results_showing;
+          if (!this.results_showing) return EMPTY;
+
+          return timer(250).pipe(
+            switchMap(() => this.youtubeSearch.search(query)),
+            catchError(() => {
+              this.searchFailed = true;
+              return of([] as Result[]);
+            })
+          );
+        }),
         takeUntil(this.destroy$)
       )
-      .subscribe(
-        (results: Result[]) => {
-          this.results_loading = false;
-          if (this.url !== '' && results && results.length > 0) {
-            this.results = results;
-            this.results_showing = true;
-          } else {
-            this.results_showing = false;
-          }
-        },
-        (err: any) => {
-          console.log(err)
-          this.results_loading = false;
-          this.results_showing = false;
-        },
-        () => { // on completion
-          this.results_loading = false;
-        }
-      );
+      .subscribe(results => {
+        this.results_loading = false;
+        this.results = results;
+      });
   }
 
   argsChanged(): void {
