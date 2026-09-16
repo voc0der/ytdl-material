@@ -204,6 +204,53 @@ describe('Downloader', function() {
         assert.strictEqual(failed_download.error_summary, failed_download.error);
     });
 
+    it('Search runs yt-dlp search on the query and maps entries for the results list', async function() {
+        let captured = null;
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const original_downloader = config_api.getConfigItem('ytdl_default_downloader');
+        config_api.setConfigItem('ytdl_default_downloader', 'youtube-dl');
+        youtubedl_api.runYoutubeDL = async (requestedUrl, run_args, custom_handler, selected_fork) => {
+            captured = {requestedUrl, run_args, selected_fork};
+            return {callback: Promise.resolve({parsed_output: [{_type: 'playlist', entries: [
+                {id: 'video-1', title: 'Moon landing', channel: 'NASA', url: 'https://example.com/watch?v=video-1',
+                    thumbnails: [{url: 'https://example.com/small.jpg'}, {url: 'https://example.com/large.jpg'}]},
+                {id: 'video-2', title: 'Mars rover', uploader: 'JPL', webpage_url: 'https://example.com/watch?v=video-2'},
+                {id: 'no-url', title: 'Unusable'},
+                null
+            ]}], err: null})};
+        };
+
+        let results;
+        try {
+            results = await downloader_api.searchVideos('-f moon & mars');
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            config_api.setConfigItem('ytdl_default_downloader', original_downloader);
+        }
+
+        assert.strictEqual(captured.requestedUrl, 'ytsearch5:-f moon & mars');
+        assert.strictEqual(captured.selected_fork, 'yt-dlp');
+        assert(captured.run_args.includes('--flat-playlist'));
+        assert(captured.run_args.includes('--dump-single-json'));
+        assert.deepStrictEqual(results, [
+            {id: 'video-1', title: 'Moon landing', channelTitle: 'NASA', thumbnailUrl: 'https://example.com/large.jpg', videoUrl: 'https://example.com/watch?v=video-1'},
+            {id: 'video-2', title: 'Mars rover', channelTitle: 'JPL', thumbnailUrl: null, videoUrl: 'https://example.com/watch?v=video-2'}
+        ]);
+    });
+
+    it('Search reports failure separately from an empty result', async function() {
+        const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        const outputs = [{parsed_output: null, err: 'ERROR: unable to download'}, {parsed_output: [{_type: 'playlist', entries: []}], err: null}];
+        youtubedl_api.runYoutubeDL = async () => ({callback: Promise.resolve(outputs.shift())});
+
+        try {
+            assert.strictEqual(await downloader_api.searchVideos('moon'), null);
+            assert.deepStrictEqual(await downloader_api.searchVideos('moon'), []);
+        } finally {
+            youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+        }
+    });
+
     it('Get file info uses yt-dlp when an audio language is requested', async function() {
         let captured_fork = null;
         const original_runYoutubeDL = youtubedl_api.runYoutubeDL;

@@ -1,11 +1,13 @@
-<div role="status" aria-live="polite" [class.search-status]="!enabled || loading || failed || !results.length">
-  @if (!enabled) {
-    <span i18n="YouTube search configuration hint">Enable the YouTube API and add a key in Settings to search.</span>
+<div role="status" aria-live="polite" [class.search-status]="!active || loading || failed || !results.length">
+  @if (!active) {
+    <span i18n="YouTube search configuration hint">For interactive searches, enable the YouTube API and add a key in Settings.</span>
   } @else {
     @if (loading) {
       <span i18n="YouTube search loading">Searching YouTube…</span>
-    } @else if (failed) {
+    } @else if (failed && interactive) {
       <span i18n="YouTube search error">Couldn’t search YouTube. Check your connection or API settings.</span>
+    } @else if (failed) {
+      <span i18n="YouTube search server error">Couldn’t search YouTube. Check the server logs.</span>
     } @else if (!results.length) {
       <span i18n="YouTube search empty results">No videos found.</span>
     } @else {

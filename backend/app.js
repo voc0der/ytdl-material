@@ -3436,6 +3436,21 @@ app.post('/api/clearAllLogs', optionalJwt, requireAdmin, async function(req, res
     })
 });
 
+  app.post('/api/searchVideos', optionalJwt, requireAuthenticated, async (req, res) => {
+    const query = typeof req.body.query === 'string' ? req.body.query.trim() : '';
+    if (!query || query.length > 200) {
+        res.sendStatus(400);
+        return;
+    }
+
+    const results = await downloader_api.searchVideos(query);
+    if (!results) {
+        res.sendStatus(500);
+        return;
+    }
+    res.send({results: results});
+});
+
 // user authentication
 
 app.get('/api/auth/oidc/status', (req, res) => {

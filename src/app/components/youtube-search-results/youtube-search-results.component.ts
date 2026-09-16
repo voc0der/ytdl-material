@@ -12,7 +12,8 @@ import { Result } from '../../youtube-search.service';
   imports: [MatIconButton, MatIcon, MatTooltip]
 })
 export class YoutubeSearchResultsComponent {
-  @Input() enabled = false;
+  @Input() interactive = false;
+  @Input() active = false;
   @Input() loading = false;
   @Input() failed = false;
   @Input() results: Result[] = [];

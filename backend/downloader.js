@@ -2625,6 +2625,48 @@ exports.getVideoInfoByURL = async (url, args = [], download_uid = null, options 
     return parsed_output;
 }
 
+const VIDEO_SEARCH_RESULT_COUNT = 5;
+
+/*************************************************
+ * Searches through yt-dlp's own search extractor.
+ *
+ * The fallback for installs without a search API
+ * key. Every call starts a yt-dlp process, so the
+ * UI only runs it on submit, never per keystroke.
+ * Returns null when the search itself failed.
+ ************************************************/
+exports.searchVideos = async (query) => {
+    const downloader_fork = 'yt-dlp';
+    let search_args = ['--flat-playlist', '--dump-single-json'];
+    if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
+        search_args.push('--cookies', path.join('appdata', 'cookies.txt'));
+    }
+    search_args = appendYtDlpImpersonationArgs(search_args, downloader_fork);
+
+    // The query rides in the URL slot, which runYoutubeDL places after '--'.
+    const run_result = await youtubedl_api.runYoutubeDL(`ytsearch${VIDEO_SEARCH_RESULT_COUNT}:${query}`, search_args, null, downloader_fork);
+    if (!run_result || !run_result.callback) return null;
+    const {parsed_output, err} = await run_result.callback;
+    const search_root = Array.isArray(parsed_output) ? parsed_output.find(item => item && Array.isArray(item['entries'])) : null;
+    if (!search_root) {
+        logger.error(`Video search failed: ${describeInfoLookupError(err, downloader_fork)}`);
+        return null;
+    }
+
+    return search_root['entries']
+        .filter(entry => entry && entry['id'] && (entry['url'] || entry['webpage_url']))
+        .map(entry => {
+            const thumbnails = Array.isArray(entry['thumbnails']) ? entry['thumbnails'].filter(thumbnail => thumbnail && thumbnail['url']) : [];
+            return {
+                id: entry['id'],
+                title: entry['title'] || null,
+                channelTitle: entry['channel'] || entry['uploader'] || null,
+                thumbnailUrl: thumbnails.length ? thumbnails[thumbnails.length - 1]['url'] : null,
+                videoUrl: entry['url'] || entry['webpage_url']
+            };
+        });
+}
+
 async function archiveJoinOnlyVideo(download_uid, error_details) {
     const download = await db_api.getRecord('download_queue', {uid: download_uid});
     if (!download || !download['sub_id']) return;
