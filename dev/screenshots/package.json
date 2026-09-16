@@ -1,0 +1,13 @@
+{
+  "name": "ytdl-material-screenshots",
+  "version": "1.0.0",
+  "description": "Boots the backend against a throwaway library and captures the README screenshot.",
+  "scripts": {
+    "capture": "node capture.mjs"
+  },
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.63.0"
+  },
+  "private": true
+}

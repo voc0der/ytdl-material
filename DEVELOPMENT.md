@@ -133,3 +133,52 @@ needed by the build without any file naming it, `openapi-typescript-codegen` is 
 the `openapi` binary, `@types/*` are ambient), and a version that tried flagged eleven
 frontend packages of which most were load-bearing. Finding genuinely dead dependencies is
 `git log -S "require('name')"` work, done by hand.
+
+# Regenerating the README screenshot
+
+`docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`
+builds the frontend from the working tree, boots the backend against a staged library, and
+captures the home page in headless Chromium:
+
+```bash
+dev/screenshots/capture.sh               # build, boot, capture, stop
+dev/screenshots/capture.sh --skip-build  # reuse the last frontend build
+dev/screenshots/capture.sh --keep        # leave the backend running on :17449 afterwards
+```
+
+The first run installs Playwright into `dev/screenshots/node_modules` and downloads its
+Chromium. After that a run takes about ten seconds. Nothing it does touches
+`backend/public` or `backend/appdata`: the build is cached under
+`~/.cache/ytdl-material/screenshots`, and the backend runs from a copy in
+`$TMPDIR/ytdl-material-screenshot`, where its data and log also live.
+
+The output is byte-identical between runs, so if a re-run changes the PNG, the page changed.
+Commit the image in the same PR as the UI change that moved it. Like the coverage badge, it
+is not refreshed in CI.
+
+## The library
+
+`dev/screenshots/fixtures/library.json` holds eight NASA videos and three playlists built
+from them, with each video's thumbnail beside it in `fixtures/thumbnails/<id>.jpg`. They
+are NASA's because NASA material is free to use. To change what the screenshot shows,
+edit that file and add a thumbnail about 640px wide for any new video.
+
+The media files themselves are empty placeholders. The home page never opens one, so a
+`--keep` session is a browsable library whose videos do not play.
+
+## Things that will bite you if you change the staging
+
+- **The library is written into the local database, not imported.** An import stamps each
+  file with the time it ran, and that is the date the card shows. Fixed timestamps are what
+  keep the PNG stable.
+- **`appdata/db.json` has to carry the migration flags.** Without them the first boot runs
+  the pre-4.3 migrations, one of which rebuilds the local database from `db.json` and
+  empties the seeded tables.
+- **Every file record needs a `thumbnailURL`.** The card renders no image without one,
+  even though the image it then shows is loaded from `thumbnailPath` through the API.
+- **The backend's working directory cannot have a dot-directory in its path.** Thumbnails
+  are served with `res.sendFile`, which answers 404 for such paths, while the page itself
+  still loads, so the failure shows up as blank cards. That is why the run is staged in the
+  temp dir rather than beside the build in `~/.cache`.
+- **The shipped `appdata/default.json` is copied in.** The backend cannot create it on a
+  first boot: modules read config as they are required, before anything gets the chance.
