@@ -667,6 +667,81 @@ describe('Subscriptions', function() {
         const updated_sub = await db_api.getRecord('subscriptions', {id: new_sub['id']});
         assert(updated_sub['name'] === 'updated_name');
     });
+    it('Update subscription applies a partial update over the stored settings', async function () {
+        await subscriptions_api.subscribe(Object.assign({}, new_sub, {maxQuality: '1080', custom_args: '--verbose'}), null, true);
+
+        assert.strictEqual(await subscriptions_api.updateSubscription({id: new_sub['id'], paused: false}), true);
+
+        const updated_sub = await db_api.getRecord('subscriptions', {id: new_sub['id']});
+        assert.strictEqual(updated_sub['paused'], false);
+        assert.strictEqual(updated_sub['maxQuality'], '1080');
+        assert.strictEqual(updated_sub['custom_args'], '--verbose');
+        assert.strictEqual(updated_sub['name'], 'test_sub');
+    });
+    it('Update subscription leaves the fields the backend owns alone', async function () {
+        await subscriptions_api.subscribe(new_sub, null, true);
+        const refresh_status = {active: true, phase: 'collecting', discovered_count: 7};
+        await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {downloading: true, refresh_status: refresh_status});
+
+        // What a page holding a copy from before the check started would send back.
+        const stale_update = Object.assign({}, new_sub, {
+            paused: true,
+            downloading: false,
+            refresh_status: {active: false, phase: 'idle', discovered_count: 0},
+            file_count: 99,
+            thumbnail_file_uid: 'not-a-file'
+        });
+        assert.strictEqual(await subscriptions_api.updateSubscription(stale_update), true);
+
+        const updated_sub = await db_api.getRecord('subscriptions', {id: new_sub['id']});
+        assert.strictEqual(updated_sub['paused'], true);
+        assert.strictEqual(updated_sub['downloading'], true);
+        assert.strictEqual(updated_sub['refresh_status'].phase, 'collecting');
+        assert.strictEqual(updated_sub['refresh_status'].discovered_count, 7);
+        assert.strictEqual(updated_sub['file_count'], undefined);
+        assert.strictEqual(updated_sub['thumbnail_file_uid'], undefined);
+    });
+    it('Update subscription refuses an update that names no subscription', async function () {
+        assert.strictEqual(await subscriptions_api.updateSubscription(null), false);
+        assert.strictEqual(await subscriptions_api.updateSubscription({paused: true}), false);
+        assert.strictEqual(await subscriptions_api.updateSubscription({id: 'missing-sub', paused: true}), false);
+    });
+    it('Summarises subscriptions with what their cards show', async function () {
+        await subscriptions_api.subscribe(new_sub, null, true);
+        const older_file = {uid: uuid(), sub_id: new_sub['id'], title: 'Older', thumbnailPath: 'video/older.jpg', registered: 100};
+        const newest_file = {uid: uuid(), sub_id: new_sub['id'], title: 'Newest', thumbnailPath: 'video/newest.jpg', registered: 300};
+        const without_thumbnail = {uid: uuid(), sub_id: new_sub['id'], title: 'No thumbnail', registered: 400};
+        await db_api.insertRecordsIntoTable('files', [older_file, newest_file, without_thumbnail]);
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: uuid(), sub_id: new_sub['id'], running: true, finished: false, timestamp_start: Date.now()
+        });
+        await db_api.insertRecordIntoTable('download_queue', {
+            uid: uuid(), sub_id: new_sub['id'], running: false, finished: false, timestamp_start: Date.now()
+        });
+
+        const summaries = await subscriptions_api.getSubscriptionSummaries(null);
+
+        assert.strictEqual(summaries.length, 1);
+        const summary = summaries[0];
+        assert.strictEqual(summary.file_count, 3);
+        // The newest file that has a thumbnail, not simply the newest file.
+        assert.strictEqual(summary.thumbnail_file_uid, newest_file.uid);
+        assert.strictEqual(summary.refresh_status.pending_download_count, 2);
+        assert.strictEqual(summary.refresh_status.running_download_count, 1);
+        assert.strictEqual(summary.downloading, true);
+        assert.strictEqual(summary.videos, undefined);
+        assert.strictEqual(summary.child_process, undefined);
+    });
+    it('Summarises a subscription that has downloaded nothing yet', async function () {
+        await subscriptions_api.subscribe(new_sub, null, true);
+
+        const [summary] = await subscriptions_api.getSubscriptionSummaries(null);
+
+        assert.strictEqual(summary.file_count, 0);
+        assert.strictEqual(summary.thumbnail_file_uid, null);
+        assert.strictEqual(summary.refresh_status.phase, 'idle');
+        assert.strictEqual(summary.downloading, false);
+    });
     it('Backfills and appends to an automatic subscription playlist', async function () {
         const sub = Object.assign({}, new_sub, {
             id: uuid(),

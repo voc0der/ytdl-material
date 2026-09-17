@@ -1,81 +1,179 @@
 <div class="subscription-page">
-  <button class="back-button" (click)="goBack()" mat-icon-button><mat-icon>arrow_back</mat-icon></button>
-
   @if (subscription) {
-    <div class="subscription-header">
-      <h2 class="subscription-title">
-        {{subscription.name}}&nbsp;@if (subscription.paused) {
-          <ng-container i18n="Paused suffix">(Paused)</ng-container>
+    <div class="container subscription-top">
+      <header class="sub-header">
+        <button type="button" class="kit-icon-button sub-back" (click)="goBack()" [attr.aria-label]="backLabel" [matTooltip]="backLabel">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <span class="sub-cover" aria-hidden="true">
+          @if (coverURL; as cover) {
+            <img [src]="cover" alt="">
+          } @else {
+            <span class="sub-cover-initial">{{initial}}</span>
+          }
+        </span>
+        <div class="sub-heading">
+          <h1 class="sub-title">{{subscription.name}}</h1>
+          <div class="sub-meta">
+            <span class="sub-type">
+              <mat-icon>{{subscription.isPlaylist ? 'playlist_play' : 'account_box'}}</mat-icon>
+              @if (subscription.isPlaylist) {
+                <ng-container i18n="Subscription type playlist">Playlist</ng-container>
+              } @else {
+                <ng-container i18n="Subscription type channel">Channel</ng-container>
+              }
+            </span>
+            <span aria-hidden="true">·</span>
+            <span i18n="Subscription file count">{fileCount, plural, =0 {No files} =1 {1 file} other {{{fileCount}} files}}</span>
+          </div>
+          <div class="sub-status" [class.sub-status-busy]="isChecking || subscription.refresh_status?.pending_download_count > 0">{{statusText()}}</div>
+        </div>
+      </header>
+
+      <div class="kit-rail sub-actions">
+        @if (isChecking) {
+          <button type="button" class="kit-chip" (click)="cancelCheckSubscription()" [disabled]="cancel_clicked">
+            <mat-spinner [diameter]="16"></mat-spinner>
+            <span i18n="Stop checking subscription menu item">Stop checking</span>
+          </button>
+        } @else {
+          <button type="button" class="kit-chip" (click)="checkSubscription()" [disabled]="check_clicked">
+            <mat-icon>refresh</mat-icon>
+            <span i18n="Check subscription menu item">Check now</span>
+          </button>
         }
-      </h2>
-      <button class="edit-button" (click)="editSubscription()" [disabled]="subscription.downloading || downloading" matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button><mat-icon class="save-icon">edit</mat-icon></button>
-    </div>
+        <button type="button" class="kit-chip" (click)="watchSubscription()" [disabled]="!fileCount">
+          <mat-icon>play_arrow</mat-icon>
+          <span i18n="Play all">Play all</span>
+        </button>
+        <button type="button" class="kit-chip" [attr.aria-pressed]="settingsOpen" aria-controls="subscription-settings" (click)="toggleSettings()">
+          <mat-icon>tune</mat-icon>
+          <span i18n="Subscription settings menu item">Settings</span>
+        </button>
+        @if (downloading) {
+          <button type="button" class="kit-chip" (click)="cancelSubscriptionDownload()" aria-label="Cancel subscription download" i18n-aria-label="Cancel subscription download label">
+            <mat-spinner [diameter]="16"></mat-spinner>
+            <span i18n="Subscription zip being prepared">Preparing zip</span>
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+        <button type="button" class="kit-icon-button" [matMenuTriggerFor]="moreMenu" [attr.aria-label]="moreActionsLabel" [matTooltip]="moreActionsLabel">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+      </div>
 
-    <mat-divider class="subscription-divider"></mat-divider>
+      <mat-menu #moreMenu="matMenu" class="kit-menu">
+        @if (subscription.paused) {
+          <button mat-menu-item (click)="setPaused(false)">
+            <mat-icon>play_circle</mat-icon>
+            <span i18n="Resume subscription menu item">Resume</span>
+          </button>
+        } @else {
+          <button mat-menu-item (click)="setPaused(true)">
+            <mat-icon>pause_circle</mat-icon>
+            <span i18n="Pause subscription menu item">Pause</span>
+          </button>
+        }
+        <button mat-menu-item (click)="downloadContent()" [disabled]="downloading || !fileCount">
+          <mat-icon>folder_zip</mat-icon>
+          <span i18n="Download subscription zip menu item">Download as zip</span>
+        </button>
+        <button mat-menu-item (click)="exportArchive()">
+          <mat-icon>receipt_long</mat-icon>
+          <span i18n="Export Archive button">Export archive</span>
+        </button>
+        <a mat-menu-item [href]="subscription.url" target="_blank" rel="noopener">
+          <mat-icon>open_in_new</mat-icon>
+          <span i18n="Open subscription link menu item">Open link</span>
+        </a>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="redownloadSubscription()">
+          <mat-icon>restore</mat-icon>
+          <span i18n="Delete and redownload subscription files">Delete and redownload</span>
+        </button>
+        <button mat-menu-item class="menu-item-warn" (click)="unsubscribe()">
+          <mat-icon>delete</mat-icon>
+          <span i18n="Unsubscribe button">Unsubscribe</span>
+        </button>
+      </mat-menu>
 
-    @if (shouldShowRefreshStatus()) {
-      <mat-card class="refresh-status-card" [class.refresh-status-card-active]="hasActiveRefresh()">
-        <div class="refresh-status-card-header">
-          <div>
-            <div class="refresh-status-label">
-              @if (hasActiveRefresh()) {
-                <ng-container i18n="Subscription refresh status label while active">Active refresh</ng-container>
-              }
-              @if (!hasActiveRefresh()) {
-                <ng-container i18n="Subscription refresh status label while inactive">Last refresh</ng-container>
-              }
+      @if (settingsOpen && settingsDraft) {
+        <section class="settings-panel" id="subscription-settings" aria-labelledby="subscription-settings-title">
+          <h2 class="settings-panel-title" id="subscription-settings-title" i18n="Subscription settings title">Settings</h2>
+          <app-subscription-settings mode="edit" [settings]="settingsDraft" [disabled]="savingSettings"></app-subscription-settings>
+          <dl class="settings-details">
+            <div>
+              <dt i18n="Subscription URL property">Link</dt>
+              <dd><a [href]="subscription.url" target="_blank" rel="noopener">{{subscription.url}}</a></dd>
             </div>
-            <h3 class="refresh-status-title">{{getRefreshHeadline()}}</h3>
+            <div>
+              <dt i18n="Subscription ID property">ID</dt>
+              <dd><code>{{subscription.id}}</code></dd>
+            </div>
+          </dl>
+          <div class="settings-panel-actions">
+            @if (subscription.downloading) {
+              <span class="settings-panel-note" i18n="Subscription settings wait note">Settings can be saved once its current downloads finish.</span>
+            }
+            <button type="button" class="kit-text-button" (click)="closeSettings()" i18n="Subscribe cancel button">Cancel</button>
+            <button type="button" class="kit-chip kit-primary" (click)="saveSettings()" [disabled]="!canSaveSettings">
+              @if (savingSettings) {
+                <mat-spinner [diameter]="16"></mat-spinner>
+              }
+              <span i18n="Save button">Save</span>
+            </button>
+          </div>
+        </section>
+      }
+
+      @if (shouldShowRefreshStatus()) {
+        <mat-card class="refresh-status-card" [class.refresh-status-card-active]="hasActiveRefresh()">
+          <div class="refresh-status-card-header">
+            <div>
+              <div class="refresh-status-label">
+                @if (hasActiveRefresh()) {
+                  <ng-container i18n="Subscription refresh status label while active">Active refresh</ng-container>
+                }
+                @if (!hasActiveRefresh()) {
+                  <ng-container i18n="Subscription refresh status label while inactive">Last refresh</ng-container>
+                }
+              </div>
+              <h3 class="refresh-status-title">{{getRefreshHeadline()}}</h3>
+            </div>
+
+            @if (canOpenDownloads()) {
+              <button class="refresh-status-action" (click)="openDownloads()" mat-stroked-button>
+                <ng-container i18n="Open downloads page from subscription refresh card">View downloads</ng-container>
+              </button>
+            }
           </div>
 
-          @if (canOpenDownloads()) {
-            <button class="refresh-status-action" (click)="openDownloads()" mat-stroked-button>
-              <ng-container i18n="Open downloads page from subscription refresh card">View downloads</ng-container>
-            </button>
+          <p class="refresh-status-description">{{getRefreshDescription()}}</p>
+
+          @if (shouldShowRefreshProgressBar()) {
+            <mat-progress-bar
+              class="refresh-status-progress"
+              [mode]="getRefreshProgressMode()"
+              [value]="getRefreshProgressValue()"></mat-progress-bar>
           }
-        </div>
 
-        <p class="refresh-status-description">{{getRefreshDescription()}}</p>
-
-        @if (shouldShowRefreshProgressBar()) {
-          <mat-progress-bar
-            class="refresh-status-progress"
-            [mode]="getRefreshProgressMode()"
-            [value]="getRefreshProgressValue()"></mat-progress-bar>
-        }
-
-        @if (getRefreshMetrics().length > 0) {
-          <mat-chip-set class="refresh-status-metrics" aria-label="Subscription refresh metrics">
-            @for (metric of getRefreshMetrics(); track metric) {
-              <mat-chip>{{metric}}</mat-chip>
-            }
-          </mat-chip-set>
-        }
-      </mat-card>
-    }
+          @if (getRefreshMetrics().length > 0) {
+            <mat-chip-set class="refresh-status-metrics" aria-label="Subscription refresh metrics">
+              @for (metric of getRefreshMetrics(); track metric) {
+                <mat-chip>{{metric}}</mat-chip>
+              }
+            </mat-chip-set>
+          }
+        </mat-card>
+      }
+    </div>
 
     <div class="subscription-content">
       <app-media-library #mediaLibrary [sub_id]="subscription.id"></app-media-library>
     </div>
-
-    <div class="check-button">
-      @if (subscription.downloading) {
-        <button color="primary" (click)="cancelCheckSubscription()" [disabled]="cancel_clicked" matTooltip="Cancel subscription check" i18n-matTooltip="Cancel subscription check" mat-fab><mat-icon class="save-icon">cancel</mat-icon></button>
-      }
-      @if (!subscription.downloading) {
-        <button color="primary" (click)="checkSubscription()" [disabled]="check_clicked" matTooltip="Check subscription" i18n-matTooltip="Check subscription" mat-fab><mat-icon class="save-icon">youtube_searched_for</mat-icon></button>
-      }
+  } @else {
+    <div class="subscription-loading" aria-busy="true">
+      <mat-spinner [diameter]="32"></mat-spinner>
     </div>
-
-    <button class="watch-button" color="primary" (click)="watchSubscription()" matTooltip="Play all" i18n-matTooltip="Play all" mat-fab><mat-icon class="save-icon">video_library</mat-icon></button>
-    @if (!downloading) {
-      <button class="save-button" color="primary" (click)="downloadContent()" matTooltip="Download zip" i18n-matTooltip="Download zip" aria-label="Download subscription as a zip" i18n-aria-label="Download subscription zip label" mat-fab><mat-icon class="save-icon">save</mat-icon></button>
-    }
-    @if (downloading) {
-      <button class="save-button" color="primary" (click)="cancelSubscriptionDownload()" matTooltip="Cancel subscription download" i18n-matTooltip="Cancel subscription download" aria-label="Cancel subscription download" i18n-aria-label="Cancel subscription download label" mat-fab>
-        <mat-icon class="save-icon">cancel</mat-icon>
-        <mat-spinner class="spinner" [diameter]="50"></mat-spinner>
-      </button>
-    }
   }
 </div>

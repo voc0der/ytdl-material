@@ -2,28 +2,35 @@ import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { Subscription, SubscriptionRefreshStatus } from 'api-types';
 import { saveBlob } from '../../utils/save-blob';
-import { Subscription as RxSubscription } from 'rxjs';
+import { firstValueFrom, Subscription as RxSubscription } from 'rxjs';
 import { filter, finalize, take } from 'rxjs/operators';
-import { MatIconButton, MatButton, MatFabButton } from '@angular/material/button';
+import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
-import { MatDivider } from '@angular/material/list';
 import { MatCard } from '@angular/material/card';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatChipSet, MatChip } from '@angular/material/chips';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatDivider } from '@angular/material/divider';
 import { MediaLibraryComponent } from '../../components/media-library/media-library.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { SubscriptionSettingsComponent } from '../../components/subscription-settings/subscription-settings.component';
+import {
+  SubscriptionSettings, changedSubscriptionFields, formatRelativeTime, isSubscriptionChecking, lastCheckedAt, settingsFromSubscription,
+  subscriptionState
+} from '../../components/subscription-settings/subscription-settings';
+import { SubscriptionActionsService } from '../../subscriptions/subscription-actions.service';
 
 @Component({
     selector: 'app-subscription',
     templateUrl: './subscription.component.html',
     styleUrls: ['./subscription.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatIconButton, MatIcon, MatTooltip, MatDivider, MatCard, MatButton, MatProgressBar, MatChipSet, MatChip, MediaLibraryComponent, MatFabButton, MatProgressSpinner]
+    imports: [MatIcon, MatTooltip, MatDivider, MatCard, MatButton, MatProgressBar, MatChipSet, MatChip, MatMenu, MatMenuItem, MatMenuTrigger,
+      MediaLibraryComponent, MatProgressSpinner, SubscriptionSettingsComponent]
 })
 export class SubscriptionComponent implements OnInit, OnDestroy {
 
@@ -38,11 +45,22 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   sub_interval = null;
   check_clicked = false;
   cancel_clicked = false;
+
+  // The settings panel edits a copy, so Cancel leaves the subscription as it was.
+  settingsOpen = false;
+  settingsDraft: SubscriptionSettings | null = null;
+  private settingsSaved: SubscriptionSettings | null = null;
+  savingSettings = false;
+  private openSettingsOnLoad = false;
+
+  readonly backLabel = $localize`Back to subscriptions`;
+  readonly moreActionsLabel = $localize`More actions`;
   private active_subscription_request: {id: string | null; token: number} | null = null;
   private subscription_request_sequence = 0;
   private last_subscription_request_at = 0;
 
-  constructor(private postsService: PostsService, private route: ActivatedRoute, private router: Router, private dialog: MatDialog) { }
+  constructor(private postsService: PostsService, private route: ActivatedRoute, private router: Router, private dialog: MatDialog,
+              private actions: SubscriptionActionsService) { }
 
   ngOnInit() {
     this.route.params.subscribe(params => {
@@ -50,8 +68,11 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
       if (next_id !== this.id) {
         this.subscription = null;
         this.last_subscription_request_at = 0;
+        this.closeSettings();
       }
       this.id = next_id;
+      // Asked for from a subscription's card: open once the subscription is here to edit.
+      this.openSettingsOnLoad = params['settings'] === 'true';
 
       if (this.sub_interval) { clearInterval(this.sub_interval); }
 
@@ -110,6 +131,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         this.postsService.files_changed.next(true);
       }
       this.subscription = next_subscription;
+      if (this.openSettingsOnLoad) {
+        this.openSettingsOnLoad = false;
+        this.openSettings();
+      }
     }, err => console.error(err));
   }
 
@@ -177,12 +202,124 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     this.postsService.openSnackBar($localize`Subscription download cancelled.`);
   }
 
-  editSubscription(): void {
-    this.dialog.open(EditSubscriptionDialogComponent, {
-      data: {
-        sub: this.postsService.getSubscriptionByID(this.subscription.id)
+  get fileCount(): number {
+    return this.getSubscriptionFileCount(this.subscription);
+  }
+
+  get coverURL(): string | null {
+    return this.actions.coverURL(this.subscription);
+  }
+
+  get initial(): string {
+    return (this.subscription?.name || '?').trim().charAt(0).toUpperCase();
+  }
+
+  get isChecking(): boolean {
+    return !!this.subscription && isSubscriptionChecking(this.subscription);
+  }
+
+  // Files are moved when their folder changes, which must not happen under a running download.
+  get canSaveSettings(): boolean {
+    return !!this.settingsDraft && !this.savingSettings && !this.subscription?.downloading && this.settingsChanged;
+  }
+
+  get settingsChanged(): boolean {
+    return !!this.settingsDraft && Object.keys(changedSubscriptionFields(this.settingsSaved, this.settingsDraft)).length > 0;
+  }
+
+  statusText(): string {
+    const sub = this.subscription;
+    if (!sub) return '';
+    switch (subscriptionState(sub)) {
+    case 'paused':
+      return $localize`Paused`;
+    case 'checking':
+      return $localize`Checking for new uploads`;
+    case 'downloading':
+      return $localize`Downloading ${sub.refresh_status?.pending_download_count ?? 0}:download count: new`;
+    case 'failed':
+      return $localize`Last check failed`;
+    default: {
+      const checked_at = lastCheckedAt(sub);
+      return checked_at
+        ? $localize`Checked ${formatRelativeTime(checked_at)}:relative time:`
+        : $localize`Not checked yet`;
+    }
+    }
+  }
+
+  toggleSettings(): void {
+    if (this.settingsOpen) {
+      this.closeSettings();
+    } else {
+      this.openSettings();
+    }
+  }
+
+  openSettings(): void {
+    if (!this.subscription) return;
+    this.settingsSaved = settingsFromSubscription(this.subscription);
+    this.settingsDraft = settingsFromSubscription(this.subscription);
+    this.settingsOpen = true;
+  }
+
+  closeSettings(): void {
+    this.settingsOpen = false;
+    this.settingsDraft = null;
+    this.settingsSaved = null;
+  }
+
+  async saveSettings(): Promise<void> {
+    if (!this.canSaveSettings) return;
+
+    const changes = changedSubscriptionFields(this.settingsSaved, this.settingsDraft);
+    this.savingSettings = true;
+    try {
+      const res = await firstValueFrom(this.postsService.updateSubscription({ id: this.subscription.id, ...changes }));
+      if (!res?.success) {
+        this.postsService.openSnackBar($localize`Couldn't save the settings. Nothing was changed.`);
+        return;
       }
-    });
+    } catch (err) {
+      console.error(err);
+      this.postsService.openSnackBar($localize`Couldn't save the settings. Nothing was changed.`);
+      return;
+    } finally {
+      this.savingSettings = false;
+    }
+
+    this.subscription = { ...this.subscription, ...changes };
+    this.closeSettings();
+    this.postsService.openSnackBar($localize`Settings saved.`);
+    this.postsService.reloadSubscriptions();
+    this.last_subscription_request_at = 0;
+    this.getSubscription(true);
+  }
+
+  async setPaused(paused: boolean): Promise<void> {
+    if (await this.actions.setPaused(this.subscription, paused)) {
+      this.subscription = { ...this.subscription, paused };
+      this.last_subscription_request_at = 0;
+      this.getSubscription(true);
+    }
+  }
+
+  async redownloadSubscription(): Promise<void> {
+    if (await this.actions.redownload(this.subscription)) {
+      this.last_subscription_request_at = 0;
+      this.getSubscription();
+    }
+  }
+
+  async exportArchive(): Promise<void> {
+    await this.actions.exportArchive(this.subscription);
+  }
+
+  async unsubscribe(): Promise<void> {
+    const sub = { ...this.subscription, file_count: this.fileCount };
+    if (await this.actions.unsubscribe(sub)) {
+      this.goBack();
+    }
   }
 
   watchSubscription(): void {
@@ -227,16 +364,19 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     return this.subscription?.refresh_status || null;
   }
 
+  // A refresh that finished with nothing to report is summed up in the header instead
+  // ("Checked 5 minutes ago"), so the card is kept for one under way or one worth a look.
   shouldShowRefreshStatus(): boolean {
     const refresh_status = this.getRefreshStatus();
     return !!(refresh_status && (
-      refresh_status.phase !== 'idle'
-      || refresh_status.active
+      refresh_status.active
+      || refresh_status.phase === 'collecting'
+      || refresh_status.phase === 'queueing'
+      || refresh_status.phase === 'error'
+      || refresh_status.phase === 'cancelled'
       || refresh_status.pending_download_count > 0
       || refresh_status.running_download_count > 0
       || refresh_status.skipped_count > 0
-      || refresh_status.started_at
-      || refresh_status.completed_at
     ));
   }
 
@@ -253,9 +393,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         : $localize`Downloads skipped`;
     }
 
+    const is_playlist = !!this.subscription?.isPlaylist;
     switch (refresh_status?.phase) {
     case 'collecting':
-      return $localize`Checking channel metadata`;
+      return is_playlist ? $localize`Checking playlist metadata` : $localize`Checking channel metadata`;
     case 'queueing':
       return $localize`Queueing new downloads`;
     case 'queued':
@@ -263,15 +404,16 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         ? $localize`Downloads queued`
         : $localize`Downloads were queued`;
     case 'complete':
-      return $localize`Channel is up to date`;
+      return is_playlist ? $localize`Playlist is up to date` : $localize`Channel is up to date`;
     case 'cancelled':
       return $localize`Refresh cancelled`;
     case 'error':
       return $localize`Refresh failed`;
     default:
-      return this.subscription?.downloading
-        ? $localize`Checking channel metadata`
-        : $localize`Channel refresh`;
+      if (this.subscription?.downloading) {
+        return is_playlist ? $localize`Checking playlist metadata` : $localize`Checking channel metadata`;
+      }
+      return is_playlist ? $localize`Playlist refresh` : $localize`Channel refresh`;
     }
   }
 
@@ -284,7 +426,9 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
 
     switch (refresh_status?.phase) {
     case 'collecting':
-      return $localize`The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.` + latest_item_title;
+      return (this.subscription?.isPlaylist
+        ? $localize`The app is scanning this playlist before it creates download jobs. Files will appear here after queued downloads finish.`
+        : $localize`The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.`) + latest_item_title;
     case 'queueing':
       return refresh_status?.new_items_count > 0
         ? $localize`Found ${refresh_status.new_items_count}:new item count: new item(s). The app is creating download jobs now.`
@@ -308,7 +452,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
         ? $localize`The refresh finished successfully.`
         : $localize`The last refresh did not find any new videos to download.`;
     case 'cancelled':
-      return $localize`The refresh was stopped before it finished collecting channel metadata or queueing all downloads.`;
+      return $localize`The refresh was stopped before it finished collecting metadata or queueing all downloads.`;
     case 'error':
       return refresh_status?.error
         ? `${$localize`The refresh failed:`} ${refresh_status.error}`

@@ -1,176 +1,251 @@
-import { Component, OnInit, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { SubscribeDialogComponent } from 'app/dialogs/subscribe-dialog/subscribe-dialog.component';
-import { PostsService } from 'app/posts.services';
-import { Router } from '@angular/router';
-import { SubscriptionInfoDialogComponent } from 'app/dialogs/subscription-info-dialog/subscription-info-dialog.component';
-import { EditSubscriptionDialogComponent } from 'app/dialogs/edit-subscription-dialog/edit-subscription-dialog.component';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { Subscription } from 'api-types';
-import { MatDivider, MatNavList, MatListItem, MatListItemTitle, MatListItemMeta } from '@angular/material/list';
-import { MatIconButton, MatFabButton } from '@angular/material/button';
-import { MatTooltip } from '@angular/material/tooltip';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
-import { MatProgressBar } from '@angular/material/progress-bar';
+import { MatMenu, MatMenuContent, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatDivider } from '@angular/material/divider';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { Router, RouterLink } from '@angular/router';
+import { Subscription } from 'api-types';
+import { firstValueFrom, Subscription as RxSubscription } from 'rxjs';
+import { filter, take } from 'rxjs/operators';
+import { PostsService } from 'app/posts.services';
+import { SubscriptionSettingsComponent } from 'app/components/subscription-settings/subscription-settings.component';
+import {
+  SubscriptionSettings, SubscriptionState, defaultSubscriptionSettings, formatRelativeTime, isSubscriptionBusy, isSubscriptionChecking,
+  lastCheckedAt, subscriptionState
+} from 'app/components/subscription-settings/subscription-settings';
+import { SubscriptionActionsService } from './subscription-actions.service';
+
+type SubscriptionFilter = 'all' | 'channels' | 'playlists';
+
+// While something is being checked or downloaded its card is kept current. Nothing else
+// changes on this page by itself, so an idle list is not polled at all -- and each poll asks
+// the backend to count files and downloads for every subscription.
+const BUSY_POLL_INTERVAL_MS = 5000;
 
 @Component({
-    selector: 'app-subscriptions',
-    templateUrl: './subscriptions.component.html',
-    styleUrls: ['./subscriptions.component.scss'],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDivider, MatNavList, MatListItem, MatListItemTitle, MatListItemMeta, MatIconButton, MatTooltip, MatIcon, MatProgressBar, MatFabButton]
+  selector: 'app-subscriptions',
+  templateUrl: './subscriptions.component.html',
+  styleUrls: ['./subscriptions.component.scss'],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  imports: [FormsModule, MatIcon, MatMenu, MatMenuContent, MatMenuItem, MatMenuTrigger, MatDivider, MatProgressSpinner, RouterLink,
+    SubscriptionSettingsComponent]
 })
-export class SubscriptionsComponent implements OnInit {
+export class SubscriptionsComponent implements OnInit, OnDestroy {
+  subscriptions: Subscription[] | null = null;
+  loadFailed = false;
+  filter: SubscriptionFilter = 'all';
 
-  playlist_subscriptions: Subscription[] = [];
-  channel_subscriptions: Subscription[] = [];
-  subscriptions: Subscription[] = null;
-  redownloading_subscriptions: {[sub_id: string]: boolean} = {};
+  // the subscribe form
+  url = '';
+  name = '';
+  settings: SubscriptionSettings = defaultSubscriptionSettings();
+  optionsOpen = false;
+  subscribing = false;
+  subscribeError: string | null = null;
 
-  subscriptions_loading = false;
+  readonly urlLabel = $localize`Channel or playlist link`;
+  readonly optionsLabel = $localize`More subscription options`;
+  readonly moreActionsLabel = $localize`More actions`;
 
-  constructor(private dialog: MatDialog, public postsService: PostsService, private router: Router, private snackBar: MatSnackBar) { }
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private initSubscription: RxSubscription | null = null;
+  private destroyed = false;
 
-  ngOnInit() {
-    if (this.postsService.initialized) {
-      this.getSubscriptions();
-    }
-    this.postsService.service_initialized.subscribe(init => {
-      if (init) {
-        this.getSubscriptions();
-      }
-    });
+  constructor(
+    public postsService: PostsService,
+    private actions: SubscriptionActionsService,
+    private router: Router
+  ) { }
+
+  ngOnInit(): void {
+    this.initSubscription = this.postsService.service_initialized
+      .pipe(filter(Boolean), take(1))
+      .subscribe(() => this.loadSubscriptions());
   }
 
-  getSubscriptions(show_loading = true) {
-    if (show_loading) this.subscriptions_loading = true;
-    this.subscriptions = null;
-    this.postsService.getAllSubscriptions().subscribe(res => {
-      this.channel_subscriptions = [];
-      this.playlist_subscriptions = [];
-      this.subscriptions_loading = false;
-      this.subscriptions = res['subscriptions'];
-      if (!this.subscriptions) {
-        // set it to an empty array so it can notify the user there are no subscriptions
-        this.subscriptions = [];
-        return;
-      }
-
-      for (let i = 0; i < this.subscriptions.length; i++) {
-        const sub = this.subscriptions[i];
-
-        // parse subscriptions into channels and playlists
-        if (sub.isPlaylist) {
-          this.playlist_subscriptions.push(sub);
-        } else {
-          this.channel_subscriptions.push(sub);
-        }
-      }
-    }, err => {
-      this.subscriptions_loading = false;
-      console.error('Failed to get subscriptions');
-      this.openSnackBar('ERROR: Failed to get subscriptions!', 'OK.');
-    });
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.initSubscription?.unsubscribe();
+    this.clearPoll();
   }
 
-  goToSubscription(sub) {
-    this.router.navigate(['/subscription', {id: sub.id}]);
+  get channelCount(): number {
+    return (this.subscriptions ?? []).filter(sub => !sub.isPlaylist).length;
   }
 
-  openSubscribeDialog() {
-    const dialogRef = this.dialog.open(SubscribeDialogComponent, {
-      maxWidth: 500,
-      width: '80vw'
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        if (result.isPlaylist) {
-          this.playlist_subscriptions.push(result);
-        } else {
-          this.channel_subscriptions.push(result);
-        }
-        this.postsService.reloadSubscriptions();
-      }
-    });
+  get playlistCount(): number {
+    return (this.subscriptions ?? []).filter(sub => sub.isPlaylist).length;
   }
 
-  showSubInfo(sub) {
-    const unsubbedEmitter = new EventEmitter<any>();
-    const dialogRef = this.dialog.open(SubscriptionInfoDialogComponent, {
-      data: {
-        sub: sub,
-        unsubbedEmitter: unsubbedEmitter
-      }
-    });
-    unsubbedEmitter.subscribe(success => {
-      if (success) {
-        this.openSnackBar(`${sub.name} successfully deleted!`)
-        this.getSubscriptions();
-        this.postsService.reloadSubscriptions();
-      }
-    })
+  get visibleSubscriptions(): Subscription[] {
+    const subscriptions = this.subscriptions ?? [];
+    if (this.filter === 'channels') return subscriptions.filter(sub => !sub.isPlaylist);
+    if (this.filter === 'playlists') return subscriptions.filter(sub => sub.isPlaylist);
+    return subscriptions;
   }
 
-  editSubscription(sub) {
-    const dialogRef = this.dialog.open(EditSubscriptionDialogComponent, {
-      data: {
-        sub: this.postsService.getSubscriptionByID(sub.id)
-      }
-    });
-    dialogRef.afterClosed().subscribe(() => {
-      this.getSubscriptions(false);
-    });
+  // Options that differ from a plain subscription, so the Options chip can show they are set.
+  get hasCustomOptions(): boolean {
+    const defaults = defaultSubscriptionSettings();
+    return !!this.name.trim()
+      || this.settings.use_subfolder !== defaults.use_subfolder
+      || this.settings.auto_create_playlist !== defaults.auto_create_playlist
+      || !!this.settings.custom_args.trim()
+      || !!this.settings.custom_output.trim();
   }
 
-  isRedownloadDisabled(sub: Subscription): boolean {
-    return !sub?.name || !!this.redownloading_subscriptions[sub.id];
-  }
-
-  confirmRedownloadSubscription(sub: Subscription): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Delete and redownload ${sub.name}:subscription name:`,
-        dialogText: $localize`This will delete every downloaded video in ${sub.name}:subscription name: and queue that subscription again using its current settings. Other videos are not affected.`,
-        submitText: $localize`Delete and redownload`,
-        warnSubmitColor: true
-      }
-    });
-    dialogRef.afterClosed().subscribe(confirmed => {
-      if (confirmed) {
-        this.redownloadSubscription(sub);
-      }
-    });
-  }
-
-  redownloadSubscription(sub: Subscription): void {
-    if (this.isRedownloadDisabled(sub)) return;
-
-    this.redownloading_subscriptions[sub.id] = true;
-    this.postsService.redownloadSubscription(sub.id).subscribe(res => {
-      this.redownloading_subscriptions[sub.id] = false;
-      if (res['success']) {
-        this.openSnackBar($localize`Redownload started for ${sub.name}:subscription name:`);
-        this.getSubscriptions(false);
-        this.postsService.reloadSubscriptions();
-        this.postsService.files_changed.next(true);
-      } else {
-        const error = res['error'] ? ` ${res['error']}` : '';
-        this.openSnackBar($localize`ERROR: Failed to start redownload for ${sub.name}:subscription name:.` + error, 'OK.');
-      }
-    }, err => {
+  async loadSubscriptions(): Promise<void> {
+    this.clearPoll();
+    try {
+      const res = await firstValueFrom(this.postsService.getAllSubscriptions());
+      if (this.destroyed) return;
+      this.subscriptions = this.sortSubscriptions(res?.subscriptions ?? []);
+      this.loadFailed = false;
+    } catch (err) {
+      if (this.destroyed) return;
       console.error(err);
-      this.redownloading_subscriptions[sub.id] = false;
-      this.openSnackBar($localize`ERROR: Failed to start redownload for ${sub.name}:subscription name:.`, 'OK.');
-    });
+      this.loadFailed = true;
+      this.subscriptions = this.subscriptions ?? [];
+    }
+
+    // Loads can overlap, as when an action finishes during a poll; only the last one waits.
+    this.clearPoll();
+    if (this.subscriptions.some(sub => isSubscriptionBusy(sub))) {
+      this.pollTimer = setTimeout(() => this.loadSubscriptions(), BUSY_POLL_INTERVAL_MS);
+    }
   }
 
-  // snackbar helper
-  public openSnackBar(message: string, action = '') {
-    this.snackBar.open(message, action, {
-      duration: 2000,
-    });
+  async subscribe(event?: Event): Promise<void> {
+    event?.preventDefault();
+    const url = this.url.trim();
+    if (!url || this.subscribing) return;
+
+    this.subscribing = true;
+    this.subscribeError = null;
+    try {
+      const res = await firstValueFrom(this.postsService.createSubscription(
+        url,
+        this.name.trim() || null,
+        this.settings.timerange,
+        this.settings.maxQuality,
+        this.settings.audioOnly,
+        this.settings.custom_args.trim(),
+        this.settings.custom_output.trim(),
+        this.settings.use_subfolder,
+        this.settings.auto_create_playlist
+      ));
+      if (res?.new_sub) {
+        this.postsService.openSnackBar($localize`Subscribed to ${res.new_sub.name || url}:subscription name:. Its uploads are on the way.`);
+        this.resetForm();
+      } else {
+        this.subscribeError = res?.['error'] || $localize`Couldn't read that link. Check that it points to a channel or a playlist.`;
+      }
+    } catch (err) {
+      console.error(err);
+      this.subscribeError = err?.error?.error || $localize`Couldn't subscribe. Try again in a moment.`;
+    } finally {
+      this.subscribing = false;
+    }
+
+    // A link that could not be read is still saved, without a name, so it can be removed.
+    this.postsService.reloadSubscriptions();
+    await this.loadSubscriptions();
   }
 
+  cancelSubscribe(): void {
+    this.resetForm();
+  }
+
+  openSettings(sub: Subscription): void {
+    this.router.navigate(['/subscription', { id: sub.id, settings: true }]);
+  }
+
+  watch(sub: Subscription): void {
+    this.router.navigate(['/player', { sub_id: sub.id }]);
+  }
+
+  async check(sub: Subscription): Promise<void> {
+    if (await this.actions.check(sub)) await this.loadSubscriptions();
+  }
+
+  async cancelCheck(sub: Subscription): Promise<void> {
+    if (await this.actions.cancelCheck(sub)) await this.loadSubscriptions();
+  }
+
+  async setPaused(sub: Subscription, paused: boolean): Promise<void> {
+    if (await this.actions.setPaused(sub, paused)) await this.loadSubscriptions();
+  }
+
+  async redownload(sub: Subscription): Promise<void> {
+    if (await this.actions.redownload(sub)) await this.loadSubscriptions();
+  }
+
+  async unsubscribe(sub: Subscription): Promise<void> {
+    if (await this.actions.unsubscribe(sub)) await this.loadSubscriptions();
+  }
+
+  coverURL(sub: Subscription): string | null {
+    return this.actions.coverURL(sub);
+  }
+
+  initial(sub: Subscription): string {
+    return (sub.name || '?').trim().charAt(0).toUpperCase();
+  }
+
+  state(sub: Subscription): SubscriptionState {
+    return subscriptionState(sub);
+  }
+
+  isBusy(sub: Subscription): boolean {
+    return isSubscriptionBusy(sub);
+  }
+
+  isChecking(sub: Subscription): boolean {
+    return isSubscriptionChecking(sub);
+  }
+
+  // What the card says about where the subscription is.
+  statusText(sub: Subscription): string {
+    switch (subscriptionState(sub)) {
+    case 'unavailable':
+      return $localize`Couldn't read this link`;
+    case 'paused':
+      return $localize`Paused`;
+    case 'checking':
+      return $localize`Checking for new uploads`;
+    case 'downloading': {
+      const waiting = (sub.refresh_status?.pending_download_count ?? 0);
+      return $localize`Downloading ${waiting}:download count: new`;
+    }
+    case 'failed':
+      return $localize`Last check failed`;
+    default: {
+      const checked_at = lastCheckedAt(sub);
+      return checked_at
+        ? $localize`Checked ${formatRelativeTime(checked_at)}:relative time:`
+        : $localize`Not checked yet`;
+    }
+    }
+  }
+
+  private resetForm(): void {
+    this.url = '';
+    this.name = '';
+    this.settings = defaultSubscriptionSettings();
+    this.optionsOpen = false;
+    this.subscribeError = null;
+  }
+
+  // Alphabetical, the order a person looks one up in.
+  private sortSubscriptions(subscriptions: Subscription[]): Subscription[] {
+    return [...subscriptions].sort((a, b) => (a.name || a.url || '').localeCompare(b.name || b.url || '', undefined, { sensitivity: 'base' }));
+  }
+
+  private clearPoll(): void {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+  }
 }

@@ -1,34 +1,433 @@
-.add-subscription-button {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
+.subscriptions-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 24px;
+  padding-bottom: 48px;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 36px;
+}
+
+.page-intro {
+  margin: 0;
+  font-size: 15px;
+  color: var(--kit-on-surface-variant);
+}
+
+// The subscribe form: the link field with its Subscribe button, the choices under it, and
+// the rest of the options in a panel the Options chip opens.
+.subscribe-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 800px;
+}
+
+.subscribe-field {
+  min-height: 52px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 26px;
+}
+
+.subscribe-action {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 20px;
+}
+
+.subscribe-action .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: currentColor;
+  --mat-progress-spinner-active-indicator-color: currentColor;
+}
+
+.options-set {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+.options-panel {
+  padding: 4px 20px;
+  border-radius: 20px;
+  background: var(--kit-surface);
+}
+
+.subscribe-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 14px;
+  color: #ef9a9a;
+}
+
+:host-context(.light-theme) .subscribe-error,
+:host-context(.default-theme) .subscribe-error {
+  color: #c62828;
+}
+
+.subscribe-error .mat-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.subscribe-clear {
+  align-self: flex-start;
+}
+
+.list-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 520px);
+  margin-top: 32px;
+  padding: 40px 24px;
+  border-radius: 24px;
+  background: var(--kit-surface);
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--kit-on-surface-variant);
+}
+
+.empty-state .kit-chip {
+  margin-top: 8px;
+}
+
+.empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+.empty-state-icon .mat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.list-filter {
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
+}
+
+// The same tabs the library switches between videos and playlists with.
+.list-filter-option {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.list-filter-option::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--kit-accent);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.list-filter-option:hover {
+  opacity: 0.8;
+}
+
+.list-filter-option.active,
+.list-filter-option.active::after {
+  opacity: 1;
+}
+
+.list-filter-option:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.list-title {
+  margin: 0;
+  cursor: default;
+}
+
+.list-title::after {
+  display: none;
+}
+
+.list-filter-count {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.subscription-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 24px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .subscription-card {
-    height: 200px;
-    width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
-.content-loading-div {
-    position: absolute;
-    width: 200px;
-    height: 50px;
-    bottom: -18px;
+.card-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--kit-tonal), var(--kit-surface));
+  color: var(--kit-on-tonal);
+  text-decoration: none;
 }
 
-.a-list-item {
-    height: 48px;
-    color: unset;
-    display: flex;
-    align-items: center;
-    width: 100%;
+.card-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 200ms ease;
 }
 
-::ng-deep .mdc-list-item__primary-text {
-    display: flex;
+.card-cover:hover img {
+  transform: scale(1.03);
 }
 
-.sub-nav-list {
-    margin: 0 auto;
-    width: 80%;
+.subscription-card[data-state='paused'] .card-cover img,
+.subscription-card[data-state='unavailable'] .card-cover img {
+  filter: grayscale(0.85) brightness(0.7);
+}
+
+.card-cover-initial {
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+// Anything other than a quiet subscription is said on the cover, where it is seen first.
+.card-state {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.card-state span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-state .mat-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.card-state .mat-mdc-progress-spinner {
+  flex-shrink: 0;
+  --mdc-circular-progress-active-indicator-color: #fff;
+  --mat-progress-spinner-active-indicator-color: #fff;
+}
+
+.subscription-card[data-state='failed'] .card-state,
+.subscription-card[data-state='unavailable'] .card-state {
+  background: rgba(183, 28, 28, 0.88);
+}
+
+.card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--kit-on-surface);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.card-title:hover {
+  text-decoration: underline;
+}
+
+.card-meta,
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--kit-on-surface-variant);
+  white-space: nowrap;
+}
+
+.card-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-type .mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.card-menu-button {
+  margin-top: -6px;
+  margin-right: -8px;
+  color: var(--kit-on-surface-variant);
+}
+
+::ng-deep .kit-menu .menu-item-warn {
+  --mat-menu-item-label-text-color: #ef5350;
+  --mat-menu-item-icon-color: #ef5350;
+}
+
+// A phone lists one subscription per row, the cover beside its details.
+@media (max-width: 576px) {
+  .subscriptions-page {
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  .options-panel {
+    padding: 4px 16px;
+  }
+
+  .subscription-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .subscription-card {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .card-cover {
+    flex: 0 0 42%;
+    align-self: flex-start;
+    border-radius: 10px;
+  }
+
+  .card-cover-initial {
+    font-size: 32px;
+  }
+
+  .card-state {
+    left: 6px;
+    bottom: 6px;
+    height: 22px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .card-meta,
+  .card-status {
+    font-size: 12px;
+  }
 }

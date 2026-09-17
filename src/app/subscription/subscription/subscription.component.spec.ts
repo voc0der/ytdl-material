@@ -7,6 +7,7 @@ describe('SubscriptionComponent', () => {
   let postsService: any;
   let router: any;
   let dialog: any;
+  let actions: any;
 
   beforeEach(() => {
     postsService = {
@@ -28,6 +29,8 @@ describe('SubscriptionComponent', () => {
       downloadSubFromServer: vi.fn().mockName('downloadSubFromServer'),
       checkSubscription: vi.fn().mockName('checkSubscription'),
       cancelCheckSubscription: vi.fn().mockName('cancelCheckSubscription'),
+      updateSubscription: vi.fn().mockName('updateSubscription'),
+      reloadSubscriptions: vi.fn().mockName('reloadSubscriptions'),
       openSnackBar: vi.fn().mockName('openSnackBar'),
       hasPermission: vi.fn().mockName('hasPermission').mockReturnValue(true)
     };
@@ -37,8 +40,15 @@ describe('SubscriptionComponent', () => {
     dialog = {
       open: vi.fn().mockName('open')
     };
+    actions = {
+      setPaused: vi.fn().mockName('setPaused').mockResolvedValue(true),
+      redownload: vi.fn().mockName('redownload').mockResolvedValue(true),
+      unsubscribe: vi.fn().mockName('unsubscribe').mockResolvedValue(true),
+      exportArchive: vi.fn().mockName('exportArchive').mockResolvedValue(true),
+      coverURL: vi.fn().mockName('coverURL').mockReturnValue(null)
+    };
 
-    component = new SubscriptionComponent(postsService, { params: of({ id: 'sub-1' }) } as any, router, dialog);
+    component = new SubscriptionComponent(postsService, { params: of({ id: 'sub-1' }) } as any, router, dialog, actions);
     component.id = 'sub-1';
   });
 
@@ -366,5 +376,134 @@ describe('SubscriptionComponent', () => {
     expect(component.getRefreshMetrics()).toContain('2 skipped');
     expect(component.getRefreshMetrics()).not.toContain('2 queued');
     expect(component.canOpenDownloads()).toBe(false);
+  });
+
+  describe('settings', () => {
+    const subscription = (overrides: Record<string, unknown> = {}) => ({
+      id: 'sub-1',
+      name: 'Test subscription',
+      url: 'https://example.com/channel',
+      type: 'video',
+      isPlaylist: false,
+      maxQuality: '1080',
+      use_subfolder: true,
+      auto_create_playlist: false,
+      file_count: 2,
+      refresh_status: { phase: 'complete', completed_at: Date.now() },
+      ...overrides
+    }) as any;
+
+    beforeEach(() => {
+      component.subscription = subscription();
+      postsService.getSubscription.mockReturnValue(of({ subscription: component.subscription }));
+    });
+
+    it('opens on a copy, so cancelling changes nothing', () => {
+      component.toggleSettings();
+      expect(component.settingsOpen).toBe(true);
+
+      component.settingsDraft.paused = true;
+      component.closeSettings();
+
+      expect(component.settingsOpen).toBe(false);
+      expect(component.subscription.paused).toBeUndefined();
+      expect(postsService.updateSubscription).not.toHaveBeenCalled();
+    });
+
+    it('cannot be saved until something changes', () => {
+      component.openSettings();
+      expect(component.canSaveSettings).toBe(false);
+
+      component.settingsDraft.paused = true;
+
+      expect(component.settingsChanged).toBe(true);
+      expect(component.canSaveSettings).toBe(true);
+    });
+
+    it('waits for running downloads before it can be saved', () => {
+      component.subscription = subscription({ downloading: true });
+      component.openSettings();
+      component.settingsDraft.use_subfolder = false;
+
+      expect(component.settingsChanged).toBe(true);
+      expect(component.canSaveSettings).toBe(false);
+    });
+
+    it('sends only what changed, then closes', async () => {
+      postsService.updateSubscription.mockReturnValue(of({ success: true }));
+      component.openSettings();
+      component.settingsDraft.paused = true;
+      component.settingsDraft.custom_args = '--verbose';
+
+      await component.saveSettings();
+
+      expect(postsService.updateSubscription).toHaveBeenCalledWith({ id: 'sub-1', paused: true, custom_args: '--verbose' });
+      expect(component.settingsOpen).toBe(false);
+      expect(component.subscription.paused).toBe(true);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Settings saved.');
+      expect(postsService.reloadSubscriptions).toHaveBeenCalled();
+    });
+
+    it('keeps the panel open when saving is refused', async () => {
+      postsService.updateSubscription.mockReturnValue(of({ success: false }));
+      component.openSettings();
+      component.settingsDraft.paused = true;
+
+      await component.saveSettings();
+
+      expect(component.settingsOpen).toBe(true);
+      expect(component.savingSettings).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Couldn\'t save the settings. Nothing was changed.');
+    });
+
+    it('opens the settings when a card asked for them', () => {
+      component.subscription = null;
+      component.ngOnInit();
+      // the route carried settings=true
+      (component as any).openSettingsOnLoad = true;
+      postsService.getSubscription.mockReturnValue(of({ subscription: subscription() }));
+
+      component.getSubscription();
+
+      expect(component.settingsOpen).toBe(true);
+    });
+
+    it('returns to the list after unsubscribing', async () => {
+      await component.unsubscribe();
+
+      expect(actions.unsubscribe).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub-1', file_count: 2 }));
+      expect(router.navigate).toHaveBeenCalledWith(['/subscriptions']);
+    });
+
+    it('stays put when unsubscribing is cancelled', async () => {
+      actions.unsubscribe.mockResolvedValue(false);
+
+      await component.unsubscribe();
+
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('what the header says', () => {
+    it('sums up a quiet subscription', () => {
+      component.subscription = { id: 'sub-1', name: 'Test', refresh_status: { phase: 'complete', completed_at: Date.now() - 60_000 } } as any;
+
+      expect(component.statusText()).toContain('Checked');
+      expect(component.shouldShowRefreshStatus()).toBe(false);
+    });
+
+    it('keeps the refresh card for a check under way', () => {
+      component.subscription = { id: 'sub-1', name: 'Test', downloading: true, refresh_status: { phase: 'collecting', active: true } } as any;
+
+      expect(component.isChecking).toBe(true);
+      expect(component.statusText()).toBe('Checking for new uploads');
+      expect(component.shouldShowRefreshStatus()).toBe(true);
+    });
+
+    it('names a playlist as one', () => {
+      component.subscription = { id: 'sub-1', name: 'Test', isPlaylist: true, refresh_status: { phase: 'complete' } } as any;
+
+      expect(component.getRefreshHeadline()).toBe('Playlist is up to date');
+    });
   });
 });

@@ -122,6 +122,18 @@
   font-weight: 500;
 }
 
+// The one action a form exists for, such as Subscribe or Save.
+.kit-chip.kit-primary {
+  background: var(--kit-accent);
+  color: var(--kit-on-accent);
+  font-weight: 500;
+}
+
+.kit-chip.kit-primary:hover:not(:disabled) {
+  background: var(--kit-accent);
+  filter: brightness(1.08);
+}
+
 .kit-chip .mat-icon {
   width: 18px;
   height: 18px;
