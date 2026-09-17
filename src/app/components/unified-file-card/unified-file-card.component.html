@@ -76,12 +76,13 @@
         @if (loading) {
           <content-loader class="list-thumbnail-fill" [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 160 90"><svg:rect x="0" y="0" rx="0" ry="0" width="160" height="90" /></content-loader>
         } @else {
+          <!-- The preview covers the thumbnail rather than replacing it: see the grid card below. -->
           @if (!file_obj.thumbnailURL) {
             <mat-icon class="list-thumbnail-fallback">{{is_playlist ? 'playlist_play' : (isAudioFile ? 'audiotrack' : 'movie')}}</mat-icon>
-          } @else if (!hide_image || is_playlist || isAudioFile) {
+          } @else {
             <img class="list-thumbnail-fill" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
           }
-          @if (hide_image && elevated && !is_playlist && !isAudioFile) {
+          @if (showPreview && elevated && !is_playlist && !isAudioFile) {
             <video class="preview-video list-thumbnail-fill" autoplay loop muted preload="none" [muted]="true" [src]="streamURL"></video>
           }
           <span class="list-duration">
@@ -120,10 +121,12 @@
         @if (!loading && file_obj.thumbnailURL) {
           <div class="img-div">
             <div [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" style="position: relative">
-              @if (!hide_image || is_playlist || (file_obj.type === 'audio' || file_obj.isAudio)) {
-                <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
-              }
-              @if (hide_image && elevated && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
+              <!-- The thumbnail stays under the preview, which is laid over it. Taking it out when
+                   the preview starts detaches whatever a press in progress landed on, and the
+                   browser then fires no click at all -- half a second after the pointer arrives
+                   is just when a click on a card that was scrolled to tends to land. -->
+              <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
+              @if (showPreview && elevated && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
                 <video class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
                 </video>
               }
