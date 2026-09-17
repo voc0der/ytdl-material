@@ -70,12 +70,20 @@ backend/public
 src/assets/i18n/*.json
 
 # User Files
-db/
-appdata/
-audio/
-video/
-subscriptions/
-users/
+# Anchored: unanchored patterns match a directory of that name at any depth, and
+# src/app/subscriptions/ is source, not somebody's downloads.
+/db/
+/appdata/
+/audio/
+/video/
+/subscriptions/
+/users/
+/backend/db/
+/backend/appdata/
+/backend/audio/
+/backend/video/
+/backend/subscriptions/
+/backend/users/
 
 # Modern local/dev files
 .env
