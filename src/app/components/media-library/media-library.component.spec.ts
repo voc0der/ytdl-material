@@ -3,10 +3,13 @@ import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } f
 import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { PostsService } from 'app/posts.services';
 import { MediaLibraryNavigationStateService, PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
 import { MediaLibraryComponent } from './media-library.component';
+import { NARROW_SCREEN_QUERY } from 'app/utils/narrow-screen';
+import { PickerSheetData } from '../picker/picker-sheet.component';
 import { configureTestBed } from '../../../testing/test-bed';
 
 describe('MediaLibraryComponent', () => {
@@ -485,7 +488,7 @@ describe('MediaLibraryComponent', () => {
       Object.defineProperty(grid_element, 'clientWidth', { configurable: true, value: 412 });
       (component as any).videoGridContainerElement = grid_element;
 
-      component.setListLayout(true);
+      component.setNarrowScreen(true);
 
       expect(component.cardLayout).toBe('list');
       expect(component.cardColumnClass).toBe('col-12');
@@ -499,7 +502,7 @@ describe('MediaLibraryComponent', () => {
       (component as any).videoGridContainerElement = {
         getBoundingClientRect: () => ({ top: 0, width: 400 })
       };
-      component.listLayout = true;
+      component.narrowScreen = true;
 
       expect(component.getAutoCardRowHeight()).toBe(143);
     });
@@ -516,13 +519,13 @@ describe('MediaLibraryComponent', () => {
       fixture = TestBed.createComponent(MediaLibraryComponent);
       component = fixture.componentInstance;
 
-      expect(window.matchMedia).toHaveBeenCalledWith(component.listLayoutMediaQuery);
-      expect(component.listLayout).toBe(true);
+      expect(window.matchMedia).toHaveBeenCalledWith(NARROW_SCREEN_QUERY);
+      expect(component.narrowScreen).toBe(true);
 
       const refresh_spy = vi.spyOn(component, 'scheduleVirtualVideoWindowUpdate');
       change_listener({ matches: false });
 
-      expect(component.listLayout).toBe(false);
+      expect(component.narrowScreen).toBe(false);
       expect(component.cardColumnClass).toBe('col-6 col-lg-4 medium-col');
       expect(refresh_spy).toHaveBeenCalled();
 
@@ -534,7 +537,7 @@ describe('MediaLibraryComponent', () => {
       // After the first pass, whose initial fetch would otherwise replace the files set here.
       fixture.detectChanges();
       component.autoPaginationEnabled = false;
-      component.listLayout = true;
+      component.narrowScreen = true;
       component.normal_files_received = true;
       component.paged_data = [
         { uid: 'file-1', title: 'One', duration: 12, registered: Date.now() },
@@ -546,6 +549,87 @@ describe('MediaLibraryComponent', () => {
       expect(cards.length).toBe(2);
       expect(cards.every(card => card.classList.contains('list-layout'))).toBe(true);
       expect(cards.every(card => card.parentElement.classList.contains('col-12'))).toBe(true);
+    });
+  });
+
+  describe('search, sort and filters', () => {
+    beforeEach(() => {
+      postsServiceStub.categories = [{ uid: 'music', name: 'Music', show_as_filter: true }];
+    });
+
+    const header = (): HTMLElement => fixture.nativeElement.querySelector('.library-header');
+
+    it('should turn off a filter that cannot be combined with the one turned on', () => {
+      const filter_changed = vi.spyOn(component, 'filterChanged').mockReturnValue(undefined);
+      component.selectedFilters = ['video_only', 'favorited'];
+
+      component.toggleFilter('audio_only');
+      expect(component.selectedFilters).toEqual(['favorited', 'audio_only']);
+
+      component.toggleFilter('favorited');
+      expect(component.selectedFilters).toEqual(['audio_only']);
+      expect(filter_changed).toHaveBeenLastCalledWith('["audio_only"]');
+    });
+
+    it('should clear every filter at once', () => {
+      const filter_changed = vi.spyOn(component, 'filterChanged').mockReturnValue(undefined);
+      component.selectedFilters = ['video_only', 'category:music'];
+
+      expect(component.activeFilterLabels).toEqual(['Video only', 'Music']);
+      component.clearFilters();
+
+      expect(component.selectedFilters).toEqual([]);
+      expect(filter_changed).toHaveBeenCalledWith('[]');
+    });
+
+    it('should offer the filters in a sheet that stays open while they change', () => {
+      const bottom_sheet = TestBed.inject(MatBottomSheet);
+      const open_spy = vi.spyOn(bottom_sheet, 'open').mockReturnValue(undefined);
+      vi.spyOn(component, 'filterChanged').mockReturnValue(undefined);
+
+      component.openFilterSheet();
+
+      const data = open_spy.mock.calls[0][1].data as PickerSheetData;
+      expect(data.multiple).toBe(true);
+      expect(data.options.map(option => option.label)).toEqual(['Video only', 'Audio only', 'Favorited', 'Music']);
+      data.select('category:music');
+      expect(data.isSelected('category:music')).toBe(true);
+      expect(component.selectedFilters).toEqual(['category:music']);
+    });
+
+    it('should lay the filters out as chips beside the search on a wide screen', () => {
+      fixture.detectChanges();
+      component.narrowScreen = false;
+      component.selectedFilters = ['favorited'];
+      fixture.detectChanges();
+      const toggle_filter = vi.spyOn(component, 'toggleFilter').mockReturnValue(undefined);
+
+      const chips: HTMLButtonElement[] = Array.from(header().querySelectorAll('.library-filters .kit-chip'));
+      expect(chips.map(chip => chip.textContent.replace('check', '').trim())).toEqual(['Video only', 'Audio only', 'Favorited', 'Music']);
+      expect(chips.map(chip => chip.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true', 'false']);
+      expect(header().querySelector('.library-header-tools .library-search')).not.toBeNull();
+      expect(header().querySelector('button[aria-label="Filters"]')).toBeNull();
+
+      chips[3].click();
+      expect(toggle_filter).toHaveBeenCalledWith('category:music');
+    });
+
+    it('should fold sort and filters into the search field on a narrow screen', () => {
+      fixture.detectChanges();
+      component.narrowScreen = true;
+      component.selectedFilters = ['favorited'];
+      fixture.detectChanges();
+      const clear_filters = vi.spyOn(component, 'clearFilters').mockReturnValue(undefined);
+
+      const field = header().querySelector('.library-search');
+      expect(header().querySelector('.library-filters')).toBeNull();
+      expect(field.querySelector('app-sort-property')).not.toBeNull();
+      const filter_button = field.querySelector('button[aria-label="Filters"]');
+      expect(filter_button.classList).toContain('kit-badge');
+      expect(header().querySelector('.library-filter-summary-text').textContent).toBe('Favorited');
+
+      (header().querySelector('.library-filter-summary button') as HTMLButtonElement).click();
+      expect(clear_filters).toHaveBeenCalled();
     });
   });
 
@@ -674,7 +758,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should capture the visible anchor from rendered card positions', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({
@@ -715,7 +799,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should correct restored scroll using the rendered anchor element position', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.file_count = 4;
@@ -763,7 +847,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should keep the clicked file uid as the anchor when the rendered lookup misses', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService);
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({

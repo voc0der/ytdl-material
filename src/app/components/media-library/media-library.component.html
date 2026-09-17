@@ -8,41 +8,69 @@
 
 <ng-template #librarySwitcher>
   <div class="library-switcher" aria-label="Library sections">
-    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 0" (click)="libraryTabChanged(0)">
+    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 0" [attr.aria-pressed]="activeLibraryTab === 0" (click)="libraryTabChanged(0)">
       <span i18n="Videos tab label">Videos</span>
       <span class="library-switch-count">{{file_count}}</span>
     </button>
-    <span class="library-switch-divider" aria-hidden="true"></span>
-    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 1" (click)="libraryTabChanged(1)">
+    <button type="button" class="library-switch" [class.active]="activeLibraryTab === 1" [attr.aria-pressed]="activeLibraryTab === 1" (click)="libraryTabChanged(1)">
       <span i18n="Playlists tab label">Playlists</span>
       <span class="library-switch-count">{{playlistLibraryItems.length}}</span>
     </button>
   </div>
 </ng-template>
 
+<!-- On a wide screen the sort control sits beside the search field. On a narrow one it folds into
+     the field as an icon, with the filters, which otherwise have a row of their own. -->
+<ng-template #videoSearchTools>
+  <div class="kit-field library-search">
+    <mat-icon>search</mat-icon>
+    <input type="search" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" placeholder="Search" i18n-placeholder="Search" aria-label="Search" i18n-aria-label="Search">
+    @if (narrowScreen) {
+      <app-sort-property [iconOnly]="true" [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+      @if (getVisibleFilters().length) {
+        <button type="button" class="kit-icon-button" [class.kit-badge]="selectedFilters.length > 0" (click)="openFilterSheet()" aria-label="Filters" i18n-aria-label="Library filters label">
+          <mat-icon>tune</mat-icon>
+        </button>
+      }
+    }
+  </div>
+  @if (!narrowScreen) {
+    <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+  }
+</ng-template>
+
+<ng-template #playlistSearchTools>
+  <div class="kit-field library-search">
+    <mat-icon>search</mat-icon>
+    <input type="search" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" placeholder="Search playlists" i18n-placeholder="Search playlists" aria-label="Search playlists" i18n-aria-label="Search playlists">
+    @if (narrowScreen) {
+      <app-sort-property [iconOnly]="true" [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+    }
+  </div>
+  @if (!narrowScreen) {
+    <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+  }
+</ng-template>
+
 <ng-template #playlistLibraryContent>
-  <div class="container-fluid library-header" style="max-width: 941px;">
-    <div class="row library-header-row">
-      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center justify-content-sm-start library-header-cell library-header-sort">
-        <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
-      </div>
-      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center library-header-cell library-header-title">
+  <div class="container library-header">
+    <div class="library-header-top">
+      <div class="library-header-title">
         @if (showLibraryTabs) {
-          <div class="my-videos-title library-switcher-shell">
-            <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
-          </div>
+          <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
         } @else {
           <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
         }
       </div>
-      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center justify-content-sm-end library-header-cell library-header-search">
-        <mat-form-field appearance="outline" [ngClass]="playlistSearchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
-          <mat-label i18n="Search playlists">Search playlists</mat-label>
-          <input (focus)="playlistSearchIsFocused = true" (blur)="playlistSearchIsFocused = false" class="search-input" type="text" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" matInput>
-          <mat-icon matSuffix>search</mat-icon>
-        </mat-form-field>
-      </div>
+      @if (!narrowScreen) {
+        <div class="library-header-tools">
+          <ng-container [ngTemplateOutlet]="playlistSearchTools"></ng-container>
+        </div>
+      }
     </div>
+    @if (narrowScreen) {
+      <ng-container [ngTemplateOutlet]="playlistSearchTools"></ng-container>
+    }
   </div>
 
   <div #videoGridContainer class="container" style="margin-bottom: 16px">
@@ -78,37 +106,43 @@
 </ng-template>
 
 <ng-template #videoLibraryContent>
-  <div class="container-fluid library-header" style="max-width: 941px;">
-    <div class="row library-header-row">
-      <div class="col-12 order-2 col-sm-4 order-sm-1 d-flex justify-content-center justify-content-sm-start library-header-cell library-header-sort">
-        <app-sort-property [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
-      </div>
-      <div class="col-12 order-1 col-sm-4 order-sm-2 d-flex justify-content-center library-header-cell library-header-title">
+  <div class="container library-header">
+    <div class="library-header-top">
+      <div class="library-header-title">
         @if (showLibraryTabs) {
-          <div class="my-videos-title library-switcher-shell">
-            <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
-          </div>
+          <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
         } @else if (!customHeader) {
           <h4 class="my-videos-title" i18n="My files title">My files</h4>
         } @else {
           <h4 class="my-videos-title">{{customHeader}}</h4>
         }
       </div>
-      <div class="col-12 order-3 col-sm-4 order-sm-3 d-flex justify-content-center justify-content-sm-end library-header-cell library-header-search">
-        <mat-form-field appearance="outline" [ngClass]="searchIsFocused ? 'search-bar-focused' : 'search-bar-unfocused'" class="search-bar" color="accent">
-          <mat-label i18n="Search">Search</mat-label>
-          <input (focus)="searchIsFocused = true" (blur)="searchIsFocused = false" class="search-input" type="text" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" matInput>
-          <mat-icon matSuffix>search</mat-icon>
-        </mat-form-field>
-      </div>
+      @if (!narrowScreen) {
+        <div class="library-header-tools">
+          <ng-container [ngTemplateOutlet]="videoSearchTools"></ng-container>
+        </div>
+      }
     </div>
-    <div class="row justify-content-center library-filter-row">
-      <mat-chip-listbox class="filter-list" [value]="selectedFilters" [multiple]="true" (change)="selectedFiltersChanged($event)">
+    @if (narrowScreen) {
+      <ng-container [ngTemplateOutlet]="videoSearchTools"></ng-container>
+      @if (activeFilterLabels.length) {
+        <div class="library-filter-summary">
+          <span class="library-filter-summary-text">{{activeFilterLabels.join(' · ')}}</span>
+          <button type="button" class="kit-text-button" (click)="clearFilters()" i18n="Clear library filters button">Clear</button>
+        </div>
+      }
+    } @else if (getVisibleFilters().length) {
+      <div class="kit-rail kit-rail-wrap library-filters" role="group" aria-label="Filters" i18n-aria-label="Library filters label">
         @for (filter of getVisibleFilters(); track filter.key) {
-          <mat-chip-option [value]="filter.key" [selected]="selectedFilters.includes(filter.key)" color="accent">{{filter.label}}</mat-chip-option>
+          <button type="button" class="kit-chip" [attr.aria-pressed]="selectedFilters.includes(filter.key)" (click)="toggleFilter(filter.key)">
+            @if (selectedFilters.includes(filter.key)) {
+              <mat-icon>check</mat-icon>
+            }
+            {{filter.label}}
+          </button>
         }
-      </mat-chip-listbox>
-    </div>
+      </div>
+    }
   </div>
 
   <div #videoGridContainer class="container" style="margin-bottom: 16px">
@@ -175,16 +209,7 @@
     <div class="paginator-shell">
       <div class="paginator-page-size">
         <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
-        <mat-form-field appearance="outline" class="paginator-page-size-select">
-          <mat-select [value]="pageSizeSelectorValue" [panelWidth]="null" panelClass="media-library-page-size-panel" (selectionChange)="pageSizeOptionChanged($event.value)">
-            <mat-select-trigger>
-              {{getPageSizeTriggerLabel(pageSizeSelectorValue)}}
-            </mat-select-trigger>
-            @for (pageSizeOption of pageSizeOptions; track pageSizeOption) {
-              <mat-option [value]="pageSizeOption">{{formatPageSizeOption(pageSizeOption)}}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-picker [title]="pageSizeTitle" [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue" (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
       </div>
 
       @if (!autoPaginationEnabled) {

@@ -1,171 +1,106 @@
-<br/>
-<div class="big demo-basic">
-  <mat-card id="card" style="margin-right: 20px; margin-left: 20px;" [ngClass]="inputMode === 'url' && isAdvancedModeActive() ? 'no-border-radius-bottom' : 'border-radius-both'">
-    <mat-card-content style="padding: 0px 8px 0px 8px;">
-      <div class="entry-bar">
-        <form class="example-form">
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-12">
-                <mat-form-field color="accent" class="example-full-width entry-field" subscriptSizing="dynamic">
-                  <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off" matInput
-                    [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
-                    [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
-                    [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
-                    (keydown.enter)="inputMode === 'search' && submitSearch($event)" (keydown.escape)="dismissSearch()"
-                    autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
-                  <button type="button" mat-icon-button matSuffix class="input-mode-toggle"
-                    [class.search-mode]="inputMode === 'search'" (click)="toggleInputMode()"
-                    [attr.aria-label]="toggleLabels[inputMode]" [matTooltip]="toggleLabels[inputMode]">
-                    <span class="input-mode-glyph" aria-hidden="true">
-                      <mat-icon class="mode-link">link</mat-icon>
-                      <mat-icon class="mode-search">search</mat-icon>
-                    </span>
-                  </button>
-                </mat-form-field>
-                @if (inputMode === 'search' && (!youtubeSearchEnabled || results_showing)) {
-                  <app-youtube-search-results [interactive]="youtubeSearchEnabled" [active]="results_showing" [loading]="results_loading"
-                    [failed]="searchFailed" [results]="results" (selected)="useURL($event)" (keydown.escape)="dismissSearch()" />
-                }
-              </div>
-            </div>
-          </div>
-        </form>
-      </div>
-    </mat-card-content>
-    @if (inputMode === 'url') {
-    <mat-card-actions class="main-pane-card-actions">
-      <div class="main-pane-actions-row">
-        <div class="main-pane-action-controls">
-          @if (allowQualitySelect) {
-            <div class="main-pane-select-group">
-              <div class="main-pane-action-field-label" i18n="Quality select label">Quality</div>
-              <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
-                <mat-select aria-label="Quality" [disabled]="url === '' || cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedQuality" (ngModelChange)="argsChanged()">
-                  <mat-option i18n="Best" [value]="''">
-                                    Best
-                                </mat-option>
-                  @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats && !cachedAvailableFormats[url]?.formats_failed) {
-                    @for (option of cachedAvailableFormats[url]['formats'][audioOnly ? 'audio' : 'video']; track option.key) {
-                      <mat-option [matTooltip]="option.expected_filesize ? humanFileSize(option.expected_filesize) : null" [value]="option">
-                        {{option.key}}
-                      </mat-option>
-                    }
-                  }
-                  @if (url && cachedAvailableFormats && cachedAvailableFormats[url]?.formats_failed) {
-                    @for (option of qualityOptions[audioOnly ? 'audio' : 'video']; track option.value) {
-                      <mat-option [value]="option.value">
-                        {{option.label}}
-                      </mat-option>
-                    }
-                  }
-                </mat-select>
-                @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
-                  <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
-                }
-              </mat-form-field>
-            </div>
-            <div class="main-pane-select-group">
-              <div class="main-pane-action-field-label" i18n="Audio language select label">Language</div>
-              <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
-                <mat-select aria-label="Language" [disabled]="!canSelectAudioLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedAudioLanguage" (ngModelChange)="argsChanged()">
-                  <mat-option i18n="Default audio language option" [value]="''">
-                                    Default
-                                </mat-option>
-                  @for (option of getAvailableAudioLanguages(); track option.value) {
-                    <mat-option [value]="option.value">
-                    {{option.label}}
-                  </mat-option>
-                }
-              </mat-select>
-              @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
-                <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
-              }
-              </mat-form-field>
-            </div>
-            <div class="main-pane-select-group">
-              <div class="main-pane-action-field-label" i18n="Subtitle select label">Subtitles</div>
-              <mat-form-field appearance="outline" color="accent" class="main-pane-action-select" subscriptSizing="dynamic">
-                <mat-select aria-label="Subtitles" [disabled]="!canSelectSubtitleLanguage()" [ngModelOptions]="{standalone: true}" [(ngModel)]="selectedSubtitleLanguage" (ngModelChange)="onSelectedSubtitleLanguageChanged($event)">
-                  <mat-option i18n="Default subtitle option" [value]="''">
-                                    Default
-                                </mat-option>
-                  @for (option of getAvailableSubtitleLanguages(); track option.value) {
-                    <mat-option [value]="option.value">
-                    {{option.label}}
-                  </mat-option>
-                }
-              </mat-select>
-              @if (url !== '' && cachedAvailableFormats[url] && cachedAvailableFormats[url]['formats_loading']) {
-                <mat-spinner matSuffix class="main-pane-select-spinner" [diameter]="18"></mat-spinner>
-              }
-              </mat-form-field>
-            </div>
-          }
-        </div>
-        <div class="main-pane-download-group">
-          <div class="download-split-button">
-            <button class="download-main-action" (click)="downloadClicked()" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent">
-              <ng-container i18n="Main download button">
-                          Download
-                      </ng-container>
-            </button>
-            <button class="download-menu-action" [disabled]="downloadingfile || url === ''" type="button" mat-stroked-button color="accent" [matMenuTriggerFor]="downloadMenu">
-              <mat-icon>arrow_drop_down</mat-icon>
-            </button>
-          </div>
-          <mat-menu #downloadMenu="matMenu" xPosition="after">
-            <button mat-menu-item (click)="toggleAudioOnlyFromMenu()" [disabled]="downloadingfile || url === '' || (autoplay && !!current_download)">
-              <mat-icon>{{audioOnly ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
-              <span i18n="Main download button option for audio-only mode">Only Audio</span>
-            </button>
-            @if (!forceAutoplay) {
-              <button mat-menu-item (click)="toggleAutoplayFromMenu()" [disabled]="downloadingfile || url === '' || getURLArray(url).length > 1">
-                <mat-icon>{{autoplay ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
-                <span i18n="Main download button option for autoplay">Autoplay</span>
-              </button>
-            }
-            @if (allowAdvancedDownload) {
-              <button mat-menu-item (click)="toggleAdvancedMode()" [disabled]="!!current_download">
-                <mat-icon>{{advancedMode ? 'check_box' : 'check_box_outline_blank'}}</mat-icon>
-                <span i18n="Main download button option for advanced mode">Advanced</span>
-              </button>
-            }
-            @if (hasAdditionalDownloadMenuActions()) {
-              <mat-divider></mat-divider>
-            }
-            @if (hasPlaylistUrlInInput()) {
-              <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option for playlist">Download Playlist</span>
-              </button>
-            }
-            @if (hasChannelSearchPlaylistUrlInInput()) {
-              <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
-              </button>
-            }
-            @if (sponsorBlockDownloadsEnabled) {
-              <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
-                <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
-              </button>
-            }
-          </mat-menu>
-        </div>
-      </div>
-      @if (showCreatePlaylistShortcut) {
-        <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">
-          <mat-icon>playlist_add</mat-icon>
-          <span i18n="Create playlist button">New playlist</span>
+<div class="download-box">
+  <form class="download-form">
+    <div class="kit-field download-field">
+      <button type="button" class="kit-icon-button input-mode-toggle"
+        [class.search-mode]="inputMode === 'search'" (click)="toggleInputMode()"
+        [attr.aria-label]="toggleLabels[inputMode]" [matTooltip]="toggleLabels[inputMode]">
+        <span class="input-mode-glyph" aria-hidden="true">
+          <mat-icon class="mode-link">link</mat-icon>
+          <mat-icon class="mode-search">search</mat-icon>
+        </span>
+      </button>
+      <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off"
+        [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
+        [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
+        [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
+        (keydown.enter)="inputMode === 'search' && submitSearch($event)" (keydown.escape)="dismissSearch()"
+        autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
+      @if (inputMode === 'url' && url) {
+        <button type="button" class="kit-icon-button kit-primary download-action" (click)="downloadClicked()" [disabled]="downloadingfile"
+          [attr.aria-label]="downloadLabel" [matTooltip]="downloadLabel">
+          <mat-icon>download</mat-icon>
         </button>
       }
-    </mat-card-actions>
+    </div>
+    @if (inputMode === 'search' && (!youtubeSearchEnabled || results_showing)) {
+      <app-youtube-search-results [interactive]="youtubeSearchEnabled" [active]="results_showing" [loading]="results_loading"
+        [failed]="searchFailed" [results]="results" (selected)="useURL($event)" (keydown.escape)="dismissSearch()" />
     }
-  </mat-card>
+  </form>
+  @if (inputMode === 'url') {
+    <!-- What to download settles once there is a link to look at, so its choices wait for one. -->
+    <div class="kit-rail download-options">
+      @if (url && allowQualitySelect) {
+        <app-picker [title]="qualityLabel" [label]="qualityLabel" [options]="qualityPickerOptions" [value]="selectedQuality"
+          (valueChange)="selectedQuality = $event; argsChanged()" [loading]="formatsLoading"></app-picker>
+        @if (canSelectAudioLanguage()) {
+          <app-picker [title]="audioLanguageLabel" [label]="audioLanguageLabel" [options]="audioLanguagePickerOptions" [value]="selectedAudioLanguage"
+            (valueChange)="selectedAudioLanguage = $any($event); argsChanged()"></app-picker>
+        }
+        @if (canSelectSubtitleLanguage()) {
+          <app-picker [title]="subtitleLanguageLabel" [label]="subtitleLanguageLabel" [options]="subtitleLanguagePickerOptions" [value]="selectedSubtitleLanguage"
+            (valueChange)="onSelectedSubtitleLanguageChanged($any($event))"></app-picker>
+        }
+      }
+      <button type="button" class="kit-chip" [attr.aria-pressed]="audioOnly" (click)="toggleAudioOnlyFromMenu()" [disabled]="downloadingfile || (autoplay && !!current_download)">
+        @if (audioOnly) {
+          <mat-icon>check</mat-icon>
+        }
+        <span i18n="Main download button option for audio-only mode">Only Audio</span>
+      </button>
+      @if (!forceAutoplay || allowAdvancedDownload || hasAdditionalDownloadMenuActions()) {
+        <button type="button" class="kit-chip download-more" [matMenuTriggerFor]="downloadMenu" [attr.aria-label]="moreDownloadOptionsLabel">
+          <mat-icon>more_horiz</mat-icon>
+        </button>
+      }
+    </div>
+    <mat-menu #downloadMenu="matMenu" class="kit-menu">
+      @if (!forceAutoplay) {
+        <button mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="autoplay" (click)="toggleAutoplayFromMenu()" [disabled]="downloadingfile || url === '' || getURLArray(url).length > 1">
+          <mat-icon [class.kit-invisible]="!autoplay">check</mat-icon>
+          <span i18n="Main download button option for autoplay">Autoplay</span>
+        </button>
+      }
+      @if (allowAdvancedDownload) {
+        <button mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="advancedMode" (click)="toggleAdvancedMode()" [disabled]="!!current_download">
+          <mat-icon [class.kit-invisible]="!advancedMode">check</mat-icon>
+          <span i18n="Main download button option for advanced mode">Advanced</span>
+        </button>
+      }
+      @if ((!forceAutoplay || allowAdvancedDownload) && hasAdditionalDownloadMenuActions()) {
+        <mat-divider></mat-divider>
+      }
+      @if (hasPlaylistUrlInInput()) {
+        <button mat-menu-item (click)="downloadPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+          <mat-icon>playlist_play</mat-icon>
+          <span i18n="Main download button option for playlist">Download Playlist</span>
+        </button>
+      }
+      @if (hasChannelSearchPlaylistUrlInInput()) {
+        <button mat-menu-item (click)="downloadChannelSearchPlaylistClicked()" [disabled]="downloadingfile || url === ''">
+          <mat-icon>manage_search</mat-icon>
+          <span i18n="Main download button option for channel search playlist">Download Search as Playlist</span>
+        </button>
+      }
+      @if (sponsorBlockDownloadsEnabled) {
+        <button mat-menu-item (click)="downloadClicked(true)" [disabled]="downloadingfile || url === ''">
+          <mat-icon>content_cut</mat-icon>
+          <span i18n="Main download button option without SponsorBlock">Download without SponsorBlock</span>
+        </button>
+      }
+    </mat-menu>
+    @if (showCreatePlaylistShortcut) {
+      <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">
+        <mat-icon>playlist_add</mat-icon>
+        <span i18n="Create playlist button">New playlist</span>
+      </button>
+    }
+  }
 </div>
 @if (inputMode === 'url' && isAdvancedModeActive()) {
-  <div class="big demo-basic">
-    <form style="margin-left: 20px; margin-right: 20px;">
-      <mat-card class="big no-border-radius-top advanced-panel">
+  <div class="download-box">
+    <form>
+      <mat-card class="advanced-panel">
         <div class="advanced-panel-header">
           <span class="advanced-panel-title" i18n="Advanced download mode panel">Advanced</span>
           <button type="button" class="advanced-panel-close" mat-icon-button (click)="closeAdvancedMode()"

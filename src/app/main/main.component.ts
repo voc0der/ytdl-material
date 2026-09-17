@@ -15,26 +15,24 @@ import { MediaLibraryComponent } from 'app/components/media-library/media-librar
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
 import { catchError, debounceTime, filter, map, switchMap, take, takeUntil } from 'rxjs/operators';
-import { MatCard, MatCardContent, MatCardActions } from '@angular/material/card';
-import { NgClass } from '@angular/common';
-import { MatFormField, MatInput, MatSuffix, MatLabel, MatHint } from '@angular/material/input';
+import { MatCard } from '@angular/material/card';
+import { MatFormField, MatInput, MatLabel, MatHint } from '@angular/material/input';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { MatButton, MatIconButton } from '@angular/material/button';
-import { MatSelect, MatOption } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
-import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { MatIcon } from '@angular/material/icon';
 import { MatDivider } from '@angular/material/list';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MediaLibraryComponent as MediaLibraryComponent_1 } from '../components/media-library/media-library.component';
+import { PickerComponent, type PickerOption } from '../components/picker/picker.component';
 
 @Component({
     selector: 'app-root',
     templateUrl: './main.component.html',
     styleUrls: ['./main.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatCard, NgClass, MatCardContent, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatCardActions, MatSelect, MatOption, MatTooltip, MatProgressSpinner, MatSuffix, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1, YoutubeSearchResultsComponent]
+    imports: [MatCard, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatTooltip, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1, YoutubeSearchResultsComponent, PickerComponent]
 })
 export class MainComponent implements OnInit {
   youtubeAuthDisabledOverride = false;
@@ -84,6 +82,14 @@ export class MainComponent implements OnInit {
   searchQuery = '';
   readonly inputLabels = { url: $localize`:URL input placeholder:URL`, search: $localize`:YouTube search input placeholder:Search` };
   readonly toggleLabels = { url: $localize`:Switch input to search:Switch to Search`, search: $localize`:Switch input to URL:Switch to URL` };
+  readonly downloadLabel = $localize`:Main download button:Download`;
+  readonly moreDownloadOptionsLabel = $localize`:More download options button label:More download options`;
+  readonly qualityLabel = $localize`:Quality select label:Quality`;
+  readonly audioLanguageLabel = $localize`:Audio language select label:Language`;
+  readonly subtitleLanguageLabel = $localize`:Subtitle select label:Subtitles`;
+  private readonly bestQualityLabel = $localize`:Best:Best`;
+  private readonly defaultAudioLanguageLabel = $localize`:Default audio language option:Default`;
+  private readonly defaultSubtitleLanguageLabel = $localize`:Default subtitle option:Default`;
   youtubeSearchEnabled = false;
   youtubeAPIKey = null;
   results_loading = false;
@@ -1075,6 +1081,40 @@ export class MainComponent implements OnInit {
   getAvailableSubtitleLanguages(): Array<{value: string, label: string, source: string, hasManual: boolean, hasAutomatic: boolean}> {
     const cachedFormats = this.getCurrentCachedFormats();
     return cachedFormats?.['subtitle_languages'] || [];
+  }
+
+  get formatsLoading(): boolean {
+    return !!this.url && !!this.getCachedFormatsEntry(this.url)?.['formats_loading'];
+  }
+
+  /**
+   * Best, then what the link was found to offer with the size each would download at. When
+   * looking the link up failed, the usual resolutions stand in, so a quality can still be asked for.
+   */
+  get qualityPickerOptions(): PickerOption[] {
+    const options: PickerOption[] = [{ value: '', label: this.bestQualityLabel }];
+    const cached_formats = this.url ? this.cachedAvailableFormats?.[this.url] : null;
+    const type = this.audioOnly ? 'audio' : 'video';
+    if (cached_formats?.formats && !cached_formats.formats_failed) {
+      for (const format of cached_formats.formats[type] ?? []) {
+        options.push({ value: format, label: format.key, detail: format.expected_filesize ? this.humanFileSize(format.expected_filesize) : null });
+      }
+    } else if (cached_formats?.formats_failed) {
+      for (const quality of this.qualityOptions[type]) {
+        options.push({ value: quality.value, label: quality.label });
+      }
+    }
+    return options;
+  }
+
+  get audioLanguagePickerOptions(): PickerOption[] {
+    return [{ value: '', label: this.defaultAudioLanguageLabel }]
+      .concat(this.getAvailableAudioLanguages().map(language => ({ value: language.value, label: language.label })));
+  }
+
+  get subtitleLanguagePickerOptions(): PickerOption[] {
+    return [{ value: '', label: this.defaultSubtitleLanguageLabel }]
+      .concat(this.getAvailableSubtitleLanguages().map(language => ({ value: language.value, label: language.label })));
   }
 
   canSelectAudioLanguage(): boolean {

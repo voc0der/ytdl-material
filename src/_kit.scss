@@ -1,0 +1,243 @@
+// The controls the download box and the library are built from: a field, a chip, an icon
+// button, and the menu or sheet a chip opens. They share one look -- filled, fully round, no
+// outlines or floating labels -- and the accent is kept for what is selected or primary.
+//
+// Colours are variables so every theme can supply its own. The theme's class sits on the app
+// root and on the overlay container, so menus and sheets pick them up too.
+
+:root,
+.default-theme {
+  --kit-surface: rgba(0, 0, 0, 0.06);
+  --kit-surface-hover: rgba(0, 0, 0, 0.1);
+  --kit-on-surface: rgba(0, 0, 0, 0.87);
+  --kit-on-surface-variant: rgba(0, 0, 0, 0.62);
+  --kit-accent: #1976d2;
+  --kit-on-accent: #ffffff;
+  --kit-tonal: rgba(25, 118, 210, 0.14);
+  --kit-on-tonal: #0d47a1;
+  --kit-sheet: #ffffff;
+  --kit-divider: rgba(0, 0, 0, 0.12);
+}
+
+.light-theme {
+  --kit-accent: #6d4c41;
+  --kit-tonal: rgba(109, 76, 65, 0.14);
+  --kit-on-tonal: #4e342e;
+}
+
+.dark-theme {
+  --kit-surface: rgba(255, 255, 255, 0.07);
+  --kit-surface-hover: rgba(255, 255, 255, 0.11);
+  --kit-on-surface: #ececec;
+  --kit-on-surface-variant: #a3a3a3;
+  --kit-accent: #2196f3;
+  --kit-on-accent: #04121d;
+  --kit-tonal: rgba(33, 150, 243, 0.2);
+  --kit-on-tonal: #9ccfff;
+  --kit-sheet: #1f1f1f;
+  --kit-divider: rgba(255, 255, 255, 0.1);
+}
+
+.kit-invisible {
+  visibility: hidden;
+}
+
+// A text input with its icons and actions inside one rounded, filled box.
+.kit-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 4px 0 16px;
+  border-radius: 22px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface);
+  transition: box-shadow 120ms ease;
+}
+
+.kit-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--kit-accent);
+}
+
+.kit-field > input,
+.kit-field > textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+
+.kit-field > input::placeholder,
+.kit-field > textarea::placeholder {
+  color: var(--kit-on-surface-variant);
+  opacity: 1;
+}
+
+.kit-field > .mat-icon {
+  flex-shrink: 0;
+  color: var(--kit-on-surface-variant);
+}
+
+.kit-chip,
+.kit-icon-button {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  color: var(--kit-on-surface);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease;
+}
+
+.kit-chip {
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: var(--kit-surface);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.kit-chip:hover:not(:disabled) {
+  background: var(--kit-surface-hover);
+}
+
+.kit-chip[aria-pressed='true'] {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+  font-weight: 500;
+}
+
+.kit-chip .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+// The name of the setting a chip shows the value of, as in "Quality Best".
+.kit-chip-label {
+  color: var(--kit-on-surface-variant);
+}
+
+.kit-icon-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 20px;
+  background: transparent;
+}
+
+.kit-icon-button:hover:not(:disabled) {
+  background: var(--kit-surface-hover);
+}
+
+.kit-icon-button.kit-primary {
+  background: var(--kit-accent);
+  color: var(--kit-on-accent);
+}
+
+// Marks an icon button that hides a setting which is currently in effect.
+.kit-icon-button.kit-badge::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--kit-accent);
+}
+
+.kit-chip:disabled,
+.kit-icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.kit-chip:focus-visible,
+.kit-icon-button:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: 2px;
+}
+
+.kit-text-button {
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--kit-on-surface-variant);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+// A row of chips. On a narrow screen it scrolls sideways rather than wrapping.
+.kit-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.kit-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.kit-rail.kit-rail-wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+// The menu a chip opens on a wide screen.
+.mat-mdc-menu-panel.kit-menu {
+  min-width: 200px;
+  border-radius: 16px;
+}
+
+.kit-menu .mat-mdc-menu-item-text {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  width: 100%;
+}
+
+.kit-menu-detail {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+}
+
+.kit-menu .mat-mdc-menu-item[aria-checked='true'] {
+  color: var(--kit-on-tonal);
+}
+
+.kit-menu .mat-mdc-menu-item[aria-checked='true'] .mat-icon {
+  color: inherit;
+}
+
+// The sheet it opens on a narrow screen. The class is set on the overlay pane that holds it.
+.kit-sheet-panel .mat-bottom-sheet-container {
+  box-sizing: border-box;
+  max-height: 85vh;
+  padding: 8px 12px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: var(--kit-sheet);
+  color: var(--kit-on-surface);
+}
