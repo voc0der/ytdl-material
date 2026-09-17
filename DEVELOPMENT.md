@@ -178,6 +178,50 @@ on knowing the title and the video count are skipped.
   the subscription page one at a time, well after the check that queued them reports itself
   finished. The refresh card is what explains the gap.
 
+# Exercising downloads and tasks
+
+The Downloads and Tasks pages are the other two that are tedious to check by hand: a real
+download has to be started, paused, failed, retried and cleared, and a task has to find
+something before its confirmation step exists at all.
+`dev/screenshots/downloads.sh` does both against a throwaway backend, driving the pages the
+way a person would:
+
+```bash
+dev/screenshots/downloads.sh               # build, boot, run, stop
+dev/screenshots/downloads.sh --skip-build  # reuse the last frontend build
+dev/screenshots/downloads.sh --keep        # leave the backend running on :17451 afterwards
+dev/screenshots/downloads.sh --url URL     # download another playlist
+```
+
+It queues the same small NASA playlist the subscriptions harness uses, plus twelve downloads
+of a page that is not media at all, which yt-dlp refuses at once. That mixture is what makes
+every state on the page reachable without waiting: the playlist gives a running row with
+progress and a finished one with per-item progress behind it, the refusals give failed rows,
+and because the run holds the queue to one download at a time, the rest are reliably still
+queued to be paused. It then works the page -- pause all, resume one row, resume all, open a
+failure in full, retry the failures, page back and forth at ten per page, and clear only the
+failures -- checking the backend after each one.
+
+For tasks it checks that every task has a card that says what it is for, deletes a
+downloaded file from disk and runs Missing files check from its card, which must then offer
+to remove exactly what it found and stop offering once that is done. Finally it gives a task
+a weekly schedule from the panel on its card, asserts the panel closes on save, that the
+backend has the schedule, that the card says when it runs next, that reopening reads it
+back, and that turning it off removes it again. Screenshots of both pages, desktop and
+phone, light and dark, are left in the `shots` folder it prints.
+
+Like the subscriptions harness it is not part of CI, because it downloads from the site.
+
+## Things worth knowing
+
+- **It holds `max_concurrent_downloads` at 1**, which is what keeps the rest of the batch
+  queued long enough to pause. It also has to set it at all: the shipped
+  `backend/appdata/default.json` says 0, which starts no downloads whatsoever.
+- **Twelve failures is not an arbitrary number.** It is what puts more than one page of
+  rows on the page at ten per page, so the pager has something to page through.
+- **A download that cannot start still gets a row.** Failures are rows with a one-line
+  summary, not silence; the full error is behind the summary.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`
