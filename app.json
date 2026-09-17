@@ -3,6 +3,6 @@
     "description": "An open-source and self-hosted YouTube downloader based on Google's Material Design specifications.",
     "repository": "https://github.com/voc0der/ytdl-material",
     "stack": "container",
-    "logo": "https://i.imgur.com/GPzvPiU.png",
+    "logo": "https://raw.githubusercontent.com/voc0der/ytdl-material/main/docs/images/logo.png",
     "keywords": ["youtube-dl", "ytdl-material", "nodejs"]
   }
