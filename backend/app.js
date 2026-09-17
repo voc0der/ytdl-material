@@ -1934,6 +1934,7 @@ app.post('/api/getSubscription', optionalJwt, requirePermission('subscriptions')
         const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
         const file_count = await db_api.getRecords('files', sub_files_filter, true);
         subscription['file_count'] = file_count;
+        subscription['thumbnail_file_uid'] = await subscriptions_api.getSubscriptionThumbnailFileUid(subscription.id);
 
         if (include_videos) {
             const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
@@ -2036,8 +2037,7 @@ app.post('/api/cancelSubscriptionCheck', optionalJwt, requirePermission('subscri
 app.post('/api/getSubscriptions', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
-    // get subs from api
-    let subscriptions = await subscriptions_api.getSubscriptions(user_uid);
+    const subscriptions = await subscriptions_api.getSubscriptionSummaries(user_uid);
 
     res.send({
         subscriptions: subscriptions

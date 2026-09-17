@@ -1,5 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
+const _ = require('lodash');
 
 const youtubedl_api = require('./youtube-dl');
 const config_api = require('./config');
@@ -69,6 +70,18 @@ const MATCH_FILTER_ARGS = new Set(['--match-filter', '--match-filters']);
 const BREAK_MATCH_FILTER_ARGS = new Set(['--break-match-filter', '--break-match-filters']);
 const NO_MATCH_FILTER_ARGS = new Set(['--no-match-filter', '--no-match-filters']);
 const JOIN_ONLY_AVAILABILITY_VALUES = new Set(['subscriber_only']);
+// Kept by the backend while it checks a subscription, or added to what the API returns.
+// An update names the settings to change; it must not write back a stale copy of these.
+const SUBSCRIPTION_BACKEND_OWNED_FIELDS = Object.freeze([
+    'id',
+    'user_uid',
+    'downloading',
+    'child_process',
+    'refresh_status',
+    'videos',
+    'file_count',
+    'thumbnail_file_uid'
+]);
 const active_subscription_refresh_trackers = new Map();
 
 function getSubscriptionPendingDownloadProjectionFields() {
@@ -1796,6 +1809,37 @@ exports.getSubscriptions = async (user_uid = null) => {
     return await db_api.getRecords('subscriptions', {user_uid: user_uid});
 }
 
+// The newest downloaded file that has a thumbnail, which the subscription is shown with.
+exports.getSubscriptionThumbnailFileUid = async (sub_id) => {
+    const newest_with_thumbnail = await db_api.getRecords('files', {sub_id: sub_id, thumbnailPath: {$ne: null}}, false, {by: 'registered', order: -1}, [0, 1], ['uid']);
+    return newest_with_thumbnail[0]?.uid ?? null;
+}
+
+// The subscriptions with what their cards show beyond the stored record: how many files each
+// has, its cover, and its downloads still waiting or running, which is what tells a finished
+// refresh from one whose videos are still on the way.
+exports.getSubscriptionSummaries = async (user_uid = null) => {
+    const subscriptions = await exports.getSubscriptions(user_uid);
+    return await Promise.all(subscriptions.map(async sub => {
+        const [file_count, thumbnail_file_uid, pending_download_count, running_download_count] = await Promise.all([
+            db_api.getRecords('files', {sub_id: sub.id}, true),
+            exports.getSubscriptionThumbnailFileUid(sub.id),
+            db_api.getRecords('download_queue', {sub_id: sub.id, finished: false}, true),
+            db_api.getRecords('download_queue', {sub_id: sub.id, running: true, finished: false}, true)
+        ]);
+        const summary = _.omit(sub, ['_id', 'child_process', 'videos']);
+        summary.downloading = !!sub.downloading || running_download_count > 0;
+        summary.file_count = file_count;
+        summary.thumbnail_file_uid = thumbnail_file_uid;
+        summary.refresh_status = {
+            ...normalizeSubscriptionRefreshStatus(sub.refresh_status),
+            pending_download_count: pending_download_count,
+            running_download_count: running_download_count
+        };
+        return summary;
+    }));
+}
+
 exports.getAllSubscriptions = async () => {
     const all_subs = await db_api.getRecords('subscriptions');
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
@@ -2134,19 +2178,26 @@ async function cleanupSubscriptionPathChange(current_sub, updated_sub, user_uid 
     }
 }
 
-exports.updateSubscription = async (sub, user_uid = null) => {
-    normalizeSubscriptionStorageOptions(sub);
-    const filter_obj = {id: sub.id};
+exports.updateSubscription = async (sub_update, user_uid = null) => {
+    if (!sub_update || !sub_update.id) return false;
+    const filter_obj = {id: sub_update.id};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
     const stored_sub = await db_api.getRecord('subscriptions', filter_obj);
     if (!stored_sub) return false;
     const current_sub = JSON.parse(JSON.stringify(stored_sub));
 
+    // The update is laid over the stored record, so it can name only the settings it changes,
+    // and a copy fetched before a check started cannot overwrite that check's progress.
+    const changes = _.omit(sub_update, SUBSCRIPTION_BACKEND_OWNED_FIELDS);
+    const sub = _.omit({...current_sub, ...changes}, ['_id']);
+    normalizeSubscriptionStorageOptions(sub);
+    const updated_fields = _.omit(sub, SUBSCRIPTION_BACKEND_OWNED_FIELDS);
+
     normalizeSubscriptionStorageOptions(current_sub);
     const moved_files = await moveSubscriptionFilesForUpdatedPath(current_sub, sub, user_uid);
     if (!moved_files) return false;
 
-    const updated = await db_api.updateRecord('subscriptions', filter_obj, sub);
+    const updated = await db_api.updateRecord('subscriptions', filter_obj, updated_fields);
     if (!updated) return false;
     if (sub['auto_create_playlist'] === true) {
         await files_api.syncSubscriptionPlaylist(sub.id, user_uid);

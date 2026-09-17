@@ -134,6 +134,50 @@ the `openapi` binary, `@types/*` are ambient), and a version that tried flagged 
 frontend packages of which most were load-bearing. Finding genuinely dead dependencies is
 `git log -S "require('name')"` work, done by hand.
 
+# Exercising subscriptions
+
+Subscriptions are the hardest part of the app to test by hand: a real one has to be created,
+its videos downloaded, checked again for duplicates, edited and removed, and each step takes
+minutes of clicking. `dev/screenshots/subscriptions.sh` does the whole round trip against a
+throwaway backend, driving the pages the way a person would:
+
+```bash
+dev/screenshots/subscriptions.sh               # build, boot, run, stop
+dev/screenshots/subscriptions.sh --skip-build  # reuse the last frontend build
+dev/screenshots/subscriptions.sh --keep        # stop before unsubscribing, leave it running
+dev/screenshots/subscriptions.sh --url URL     # subscribe to another playlist
+```
+
+It subscribes from the Subscriptions page with a quality and the automatic playlist chosen
+on the page, waits for the downloads, and checks what the backend recorded: that the
+subscription was named after the playlist, that the choices made on the page were saved,
+that the files landed in its folder with thumbnails, that they were added to a playlist, and
+that a second check downloads nothing twice. It then saves a setting from the subscription's
+own page, asserts the panel closes and the other settings survive, and unsubscribes, which
+must take the files and the folder with it. Screenshots of every page, desktop and phone,
+light and dark, are left in the `shots` folder it prints. `--keep` stops before
+unsubscribing and leaves the backend up on :17450 to poke at.
+
+It is not part of CI, for the same reason the container repro is not: it downloads from the
+site, so it fails for reasons unrelated to any change.
+
+## The playlist it uses
+
+"Space Stars Shine for NASA Spinoffs": four NASA videos, about five minutes in all, roughly
+10 MB at the 360p the run picks. NASA material is free to use, which is why the screenshot
+fixtures are NASA's too. Any other playlist works with `--url`, but the checks that depend
+on knowing the title and the video count are skipped.
+
+## Things worth knowing
+
+- **The shipped `backend/appdata/default.json` has `max_concurrent_downloads: 0`**, which
+  starts no downloads at all -- a queued subscription simply sits there. The harness
+  overrides it with an environment variable. A container whose `appdata` is not a bind
+  mount over that file gets the same value, and the same silence.
+- **A subscription's videos are downloaded through the download queue**, so they appear on
+  the subscription page one at a time, well after the check that queued them reports itself
+  finished. The refresh card is what explains the gap.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`
@@ -149,7 +193,8 @@ dev/screenshots/capture.sh --keep        # leave the backend running on :17449 a
 The first run installs Playwright into `dev/screenshots/node_modules` and downloads its
 Chromium. After that a run takes about ten seconds. Nothing it does touches
 `backend/public` or `backend/appdata`: the build, the backend copy it runs from, and that
-copy's data and log all live under `~/.cache/ytdl-material/screenshots`.
+copy's data and log all live under `~/.cache/ytdl-material/screenshots`. Both harnesses
+share that build and the staging code in `dev/screenshots/stage.mjs`.
 
 The output is byte-identical between runs, so if a re-run changes the PNG, the page changed.
 Commit the image in the same PR as the UI change that moved it. Like the coverage badge, it

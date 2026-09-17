@@ -3357,6 +3357,8 @@ components:
           type: string
         timerange:
           type: string
+        maxQuality:
+          type: string
         custom_args:
           type: string
         custom_output:
@@ -3373,6 +3375,10 @@ components:
           $ref: '#/components/schemas/SubscriptionRefreshStatus'
         file_count:
           type: number
+        thumbnail_file_uid:
+          type: string
+          nullable: true
+          description: The newest downloaded file with a thumbnail, whose thumbnail the subscription is shown with.
         videos:
           type: array
           items:

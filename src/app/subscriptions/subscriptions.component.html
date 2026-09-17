@@ -1,88 +1,185 @@
-<br/>
+<div class="container subscriptions-page">
+  <header class="page-header">
+    <h1 class="page-title" i18n="Subscriptions title">Subscriptions</h1>
+    <p class="page-intro" i18n="Subscriptions page introduction">Follow a channel or a playlist and its new uploads download on their own.</p>
+  </header>
 
-<h2 i18n="Subscriptions title" style="text-align: center; margin-bottom: 15px;">Your subscriptions</h2>
+  <form class="subscribe-box" (submit)="subscribe($event)">
+    <div class="kit-field subscribe-field">
+      <mat-icon>add_link</mat-icon>
+      <input type="url" name="url" [(ngModel)]="url" (ngModelChange)="subscribeError = null" [disabled]="subscribing"
+        placeholder="Paste a channel or playlist link" i18n-placeholder="Subscription URL input placeholder" [attr.aria-label]="urlLabel"
+        inputmode="url" enterkeyhint="go" autocomplete="off" autocapitalize="off" spellcheck="false">
+      @if (url.trim()) {
+        <button type="submit" class="kit-chip kit-primary subscribe-action" [disabled]="subscribing">
+          @if (subscribing) {
+            <mat-spinner [diameter]="16"></mat-spinner>
+          }
+          <span i18n="Subscribe button">Subscribe</span>
+        </button>
+      }
+    </div>
 
-<mat-divider style="width: 80%; margin: 0 auto"></mat-divider>
-<br/>
+    <app-subscription-settings mode="create" [settings]="settings" [showRows]="false" [disabled]="subscribing">
+      <button type="button" class="kit-chip" [class.options-set]="hasCustomOptions" [attr.aria-expanded]="optionsOpen"
+        aria-controls="subscribe-options" [attr.aria-label]="optionsLabel" (click)="optionsOpen = !optionsOpen">
+        <mat-icon>tune</mat-icon>
+        <span i18n="Subscription options chip">Options</span>
+      </button>
+    </app-subscription-settings>
 
-<h4 i18n="Subscriptions channels title" style="text-align: center;">Channels</h4>
-<mat-nav-list class="sub-nav-list">
-  @for (sub of channel_subscriptions; track sub) {
-    <mat-list-item style="pointer-events: none">
-      <a style="pointer-events: auto;" class="a-list-item" matListItemTitle (click)="goToSubscription(sub)">
-        @if (sub.name) {
-          <strong>{{ sub.name }}&nbsp;@if (sub.paused) {
-            <ng-container i18n="Paused suffix">(Paused)</ng-container>
-          }</strong>
-        }
-        @if (!sub.name) {
-          <div>
-            <ng-container i18n="Subscription playlist not available text">Name not available. Channel retrieval in progress.</ng-container>
-          </div>
-        }
-      </a>
-      <div style="pointer-events: auto; color: unset" matListItemMeta>
-        <button matTooltip="Delete and redownload" i18n-matTooltip="Delete and redownload subscription files" mat-icon-button [disabled]="isRedownloadDisabled(sub)" (click)="confirmRedownloadSubscription(sub)">
-          <mat-icon>restore</mat-icon>
-        </button>
-        <button matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button (click)="editSubscription(sub)">
-          <mat-icon>edit</mat-icon>
-        </button>
-        <button matTooltip="Info" i18n-matTooltip="Info" mat-icon-button (click)="showSubInfo(sub)">
-          <mat-icon>info</mat-icon>
-        </button>
+    @if (optionsOpen) {
+      <div class="options-panel" id="subscribe-options">
+        <app-subscription-settings mode="create" [settings]="settings" [(name)]="name" [showChoices]="false" [disabled]="subscribing"></app-subscription-settings>
       </div>
-    </mat-list-item>
-  }
-</mat-nav-list>
+    }
 
-@if (channel_subscriptions.length === 0 && subscriptions) {
-  <div style="width: 80%; margin: 0 auto; padding-left: 15px;">
-    <p i18n="No channel subscriptions text">You have no channel subscriptions.</p>
-  </div>
-}
+    @if (subscribeError) {
+      <p class="subscribe-error" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{subscribeError}}</span>
+      </p>
+    }
+    @if ((url.trim() || hasCustomOptions) && !subscribing) {
+      <button type="button" class="kit-text-button subscribe-clear" (click)="cancelSubscribe()" i18n="Clear subscribe form button">Clear</button>
+    }
+  </form>
 
-<h4 i18n="Subscriptions playlists title" style="text-align: center; margin-top: 10px;">Playlists</h4>
-<mat-nav-list class="sub-nav-list">
-  @for (sub of playlist_subscriptions; track sub) {
-    <mat-list-item style="pointer-events: none">
-      <a style="pointer-events: auto;" class="a-list-item" matListItemTitle (click)="goToSubscription(sub)">
-        @if (sub.name) {
-          <strong>{{ sub.name }}&nbsp;@if (sub.paused) {
-            <ng-container i18n="Paused suffix">(Paused)</ng-container>
-          }</strong>
-        }
-        @if (!sub.name) {
-          <div>
-            <ng-container i18n="Subscription playlist not available text">Name not available. Channel retrieval in progress.</ng-container>
+  @if (subscriptions === null) {
+    <div class="list-loading" aria-busy="true">
+      <mat-spinner [diameter]="32"></mat-spinner>
+    </div>
+  } @else if (subscriptions.length === 0) {
+    <section class="empty-state">
+      <span class="empty-state-icon"><mat-icon>subscriptions</mat-icon></span>
+      @if (loadFailed) {
+        <h2 i18n="Subscriptions failed to load title">Couldn't load your subscriptions</h2>
+        <button type="button" class="kit-chip" (click)="loadSubscriptions()"><mat-icon>refresh</mat-icon><span i18n="Retry button">Try again</span></button>
+      } @else {
+        <h2 i18n="No subscriptions title">No subscriptions yet</h2>
+        <p i18n="No subscriptions text">Paste a channel or playlist link above to get started.</p>
+      }
+    </section>
+  } @else {
+    <div class="list-header">
+      @if (channelCount && playlistCount) {
+        <div class="list-filter" role="group" aria-label="Show" i18n-aria-label="Subscription type filter label">
+          <button type="button" class="list-filter-option" [class.active]="filter === 'all'" [attr.aria-pressed]="filter === 'all'" (click)="filter = 'all'">
+            <span i18n="All subscriptions filter">All</span>
+            <span class="list-filter-count">{{subscriptions.length}}</span>
+          </button>
+          <button type="button" class="list-filter-option" [class.active]="filter === 'channels'" [attr.aria-pressed]="filter === 'channels'" (click)="filter = 'channels'">
+            <span i18n="Subscriptions channels title">Channels</span>
+            <span class="list-filter-count">{{channelCount}}</span>
+          </button>
+          <button type="button" class="list-filter-option" [class.active]="filter === 'playlists'" [attr.aria-pressed]="filter === 'playlists'" (click)="filter = 'playlists'">
+            <span i18n="Subscriptions playlists title">Playlists</span>
+            <span class="list-filter-count">{{playlistCount}}</span>
+          </button>
+        </div>
+      } @else {
+        <!-- With only one kind there is nothing to filter, just the list to name. -->
+        <h2 class="list-filter-option active list-title">
+          @if (playlistCount) {
+            <span i18n="Subscriptions playlists title">Playlists</span>
+          } @else {
+            <span i18n="Subscriptions channels title">Channels</span>
+          }
+          <span class="list-filter-count">{{subscriptions.length}}</span>
+        </h2>
+      }
+    </div>
+
+    <ul class="subscription-grid">
+      @for (sub of visibleSubscriptions; track sub.id) {
+        <li class="subscription-card" [attr.data-state]="state(sub)">
+          <a class="card-cover" [routerLink]="['/subscription', { id: sub.id }]" tabindex="-1" aria-hidden="true">
+            @if (coverURL(sub); as cover) {
+              <img [src]="cover" alt="" loading="lazy">
+            } @else {
+              <span class="card-cover-initial">{{initial(sub)}}</span>
+            }
+            @if (state(sub) !== 'idle') {
+              <span class="card-state">
+                @if (isBusy(sub)) {
+                  <mat-spinner [diameter]="12" [strokeWidth]="2"></mat-spinner>
+                } @else {
+                  <mat-icon>{{state(sub) === 'paused' ? 'pause' : 'error_outline'}}</mat-icon>
+                }
+                <span>{{statusText(sub)}}</span>
+              </span>
+            }
+          </a>
+          <div class="card-body">
+            <div class="card-text">
+              <a class="card-title" [routerLink]="['/subscription', { id: sub.id }]" [attr.title]="sub.name || sub.url">{{sub.name || sub.url}}</a>
+              <span class="card-meta">
+                <span class="card-type">
+                  <mat-icon>{{sub.isPlaylist ? 'playlist_play' : 'account_box'}}</mat-icon>
+                  @if (sub.isPlaylist) {
+                    <ng-container i18n="Subscription type playlist">Playlist</ng-container>
+                  } @else {
+                    <ng-container i18n="Subscription type channel">Channel</ng-container>
+                  }
+                </span>
+                <span aria-hidden="true">·</span>
+                <span i18n="Subscription file count">{sub.file_count ?? 0, plural, =0 {No files} =1 {1 file} other {{{sub.file_count}} files}}</span>
+              </span>
+              @if (state(sub) === 'idle') {
+                <span class="card-status">{{statusText(sub)}}</span>
+              }
+            </div>
+            <button type="button" class="kit-icon-button card-menu-button" [matMenuTriggerFor]="cardMenu" [matMenuTriggerData]="{ sub: sub }"
+              [attr.aria-label]="moreActionsLabel">
+              <mat-icon>more_vert</mat-icon>
+            </button>
           </div>
-        }
-      </a>
-      <div style="pointer-events: auto; color: unset" matListItemMeta>
-        <button matTooltip="Delete and redownload" i18n-matTooltip="Delete and redownload subscription files" mat-icon-button [disabled]="isRedownloadDisabled(sub)" (click)="confirmRedownloadSubscription(sub)">
-          <mat-icon>restore</mat-icon>
-        </button>
-        <button matTooltip="Edit" i18n-matTooltip="Edit" mat-icon-button (click)="editSubscription(sub)">
-          <mat-icon>edit</mat-icon>
-        </button>
-        <button matTooltip="Info" i18n-matTooltip="Info" mat-icon-button (click)="showSubInfo(sub)">
-          <mat-icon>info</mat-icon>
-        </button>
-      </div>
-    </mat-list-item>
+        </li>
+      }
+    </ul>
   }
-</mat-nav-list>
+</div>
 
-@if (playlist_subscriptions.length === 0 && subscriptions) {
-  <div style="width: 80%; margin: 0 auto; padding-left: 15px;">
-    <p i18n="No playlist subscriptions text">You have no playlist subscriptions.</p>
-  </div>
-}
-
-@if (subscriptions_loading) {
-  <div style="margin: 0 auto; width: 80%">
-    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-  </div>
-}
-
-<button class="add-subscription-button" (click)="openSubscribeDialog()" matTooltip="Add subscription" i18n-matTooltip="Add subscription" mat-fab><mat-icon>add</mat-icon></button>
+<mat-menu #cardMenu="matMenu" class="kit-menu">
+  <ng-template matMenuContent let-sub="sub">
+    @if (isChecking(sub)) {
+      <button mat-menu-item (click)="cancelCheck(sub)">
+        <mat-icon>stop_circle</mat-icon>
+        <span i18n="Stop checking subscription menu item">Stop checking</span>
+      </button>
+    } @else {
+      <button mat-menu-item (click)="check(sub)" [disabled]="!sub.name">
+        <mat-icon>refresh</mat-icon>
+        <span i18n="Check subscription menu item">Check now</span>
+      </button>
+    }
+    @if (sub.paused) {
+      <button mat-menu-item (click)="setPaused(sub, false)">
+        <mat-icon>play_circle</mat-icon>
+        <span i18n="Resume subscription menu item">Resume</span>
+      </button>
+    } @else {
+      <button mat-menu-item (click)="setPaused(sub, true)" [disabled]="!sub.name">
+        <mat-icon>pause_circle</mat-icon>
+        <span i18n="Pause subscription menu item">Pause</span>
+      </button>
+    }
+    <button mat-menu-item (click)="openSettings(sub)" [disabled]="!sub.name">
+      <mat-icon>tune</mat-icon>
+      <span i18n="Subscription settings menu item">Settings</span>
+    </button>
+    <button mat-menu-item (click)="watch(sub)" [disabled]="!sub.file_count">
+      <mat-icon>play_arrow</mat-icon>
+      <span i18n="Play all">Play all</span>
+    </button>
+    <mat-divider></mat-divider>
+    <button mat-menu-item (click)="redownload(sub)" [disabled]="!sub.name">
+      <mat-icon>restore</mat-icon>
+      <span i18n="Delete and redownload subscription files">Delete and redownload</span>
+    </button>
+    <button mat-menu-item class="menu-item-warn" (click)="unsubscribe(sub)">
+      <mat-icon>delete</mat-icon>
+      <span i18n="Unsubscribe button">Unsubscribe</span>
+    </button>
+  </ng-template>
+</mat-menu>

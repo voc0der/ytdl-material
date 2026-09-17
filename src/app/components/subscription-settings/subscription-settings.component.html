@@ -1,0 +1,106 @@
+@if (showChoices) {
+  <div class="kit-rail kit-rail-wrap settings-choices">
+    @if (!settings.audioOnly) {
+      <app-picker [title]="qualityLabel" [label]="qualityLabel" [options]="qualityOptions" [value]="settings.maxQuality"
+        [disabled]="disabled" (valueChange)="chooseQuality($any($event))"></app-picker>
+    }
+    <app-picker [title]="uploadsLabel" [label]="uploadsLabel" [options]="timerangeOptions" [value]="timerangeChoice"
+      [disabled]="disabled" (valueChange)="chooseTimerange($any($event))"></app-picker>
+    @if (isCustomTimerange) {
+      <span class="custom-range">
+        <span class="kit-field custom-range-amount">
+          <input type="number" min="1" step="1" inputmode="numeric" name="customAmount" [(ngModel)]="customAmount"
+            (ngModelChange)="applyCustomTimerange()" [disabled]="disabled" [attr.aria-label]="customAmountLabel">
+        </span>
+        <app-picker [title]="customUnitLabel" [options]="unitOptions" [value]="customUnit" [disabled]="disabled"
+          (valueChange)="chooseCustomUnit($any($event))"></app-picker>
+      </span>
+    }
+    <!-- Audio or video decides which folder the files go to, so it is fixed once subscribed. -->
+    @if (mode === 'create' || settings.audioOnly) {
+      <button type="button" class="kit-chip" [attr.aria-pressed]="settings.audioOnly" (click)="toggleAudioOnly()"
+        [disabled]="disabled || mode === 'edit'" [matTooltip]="mode === 'edit' ? audioOnlyFixedHint : ''">
+        @if (settings.audioOnly) {
+          <mat-icon>check</mat-icon>
+        }
+        <span i18n="Subscription option for audio-only downloads">Only Audio</span>
+      </button>
+    }
+    <ng-content></ng-content>
+  </div>
+}
+
+@if (showRows) {
+  <div class="settings-rows">
+    @if (mode === 'create') {
+      <label class="settings-row settings-field-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Custom name">Name</span>
+          <span class="settings-row-hint" i18n="Subscription name hint">Leave empty to use the channel or playlist title.</span>
+        </span>
+        <span class="kit-field">
+          <input type="text" name="subscriptionName" [ngModel]="name" (ngModelChange)="setName($event)" [disabled]="disabled"
+            autocomplete="off">
+        </span>
+      </label>
+    }
+
+    @if (mode === 'edit') {
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" id="subscription-paused-title" i18n="Paused subscription setting">Paused</span>
+          <span class="settings-row-hint" i18n="Paused subscription setting hint">Stop checking for new uploads until it's resumed.</span>
+        </span>
+        <mat-slide-toggle name="paused" [(ngModel)]="settings.paused" (ngModelChange)="changed.emit()" [disabled]="disabled"
+          aria-labelledby="subscription-paused-title"></mat-slide-toggle>
+      </div>
+    }
+
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="subscription-subfolder-title" i18n="Use subscription name folder setting">Own folder</span>
+        <span class="settings-row-hint" i18n="Use subscription name folder hint">Save downloads in a folder named after the subscription.</span>
+      </span>
+      <mat-slide-toggle name="useSubfolder" [(ngModel)]="settings.use_subfolder" (ngModelChange)="changed.emit()" [disabled]="disabled"
+        aria-labelledby="subscription-subfolder-title"></mat-slide-toggle>
+    </div>
+
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="subscription-playlist-title" i18n="Automatic subscription playlist setting">Playlist</span>
+        <span class="settings-row-hint" i18n="Automatic subscription playlist hint">Add downloads to a playlist named after the subscription.</span>
+      </span>
+      <mat-slide-toggle name="autoCreatePlaylist" [(ngModel)]="settings.auto_create_playlist" (ngModelChange)="changed.emit()" [disabled]="disabled"
+        aria-labelledby="subscription-playlist-title"></mat-slide-toggle>
+    </div>
+
+    <label class="settings-row settings-field-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Custom file output">File names</span>
+        <span class="settings-row-hint">
+          <ng-container i18n="Custom Output input hint">Relative to the download folder, without an extension.</ng-container>
+          <a target="_blank" rel="noopener" href="https://github.com/yt-dlp/yt-dlp#output-template" i18n="Custom output template documentation link">Template reference</a>
+        </span>
+      </span>
+      <span class="kit-field">
+        <input type="text" name="customOutput" [(ngModel)]="settings.custom_output" (ngModelChange)="changed.emit()" [disabled]="disabled"
+          placeholder="Default" i18n-placeholder="Default custom file output placeholder" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </span>
+    </label>
+
+    <div class="settings-row settings-field-row">
+      <label class="settings-row-text" for="subscription-custom-args">
+        <span class="settings-row-title" i18n="Custom args">Extra arguments</span>
+        <span class="settings-row-hint" i18n="Custom args hint">Passed to yt-dlp after the standard and global arguments, separated by two commas.</span>
+      </label>
+      <span class="kit-field">
+        <input id="subscription-custom-args" type="text" name="customArgs" [(ngModel)]="settings.custom_args" (ngModelChange)="changed.emit()"
+          [disabled]="disabled" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="kit-icon-button" (click)="openArgsEditor()" [disabled]="disabled"
+          [attr.aria-label]="editArgsLabel" [matTooltip]="editArgsLabel">
+          <mat-icon>edit</mat-icon>
+        </button>
+      </span>
+    </div>
+  </div>
+}
