@@ -1,35 +1,103 @@
-<h4 mat-dialog-title><ng-container i18n="Task settings">Task settings - {{task.title}}</ng-container></h4>
+<div class="settings-rows">
+  <div class="settings-row">
+    <span class="settings-row-text">
+      <span class="settings-row-title" i18n="Task schedule setting">Schedule</span>
+      <span class="settings-row-hint">
+        @if (repeat === 'off') {
+          <ng-container i18n="Task schedule off hint">This task only runs when you run it.</ng-container>
+        } @else if (timeZone) {
+          <ng-container i18n="Task schedule timezone hint">Times are in {{timeZone}}.</ng-container>
+        }
+      </span>
+    </span>
+    <app-picker [title]="repeatLabel" [label]="repeatLabel" [options]="repeatOptions" [value]="repeat" [disabled]="saving"
+      (valueChange)="chooseRepeat($any($event))"></app-picker>
+  </div>
 
-<mat-dialog-content>
-  @if (task_key === 'delete_old_files') {
-    <div>
-      <mat-form-field color="accent">
-        <mat-label i18n="Delete files older than">Delete files older than</mat-label>
-        <input [(ngModel)]="new_options['threshold_days']" matInput onlyNumber required>
-        <span matTextSuffix>days</span>
-      </mat-form-field>
-      <div>
-        <mat-checkbox [(ngModel)]="new_options['blacklist_files']" i18n="Blacklist deleted files" placeholder="Archive mode must be enabled" placeholder-i18n>Blacklist all files</mat-checkbox>
-      </div>
-      <div>
-        <mat-checkbox [disabled]="new_options['blacklist_files']" [(ngModel)]="new_options['blacklist_subscription_files']" i18n="Blacklist deleted subscription files" placeholder="Archive mode must be enabled" placeholder-i18n>Blacklist deleted subscription files</mat-checkbox>
+  @if (repeat === 'weekly') {
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Task schedule days setting">Days</span>
+        <span class="settings-row-hint" i18n="Task schedule days hint">Pick at least one day.</span>
+      </span>
+      <div class="kit-rail weekdays" role="group" aria-label="Days" i18n-aria-label="Task schedule days label">
+        @for (label of weekdayLabels; track $index) {
+          <button type="button" class="kit-chip weekday" [attr.aria-pressed]="isDaySelected($index)" [disabled]="saving"
+            [attr.aria-label]="weekdayNames[$index]" (click)="toggleDay($index)">{{label}}</button>
+        }
       </div>
     </div>
   }
 
-  <div>
-    <mat-checkbox [(ngModel)]="new_options['auto_confirm']" i18n="Do not ask for confirmation">Do not ask for confirmation</mat-checkbox>
-  </div>
-</mat-dialog-content>
+  @if (repeat === 'once') {
+    <label class="settings-row settings-field-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Task schedule date setting">Date</span>
+        <span class="settings-row-hint" i18n="Task schedule date hint">The day it runs, once.</span>
+      </span>
+      <span class="kit-field">
+        <input type="date" name="taskDate" [(ngModel)]="date" [min]="today" [disabled]="saving" [attr.aria-label]="dateLabel">
+      </span>
+    </label>
+  }
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close>
-    @if (optionsChanged()) {
-      <ng-container i18n="Task settings cancel button">Cancel</ng-container>
-    }
-    @if (!optionsChanged()) {
-      <ng-container i18n="Task settings close button">Close</ng-container>
-    }
-  </button>
-  <button mat-button [disabled]="!optionsChanged()" (click)="saveSettings()"><ng-container i18n="Save button">Save</ng-container></button>
-</mat-dialog-actions>
+  @if (repeat !== 'off') {
+    <label class="settings-row settings-field-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Task schedule time setting">Time</span>
+        <span class="settings-row-hint" i18n="Task schedule time hint">What time of day it starts.</span>
+      </span>
+      <span class="kit-field">
+        <input type="time" name="taskTime" [(ngModel)]="time" [disabled]="saving" [attr.aria-label]="timeLabel">
+      </span>
+    </label>
+  }
+
+  @if (hasOwnOptions) {
+    <label class="settings-row settings-field-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Delete files older than">Delete files older than</span>
+        <span class="settings-row-hint" i18n="Delete files older than hint">In days. Nothing is deleted until this is set.</span>
+      </span>
+      <span class="kit-field threshold-field">
+        <input type="number" min="1" step="1" inputmode="numeric" name="thresholdDays" [ngModel]="options['threshold_days']"
+          (ngModelChange)="setOption('threshold_days', $event)" [disabled]="saving">
+        <span class="field-suffix" i18n="Days suffix">days</span>
+      </span>
+    </label>
+
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="task-blacklist-title" i18n="Blacklist deleted files">Blacklist what it deletes</span>
+        <span class="settings-row-hint" i18n="Blacklist deleted files hint">Deleted files are never downloaded again. Needs archive mode.</span>
+      </span>
+      <mat-slide-toggle name="blacklistFiles" [ngModel]="options['blacklist_files']"
+        (ngModelChange)="setOption('blacklist_files', $event)" [disabled]="saving"
+        aria-labelledby="task-blacklist-title"></mat-slide-toggle>
+    </div>
+
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="task-blacklist-subs-title" i18n="Blacklist deleted subscription files">Blacklist subscription files only</span>
+        <span class="settings-row-hint" i18n="Blacklist deleted subscription files hint">The same, but only for files a subscription downloaded.</span>
+      </span>
+      <mat-slide-toggle name="blacklistSubscriptionFiles" [ngModel]="options['blacklist_subscription_files']"
+        (ngModelChange)="setOption('blacklist_subscription_files', $event)" [disabled]="saving || options['blacklist_files']"
+        aria-labelledby="task-blacklist-subs-title"></mat-slide-toggle>
+    </div>
+  }
+
+  <div class="settings-row">
+    <span class="settings-row-text">
+      <span class="settings-row-title" id="task-auto-confirm-title" i18n="Do not ask for confirmation">Act on findings on its own</span>
+      <span class="settings-row-hint" i18n="Do not ask for confirmation hint">Skip the confirmation step and apply whatever a run turns up.</span>
+    </span>
+    <mat-slide-toggle name="autoConfirm" [ngModel]="options['auto_confirm']" (ngModelChange)="setOption('auto_confirm', $event)"
+      [disabled]="saving" aria-labelledby="task-auto-confirm-title"></mat-slide-toggle>
+  </div>
+</div>
+
+<div class="settings-actions">
+  <button type="button" class="kit-text-button" (click)="cancel()" [disabled]="saving" i18n="Cancel button">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" (click)="save()" [disabled]="!changed || incomplete || saving" i18n="Save button">Save</button>
+</div>

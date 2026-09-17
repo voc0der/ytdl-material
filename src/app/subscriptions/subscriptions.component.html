@@ -1,4 +1,4 @@
-<div class="container subscriptions-page">
+<div class="container kit-page subscriptions-page">
   <header class="page-header">
     <h1 class="page-title" i18n="Subscriptions title">Subscriptions</h1>
     <p class="page-intro" i18n="Subscriptions page introduction">Follow a channel or a playlist and its new uploads download on their own.</p>
@@ -29,7 +29,7 @@
     </app-subscription-settings>
 
     @if (optionsOpen) {
-      <div class="options-panel" id="subscribe-options">
+      <div class="kit-panel options-panel" id="subscribe-options">
         <app-subscription-settings mode="create" [settings]="settings" [(name)]="name" [showChoices]="false" [disabled]="subscribing"></app-subscription-settings>
       </div>
     }

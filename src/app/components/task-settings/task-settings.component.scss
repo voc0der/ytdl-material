@@ -1,0 +1,32 @@
+:host {
+  display: block;
+}
+
+.weekdays {
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.weekday {
+  width: 36px;
+  padding: 0;
+}
+
+.threshold-field {
+  gap: 4px;
+}
+
+.field-suffix {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--kit-on-surface-variant);
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--kit-divider);
+}

@@ -510,5 +510,24 @@ const guessSubscriptions = async (isPlaylist, basePath = null) => {
     return guessed_subs;
 }
 
+/*************************************************
+ * When a task's schedule next fires, as a Date,
+ * or null when it has no schedule.
+ *
+ * croner calls this nextRun(). node-schedule, which
+ * it replaced, called it nextInvocation(), and the
+ * callers were never moved over -- so every
+ * scheduled task reported no next run at all. Both
+ * names are accepted here so neither scheduler can
+ * go quiet again.
+ ************************************************/
+exports.getNextRun = (task_key) => {
+    const job = TASKS[task_key] && TASKS[task_key]['job'];
+    if (!job) return null;
+    if (typeof job.nextRun === 'function') return job.nextRun();
+    if (typeof job.nextInvocation === 'function') return job.nextInvocation();
+    return null;
+}
+
 exports.TASKS = TASKS;
 exports.buildCronPattern = buildCronPattern;

@@ -1,36 +1,170 @@
-mat-header-cell, mat-cell {
-    justify-content: center;
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.one-line {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--kit-surface);
 }
 
-.icon-button-spinner {
-    position: absolute;
-    top: 7px;
-    left: 6px;
+// The open card holds a form, so it takes the whole row rather than a column of it.
+.task-card.card-open {
+  grid-column: 1 / -1;
 }
 
-.downloads-action-button-div {
-    margin-top: 10px;
-    margin-left: 5px;
+.task-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
 }
 
-.rounded-top {
-    border-radius: 16px 16px 0px 0px !important;
+.task-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: var(--kit-surface-hover);
+  color: var(--kit-on-surface-variant);
 }
 
-.rounded-bottom {
-    border-radius: 0px 0px 16px 16px !important;
+.task-card[data-state='running'] .task-icon,
+.task-card[data-state='pending'] .task-icon {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
 }
 
-.rounded {
-    border-radius: 16px 16px 16px 16px !important;
+.task-card[data-state='failed'] .task-icon {
+  background: rgba(183, 28, 28, 0.18);
+  color: #ef5350;
 }
 
-:host ::ng-deep mat-row {
-    height: fit-content !important;
+.task-icon .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--kit-on-tonal);
+  --mat-progress-spinner-active-indicator-color: var(--kit-on-tonal);
+}
+
+.task-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.task-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--kit-on-surface-variant);
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--kit-on-surface-variant);
+}
+
+.task-status {
+  font-weight: 500;
+}
+
+.task-card[data-state='running'] .task-status,
+.task-card[data-state='pending'] .task-status {
+  color: var(--kit-on-tonal);
+}
+
+.task-card[data-state='failed'] .task-status {
+  color: #ef5350;
+}
+
+.task-repeat {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.task-error {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ef9a9a;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+:host-context(.light-theme) .task-error,
+:host-context(.default-theme) .task-error {
+  color: #c62828;
+}
+
+// What the last run turned up, and the one button that acts on it.
+.task-pending {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+.task-pending .mat-icon {
+  flex-shrink: 0;
+}
+
+.task-actions {
+  margin-top: auto;
+}
+
+.task-settings-panel {
+  padding: 4px 16px 8px;
+  border-radius: 16px;
+  background: var(--kit-surface-hover);
+}
+
+.page-actions {
+  margin-top: 8px;
+}
+
+.chip-warn {
+  color: #ef5350;
+}
+
+@media (max-width: 576px) {
+  .task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-card {
+    padding: 16px;
+  }
 }

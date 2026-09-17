@@ -3282,8 +3282,7 @@ app.post('/api/getTasks', optionalJwt, requirePermission('tasks_manager'), async
             logger.verbose(`Task ${task['key']} does not exist!`);
             continue;
         }
-        const job = tasks_api.TASKS[task['key']]['job'];
-        const next_invocation = job && job.nextInvocation ? job.nextInvocation() : null;
+        const next_invocation = tasks_api.getNextRun(task['key']);
         if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
     }
     res.send({tasks: tasks});
@@ -3303,8 +3302,7 @@ app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), asy
 app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
-    const job = tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['job'];
-    const next_invocation = job && job.nextInvocation ? job.nextInvocation() : null;
+    const next_invocation = tasks_api.getNextRun(task_key);
     if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
     res.send({task: task});
 });

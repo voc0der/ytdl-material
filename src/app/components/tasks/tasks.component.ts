@@ -1,40 +1,42 @@
-import { Component, EventEmitter, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { MatPaginator } from '@angular/material/paginator';
-import { MatSort, MatSortHeader } from '@angular/material/sort';
-import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { RestoreDbDialogComponent } from 'app/dialogs/restore-db-dialog/restore-db-dialog.component';
-import { UpdateTaskScheduleDialogComponent } from 'app/dialogs/update-task-schedule-dialog/update-task-schedule-dialog.component';
 import { PostsService } from 'app/posts.services';
 import { Task, TaskType } from 'api-types';
 import { TaskSettingsComponent } from '../task-settings/task-settings.component';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
-import { NgClass, DatePipe } from '@angular/common';
-import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { DatePipe } from '@angular/common';
+import { formatRelativeTime } from 'app/utils/relative-time';
+import { TaskState, confirmLabel, hasPendingWork, pendingCount, taskDescription, taskIcon, taskState } from './task-info';
+
+// Tasks sit still most of the time; only a run is worth watching closely.
+const BUSY_POLL_INTERVAL_MS = 1500;
+const IDLE_POLL_INTERVAL_MS = 15000;
 
 @Component({
     selector: 'app-tasks',
     templateUrl: './tasks.component.html',
     styleUrls: ['./tasks.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgClass, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, MatTooltip, MatProgressSpinner, MatIcon, MatButton, MatIconButton, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, DatePipe]
+    imports: [MatProgressSpinner, MatIcon, MatTooltip, DatePipe, TaskSettingsComponent]
 })
-export class TasksComponent implements OnInit {
+export class TasksComponent implements OnInit, OnDestroy {
 
-  interval_id = null;
-  tasks_check_interval = 1500;
   tasks: Task[] = null;
   tasks_retrieved = false;
+  load_failed = false;
+  open_settings_key: TaskType = null;
 
-  displayedColumns: string[] = ['title', 'last_ran', 'last_confirmed', 'status', 'actions'];
-  dataSource = null;
-
-  db_backups = [];
+  private poll_timer: number = null;
+  private tasks_request: Subscription = null;
+  private service_initialized_subscription: Subscription = null;
+  private destroyed = false;
 
   TASKS_TO_REQUIRE_DIALOG: { [key in TaskType]? : {dialogTitle: string, dialogText: string, submitText: string, warnSubmitColor: boolean}} = {
     [TaskType.REBUILD_DATABASE]: {
@@ -45,53 +47,154 @@ export class TasksComponent implements OnInit {
     }
   }
 
-  @ViewChild(MatPaginator) paginator: MatPaginator;
-  @ViewChild(MatSort) sort: MatSort;
-
   constructor(private postsService: PostsService, private dialog: MatDialog, private clipboard: Clipboard) { }
 
   ngOnInit(): void {
     if (this.postsService.initialized) {
-      this.getTasksRecurring();
+      this.getTasks();
     } else {
-      this.postsService.service_initialized
+      this.service_initialized_subscription = this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
-        .subscribe(() => this.getTasksRecurring());
+        .subscribe(() => {
+          if (!this.destroyed) this.getTasks();
+        });
     }
   }
 
   ngOnDestroy(): void {
-    if (this.interval_id) { clearInterval(this.interval_id) }
-  }
-
-  getTasksRecurring(): void {
-    this.getTasks();
-    this.interval_id = setInterval(() => {
-      this.getTasks();
-    }, this.tasks_check_interval);
+    this.destroyed = true;
+    if (this.poll_timer !== null) {
+      window.clearTimeout(this.poll_timer);
+      this.poll_timer = null;
+    }
+    if (this.tasks_request) {
+      this.tasks_request.unsubscribe();
+      this.tasks_request = null;
+    }
+    if (this.service_initialized_subscription) {
+      this.service_initialized_subscription.unsubscribe();
+      this.service_initialized_subscription = null;
+    }
   }
 
   getTasks(): void {
-    this.postsService.getTasks().subscribe(res => {
-      for (const task of res['tasks']) {
-        if (task.title.includes('youtube-dl')) {
-          task.title = task.title.replace('youtube-dl', this.postsService.config.Advanced.default_downloader);
-        }
-      }
-      if (this.tasks) {
-        if (JSON.stringify(this.tasks) === JSON.stringify(res['tasks'])) return;
-        for (const task of res['tasks']) {
-          const task_index = this.tasks.map(t => t.key).indexOf(task['key']);
-          this.tasks[task_index] = task;
-        }
-        this.dataSource = new MatTableDataSource<Task>(this.tasks);
-      } else {
-        this.tasks = res['tasks'];
-        this.dataSource = new MatTableDataSource<Task>(this.tasks);
-        this.dataSource.paginator = this.paginator;
-        this.dataSource.sort = this.sort;
+    if (this.destroyed) return;
+    if (this.poll_timer !== null) {
+      window.clearTimeout(this.poll_timer);
+      this.poll_timer = null;
+    }
+    if (this.tasks_request && !this.tasks_request.closed) return;
+
+    this.tasks_request = this.postsService.getTasks().subscribe({
+      next: res => {
+        this.tasks = (res['tasks'] ?? []).map(task => this.withDownloaderName(task));
+        this.load_failed = false;
+        this.tasks_retrieved = true;
+        this.scheduleNextPoll();
+      },
+      error: err => {
+        console.error(err);
+        this.load_failed = true;
+        this.tasks_retrieved = true;
+        this.scheduleNextPoll();
       }
     });
+  }
+
+  private scheduleNextPoll(): void {
+    this.tasks_request = null;
+    if (this.destroyed) return;
+    const delay = this.anyTaskBusy ? BUSY_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
+    this.poll_timer = window.setTimeout(() => {
+      this.poll_timer = null;
+      this.getTasks();
+    }, delay);
+  }
+
+  private refreshNow(): void {
+    if (this.tasks_request) {
+      this.tasks_request.unsubscribe();
+      this.tasks_request = null;
+    }
+    this.getTasks();
+  }
+
+  // The backend stores the title with the old downloader's name in it.
+  private withDownloaderName(task: Task): Task {
+    const downloader = this.postsService.config?.Advanced?.default_downloader;
+    if (!downloader || !task?.title?.includes('youtube-dl')) return task;
+    return {...task, title: task.title.replace('youtube-dl', downloader)};
+  }
+
+  get anyTaskBusy(): boolean {
+    return !!this.tasks?.some(task => task.running || task.confirming);
+  }
+
+  // What a card says about itself.
+
+  state(task: Task): TaskState {
+    return taskState(task);
+  }
+
+  icon(task: Task): string {
+    return taskIcon(task);
+  }
+
+  description(task: Task): string {
+    return taskDescription(task);
+  }
+
+  hasPendingWork(task: Task): boolean {
+    return hasPendingWork(task);
+  }
+
+  pendingCount(task: Task): number | null {
+    return pendingCount(task);
+  }
+
+  confirmLabel(task: Task): string {
+    return confirmLabel(task);
+  }
+
+  statusText(task: Task): string {
+    if (task.confirming) return $localize`Applying…`;
+    if (task.running) return $localize`Running…`;
+    if (task.error) return $localize`Last run failed`;
+    if (task.last_ran) return $localize`Ran ${formatRelativeTime(task.last_ran * 1000)}:relative time:`;
+    return $localize`Never run`;
+  }
+
+  nextRunText(task: Task): string {
+    if (!task.schedule) return $localize`Runs only when you run it`;
+    const next_invocation = Number(task.next_invocation);
+    if (!Number.isFinite(next_invocation) || next_invocation <= 0) return $localize`Scheduled`;
+    return $localize`Next ${formatRelativeTime(next_invocation)}:relative time:`;
+  }
+
+  nextRunAt(task: Task): number | null {
+    const next_invocation = Number(task.next_invocation);
+    return Number.isFinite(next_invocation) && next_invocation > 0 ? next_invocation : null;
+  }
+
+  isRepeating(task: Task): boolean {
+    return task?.schedule?.type === 'recurring';
+  }
+
+  errorSummary(task: Task): string {
+    const error = typeof task?.error === 'string' ? task.error.trim() : '';
+    if (!error) return $localize`Something went wrong.`;
+    return error.split('\n').map(line => line.trim()).find(line => line !== '') ?? error;
+  }
+
+  // Acting on a task.
+
+  toggleSettings(task: Task): void {
+    this.open_settings_key = this.open_settings_key === task.key ? null : task.key;
+  }
+
+  closeSettings(): void {
+    this.open_settings_key = null;
+    this.refreshNow();
   }
 
   runTask(task_key: TaskType): void {
@@ -118,10 +221,8 @@ export class TasksComponent implements OnInit {
 
   _runTask(task_key: TaskType): void {
     this.postsService.runTask(task_key).subscribe(res => {
-      this.getTasks();
-      this.getDBBackups();
-      if (res['success']) this.postsService.openSnackBar($localize`Successfully ran task!`);
-      else this.postsService.openSnackBar($localize`Failed to run task!`);
+      this.refreshNow();
+      if (!res['success']) this.postsService.openSnackBar($localize`Failed to run task!`);
     }, err => {
       this.postsService.openSnackBar($localize`Failed to run task!`);
       console.error(err);
@@ -130,53 +231,16 @@ export class TasksComponent implements OnInit {
 
   confirmTask(task_key: TaskType): void {
     this.postsService.confirmTask(task_key).subscribe(res => {
-      this.getTasks();
-      if (res['success']) this.postsService.openSnackBar($localize`Successfully confirmed task!`);
-      else this.postsService.openSnackBar($localize`Failed to confirm task!`);
+      this.refreshNow();
+      if (!res['success']) this.postsService.openSnackBar($localize`Failed to confirm task!`);
     }, err => {
       this.postsService.openSnackBar($localize`Failed to confirm task!`);
       console.error(err);
     });
   }
 
-  scheduleTask(task: Task): void {
-    // open dialog
-    const dialogRef = this.dialog.open(UpdateTaskScheduleDialogComponent, {
-      data: {
-        task: task
-      }
-    });
-    dialogRef.afterClosed().subscribe(schedule => {
-      if (schedule || schedule === null) {
-        this.postsService.updateTaskSchedule(task['key'], schedule).subscribe(res => {
-          this.getTasks();
-          console.log(res);
-        });
-      }
-    });
-  }
-
-  openTaskSettings(task: Task): void {
-    this.dialog.open(TaskSettingsComponent, {
-      data: {
-        task: task
-      }
-    });
-  }
-
-  getDBBackups(): void {
-    this.postsService.getDBBackups().subscribe(res => {
-      this.db_backups = res['db_backups'];
-    });
-  }
-
   openRestoreDBBackupDialog(): void {
-    this.dialog.open(RestoreDbDialogComponent, {
-      data: {
-        db_backups: this.db_backups
-      },
-      width: '80vw'
-    })
+    this.dialog.open(RestoreDbDialogComponent, {width: '80vw'});
   }
 
   resetTasks(): void {
@@ -193,6 +257,8 @@ export class TasksComponent implements OnInit {
         this.postsService.resetTasks().subscribe(res => {
           if (res['success']) {
             this.postsService.openSnackBar($localize`Tasks successfully reset!`);
+            this.open_settings_key = null;
+            this.refreshNow();
           } else {
             this.postsService.openSnackBar($localize`Failed to reset tasks!`);
           }

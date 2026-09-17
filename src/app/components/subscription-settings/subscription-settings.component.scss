@@ -1,3 +1,5 @@
+// The rows and fields themselves are page furniture, in _kit.scss. What is left here is the
+// custom "last N weeks" range, which only this form has.
 :host {
   display: block;
 }
@@ -18,75 +20,4 @@
 .custom-range-amount > input {
   font-size: 14px;
   text-align: center;
-}
-
-.settings-rows {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 0;
-  border-top: 1px solid var(--kit-divider);
-}
-
-.settings-row:first-child {
-  border-top: 0;
-}
-
-.settings-row-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  gap: 2px;
-  min-width: 0;
-}
-
-.settings-row-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--kit-on-surface);
-}
-
-.settings-row-hint {
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--kit-on-surface-variant);
-}
-
-.settings-row-hint a {
-  margin-left: 4px;
-  color: var(--kit-on-tonal);
-}
-
-// A text field sits beside its label on a wide screen and under it on a narrow one.
-.settings-field-row > .kit-field {
-  flex: 0 0 min(50%, 360px);
-}
-
-.settings-field-row .kit-field > input {
-  font-size: 15px;
-}
-
-.settings-field-row .kit-field {
-  padding-right: 16px;
-}
-
-.settings-field-row .kit-field:has(.kit-icon-button) {
-  padding-right: 2px;
-}
-
-@media (max-width: 576px) {
-  .settings-field-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .settings-field-row > .kit-field {
-    flex-basis: auto;
-  }
 }

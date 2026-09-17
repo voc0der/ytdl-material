@@ -1,126 +1,100 @@
-<div [hidden]="!(tasks && tasks.length > 0)">
-  <div style="overflow: hidden;" [ngClass]="'mat-elevation-z8'">
-    <mat-table style="overflow: hidden" matSort [dataSource]="dataSource">
-      <!-- Title Column -->
-      <ng-container matColumnDef="title">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Title">Title</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          <span class="one-line" [matTooltip]="element.title ? element.title : null">
-            {{element.title}}
-          </span>
-        </mat-cell>
-      </ng-container>
+<div class="container kit-page tasks-page">
+  <header class="page-header">
+    <h1 class="page-title" i18n="Tasks title">Tasks</h1>
+    <p class="page-intro" i18n="Tasks page introduction">Housekeeping jobs. Run one now, or leave it on a schedule.</p>
+  </header>
 
-      <!-- Last Ran Column -->
-      <ng-container matColumnDef="last_ran">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Last ran">Last ran</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          @if (element.last_ran) {
-            {{element.last_ran*1000 | date: 'short'}}
-          }
-          @if (!element.last_ran) {
-            <ng-container i18n="N/A">N/A</ng-container>
-          }
-        </mat-cell>
-      </ng-container>
-
-      <!-- Last Confirmed Column -->
-      <ng-container matColumnDef="last_confirmed">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Last confirmed">Last confirmed</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          @if (element.last_confirmed) {
-            {{element.last_confirmed*1000 | date: 'short'}}
-          }
-          @if (!element.last_confirmed) {
-            <ng-container i18n="N/A">N/A</ng-container>
-          }
-        </mat-cell>
-      </ng-container>
-
-      <!-- Status Column -->
-      <ng-container matColumnDef="status">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Status">Status</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          @if (element.running || element.confirming) {
-            <span><mat-spinner matTooltip="Busy" i18n-matTooltip="Busy" [diameter]="25"></mat-spinner></span>
-          }
-          @if (!(element.running || element.confirming) && element.schedule) {
-            <span style="display: flex">
-              <ng-container i18n="Scheduled">Scheduled for</ng-container>
-              {{element.next_invocation | date: 'short'}}@if (element.schedule.type === 'recurring') {
-              <mat-icon style="font-size: 16px; display: inline-flex; align-items: center; padding-left: 5px; padding-bottom: 6px;">repeat</mat-icon>
-            }
-          </span>
-        }
-        @if (!(element.running || element.confirming) && !element.schedule) {
-          <span>
-            <ng-container i18n="Not scheduled">Not scheduled</ng-container>
-          </span>
-        }
-      </mat-cell>
-    </ng-container>
-
-    <!-- Actions Column -->
-    <ng-container matColumnDef="actions">
-      <mat-header-cell *matHeaderCellDef> <ng-container i18n="Actions">Actions</ng-container> </mat-header-cell>
-      <mat-cell *matCellDef="let element">
-        <div class="container">
-          <div class="row justify-content-start">
-            @if (element.data?.uids?.length > 0 || (!element.data?.uids && element.data)) {
-              <div class="col-12 mt-2" style="display: flex; justify-content: center;">
-                <ng-container>
-                  <button (click)="confirmTask(element.key)" [disabled]="element.running || element.confirming" mat-stroked-button>
-                    @if (element.key == 'missing_files_check') {
-                      <ng-container i18n="Clear missing files from DB">Clear missing files from DB:</ng-container>{{element.data.uids.length}}
-                    }
-                    @if (element.key == 'duplicate_files_check') {
-                      <ng-container i18n="Clear duplicate files from DB">Clear duplicate files from DB:</ng-container>&nbsp;{{element.data.uids.length}}
-                    }
-                    @if (element.key == 'youtubedl_update_check') {
-                      <ng-container i18n="Update binary to">Update binary to:</ng-container>&nbsp;{{element.data}}
-                    }
-                    @if (element.key == 'delete_old_files') {
-                      <ng-container i18n="Delete old files">Delete old files:</ng-container>&nbsp;{{element.data.files_to_remove.length}}
-                    }
-                  </button>
-                </ng-container>
-              </div>
-            }
-            <div class="col-3">
-              <button (click)="runTask(element.key)" [disabled]="element.running || element.confirming" mat-icon-button matTooltip="Run" i18n-matTooltip="Run"><mat-icon>play_arrow</mat-icon></button>
+  @if (!tasks_retrieved) {
+    <div class="list-loading" aria-busy="true">
+      <mat-spinner [diameter]="32"></mat-spinner>
+    </div>
+  } @else if (!tasks || tasks.length === 0) {
+    <section class="empty-state">
+      <span class="empty-state-icon"><mat-icon>{{load_failed ? 'cloud_off' : 'checklist'}}</mat-icon></span>
+      @if (load_failed) {
+        <h2 i18n="Tasks failed to load title">Couldn't load your tasks</h2>
+        <p i18n="Tasks loading error">Retrying on its own.</p>
+      } @else {
+        <h2 i18n="No tasks title">No tasks</h2>
+        <p i18n="No tasks text">Reset tasks below puts the standard set back.</p>
+        <button type="button" class="kit-chip" (click)="resetTasks()">
+          <mat-icon>restart_alt</mat-icon><span i18n="Reset tasks button">Reset tasks</span>
+        </button>
+      }
+    </section>
+  } @else {
+    <ul class="task-grid">
+      @for (task of tasks; track task.key) {
+        <li class="task-card" [attr.data-state]="state(task)" [class.card-open]="open_settings_key === task.key">
+          <div class="task-head">
+            <span class="task-icon" aria-hidden="true">
+              @if (task.running || task.confirming) {
+                <mat-spinner [diameter]="20" [strokeWidth]="2"></mat-spinner>
+              } @else {
+                <mat-icon>{{icon(task)}}</mat-icon>
+              }
+            </span>
+            <div class="task-head-text">
+              <h2 class="task-title">{{task.title}}</h2>
+              <p class="task-description">{{description(task)}}</p>
             </div>
-            <div class="col-3">
-              <button (click)="scheduleTask(element)" mat-icon-button matTooltip="Schedule" i18n-matTooltip="Schedule"><mat-icon>schedule</mat-icon></button>
-            </div>
-            <div class="col-3">
-              <button (click)="openTaskSettings(element)" mat-icon-button matTooltip="Settings" i18n-matTooltip="Settings"><mat-icon>settings</mat-icon></button>
-            </div>
-            @if (element.error) {
-              <div class="col-3">
-                <button (click)="showError(element)" mat-icon-button matTooltip="Show error" i18n-matTooltip="Show error"><mat-icon>warning</mat-icon></button>
-              </div>
+          </div>
+
+          <div class="task-meta">
+            <span class="task-status">{{statusText(task)}}</span>
+            <span aria-hidden="true">·</span>
+            <span [matTooltip]="nextRunAt(task) ? (nextRunAt(task) | date: 'medium') : ''">{{nextRunText(task)}}</span>
+            @if (isRepeating(task)) {
+              <mat-icon class="task-repeat" aria-hidden="true">repeat</mat-icon>
             }
           </div>
-        </div>
-      </mat-cell>
-    </ng-container>
 
-    <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-    <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
-  </mat-table>
+          @if (task.error) {
+            <button type="button" class="task-error kit-one-line" (click)="showError(task)" [matTooltip]="errorSummary(task)">
+              {{errorSummary(task)}}
+            </button>
+          }
 
-  <mat-paginator [pageSizeOptions]="[10, 20]"
-    showFirstLastButtons
-    aria-label="Select page of tasks">
-  </mat-paginator>
+          @if (hasPendingWork(task)) {
+            <div class="task-pending">
+              <mat-icon aria-hidden="true">pending_actions</mat-icon>
+              <button type="button" class="kit-chip kit-primary" (click)="confirmTask(task.key)" [disabled]="task.running || task.confirming">
+                {{confirmLabel(task)}}
+              </button>
+            </div>
+          }
+
+          <div class="kit-rail task-actions">
+            <button type="button" class="kit-chip" (click)="runTask(task.key)" [disabled]="task.running || task.confirming">
+              <mat-icon>play_arrow</mat-icon>
+              <span i18n="Run task button">Run now</span>
+            </button>
+            <button type="button" class="kit-chip" [attr.aria-pressed]="open_settings_key === task.key"
+              [attr.aria-expanded]="open_settings_key === task.key" [attr.aria-controls]="'task-settings-' + task.key"
+              (click)="toggleSettings(task)">
+              <mat-icon>tune</mat-icon>
+              <span i18n="Task schedule and options button">Schedule &amp; options</span>
+            </button>
+          </div>
+
+          @if (open_settings_key === task.key) {
+            <div class="task-settings-panel" [id]="'task-settings-' + task.key">
+              <app-task-settings [task]="task" (closed)="closeSettings()"></app-task-settings>
+            </div>
+          }
+        </li>
+      }
+    </ul>
+
+    <div class="kit-rail kit-rail-wrap page-actions">
+      <button type="button" class="kit-chip" (click)="openRestoreDBBackupDialog()">
+        <mat-icon>settings_backup_restore</mat-icon>
+        <span i18n="Restore DB from backup button">Restore database from backup</span>
+      </button>
+      <button type="button" class="kit-chip chip-warn" (click)="resetTasks()">
+        <mat-icon>restart_alt</mat-icon>
+        <span i18n="Reset tasks button">Reset tasks</span>
+      </button>
+    </div>
+  }
 </div>
-
-<button style="margin-top: 10px; margin-left: 5px;" mat-stroked-button (click)="openRestoreDBBackupDialog()" i18n="Restore DB from backup button">Restore DB from backup</button>
-<button style="margin-top: 10px; margin-left: 5px;" mat-stroked-button (click)="resetTasks()" color="warn" i18n="Reset tasks button">Reset tasks</button>
-</div>
-
-@if ((!tasks || tasks.length === 0) && tasks_retrieved) {
-  <div>
-    <h4 style="text-align: center; margin-top: 10px;" i18n="No tasks label">No tasks available!</h4>
-  </div>
-}
