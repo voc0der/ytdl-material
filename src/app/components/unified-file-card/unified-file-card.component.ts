@@ -59,7 +59,7 @@ export class UnifiedFileCardComponent implements OnInit {
   thumbnailBlobURL = null;
 
   streamURL = null;
-  hide_image = false;
+  showPreview = false;
   previewHoverTimeout: ReturnType<typeof setTimeout> = null;
 
   // input/output
@@ -287,7 +287,7 @@ export class UnifiedFileCardComponent implements OnInit {
         if (!this.streamURL && this.file_obj && !this.is_playlist && !(this.file_obj.type === 'audio' || this.file_obj.isAudio)) {
           this.streamURL = this.generateStreamURL();
         }
-        this.hide_image = true;
+        this.showPreview = true;
       }
     }, 500);
   }
@@ -298,7 +298,7 @@ export class UnifiedFileCardComponent implements OnInit {
       this.previewHoverTimeout = null;
     }
     this.elevated = false;
-    this.hide_image = false;
+    this.showPreview = false;
   }
 
   emitToggleFavorite() {

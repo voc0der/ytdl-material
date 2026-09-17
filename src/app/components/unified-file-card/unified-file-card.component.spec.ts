@@ -269,12 +269,15 @@ describe('UnifiedFileCardComponent', () => {
       thumbnailURL: 'https://example.com/thumb.jpg'
     } as any;
     component.elevated = true;
-    component.hide_image = true;
+    component.showPreview = true;
     component.streamURL = 'https://example.com/preview.mp4';
     fixture.detectChanges();
 
-    expect(fixture.debugElement.query(By.css('video.preview-video'))).not.toBeNull();
-    expect(fixture.debugElement.query(By.css('img'))).toBeNull();
+    const thumbnail = fixture.debugElement.query(By.css('img'));
+    const preview = fixture.debugElement.query(By.css('video.preview-video'));
+    expect(thumbnail).not.toBeNull();
+    expect(preview).not.toBeNull();
+    expect(thumbnail.nativeElement.compareDocumentPosition(preview.nativeElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   describe('list layout', () => {
@@ -319,6 +322,19 @@ describe('UnifiedFileCardComponent', () => {
       setUpFileCard({uid: 'f1', title: 'A song', isAudio: true, duration: 5, registered: Date.now(), thumbnailURL: 'https://example.com/thumb.jpg'});
 
       expect(fixture.debugElement.query(By.css('.list-duration mat-icon')).nativeElement.textContent.trim()).toBe('audiotrack');
+    });
+
+    it('should keep the thumbnail rendered under the hover preview', () => {
+      component.elevated = true;
+      component.showPreview = true;
+      component.streamURL = 'https://example.com/preview.mp4';
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, duration: 5, registered: Date.now(), thumbnailURL: 'https://example.com/thumb.jpg'});
+
+      const thumbnail = fixture.debugElement.query(By.css('.list-thumbnail img'));
+      const preview = fixture.debugElement.query(By.css('.list-thumbnail video.preview-video'));
+      expect(thumbnail).not.toBeNull();
+      expect(preview).not.toBeNull();
+      expect(thumbnail.nativeElement.compareDocumentPosition(preview.nativeElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it('should stand an icon in for a file with no thumbnail, so the row keeps its height', () => {
