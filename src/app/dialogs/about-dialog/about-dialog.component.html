@@ -1,39 +1,49 @@
-<h4 style="position: relative" mat-dialog-title><ng-container i18n="About dialog title">About ytdl-material</ng-container>
-<span class="logo-image">
-  <a [href]="projectLink" target="_blank">
-    <img style="width: 32px;" src="assets/images/GitHub-64px.png">
-  </a>
-  <img style="width: 32px; margin-left: 15px;" src="assets/images/logo_128px.png">
-</span>
-</h4>
-<mat-dialog-content>
-  <div style="margin-bottom: 5px;">
-    <p>
-      <i>ytdl-material</i>&nbsp;<ng-container i18n="About first paragraph">is an open-source YouTube downloader built under Google's Material Design specifications. You can seamlessly download your favorite videos as video or audio files, and even subscribe to your favorite channels and playlists to keep updated with their new videos.</ng-container>
-    </p>
-    <p>
-      <i>ytdl-material</i>&nbsp;<ng-container i18n="About second paragraph">has some awesome features included! An extensive API, Docker support, and localization (translation) support. Read up on all the supported features by clicking on the GitHub icon above.</ng-container>
-    </p>
-    <mat-divider></mat-divider>
-    <h5 style="margin-top: 10px;">Installation details:</h5>
-    <!-- Installed version/update status line intentionally hidden; it is confusing in custom/nightly builds. -->
-  <p>
-    <ng-container i18n="Installation type">Installation type:</ng-container>&nbsp;{{postsService.version_info.type}}
-    <br>
-      @if (postsService.version_info.type === 'docker') {
-        <ng-container i18n="Docker tag">Docker tag:</ng-container>&nbsp;{{postsService.version_info.tag}}
-        <br>
-        }
-        <ng-container i18n="Commit hash">Commit hash:</ng-container>&nbsp;{{postsService.version_info.commit}}
-        <br>
-          <ng-container i18n="Build date">Build date:</ng-container>&nbsp;{{postsService.version_info.date}}
-        </p>
-        <p>
-          <ng-container i18n="About bug prefix">Found a bug or have a suggestion?</ng-container>&nbsp;<a [href]="issuesLink" target="_blank"><ng-container i18n="About bug click here">Click here</ng-container></a>&nbsp;<ng-container i18n="About bug suffix">to create an issue!</ng-container>
-        </p>
-      </div>
-    </mat-dialog-content>
+<header class="dialog-header">
+  <img class="app-logo" src="assets/images/logo_128px.png" alt="" width="52" height="52">
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="About dialog title">About ytdl-material</h2>
+    <p class="dialog-subtitle" i18n="About subtitle">Your media, in one place.</p>
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-    <mat-dialog-actions>
-      <button style="margin-bottom: 5px;" mat-stroked-button mat-dialog-close><ng-container i18n="Close">Close</ng-container></button>
-    </mat-dialog-actions>
+<mat-dialog-content class="dialog-content">
+  <section class="dialog-section about-intro">
+    <p i18n="About description">An open-source home for your favorite videos and audio. Download media, organize your library, and follow channels and playlists so you never miss an upload.</p>
+    <div class="feature-list">
+      <span><mat-icon>code</mat-icon><ng-container i18n="About open source">Open source</ng-container></span>
+      <span><mat-icon>api</mat-icon><ng-container i18n="About API">Extensive API</ng-container></span>
+      <span><mat-icon>translate</mat-icon><ng-container i18n="About localization">Multilingual</ng-container></span>
+    </div>
+  </section>
+
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>dns</mat-icon><ng-container i18n="Installation details">Installation details</ng-container></h3>
+    <!-- Version/update status stays hidden because custom and nightly builds can differ. -->
+    <dl class="dialog-details dialog-surface">
+      <div><dt i18n="Installation type">Installation type</dt><dd>{{postsService.version_info?.type || 'N/A'}}</dd></div>
+      @if (postsService.version_info?.type === 'docker') {
+        <div><dt i18n="Docker tag">Docker tag</dt><dd>{{postsService.version_info.tag || 'N/A'}}</dd></div>
+      }
+      <div><dt i18n="Build date">Build date</dt><dd>{{postsService.version_info?.date || 'N/A'}}</dd></div>
+      <div class="detail-wide"><dt i18n="Commit hash">Commit hash</dt><dd class="dialog-mono">{{postsService.version_info?.commit || 'N/A'}}</dd></div>
+    </dl>
+  </section>
+
+  <section class="dialog-section">
+    <h3 class="dialog-section-title" i18n="About community heading">Built in the open</h3>
+    <p class="dialog-hint" i18n="About community description">Explore the project, report a bug, or share an idea for what comes next.</p>
+    <div class="project-links">
+      <a class="project-link" [href]="projectLink" target="_blank" rel="noopener noreferrer">
+        <mat-icon>code</mat-icon><span><strong i18n="About GitHub link">View on GitHub</strong><small i18n="About GitHub hint">Source code and documentation</small></span><mat-icon>open_in_new</mat-icon>
+      </a>
+      <a class="project-link" [href]="issuesLink" target="_blank" rel="noopener noreferrer">
+        <mat-icon>chat_bubble_outline</mat-icon><span><strong i18n="About feedback link">Feedback &amp; issues</strong><small i18n="About feedback hint">Help make ytdl-material better</small></span><mat-icon>open_in_new</mat-icon>
+      </a>
+    </div>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close">Close</button>
+</mat-dialog-actions>

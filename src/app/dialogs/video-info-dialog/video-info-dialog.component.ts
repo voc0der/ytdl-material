@@ -3,15 +3,12 @@ import { filesize } from 'filesize';
 import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { Category, DatabaseFile } from 'api-types';
-import { DatePipe, KeyValuePipe } from '@angular/common';
-import { MatIconButton, MatButton } from '@angular/material/button';
+import { DatePipe, DecimalPipe, KeyValuePipe } from '@angular/common';
 import { MatIcon } from '@angular/material/icon';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatDatepickerInput, MatDatepickerToggle, MatDatepicker } from '@angular/material/datepicker';
 import { MatSelect, MatOption } from '@angular/material/select';
-import { MatDivider } from '@angular/material/list';
 import { MatTooltip } from '@angular/material/tooltip';
 
 @Component({
@@ -19,13 +16,15 @@ import { MatTooltip } from '@angular/material/tooltip';
     templateUrl: './video-info-dialog.component.html',
     styleUrls: ['./video-info-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, MatIconButton, MatIcon, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatSuffix, MatDatepickerInput, MatDatepickerToggle, MatDatepicker, MatSelect, MatOption, MatDivider, MatDialogActions, MatButton, MatDialogClose, MatTooltip, KeyValuePipe]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, MatIcon, CdkScrollable, MatDialogContent, FormsModule, MatDatepickerInput, MatDatepickerToggle, MatDatepicker, MatSelect, MatOption, MatDialogActions, MatDialogClose, MatTooltip, KeyValuePipe, DecimalPipe]
 })
 export class VideoInfoDialogComponent implements OnInit {
   file: DatabaseFile;
   new_file: DatabaseFile;
   filesize;
-  window = window;
+  audioLabel = $localize`Audio`;
+  videoLabel = $localize`Video`;
   upload_date: Date;
   category: Category;
   editing = false;
@@ -69,15 +68,35 @@ export class VideoInfoDialogComponent implements OnInit {
   }
 
   saveChanges(): void {
+    if (!this.write_access || this.retrieving_file) return;
     const change_obj = {};
     const keys = Object.keys(this.new_file);
     keys.forEach(key => {
       if (this.file[key] !== this.new_file[key]) change_obj[key] = this.new_file[key];
     });
 
+    this.retrieving_file = true;
     this.postsService.updateFile(this.file.uid, change_obj).subscribe(res => {
+      this.editing = false;
       this.getFile();
+    }, err => {
+      this.retrieving_file = false;
+      console.error(err);
+      this.postsService.openSnackBar($localize`Could not save changes. Please try again.`);
     });
+  }
+
+  cancelEditing(): void {
+    this.initializeFile(this.file);
+    this.editing = false;
+  }
+
+  formatDuration(seconds: number): string {
+    const total = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainder = String(total % 60).padStart(2, '0');
+    return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${remainder}` : `${minutes}:${remainder}`;
   }
 
   getFile(): void {
@@ -122,10 +141,17 @@ export class VideoInfoDialogComponent implements OnInit {
   }
 
   toggleFavorite(): void {
-    this.file.favorite = !this.file.favorite;
+    // Keep unsaved edits intact when the favorite action refreshes its own state.
+    const favorite = !this.file.favorite;
     this.retrieving_file = true;
-    this.postsService.updateFile(this.file.uid, {favorite: this.file.favorite}).subscribe(res => {
-      this.getFile();
+    this.postsService.updateFile(this.file.uid, {favorite}).subscribe(res => {
+      this.file.favorite = favorite;
+      this.new_file.favorite = favorite;
+      this.retrieving_file = false;
+    }, err => {
+      this.retrieving_file = false;
+      console.error(err);
+      this.postsService.openSnackBar($localize`Could not update favorite. Please try again.`);
     });
   }
 

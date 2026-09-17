@@ -652,7 +652,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         file: file_obj,
         allow_snip: this.canSnipCurrentFile(),
       },
-      minWidth: '50vw'
+      panelClass: 'kit-dialog-panel',
+      width: '720px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
 
     dialogRef.afterClosed().subscribe(() => {

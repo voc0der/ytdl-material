@@ -3,15 +3,15 @@ import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatDivider } from '@angular/material/list';
-import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
     selector: 'app-about-dialog',
     templateUrl: './about-dialog.component.html',
     styleUrls: ['./about-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDivider, MatDialogActions, MatButton, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatDialogActions, MatDialogClose]
 })
 export class AboutDialogComponent implements OnInit {
 

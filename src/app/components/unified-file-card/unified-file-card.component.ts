@@ -239,7 +239,11 @@ export class UnifiedFileCardComponent implements OnInit {
       data: {
         file: this.file_obj,
       },
-      minWidth: '50vw'
+      panelClass: 'kit-dialog-panel',
+      width: '720px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
 
     dialogRef.afterClosed().subscribe(() => {

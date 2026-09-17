@@ -1,40 +1,65 @@
-.info-item {
-    margin-bottom: 12px;
-    width: 100%;
+.media-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.info-item-value {
-    font-size: 13px;
-    display: inline-block;
-    width: 70%;
+.media-heading {
+  flex: 1;
+  min-width: 0;
 }
-
-.spacer {flex: 1 1 auto;}
-
-.info-item-label {
-    display: inline-block;
-    width: 30%;
-    vertical-align: top;
+.media-heading h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+  overflow-wrap: anywhere;
 }
-
-.info-field {
-    width: 90%;
+.media-heading p {
+  margin: 4px 0 0;
+  color: var(--kit-on-surface-variant);
 }
-
-.a-wrap {
-    word-wrap: break-word
+.media-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--kit-on-surface-variant);
 }
-
+.media-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
 .favorite-button {
-    position: absolute;
-    right: 4px;
-    top: 4px;
+  margin: -4px -4px 0 0;
+}
+.is-favorite {
+  color: var(--kit-accent);
+}
+.source-link .mat-icon {
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  font-size: 14px;
+  vertical-align: middle;
+}
+.dialog-field .date-field {
+  padding-right: 0;
 }
 
-.snip-icon {
-    font-size: 18px;
-    height: 18px;
-    width: 18px;
-    margin-right: 4px;
-    vertical-align: text-bottom;
+@media (max-width: 576px) {
+  .media-summary {
+    gap: 12px;
+  }
+  .media-summary .dialog-symbol {
+    display: none;
+  }
+  .media-heading h3 {
+    font-size: 16px;
+    line-height: 24px;
+  }
 }
