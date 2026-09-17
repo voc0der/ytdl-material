@@ -74,8 +74,9 @@ behavior, so it would fail for reasons unrelated to any given change.
 - **403s are format-dependent.** Stable `2026.07.04` returns 403 for higher-resolution
   formats (e.g. `400+251`) while lower-resolution ones (e.g. `395+251`) still succeed, so
   "it works for me" does not disprove a report. Always reproduce with the reporter's URL.
-- **Running the backend test suite rewrites `backend/appdata/default.json`**, stripping
-  retired keys and self-healing missing ones. Check `git diff` on it before committing.
+- **The backend test suite no longer touches `backend/appdata/default.json`.** It runs
+  against a throwaway copy (`YTDL_CONFIG_PATH`), because every config write rewrites the
+  whole file and a run used to leave whatever a test set last in the tracked one.
 
 # A local LDAP server
 
@@ -170,10 +171,11 @@ on knowing the title and the video count are skipped.
 
 ## Things worth knowing
 
-- **The shipped `backend/appdata/default.json` has `max_concurrent_downloads: 0`**, which
-  starts no downloads at all -- a queued subscription simply sits there. The harness
-  overrides it with an environment variable. A container whose `appdata` is not a bind
-  mount over that file gets the same value, and the same silence.
+- **`max_concurrent_downloads: 0` means no downloads at all**, not "no limit" -- that is
+  `-1`. A subscription checked under it queues its videos and they sit there forever. The
+  config in `backend/appdata` carried 0 from January until a test run stopped writing to
+  it; a backend started from a checkout reads that file, so this is worth a look whenever
+  downloads queue and never start.
 - **A subscription's videos are downloaded through the download queue**, so they appear on
   the subscription page one at a time, well after the check that queued them reports itself
   finished. The refresh card is what explains the gap.

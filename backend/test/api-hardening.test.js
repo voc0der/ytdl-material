@@ -328,8 +328,8 @@ describe('Saving a config that was handed out redacted', function() {
      * out of a test run different from how it went
      * in. The bytes are the only faithful snapshot.
      ************************************************/
-    const {fs, path} = require('./test-shared');
-    const config_path = path.join(__dirname, '..', 'appdata', 'default.json');
+    const {fs, test_config_path} = require('./test-shared');
+    const config_path = test_config_path;
     let original_config_bytes = null;
 
     before(function() {
