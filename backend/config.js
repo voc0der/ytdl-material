@@ -9,7 +9,10 @@ exports.descriptors = {}; // to get rid of file locks when needed, TODO: move to
 
 const debugMode = process.env.YTDL_MODE === 'debug';
 
-let configPath = debugMode ? '../src/assets/default.json' : 'appdata/default.json';
+// The file the config is read from and written back to. YTDL_CONFIG_PATH points it
+// elsewhere, which is how the test suite keeps a run from editing the config that ships
+// with the app: every setConfigItem writes this file back out.
+let configPath = process.env.YTDL_CONFIG_PATH || (debugMode ? '../src/assets/default.json' : 'appdata/default.json');
 exports.config_updated = new BehaviorSubject();
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
 const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');

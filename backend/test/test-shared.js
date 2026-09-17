@@ -11,6 +11,26 @@ const exec = util.promisify(require('child_process').exec);
 
 const FileSync = require('../lowdb-compat/adapters/FileSync');
 
+/*************************************************
+ * A throwaway copy of the config file.
+ *
+ * Every setConfigItem writes the whole config back
+ * out, so a run pointed at the real one edits the
+ * config that ships with the app -- and whatever a
+ * test happened to set last is what gets committed.
+ * That is how max_concurrent_downloads came to be
+ * 0 in the tracked file, which stops the download
+ * queue from ever starting anything.
+ *
+ * Set before anything that reads config is
+ * required, because config.js decides the path
+ * once, as it loads.
+ ************************************************/
+const test_config_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-config-test-'));
+const test_config_path = path.join(test_config_dir, 'default.json');
+fs.copySync(path.join(__dirname, '..', 'appdata', 'default.json'), test_config_path);
+process.env.YTDL_CONFIG_PATH = test_config_path;
+
 const adapter = new FileSync('./appdata/db.json');
 const db = low(adapter);
 
@@ -136,6 +156,7 @@ function useTemporaryMediaRoots(extra_overrides = {}) {
 
 module.exports = {
     useTemporaryMediaRoots,
+    test_config_path,
     os,
     assert,
     low,

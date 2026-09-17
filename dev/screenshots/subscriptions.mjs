@@ -299,9 +299,7 @@ async function main() {
     const backend = await startBackend(RUN_DIR, PORT, {
         ytdl_allow_subscriptions: 'true',
         // No Deno is assumed; yt-dlp can use the Node running this script instead.
-        ytdl_js_runtimes: 'node',
-        // The shipped appdata/default.json says 0, which starts no downloads at all.
-        ytdl_max_concurrent_downloads: '5'
+        ytdl_js_runtimes: 'node'
     });
 
     const browser = await chromium.launch();

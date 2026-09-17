@@ -1,4 +1,4 @@
-const { assert, config_api } = require('./test-shared');
+const { assert, config_api, fs, path, test_config_path } = require('./test-shared');
 
 describe('Config', async function() {
     it('findChangedConfigItems', async function() {
@@ -117,6 +117,40 @@ describe('Config', async function() {
         } finally {
             config_api.setConfigItem('ytdl_default_downloader', original_downloader);
         }
+    });
+
+    /*************************************************
+     * Every write goes through the whole config
+     * document, so a run pointed at the shipped file
+     * leaves whatever a test last set in it. That is
+     * how max_concurrent_downloads came to be 0 in
+     * the tracked config, which stops the download
+     * queue from starting anything at all.
+     ************************************************/
+    it('Writes settings to the configured file rather than the one that ships with the app', async function() {
+        const shipped_config_path = path.join(__dirname, '..', 'appdata', 'default.json');
+        const shipped_before = fs.readFileSync(shipped_config_path, 'utf8');
+        const original_value = config_api.getConfigItem('ytdl_max_concurrent_downloads');
+
+        try {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', 0);
+
+            assert.strictEqual(fs.readFileSync(shipped_config_path, 'utf8'), shipped_before);
+            assert.notStrictEqual(shipped_config_path, test_config_path);
+            const written = JSON.parse(fs.readFileSync(test_config_path, 'utf8'));
+            assert.strictEqual(written['YtdlMaterial']['Downloader']['max_concurrent_downloads'], 0);
+        } finally {
+            config_api.setConfigItem('ytdl_max_concurrent_downloads', original_value);
+        }
+    });
+
+    it('Ships a config that lets downloads run', async function() {
+        const shipped_config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'appdata', 'default.json'), 'utf8'));
+        const max_concurrent_downloads = shipped_config['YtdlMaterial']['Downloader']['max_concurrent_downloads'];
+
+        // 0 is a limit of none, not "no limit": -1 is what means unlimited.
+        assert(max_concurrent_downloads === -1 || max_concurrent_downloads > 0,
+            `the shipped config allows ${max_concurrent_downloads} concurrent downloads`);
     });
 
     it('Leaves the config alone when no retired settings are stored', async function() {
