@@ -1,137 +1,142 @@
-<div [hidden]="!(downloads && downloads.length > 0)">
-  <div style="overflow: hidden;" [ngClass]="uids ? 'rounded mat-elevation-z2' : 'mat-elevation-z8'">
-    <mat-table style="overflow: hidden" [ngClass]="uids ? 'rounded-top' : null" matSort [dataSource]="dataSource">
+<div class="container kit-page downloads-page">
+  <header class="page-header">
+    <h1 class="page-title" i18n="Downloads title">Downloads</h1>
+    <p class="page-intro" i18n="Downloads page introduction">Everything queued, downloading and done, newest first.</p>
+  </header>
 
-      <!-- Date Column -->
-      <ng-container matColumnDef="timestamp_start">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Date">Date</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element"> {{element.timestamp_start | date: 'short'}} </mat-cell>
-      </ng-container>
+  @if (downloads.length > 0) {
+    <div class="kit-rail kit-rail-wrap bulk-actions">
+      <button type="button" class="kit-chip" [disabled]="!running_download_exists" (click)="pauseAllDownloads()">
+        <mat-icon>pause</mat-icon>
+        <span i18n="Pause all downloads">Pause all</span>
+      </button>
+      <button type="button" class="kit-chip" [disabled]="!paused_download_exists" (click)="resumeAllDownloads()">
+        <mat-icon>play_arrow</mat-icon>
+        <span i18n="Resume all downloads">Resume all</span>
+      </button>
+      <button type="button" class="kit-chip" [disabled]="!failed_download_exists" (click)="retryFailedDownloads()"
+        matTooltip="Restarts every failed download on this page" i18n-matTooltip="Retry failed downloads on current page tooltip">
+        <mat-icon>restart_alt</mat-icon>
+        <span i18n="Retry failed downloads">Retry failed</span>
+      </button>
+      <button type="button" class="kit-chip" [disabled]="!clearable_download_exists" (click)="clearDownloadsByType()">
+        <mat-icon>delete_sweep</mat-icon>
+        <span i18n="Clear downloads">Clear…</span>
+      </button>
+    </div>
+  }
 
-      <!-- Title Column -->
-      <ng-container matColumnDef="title">
-        <mat-header-cell *matHeaderCellDef mat-sort-header style="flex: 2"> <ng-container i18n="Title">Title</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element" style="flex: 2">
-          <span class="one-line" [matTooltip]="element.title ? element.title : null">
-            {{element.title}}
+  @if (!downloads_retrieved) {
+    <div class="list-loading" aria-busy="true">
+      <mat-spinner [diameter]="32"></mat-spinner>
+    </div>
+  } @else if (downloads.length === 0) {
+    <section class="empty-state">
+      <span class="empty-state-icon"><mat-icon>{{downloads_load_error ? 'cloud_off' : 'download_done'}}</mat-icon></span>
+      @if (downloads_load_error) {
+        <h2 i18n="Downloads failed to load title">Couldn't load your downloads</h2>
+        <p i18n="Downloads loading error">Retrying on its own.</p>
+      } @else {
+        <h2 i18n="No downloads title">Nothing downloaded yet</h2>
+        <p i18n="No downloads text">Downloads you start, and the ones your subscriptions start, show up here.</p>
+      }
+    </section>
+  } @else {
+    <ul class="download-list">
+      @for (download of downloads; track download.uid) {
+        <li class="download-row" [attr.data-state]="state(download)">
+          <span class="download-state" aria-hidden="true">
+            @if (state(download) === 'running') {
+              <mat-spinner [diameter]="20" [strokeWidth]="2"></mat-spinner>
+            } @else {
+              <mat-icon>{{stateIcon(download)}}</mat-icon>
+            }
           </span>
-        </mat-cell>
-      </ng-container>
 
-      <!-- Subscription Column -->
-      <ng-container matColumnDef="sub_name">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Subscription">Subscription</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          @if (element.sub_name) {
-            {{element.sub_name}}
-          }
-          @if (!element.sub_name) {
-            N/A
-          }
-        </mat-cell>
-      </ng-container>
+          <div class="download-text">
+            <span class="download-title kit-one-line" [matTooltip]="download.title || download.url">{{download.title || download.url}}</span>
 
-      <!-- Progress Column -->
-      <ng-container matColumnDef="percent_complete">
-        <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Progress">Progress</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element">
-          @if (!element.error && element.finished && hasPlaylistItemProgress(element)) {
-            <button class="playlist-progress-button" mat-button (click)="showPlaylistProgress(element); $event.stopPropagation()">
-              {{COMPLETE_LABEL}}
-            </button>
-          }
-          @if (!element.error && !(element.finished && hasPlaylistItemProgress(element)) && !shouldShowPercentComplete(element)) {
-            {{STEP_INDEX_TO_LABEL[element.step_index]}}
-          }
-          @if (!element.error && shouldShowPercentComplete(element)) {
-            @if (getNormalizedPercent(element)) {
-              @if (hasPlaylistItemProgress(element)) {
-                <button class="playlist-progress-button" mat-button (click)="showPlaylistProgress(element); $event.stopPropagation()">
-                  {{getNormalizedPercent(element)}}%
+            <span class="download-meta">
+              <span class="download-status">{{statusText(download)}}</span>
+              @if (startedText(download)) {
+                <span aria-hidden="true">·</span>
+                <span [matTooltip]="download.timestamp_start | date: 'medium'">{{startedText(download)}}</span>
+              }
+              @if (download.sub_name) {
+                <span aria-hidden="true">·</span>
+                @if (download.sub_id) {
+                  <a class="download-sub kit-one-line" [routerLink]="['/subscription', { id: download.sub_id }]">{{download.sub_name}}</a>
+                } @else {
+                  <span class="kit-one-line">{{download.sub_name}}</span>
+                }
+              }
+              @if (hasPlaylistItemProgress(download)) {
+                <span aria-hidden="true">·</span>
+                <button type="button" class="kit-text-button download-items" (click)="showPlaylistProgress(download)"
+                  i18n="Playlist download item count">{playlistItemCount(download), plural, =1 {1 item} other {{{playlistItemCount(download)}} items}}</button>
+              }
+            </span>
+
+            @if (showProgressBar(download)) {
+              <span class="download-progress">
+                <span class="download-bar"><span class="download-bar-fill" [style.width.%]="getNormalizedPercent(download)"></span></span>
+                <span class="download-percent">{{getNormalizedPercent(download)}}%</span>
+              </span>
+            }
+
+            @if (state(download) === 'failed') {
+              <button type="button" class="download-error kit-one-line" (click)="showError(download)" [matTooltip]="errorSummary(download)">
+                {{errorSummary(download)}}
+              </button>
+            }
+          </div>
+
+          <!-- The same actions twice: as buttons where there is room, and as a menu where there is not. -->
+          <div class="download-actions">
+            @for (downloadAction of downloadActions; track downloadAction.icon) {
+              @if (downloadAction.show(download)) {
+                <button type="button" class="kit-icon-button" (click)="downloadAction.action(download)"
+                  [matTooltip]="downloadAction.tooltip" [attr.aria-label]="downloadAction.tooltip">
+                  <mat-icon>{{downloadAction.icon}}</mat-icon>
                 </button>
               }
-              @if (!hasPlaylistItemProgress(element)) {
-                {{getNormalizedPercent(element)}}%
-              }
             }
-            @if (!getNormalizedPercent(element)) {
-              N/A
-            }
-          }
-          @if (element.error) {
-            <ng-container i18n="Error">Error</ng-container>
-          }
-        </mat-cell>
-      </ng-container>
+          </div>
+          <button type="button" class="kit-icon-button download-menu-button" [matMenuTriggerFor]="rowMenu"
+            [matMenuTriggerData]="{ download: download }" [attr.aria-label]="moreActionsLabel">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+        </li>
+      }
+    </ul>
 
-      <!-- Actions Column -->
-      <ng-container matColumnDef="actions">
-        <mat-header-cell *matHeaderCellDef [ngStyle]="{flex: actionsFlex}"> <ng-container i18n="Actions">Actions</ng-container> </mat-header-cell>
-        <mat-cell *matCellDef="let element" [ngStyle]="{flex: actionsFlex}">
-          @if (!minimizeButtons) {
-            <div>
-              @for (downloadAction of downloadActions; track downloadAction) {
-                <span class="button-span">
-                  @if (downloadAction.loading && downloadAction.loading(element)) {
-                    <mat-spinner [diameter]="28" class="icon-button-spinner"></mat-spinner>
-                  }
-                  @if (downloadAction.show(element)) {
-                    <button (click)="downloadAction.action(element)" [disabled]="downloadAction.loading && downloadAction.loading(element)" [matTooltip]="downloadAction.tooltip" mat-icon-button><mat-icon>{{downloadAction.icon}}</mat-icon></button>
-                  }
-                </span>
-              }
-            </div>
-          }
-          @if (minimizeButtons) {
-            <div>
-              <button [matMenuTriggerFor]="download_actions" mat-icon-button><mat-icon>more_vert</mat-icon></button>
-              <mat-menu #download_actions="matMenu">
-                @for (downloadAction of downloadActions; track downloadAction) {
-                  @if (downloadAction.show(element)) {
-                    <button (click)="downloadAction.action(element)" [disabled]="downloadAction.loading && downloadAction.loading(element)" mat-menu-item>
-                      <mat-icon>{{downloadAction.icon}}</mat-icon>
-                      <span>{{downloadAction.tooltip}}</span>
-                    </button>
-                  }
-                }
-              </mat-menu>
-            </div>
-          }
-        </mat-cell>
-      </ng-container>
-
-      <mat-header-row [ngClass]="uids ? 'rounded-top' : null" *matHeaderRowDef="displayedColumns"></mat-header-row>
-      <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
-    </mat-table>
-
-    <mat-paginator [ngClass]="uids ? 'rounded-bottom' : null" [length]="downloads_total_count" [pageIndex]="pageIndex"
-      [pageSizeOptions]="pageSizeOptions" [pageSize]="pageSize" (page)="pageChangeEvent($event)"
-      showFirstLastButtons
-      aria-label="Select page of downloads">
-    </mat-paginator>
-  </div>
-  @if (!uids) {
-    <div class="downloads-action-button-div">
-      <button class="downloads-action-button" mat-stroked-button (click)="pauseAllDownloads()"><ng-container i18n="Pause all downloads">Pause all downloads</ng-container></button>
-      <button class="downloads-action-button" mat-stroked-button (click)="resumeAllDownloads()"><ng-container i18n="Resume all downloads">Resume all downloads</ng-container></button>
-      <button class="downloads-action-button" [disabled]="!failed_download_exists" mat-stroked-button
-        matTooltip="Retry failed on this page" i18n-matTooltip="Retry failed downloads on current page"
-        (click)="retryFailedDownloads()"><ng-container i18n="Retry failed downloads on current page">Retry failed on this page</ng-container></button>
-      <button class="downloads-action-button" color="warn" mat-stroked-button (click)="clearDownloadsByType()"><ng-container i18n="Clear downloads">Clear downloads</ng-container></button>
+    <div class="pager">
+      <span class="pager-range" i18n="Downloads page range">{{rangeStart}}–{{rangeEnd}} of {{downloads_total_count}}</span>
+      <div class="pager-controls">
+        <app-picker [title]="perPageLabel" [label]="perPageLabel" [options]="pageSizeOptions" [value]="pageSize"
+          (valueChange)="choosePageSize($any($event))"></app-picker>
+        <button type="button" class="kit-icon-button" [disabled]="pageIndex === 0" (click)="goToPage(pageIndex - 1)"
+          [attr.aria-label]="previousPageLabel" [matTooltip]="previousPageLabel">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <button type="button" class="kit-icon-button" [disabled]="pageIndex >= pageCount - 1" (click)="goToPage(pageIndex + 1)"
+          [attr.aria-label]="nextPageLabel" [matTooltip]="nextPageLabel">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
     </div>
   }
 </div>
 
-@if ((!downloads || downloads.length === 0) && downloads_retrieved && !uids && !downloads_load_error) {
-  <div>
-    <h4 style="text-align: center; margin-top: 10px;" i18n="No downloads label">No downloads available!</h4>
-  </div>
-}
-
-@if ((!downloads || downloads.length === 0) && downloads_retrieved && !uids && downloads_load_error) {
-  <div>
-    <h4 style="text-align: center; margin-top: 10px;" i18n="Downloads loading error">
-      Unable to load downloads. Retrying automatically…
-    </h4>
-  </div>
-}
+<mat-menu #rowMenu="matMenu" class="kit-menu">
+  <ng-template matMenuContent let-download="download">
+    @for (downloadAction of downloadActions; track downloadAction.icon) {
+      @if (downloadAction.show(download)) {
+        <button mat-menu-item (click)="downloadAction.action(download)">
+          <mat-icon>{{downloadAction.icon}}</mat-icon>
+          <span>{{downloadAction.tooltip}}</span>
+        </button>
+      }
+    }
+  </ng-template>
+</mat-menu>

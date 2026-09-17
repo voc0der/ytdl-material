@@ -1,35 +1,33 @@
-import { Component, OnInit, OnDestroy, ViewChild, Input, EventEmitter, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
-import { Router } from '@angular/router';
-import { MatPaginator, PageEvent } from '@angular/material/paginator';
-import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
+import { Router, RouterLink } from '@angular/router';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Download, GetAllDownloadsResponse, RestartDownloadResponse, SuccessObject } from 'api-types';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
-import { NgClass, NgStyle, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { MatTooltip } from '@angular/material/tooltip';
-import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
+import { PickerComponent, type PickerOption } from 'app/components/picker/picker.component';
+import { formatRelativeTime } from 'app/utils/relative-time';
 
+/** Where a download has got to, which is what its row is coloured and worded by. */
+export type DownloadState = 'failed' | 'cancelled' | 'finished' | 'paused' | 'running' | 'queued';
 
 @Component({
     selector: 'app-downloads',
     templateUrl: './downloads.component.html',
     styleUrls: ['./downloads.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgClass, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, MatTooltip, MatButton, NgStyle, MatProgressSpinner, MatIconButton, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, DatePipe]
+    imports: [RouterLink, DatePipe, MatTooltip, MatProgressSpinner, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, PickerComponent]
 })
 export class DownloadsComponent implements OnInit, OnDestroy {
-
-  @Input() uids: string[] = null;
 
   downloads_check_interval = 1000;
   downloads_idle_check_interval = 10000;
@@ -37,7 +35,6 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   downloads_max_error_retry_interval = 30000;
   raw_downloads: Download[] = [];
   downloads: Download[] = [];
-  finished_downloads = [];
   interval_id: number = null;
   private downloads_request_subscription: Subscription = null;
   private service_initialized_subscription: Subscription = null;
@@ -45,16 +42,18 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   private downloads_poll_error_count = 0;
   private component_destroyed = false;
 
-  keys = Object.keys;
-
-  valid_sessions_length = 0;
-
   paused_download_exists = false;
   running_download_exists = false;
   failed_download_exists = false;
+  clearable_download_exists = false;
+
   readonly pageSizeStorageKey = 'downloads_page_size';
-  readonly pageSizeOptions = [5, 10, 20];
-  pageSize = 10;
+  readonly pageSizeOptions: PickerOption<number>[] = [
+    { value: 10, label: '10' },
+    { value: 20, label: '20' },
+    { value: 50, label: '50' }
+  ];
+  pageSize = 20;
   pageIndex = 0;
   downloads_total_count = 0;
 
@@ -65,17 +64,12 @@ export class DownloadsComponent implements OnInit, OnDestroy {
       3: $localize`Complete`
   }
 
-  actionsFlex = 2;
-  minimizeButtons = false;
-  displayedColumnsBig: string[] = ['timestamp_start', 'title', 'sub_name', 'percent_complete', 'actions'];
-  displayedColumnsSmall: string[] = ['title', 'percent_complete', 'actions'];
-  displayedColumns: string[] = this.displayedColumnsBig;
-  dataSource = new MatTableDataSource<Download>([]);
-  playlist_progress_dialog_ref: MatDialogRef<PlaylistDownloadProgressDialogComponent> = null;
-  playlist_progress_dialog_key: string = null;
-  COMPLETE_LABEL = $localize`Complete`;
+  readonly perPageLabel = $localize`Per page`;
+  readonly moreActionsLabel = $localize`More actions`;
+  readonly previousPageLabel = $localize`Previous page`;
+  readonly nextPageLabel = $localize`Next page`;
 
-  // The purpose of this is to reduce code reuse for displaying these actions as icons or in a menu
+  // One list of actions, shown as buttons where there is room and as a menu where there is not.
   downloadActions: DownloadAction[] = [
     {
       tooltip: $localize`Watch content`,
@@ -124,16 +118,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   downloads_retrieved = false;
   downloads_load_error = false;
 
-  innerWidth: number;
-
-  @ViewChild(MatPaginator) paginator: MatPaginator;
-  @ViewChild(MatSort) sort: MatSort;
-
-  @HostListener('window:resize')
-  onResize(): void {
-    this.innerWidth = window.innerWidth;
-    this.recalculateColumns();
-  }
+  playlist_progress_dialog_ref: MatDialogRef<PlaylistDownloadProgressDialogComponent> = null;
+  playlist_progress_dialog_key: string = null;
 
   sort_downloads = (a: Download, b: Download): number => {
     const result = b.timestamp_start - a.timestamp_start;
@@ -142,16 +128,12 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   constructor(public postsService: PostsService, private router: Router, private dialog: MatDialog, private clipboard: Clipboard) {
     const saved_page_size = Number(localStorage.getItem(this.pageSizeStorageKey));
-    if (this.pageSizeOptions.includes(saved_page_size)) {
+    if (this.pageSizeOptions.some(option => option.value === saved_page_size)) {
       this.pageSize = saved_page_size;
     }
   }
 
   ngOnInit(): void {
-    // Remove sub name as it's not necessary for one-off downloads
-    if (this.uids) this.displayedColumnsBig = this.displayedColumnsBig.filter(col => col !== 'sub_name');
-    this.innerWidth = window.innerWidth;
-    this.recalculateColumns();
     if (this.postsService.initialized) {
       this.getCurrentDownloadsRecurring();
     } else {
@@ -202,10 +184,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
     const request_subscription = new Subscription();
     this.downloads_request_subscription = request_subscription;
-    const downloads_request = this.uids
-      ? this.postsService.getCurrentDownloads(this.uids)
-      : this.postsService.getCurrentDownloads(null, false, this.pageIndex, this.pageSize);
-    const current_request = downloads_request.subscribe({
+    const current_request = this.postsService.getCurrentDownloads(null, false, this.pageIndex, this.pageSize).subscribe({
       next: res => {
         this.downloads_load_error = false;
         if (res['downloads'] !== null && res['downloads'] !== undefined) {
@@ -213,15 +192,11 @@ export class DownloadsComponent implements OnInit, OnDestroy {
           this.raw_downloads.sort(this.sort_downloads);
           this.downloads = this.groupDownloadsForDisplay(this.raw_downloads);
           this.downloads.sort(this.sort_downloads);
-          this.dataSource.data = this.downloads;
-          // History pages are already sliced by the server. Exact-UID embeds retain
-          // their existing client-side paginator because the API returns all matches.
-          this.dataSource.paginator = this.uids ? this.paginator : null;
-          this.dataSource.sort = this.sort;
           this.refreshOpenPlaylistProgressDialog();
           this.paused_download_exists = !!this.raw_downloads.find(download => download['paused'] && !download['error']);
           this.running_download_exists = !!this.raw_downloads.find(download => !download['paused'] && !download['finished']);
           this.failed_download_exists = this.raw_downloads.some(download => this.isFailedDownload(download));
+          this.clearable_download_exists = this.raw_downloads.some(download => download['finished'] || download['paused']);
           this.applyDownloadsPaginationResponse(res, res['downloads'].length);
         }
         this.downloads_retrieved = true;
@@ -278,8 +253,6 @@ export class DownloadsComponent implements OnInit, OnDestroy {
       ? Math.floor(total_count)
       : returned_download_count;
 
-    if (this.uids) return;
-
     const returned_page = Number(res && res['page']);
     if (Number.isFinite(returned_page) && returned_page >= 0) {
       this.pageIndex = Math.floor(returned_page);
@@ -300,6 +273,70 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     }
     this.getCurrentDownloads();
   }
+
+  // What the row says about itself.
+
+  state(download: Download): DownloadState {
+    if (this.isFailedDownload(download)) return 'failed';
+    if (download.cancelled || download['error_type'] === 'cancelled') return 'cancelled';
+    if (download.finished) return 'finished';
+    if (download.paused) return 'paused';
+    // Not `running`: that flag goes false between steps, so an active download would flicker
+    // back to waiting every time it finished one. Step 0 is the one that has not been
+    // picked up by the queue yet.
+    return Number(download.step_index) > 0 ? 'running' : 'queued';
+  }
+
+  statusText(download: Download): string {
+    switch (this.state(download)) {
+      case 'failed': return $localize`Failed`;
+      case 'cancelled': return $localize`Cancelled`;
+      case 'finished': return $localize`Complete`;
+      case 'paused': return $localize`Paused`;
+      case 'queued': return $localize`Queued`;
+      default: return this.STEP_INDEX_TO_LABEL[download.step_index] ?? $localize`Downloading file`;
+    }
+  }
+
+  // Glyphs without a circle of their own: each one sits inside a round badge already, and a
+  // filled check_circle inside that reads as two circles.
+  stateIcon(download: Download): string {
+    switch (this.state(download)) {
+      case 'failed': return 'warning';
+      case 'cancelled': return 'close';
+      case 'finished': return 'check';
+      case 'paused': return 'pause';
+      case 'queued': return 'schedule';
+      default: return 'download';
+    }
+  }
+
+  /** "5 minutes ago", beside the full date as a tooltip. */
+  startedText(download: Download): string {
+    const started_at = Number(download?.timestamp_start);
+    if (!Number.isFinite(started_at) || started_at <= 0) return '';
+    return formatRelativeTime(started_at);
+  }
+
+  /** The first line of a failure, which is the part worth reading in a list. */
+  errorSummary(download: Download): string {
+    const error = typeof download?.error === 'string' ? download.error.trim() : '';
+    if (!error) return $localize`Something went wrong.`;
+    return error.split('\n').map(line => line.trim()).find(line => line !== '') ?? error;
+  }
+
+  isRunning(download: Download): boolean {
+    const state = this.state(download);
+    return state === 'running' || state === 'queued';
+  }
+
+  /** Only a download that is actually moving gets a bar; a finished one is said in words. */
+  showProgressBar(download: Download): boolean {
+    if (this.state(download) === 'paused') return this.getNormalizedPercent(download) !== null;
+    return this.isRunning(download) && this.getNormalizedPercent(download) !== null;
+  }
+
+  // Bulk actions.
 
   clearDownloadsByType(): void {
     const clearEmitter = new EventEmitter<boolean>();
@@ -404,14 +441,6 @@ export class DownloadsComponent implements OnInit, OnDestroy {
       const all_successful = results.every(result => !!result && !!result['success']);
       if (!all_successful) {
         this.postsService.openSnackBar($localize`Failed to restart download! See server logs for more info.`);
-        return;
-      }
-
-      if (this.uids) {
-        results
-          .map(result => result && result['new_download_uid'] ? result['new_download_uid'] : null)
-          .filter(new_download_uid => !!new_download_uid)
-          .forEach(new_download_uid => this.uids.push(new_download_uid));
       }
     });
   }
@@ -420,11 +449,37 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     return !!download && !!download.error && !download.cancelled && download.error_type !== 'cancelled';
   }
 
-  pageChangeEvent(event: PageEvent): void {
-    this.pageIndex = Number.isFinite(Number(event.pageIndex)) ? Math.max(0, Math.floor(Number(event.pageIndex))) : 0;
-    this.pageSize = event.pageSize;
+  // Paging.
+
+  get pageCount(): number {
+    if (this.downloads_total_count <= 0 || this.pageSize <= 0) return 1;
+    return Math.max(1, Math.ceil(this.downloads_total_count / this.pageSize));
+  }
+
+  get rangeStart(): number {
+    if (this.downloads_total_count === 0) return 0;
+    return this.pageIndex * this.pageSize + 1;
+  }
+
+  get rangeEnd(): number {
+    return Math.min(this.downloads_total_count, (this.pageIndex + 1) * this.pageSize);
+  }
+
+  goToPage(page_index: number): void {
+    const target_page = Math.max(0, Math.min(this.pageCount - 1, Math.floor(page_index)));
+    if (target_page === this.pageIndex) return;
+    this.pageIndex = target_page;
+    this.refreshCurrentDownloadsImmediately();
+  }
+
+  choosePageSize(page_size: number): void {
+    if (page_size === this.pageSize) return;
+    // Keep the first download of the current page in view rather than jumping to the top.
+    const first_shown = this.pageIndex * this.pageSize;
+    this.pageSize = page_size;
+    this.pageIndex = Math.floor(first_shown / page_size);
     localStorage.setItem(this.pageSizeStorageKey, `${this.pageSize}`);
-    if (!this.uids) this.refreshCurrentDownloadsImmediately();
+    this.refreshCurrentDownloadsImmediately();
   }
 
   cancelDownload(download: Download): void {
@@ -533,6 +588,11 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   hasPlaylistItemProgress(download: Download): boolean {
     const playlist_item_progress = (download as DownloadWithPlaylistProgress)['playlist_item_progress'];
     return Array.isArray(playlist_item_progress) && playlist_item_progress.length > 1;
+  }
+
+  playlistItemCount(download: Download): number {
+    const playlist_item_progress = (download as DownloadWithPlaylistProgress)['playlist_item_progress'];
+    return Array.isArray(playlist_item_progress) ? playlist_item_progress.length : 0;
   }
 
   showPlaylistProgress(download: Download): void {
@@ -878,16 +938,6 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     const playlist_batch_id = this.getPlaylistBatchId(download);
     if (playlist_batch_id) return `playlist-batch:${playlist_batch_id}`;
     return download.uid;
-  }
-
-  recalculateColumns() {
-    if (this.innerWidth < 650) this.displayedColumns = this.displayedColumnsSmall;
-    else                       this.displayedColumns = this.displayedColumnsBig;
-
-    this.actionsFlex = this.uids || this.innerWidth < 800 ? 1 : 2;
-
-    if (this.innerWidth < 800 && !this.uids || this.innerWidth < 1100 && this.uids) this.minimizeButtons = true;
-    else                                                                            this.minimizeButtons = false;
   }
 }
 

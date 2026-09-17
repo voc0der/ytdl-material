@@ -108,7 +108,7 @@ describe('DownloadsComponent', () => {
 
     component.getCurrentDownloadsRecurring();
     expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
-    expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledWith(null, false, 0, 10);
+    expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledWith(null, false, 0, 20);
 
     tick(component.downloads_check_interval * 3);
     expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
@@ -212,8 +212,7 @@ describe('DownloadsComponent', () => {
     expect(component.downloads_total_count).toBe(47);
     expect(component.pageIndex).toBe(1);
     expect(component.pageSize).toBe(20);
-    expect(component.dataSource.data.map(download => download.uid)).toEqual(['page-download']);
-    expect(component.dataSource.paginator).toBeNull();
+    expect(component.downloads.map(download => download.uid)).toEqual(['page-download']);
   });
 
   it('cancels a stale page request and immediately loads a newly selected page', fakeAsync(() => {
@@ -221,10 +220,11 @@ describe('DownloadsComponent', () => {
     const selected_page_request = new Subject<any>();
     posts_service_mock.getCurrentDownloads.mockReturnValueOnce(first_page_request.asObservable()).mockReturnValueOnce(selected_page_request.asObservable());
 
+    component.downloads_total_count = 100;
     component.getCurrentDownloadsRecurring();
     expect(first_page_request.observers.length).toBe(1);
 
-    component.pageChangeEvent({ pageIndex: 3, pageSize: 20 } as any);
+    component.goToPage(3);
 
     expect(first_page_request.observers.length).toBe(0);
     expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(2);
@@ -232,20 +232,27 @@ describe('DownloadsComponent', () => {
     component.ngOnDestroy();
   }));
 
-  it('keeps exact-UID downloads requests unpaginated', () => {
-    component.uids = ['download-a', 'download-b'];
-    posts_service_mock.getCurrentDownloads.mockReturnValue(of({
-      downloads: [],
-      total_count: 0,
-      page: 0,
-      page_size: 2
-    }));
+  it('will not page past what the server said it has', () => {
+    posts_service_mock.getCurrentDownloads.mockReturnValue(of({ downloads: [], total_count: 25, page: 1, page_size: 20 }));
+    component.downloads_total_count = 25;
+    component.pageSize = 20;
 
-    component.getCurrentDownloads();
+    component.goToPage(7);
 
-    expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
+    expect(component.pageIndex).toBe(1);
+    expect(component.rangeStart).toBe(21);
+    expect(component.rangeEnd).toBe(25);
+  });
 
-    expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledWith(component.uids);
+  it('keeps the first download of the page in view when the page size changes', () => {
+    component.downloads_total_count = 100;
+    component.pageSize = 10;
+    component.pageIndex = 4;
+
+    component.choosePageSize(20);
+
+    expect(component.pageIndex).toBe(2);
+    expect(vi.mocked(posts_service_mock.getCurrentDownloads).mock.lastCall).toEqual([null, false, 2, 20]);
   });
 
   it('navigates lean playlist summaries by container id', () => {
@@ -319,12 +326,44 @@ describe('DownloadsComponent', () => {
   });
 
   it('persists the downloads page size', () => {
-    component.pageChangeEvent({ pageSize: 20 } as any);
+    component.choosePageSize(50);
 
     const restored_component = new DownloadsComponent(posts_service_mock, router_mock, dialog_mock, clipboard_mock);
 
-    expect(localStorage.getItem(component.pageSizeStorageKey)).toBe('20');
-    expect(restored_component.pageSize).toBe(20);
+    expect(localStorage.getItem(component.pageSizeStorageKey)).toBe('50');
+    expect(restored_component.pageSize).toBe(50);
+  });
+
+  it('tells apart the states a row is worded and coloured by', () => {
+    const download = (overrides: Record<string, unknown>) => ({ uid: 'state', ...overrides }) as unknown as Download;
+
+    expect(component.state(download({ error: 'Network error', finished: true }))).toBe('failed');
+    expect(component.state(download({ error: 'Cancelled', error_type: 'cancelled', cancelled: true }))).toBe('cancelled');
+    expect(component.state(download({ finished: true }))).toBe('finished');
+    expect(component.state(download({ paused: true }))).toBe('paused');
+    expect(component.state(download({ step_index: 2 }))).toBe('running');
+    expect(component.state(download({}))).toBe('queued');
+    // `running` goes false between steps; a download in the middle of one is still running.
+    expect(component.state(download({ step_index: 2, running: false }))).toBe('running');
+  });
+
+  it('says where a running download has got to, and calls a finished one complete', () => {
+    expect(component.statusText({ uid: 'a', step_index: 2 } as unknown as Download)).toBe('Downloading file');
+    expect(component.statusText({ uid: 'a2', step_index: 0 } as unknown as Download)).toBe('Queued');
+    expect(component.statusText({ uid: 'b', finished: true } as unknown as Download)).toBe('Complete');
+    expect(component.statusText({ uid: 'c', finished: true, error: 'boom' } as unknown as Download)).toBe('Failed');
+  });
+
+  it('shows only the first line of a failure in the row', () => {
+    const download = { uid: 'd', error: '\n  ERROR: video unavailable\nTraceback...\n' } as unknown as Download;
+
+    expect(component.errorSummary(download)).toBe('ERROR: video unavailable');
+  });
+
+  it('has no progress bar until there is a percentage to show', () => {
+    expect(component.showProgressBar({ uid: 'e', step_index: 2, percent_complete: null } as unknown as Download)).toBe(false);
+    expect(component.showProgressBar({ uid: 'f', step_index: 2, percent_complete: 40 } as unknown as Download)).toBe(true);
+    expect(component.showProgressBar({ uid: 'g', finished: true } as unknown as Download)).toBe(false);
   });
 
   it('merges chunked playlist progress with global sequential indices', () => {
