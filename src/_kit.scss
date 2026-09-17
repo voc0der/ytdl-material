@@ -199,6 +199,11 @@
   cursor: pointer;
 }
 
+.kit-text-button:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: 2px;
+}
+
 // A row of chips. On a narrow screen it scrolls sideways rather than wrapping.
 .kit-rail {
   display: flex;
@@ -252,4 +257,267 @@
   border-radius: 24px 24px 0 0;
   background: var(--kit-sheet);
   color: var(--kit-on-surface);
+}
+
+// ---------------------------------------------------------------------------------------
+// Page furniture
+//
+// What a full page is built from: its heading, the tabs it switches lists with, the rows a
+// setting sits in, and what it says when there is nothing to show. These live here rather
+// than in one page's stylesheet because subscriptions, downloads and tasks all use them,
+// and three copies would drift apart.
+// ---------------------------------------------------------------------------------------
+
+.kit-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 24px;
+  padding-bottom: 48px;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 36px;
+}
+
+.page-intro {
+  margin: 0;
+  font-size: 15px;
+  color: var(--kit-on-surface-variant);
+}
+
+// A rounded surface a form or a set of settings sits on.
+.kit-panel {
+  padding: 4px 20px;
+  border-radius: 20px;
+  background: var(--kit-surface);
+}
+
+.list-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 520px);
+  margin-top: 32px;
+  padding: 40px 24px;
+  border-radius: 24px;
+  background: var(--kit-surface);
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--kit-on-surface-variant);
+}
+
+.empty-state .kit-chip {
+  margin-top: 8px;
+}
+
+.empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+.empty-state-icon .mat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  margin-top: 12px;
+}
+
+// The same tabs the library switches between videos and playlists with.
+.list-filter {
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
+}
+
+.list-filter-option {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.list-filter-option::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--kit-accent);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.list-filter-option:hover {
+  opacity: 0.8;
+}
+
+.list-filter-option.active,
+.list-filter-option.active::after {
+  opacity: 1;
+}
+
+.list-filter-option:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+// The heading a list gets when there is only one kind of thing in it, so nothing to filter.
+.list-title {
+  margin: 0;
+  cursor: default;
+}
+
+.list-title::after {
+  display: none;
+}
+
+.list-filter-count {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+// One setting: what it is and what it does on the left, the control that changes it on the
+// right, with a rule between each.
+.settings-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--kit-divider);
+}
+
+.settings-row:first-child {
+  border-top: 0;
+}
+
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-row-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--kit-on-surface);
+}
+
+.settings-row-hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--kit-on-surface-variant);
+}
+
+.settings-row-hint a {
+  margin-left: 4px;
+  color: var(--kit-on-tonal);
+}
+
+// A text field sits beside its label on a wide screen and under it on a narrow one.
+.settings-field-row > .kit-field {
+  flex: 0 0 min(50%, 360px);
+}
+
+.settings-field-row .kit-field > input {
+  font-size: 15px;
+}
+
+.settings-field-row .kit-field {
+  padding-right: 16px;
+}
+
+.settings-field-row .kit-field:has(.kit-icon-button) {
+  padding-right: 2px;
+}
+
+// Text that has to stay on one line, ending in an ellipsis when it cannot.
+.kit-one-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 576px) {
+  .kit-page {
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  .kit-panel {
+    padding: 4px 16px;
+  }
+
+  .settings-field-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .settings-field-row > .kit-field {
+    flex-basis: auto;
+  }
 }
