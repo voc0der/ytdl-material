@@ -432,8 +432,8 @@ async function main() {
     const backend = await startBackend(RUN_DIR, PORT, {
         // No Deno is assumed; yt-dlp can use the Node running this script instead.
         ytdl_js_runtimes: 'node',
-        // One at a time, so the rest of the batch is reliably still queued to pause.
-        // The shipped appdata/default.json says 0, which starts no downloads at all.
+        // One at a time, so the rest of the batch is reliably still queued to pause. The
+        // shipped config allows 5, which would work through the batch too quickly for that.
         ytdl_max_concurrent_downloads: '1'
     });
 

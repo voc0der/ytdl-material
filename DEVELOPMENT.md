@@ -217,8 +217,8 @@ Like the subscriptions harness it is not part of CI, because it downloads from t
 ## Things worth knowing
 
 - **It holds `max_concurrent_downloads` at 1**, which is what keeps the rest of the batch
-  queued long enough to pause. It also has to set it at all: the shipped
-  `backend/appdata/default.json` says 0, which starts no downloads whatsoever.
+  queued long enough to pause. The shipped config allows 5, which would work through the
+  batch before the page could be asked to pause any of it.
 - **Twelve failures is not an arbitrary number.** It is what puts more than one page of
   rows on the page at ten per page, so the pager has something to page through.
 - **A download that cannot start still gets a row.** Failures are rows with a one-line
