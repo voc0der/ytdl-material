@@ -1,11 +1,12 @@
 import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
+import { NARROW_SCREEN_QUERY } from 'app/utils/narrow-screen';
 import { Router } from '@angular/router';
 import { Category, DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort, Subscription } from 'api-types';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
 import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
-import { MatChipListboxChange, MatChipListbox, MatChipOption } from '@angular/material/chips';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { MatSelectionListChange, MatSelectionList, MatListOption } from '@angular/material/list';
 import { saveBlob } from '../../utils/save-blob';
 import { MatDialog } from '@angular/material/dialog';
@@ -19,13 +20,15 @@ import {
 } from 'app/media-library-navigation-state.service';
 import { NgTemplateOutlet, NgClass, DatePipe } from '@angular/common';
 import { SortPropertyComponent } from '../sort-property/sort-property.component';
-import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
+import { MatFormField, MatLabel } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { FileCardLayout, getListCardHeight, UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
+import { PickerComponent, type PickerOption } from '../picker/picker.component';
+import { openPickerSheet } from '../picker/picker-sheet.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatButton, MatIconButton } from '@angular/material/button';
-import { MatSelect, MatSelectTrigger, MatOption } from '@angular/material/select';
+import { MatSelect, MatOption } from '@angular/material/select';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatTabGroup, MatTab } from '@angular/material/tabs';
 import { MatButtonToggleGroup, MatButtonToggle } from '@angular/material/button-toggle';
@@ -50,7 +53,7 @@ interface MediaLibraryFilter {
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgTemplateOutlet, SortPropertyComponent, MatFormField, NgClass, MatLabel, MatInput, FormsModule, MatIcon, MatSuffix, UnifiedFileCardComponent, MatProgressSpinner, MatButton, MatChipListbox, MatChipOption, MatSelect, MatSelectTrigger, MatOption, MatPaginator, MatTabGroup, MatTab, MatIconButton, MatButtonToggleGroup, CdkDropList, MatButtonToggle, CdkDrag, MatSelectionList, MatListOption, ContentLoaderModule, DatePipe]
+    imports: [NgTemplateOutlet, SortPropertyComponent, MatFormField, NgClass, MatLabel, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent, MatSelect, MatOption, MatPaginator, MatTabGroup, MatTab, MatIconButton, MatButtonToggleGroup, CdkDropList, MatButtonToggle, CdkDrag, MatSelectionList, MatListOption, ContentLoaderModule, DatePipe]
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'media_library_page_size';
@@ -65,9 +68,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly autoLoadBufferRows = 2;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
   readonly categoryFilterPrefix = 'category:';
-  // Below this width a grid of cards leaves most of a phone's screen empty, so the library
-  // lists one file per row instead. It is the width the library header collapses at too.
-  readonly listLayoutMediaQuery = '(max-width: 576px)';
+  readonly pageSizeTitle = $localize`:Page size picker title:Items per page`;
 
   @Input() usePaginator = true;
 
@@ -104,11 +105,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   downloading_content = {};
   search_mode = false;
   search_text = '';
-  searchIsFocused = false;
   descendingMode = true;
   activeLibraryTab = 0;
   playlistSearchText = '';
-  playlistSearchIsFocused = false;
 
   fileFilters: Record<string, MediaLibraryFilter> = {
     video_only: {
@@ -139,7 +138,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   renderedVideoRows: MediaLibraryRow<DatabaseFile>[] = [];
   visibleVideoRowStart = 0;
   visibleVideoRowEnd = 0;
-  listLayout = false;
+  // On a narrow screen a grid of cards leaves most of the width empty, so files are listed one
+  // per row, and the search, sort and filters fold into a single field.
+  narrowScreen = false;
 
   private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
@@ -158,10 +159,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private gridPressActive = false;
   private readonly deferredGridRefreshes = new Map<string, () => void>();
   private readonly destroy$ = new Subject<void>();
-  private listLayoutQuery: MediaQueryList | null = null;
+  private narrowScreenQuery: MediaQueryList | null = null;
   private listLayoutContentWidth: number | null = null;
-  private readonly listLayoutChangeHandler = (event: MediaQueryListEvent) => {
-    this.ngZone.run(() => this.setListLayout(event.matches));
+  private readonly narrowScreenChangeHandler = (event: MediaQueryListEvent) => {
+    this.ngZone.run(() => this.setNarrowScreen(event.matches));
   };
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
   private readonly gridPressStartHandler = () => { this.gridPressActive = true; };
@@ -188,10 +189,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     private router: Router,
     private dialog: MatDialog,
     private ngZone: NgZone,
-    private mediaLibraryNavigationState: MediaLibraryNavigationStateService
+    private mediaLibraryNavigationState: MediaLibraryNavigationStateService,
+    private bottomSheet: MatBottomSheet
   ) {
     // Before anything sizes the loading placeholders below, which depend on the layout.
-    this.bindListLayoutQuery();
+    this.bindNarrowScreenQuery();
 
     const saved_page_size = this.getStoredPreference(this.pageSizeStorageKey, this.legacyPageSizeStorageKey);
     if (saved_page_size === this.autoPageSizeOption) {
@@ -345,7 +347,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.unbindScrollListener();
     this.unbindGridPressListeners();
     this.unbindVideoGridResizeObserver();
-    this.unbindListLayoutQuery();
+    this.unbindNarrowScreenQuery();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -635,11 +637,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   get cardLayout(): FileCardLayout {
-    return this.listLayout ? 'list' : 'grid';
+    return this.narrowScreen ? 'list' : 'grid';
   }
 
   get cardColumnClass(): string {
-    if (this.listLayout) {
+    if (this.narrowScreen) {
       return 'col-12';
     }
 
@@ -762,21 +764,40 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     setTimeout(() => this.getAllFiles(), 150);
   }
 
-  selectedFiltersChanged(event: MatChipListboxChange): void {
-    const next_filters = this.sanitizeSelectedFilters(this.normalizeSelectedFilterValues(event.value));
-    // in some cases this function will fire even if the selected filters haven't changed
-    if (this.filtersAreEqual(next_filters, this.selectedFilters)) return;
-    if (next_filters.length > this.selectedFilters.length) {
-      const filter_key = next_filters.filter(possible_new_key => !this.selectedFilters.includes(possible_new_key))[0];
+  toggleFilter(filter_key: string): void {
+    if (this.selectedFilters.includes(filter_key)) {
+      this.selectedFilters = this.selectedFilters.filter(existing_filter => existing_filter !== filter_key);
+    } else {
+      // Turning a filter on turns off any it cannot be combined with, such as video only and audio only.
       this.selectedFilters = this.selectedFilters.filter(existing_filter => {
         const filter_definition = this.getFilterDefinition(existing_filter);
         return !filter_definition?.incompatible || !filter_definition.incompatible.includes(filter_key);
-      });
-      this.selectedFilters.push(filter_key);
-    } else {
-      this.selectedFilters = next_filters;
+      }).concat(filter_key);
     }
     this.filterChanged(JSON.stringify(this.selectedFilters));
+  }
+
+  clearFilters(): void {
+    if (this.selectedFilters.length === 0) return;
+    this.selectedFilters = [];
+    this.filterChanged(JSON.stringify(this.selectedFilters));
+  }
+
+  get activeFilterLabels(): string[] {
+    return this.selectedFilters
+      .map(filter_key => this.getFilterDefinition(filter_key)?.label)
+      .filter(label => !!label);
+  }
+
+  // On a narrow screen the filters live in a sheet, which stays open so several can be set at once.
+  openFilterSheet(): void {
+    openPickerSheet(this.bottomSheet, {
+      title: $localize`:Library filters sheet title:Filters`,
+      options: this.getVisibleFilters().map(filter => ({ value: filter.key, label: filter.label })),
+      multiple: true,
+      isSelected: filter_key => this.selectedFilters.includes(filter_key as string),
+      select: filter_key => this.toggleFilter(filter_key as string)
+    });
   }
 
   getVisibleFilters(): MediaLibraryFilter[] {
@@ -1364,7 +1385,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getVirtualizedRowTemplateColumns(row: MediaLibraryRow<DatabaseFile>): string {
-    if (this.listLayout) {
+    if (this.narrowScreen) {
       return 'minmax(0, 1fr)';
     }
 
@@ -1628,27 +1649,27 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.videoGridResizeObserver = null;
   }
 
-  private bindListLayoutQuery(): void {
+  private bindNarrowScreenQuery(): void {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
       return;
     }
 
-    this.listLayoutQuery = window.matchMedia(this.listLayoutMediaQuery);
-    this.listLayout = this.listLayoutQuery.matches;
-    this.listLayoutQuery.addEventListener('change', this.listLayoutChangeHandler);
+    this.narrowScreenQuery = window.matchMedia(NARROW_SCREEN_QUERY);
+    this.narrowScreen = this.narrowScreenQuery.matches;
+    this.narrowScreenQuery.addEventListener('change', this.narrowScreenChangeHandler);
   }
 
-  private unbindListLayoutQuery(): void {
-    this.listLayoutQuery?.removeEventListener('change', this.listLayoutChangeHandler);
-    this.listLayoutQuery = null;
+  private unbindNarrowScreenQuery(): void {
+    this.narrowScreenQuery?.removeEventListener('change', this.narrowScreenChangeHandler);
+    this.narrowScreenQuery = null;
   }
 
-  setListLayout(list_layout: boolean): void {
-    if (this.listLayout === list_layout) {
+  setNarrowScreen(narrow_screen: boolean): void {
+    if (this.narrowScreen === narrow_screen) {
       return;
     }
 
-    this.listLayout = list_layout;
+    this.narrowScreen = narrow_screen;
     this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
     this.refreshVideoRowsForCurrentLayout();
   }
@@ -1683,7 +1704,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getAutoPageColumns(): number {
-    if (this.listLayout) {
+    if (this.narrowScreen) {
       return 1;
     }
 
@@ -1694,7 +1715,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getAutoCardRowHeight(): number {
-    if (this.listLayout) {
+    if (this.narrowScreen) {
       // Until the grid has been measured, assume it spans the viewport less a container's
       // usual padding. A row is the card plus the 8px the row shell pads it with either side.
       const content_width = this.listLayoutContentWidth ?? Math.max(0, this.getViewportWidth() - 24);
@@ -1746,11 +1767,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.getAllFiles();
   }
 
-  formatPageSizeOption(page_size_option: PageSizeOption): string {
-    return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
+  get pageSizePickerOptions(): PickerOption<PageSizeOption>[] {
+    return this.pageSizeOptions.map(page_size_option => ({ value: page_size_option, label: this.formatPageSizeOption(page_size_option) }));
   }
 
-  getPageSizeTriggerLabel(page_size_option: PageSizeOption): string {
+  formatPageSizeOption(page_size_option: PageSizeOption): string {
     return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
   }
 

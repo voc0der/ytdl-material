@@ -17,23 +17,6 @@
     min-width: min-content;
 }
 
-.search-bar {
-    transition: all .5s ease;
-    position: relative;
-}
- 
-.search-bar-unfocused {
-    width: 165px;
-}
-
-.search-input {
-    transition: all .5s ease;
-}
-
-.search-bar-focused {
-    width: 200px;
-}
-
 .flex-grid {
     width: 100%;
     display: block;
@@ -72,76 +55,6 @@
 .paginator-page-size-label {
     opacity: 0.78;
     white-space: nowrap;
-}
-
-.paginator-page-size-select {
-    width: 84px;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-    display: none;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-text-field-wrapper {
-    height: 40px;
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.paginator-page-size-select ::ng-deep .mdc-notched-outline {
-    border-radius: inherit;
-    overflow: hidden;
-}
-
-.paginator-page-size-select ::ng-deep .mdc-notched-outline__leading {
-    border-radius: 999px 0 0 999px;
-    width: 28px !important;
-    min-width: 28px;
-    border-right: none;
-}
-
-.paginator-page-size-select ::ng-deep .mdc-notched-outline__trailing {
-    border-radius: 0 999px 999px 0;
-    border-left: none;
-}
-
-.paginator-page-size-select ::ng-deep .mdc-notched-outline__notch {
-    max-width: 0;
-    padding: 0;
-    border: none;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-value-text,
-.paginator-page-size-select ::ng-deep .mat-mdc-select-value {
-    text-align: center;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-trigger {
-    justify-content: center;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-value {
-    display: flex;
-    justify-content: center;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-value-text {
-    width: 100%;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-value-text > mat-select-trigger {
-    display: inline-block;
-    width: 100%;
-    position: relative;
-    bottom: 20%;
-}
-
-.paginator-page-size-select ::ng-deep .mat-mdc-select-arrow {
-    bottom: 20%;
-}
-
-::ng-deep .media-library-page-size-panel {
-    min-width: 110px !important;
 }
 
 .paginator-manual {
@@ -209,54 +122,63 @@
     opacity: 0.12;
 }
 
-.my-videos-title {
-    text-align: center;
+.library-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 8px;
+}
+
+.library-header-top {
     display: flex;
     align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    margin: 0;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
 }
 
-.library-header {
-    padding-top: 8px;
-}
-
-.library-header-row {
-    align-items: center;
-    row-gap: 12px;
-}
-
-.library-header-cell {
+.library-header-title {
     min-width: 0;
 }
 
-.library-switcher-shell {
+.library-header-tools {
     display: flex;
-    justify-content: center;
-    width: 100%;
+    align-items: center;
+    gap: 8px;
+}
+
+.library-search {
+    width: 280px;
+}
+
+.my-videos-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 28px;
 }
 
 .library-switcher {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    color: inherit;
+    display: flex;
+    align-items: baseline;
+    gap: 22px;
 }
 
 .library-switch {
     position: relative;
     display: inline-flex;
     align-items: baseline;
-    gap: 7px;
-    padding: 0;
+    gap: 6px;
+    padding: 6px 0;
     border: 0;
     background: transparent;
     color: inherit;
-    opacity: 0.52;
     font: inherit;
-    line-height: 1.1;
-    letter-spacing: 0.03em;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 28px;
+    opacity: 0.55;
     cursor: pointer;
     transition: opacity 160ms ease;
 }
@@ -266,43 +188,51 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: -6px;
-    height: 1px;
-    background: currentColor;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--kit-accent);
     opacity: 0;
-    transform: scaleX(0.7);
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition: opacity 160ms ease;
 }
 
 .library-switch:hover {
-    opacity: 0.74;
+    opacity: 0.8;
 }
 
-.library-switch.active {
-    opacity: 0.96;
-}
-
+.library-switch.active,
 .library-switch.active::after {
-    opacity: 0.72;
-    transform: scaleX(1);
+    opacity: 1;
 }
 
 .library-switch:focus-visible {
-    outline: 1px solid currentColor;
-    outline-offset: 6px;
+    outline: 2px solid var(--kit-accent);
+    outline-offset: 4px;
     border-radius: 4px;
 }
 
 .library-switch-count {
-    font-size: 0.76rem;
+    font-size: 13px;
+    font-weight: 400;
     opacity: 0.7;
 }
 
-.library-switch-divider {
-    width: 18px;
-    height: 1px;
-    background: currentColor;
-    opacity: 0.16;
+.library-filter-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: -6px;
+    padding-left: 16px;
+    font-size: 13px;
+}
+
+.library-filter-summary-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--kit-on-tonal);
 }
 
 .playlist-empty-state {
@@ -318,72 +248,15 @@
     text-align: center;
 }
 
-.filter-list {
-    justify-content: center;
-    margin: 6px 0 10px;
-}
-
-.filter-list ::ng-deep .mdc-evolution-chip-set__chips {
-    min-width: auto;
-    justify-content: center;
-    gap: 6px;
-    margin: 0;
-}
-
-.filter-list ::ng-deep .mdc-evolution-chip {
-    margin: 0;
-}
-
 @media (max-width: 576px) {
-    .library-header {
-        padding-top: 4px;
-    }
-
-    .library-header-row {
-        row-gap: 8px;
-    }
-
-    .library-header-cell {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .library-header-sort app-sort-property,
-    .library-header-search .search-bar,
-    .filter-list {
-        width: min(100%, 304px);
-    }
-
-    .library-switcher {
-        gap: 10px;
-    }
-
-    .library-switch {
-        gap: 5px;
-        letter-spacing: 0.02em;
-    }
-
-    .library-switch::after {
-        bottom: -4px;
-    }
-
-    .library-switch-divider {
-        width: 12px;
-    }
-
-    .search-bar-unfocused,
-    .search-bar-focused {
-        width: 100%;
+    .library-search {
+        width: auto;
     }
 
     .paginator-shell {
         justify-content: center;
         gap: 10px;
         padding: 8px;
-    }
-
-    .filter-list {
-        margin: 2px auto 8px;
     }
 
     .auto-pagination-status {

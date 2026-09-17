@@ -810,6 +810,57 @@ describe('MainComponent', () => {
     expect(component.cachedAvailableFormats[watch_url_with_playlist]['formats_loading']).toBe(false);
   });
 
+  describe('download option pickers', () => {
+    const url = 'https://example.com/watch/abc';
+
+    beforeEach(() => {
+      component.url = url;
+    });
+
+    it('offers Best, then each format the link was found to have with the size it would download at', () => {
+      const format_1080 = { key: '1080p', expected_filesize: 640_000_000 };
+      const format_720 = { key: '720p' };
+      component.cachedAvailableFormats[url] = { formats_loading: false, formats: { video: [format_1080, format_720], audio: [{ key: '160kbps' }] } };
+
+      expect(component.qualityPickerOptions).toEqual([
+        { value: '', label: 'Best' },
+        { value: format_1080, label: '1080p', detail: component.humanFileSize(640_000_000) },
+        { value: format_720, label: '720p', detail: null }
+      ]);
+
+      component.audioOnly = true;
+      expect(component.qualityPickerOptions.map(option => option.label)).toEqual(['Best', '160kbps']);
+    });
+
+    it('falls back to the usual resolutions when the link could not be looked up', () => {
+      component.cachedAvailableFormats[url] = { formats_loading: false, formats_failed: true };
+
+      expect(component.qualityPickerOptions.map(option => option.value)).toEqual(['', ...component.qualityOptions.video.map(quality => quality.value)]);
+    });
+
+    it('offers only Best while the link is still being looked up', () => {
+      component.cachedAvailableFormats[url] = { formats_loading: true };
+
+      expect(component.formatsLoading).toBe(true);
+      expect(component.qualityPickerOptions).toEqual([{ value: '', label: 'Best' }]);
+    });
+
+    it('lists the languages found after the default', () => {
+      component.cachedAvailableFormats[url] = {
+        formats_loading: false,
+        formats: {
+          video: [],
+          audio: [],
+          audio_languages: [{ value: 'es', label: 'Spanish' }],
+          subtitle_languages: [{ value: 'fr', label: 'French', source: 'manual', hasManual: true, hasAutomatic: false }]
+        }
+      };
+
+      expect(component.audioLanguagePickerOptions).toEqual([{ value: '', label: 'Default' }, { value: 'es', label: 'Spanish' }]);
+      expect(component.subtitleLanguagePickerOptions).toEqual([{ value: '', label: 'Default' }, { value: 'fr', label: 'French' }]);
+    });
+  });
+
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {
     component.mediaLibrary = {
       showLibraryTabs: true,

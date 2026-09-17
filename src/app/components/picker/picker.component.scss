@@ -1,0 +1,40 @@
+:host {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.picker-menu-anchor {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.kit-chip {
+  padding-right: 10px;
+}
+
+.kit-chip[aria-expanded='true'] {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+.kit-chip[aria-expanded='true'] .kit-chip-label,
+.kit-chip[aria-expanded='true'] .picker-chevron {
+  color: inherit;
+}
+
+.picker-value {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-chevron {
+  color: var(--kit-on-surface-variant);
+}
+
+.picker-spinner {
+  margin: 0 1px;
+}

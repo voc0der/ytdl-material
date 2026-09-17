@@ -43,4 +43,32 @@ describe('SortPropertyComponent', () => {
   expect(descending_mode_spy).toHaveBeenCalledWith(false);
   expect(sort_option_spy).toHaveBeenCalledWith({ by: 'registered', order: 1 });
  });
+ it('should name the two orders in the terms of the property being sorted by', () => {
+  const labels = () => component.currentOrderOptions.map(option => option.label);
+
+  expect(labels()).toEqual(['Newest first', 'Oldest first']);
+  component.sortProperty = 'title';
+  expect(labels()).toEqual(['A to Z', 'Z to A']);
+  expect(component.currentOrderOptions.map(option => option.value)).toEqual(['ascending', 'descending']);
+  component.sortProperty = 'size';
+  expect(labels()).toEqual(['Largest first', 'Smallest first']);
+ });
+
+ it('should emit the order picked', () => {
+  const sort_option_spy = vi.spyOn(component.sortOptionChanged, 'emit').mockReturnValue(undefined);
+
+  component.orderChanged('ascending');
+
+  expect(component.descendingMode).toBe(false);
+  expect(component.currentOrder).toBe('ascending');
+  expect(sort_option_spy).toHaveBeenCalledWith({ by: 'registered', order: 1 });
+ });
+
+ it('should show the direction on the chip, and a sort icon when only the icon shows', () => {
+  expect(component.icon).toBe('arrow_downward');
+  component.descendingMode = false;
+  expect(component.icon).toBe('arrow_upward');
+  component.iconOnly = true;
+  expect(component.icon).toBe('swap_vert');
+ });
 });

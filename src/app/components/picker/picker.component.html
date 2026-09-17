@@ -1,0 +1,43 @@
+<button #trigger type="button" [class.kit-chip]="!iconOnly" [class.kit-icon-button]="iconOnly" [disabled]="disabled"
+  aria-haspopup="true" [attr.aria-expanded]="expanded" [attr.aria-label]="iconOnly ? title : null" [attr.aria-busy]="loading || null"
+  (click)="open()">
+  @if (icon) {
+    <mat-icon>{{icon}}</mat-icon>
+  }
+  @if (!iconOnly) {
+    @if (label) {
+      <span class="kit-chip-label">{{label}}</span>
+    }
+    <span class="picker-value">{{selectedLabel}}</span>
+    @if (loading) {
+      <mat-spinner class="picker-spinner" [diameter]="16"></mat-spinner>
+    } @else {
+      <mat-icon class="picker-chevron">expand_more</mat-icon>
+    }
+  }
+</button>
+<!-- The menu is anchored to this stand-in rather than to the chip, so that on a narrow screen the
+     chip can open a sheet instead. It covers the chip exactly and takes no clicks. -->
+<span class="picker-menu-anchor" aria-hidden="true" [matMenuTriggerFor]="menu" [matMenuTriggerRestoreFocus]="false"
+  (menuOpened)="expanded = true" (menuClosed)="onMenuClosed()"></span>
+<mat-menu #menu="matMenu" class="kit-menu">
+  @for (segmentOption of segments; track segmentOption.value) {
+    <!-- The order changes in place, so the menu stays open to pick what to order by. -->
+    <button mat-menu-item role="menuitemradio" [attr.aria-checked]="segmentOption.value === segment" (click)="$event.stopPropagation(); chooseSegment(segmentOption.value)">
+      <mat-icon [class.kit-invisible]="segmentOption.value !== segment">check</mat-icon>
+      <span>{{segmentOption.label}}</span>
+    </button>
+  }
+  @if (segments.length) {
+    <mat-divider></mat-divider>
+  }
+  @for (option of options; track $index) {
+    <button mat-menu-item role="menuitemradio" [attr.aria-checked]="option.value === value" (click)="choose(option.value)">
+      <mat-icon [class.kit-invisible]="option.value !== value">check</mat-icon>
+      <span>{{option.label}}</span>
+      @if (option.detail) {
+        <span class="kit-menu-detail">{{option.detail}}</span>
+      }
+    </button>
+  }
+</mat-menu>

@@ -1,0 +1,20 @@
+<div class="sheet-handle" aria-hidden="true"></div>
+<h2 class="sheet-title">{{data.title}}</h2>
+@if (data.segments?.length) {
+  <div class="sheet-segments" role="radiogroup" [attr.aria-label]="data.segmentsTitle || null">
+    @for (segment of data.segments; track segment.value) {
+      <button type="button" role="radio" class="sheet-segment" [attr.aria-checked]="isSegmentSelected(segment)" (click)="chooseSegment(segment)">{{segment.label}}</button>
+    }
+  </div>
+}
+<div class="sheet-options" [attr.role]="data.multiple ? 'group' : 'radiogroup'" [attr.aria-label]="data.title">
+  @for (option of data.options; track $index) {
+    <button type="button" class="sheet-option" [attr.role]="data.multiple ? 'checkbox' : 'radio'" [attr.aria-checked]="data.isSelected(option.value)" (click)="choose(option)">
+      <span class="sheet-option-label">{{option.label}}</span>
+      @if (option.detail) {
+        <span class="sheet-option-detail">{{option.detail}}</span>
+      }
+      <mat-icon class="sheet-option-check" [class.kit-invisible]="!data.isSelected(option.value)">check</mat-icon>
+    </button>
+  }
+</div>

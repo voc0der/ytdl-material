@@ -1,14 +1,3 @@
-<div class="sort-property">
-  <mat-form-field appearance="outline" class="sort-property-field">
-    <mat-select [(ngModel)]="this.sortProperty" (selectionChange)="emitSortOptionChanged($event.value)">
-      @for (sortOption of sortProperties | keyvalue; track sortOption) {
-        <mat-option [value]="sortOption.key">
-          {{sortOption['value']['label']}}
-        </mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
-  <button type="button" class="sort-dir-button" (click)="toggleModeChange()" mat-icon-button>
-    <mat-icon>{{descendingMode ? 'arrow_downward' : 'arrow_upward'}}</mat-icon>
-  </button>
-</div>
+<app-picker [title]="title" [options]="propertyOptions" [value]="sortProperty" (valueChange)="emitSortOptionChanged($any($event))"
+  [segments]="currentOrderOptions" [segment]="currentOrder" [segmentsTitle]="orderTitle" (segmentChange)="orderChanged($event)"
+  [icon]="icon" [iconOnly]="iconOnly"></app-picker>

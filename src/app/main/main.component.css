@@ -1,30 +1,44 @@
-.demo-basic {
-    padding: 0;
-}
-
-.demo-basic .mat-mdc-card-content {
-    padding: 16px;
-}
-
-.big {
+/* The download box: one field for the link, and under it a row of chips for what to download. */
+.download-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-sizing: border-box;
     max-width: 800px;
-    margin: 0 auto;
+    margin: 24px auto 0;
+    padding: 0 16px;
 }
 
-.example-full-width {
-    width: 100%;
+.download-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-mat-form-field.mat-mdc-form-field {
-    font-size: 24px;
-  }
+.download-field {
+    min-height: 52px;
+    padding: 6px;
+    border-radius: 26px;
+}
 
-.entry-bar {
-    margin: 20px 0 12px;
+.download-field > .url-input {
+    margin: 8px 0;
+    line-height: 24px;
+    resize: none;
+    overflow-y: hidden;
+}
+
+.url-input::-webkit-scrollbar {
+    display: none;
+}
+
+.download-action,
+.input-mode-toggle {
+    align-self: flex-start;
 }
 
 .input-mode-toggle {
-    margin-inline: 4px;
+    color: var(--kit-on-surface-variant);
 }
 
 .input-mode-glyph {
@@ -61,16 +75,14 @@ mat-form-field.mat-mdc-form-field {
     }
 }
 
-.main-pane-card-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+.download-more {
+    padding: 0 10px;
 }
 
 .playlist-shortcut-action.mat-mdc-button-base {
     min-width: 0;
     padding: 0 2px 0 4px;
-    margin: 0 8px 8px auto;
+    margin: 0 0 0 auto;
     line-height: 28px;
     color: inherit !important;
     opacity: 0.68;
@@ -92,12 +104,12 @@ mat-form-field.mat-mdc-form-field {
     opacity: 0.84;
 }
 
-.advanced-input {
-    width: 100%;
+mat-form-field.mat-mdc-form-field {
+    font-size: 24px;
 }
 
-.advanced-input-time {
-    margin-left: 10px;
+.advanced-input {
+    width: 100%;
 }
 
 .edit-button {
@@ -108,20 +120,9 @@ mat-form-field.mat-mdc-form-field {
     top: 6px;
 }
 
-.border-radius-both {
-    border-radius: 16px;
-}
-
-.no-border-radius-bottom {
-    border-radius: 16px 16px 0px 0px;
-}
-
-.no-border-radius-top {
-    border-radius: 0px 0px 16px 16px;
-}
-
 .advanced-panel {
     padding-top: 8px;
+    border-radius: 16px;
 }
 
 .advanced-panel-header {
@@ -144,222 +145,9 @@ mat-form-field.mat-mdc-form-field {
     opacity: 1;
 }
 
-.url-input {
-    overflow-y: hidden;
-}
-
-.url-input::-webkit-scrollbar {
-    display: none;
-}
-
-.download-split-button {
-    display: inline-flex;
-    align-items: stretch;
-    align-self: flex-end;
-}
-
-.download-split-button .mat-mdc-button-base {
-    margin: 0 !important;
-}
-
-.download-main-action.mat-mdc-outlined-button {
-    border-radius: 999px 0 0 999px !important;
-    border-right-width: 0 !important;
-    padding-right: 12px;
-}
-
-.download-menu-action.mat-mdc-outlined-button {
-    min-width: 40px !important;
-    width: 40px;
-    padding: 0 !important;
-    margin-left: -1px !important;
-    border-radius: 0 999px 999px 0 !important;
-}
-
-.download-menu-action.mat-mdc-outlined-button .mdc-button__label {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.download-menu-action.mat-mdc-outlined-button mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    opacity: 0.78;
-    transition: opacity 120ms ease;
-}
-
-.download-menu-action.mat-mdc-outlined-button:hover mat-icon {
-    opacity: 1;
-}
-
-.main-pane-actions-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    width: 100%;
-    --main-pane-action-control-height: 36px;
-    --mp-radius: 999px;
-    --mp-leading: 28px;
-}
-
-.main-pane-action-controls {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    min-width: 0;
-}
-
-.main-pane-download-group {
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    flex: 0 0 auto;
-    margin-left: auto;
-}
-
-.download-split-button,
-.main-pane-select-group,
-.main-pane-download-group {
-    margin: 0 0 8px 0 !important;
-}
-
-.main-pane-select-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.download-main-action.mat-mdc-outlined-button,
-.download-menu-action.mat-mdc-outlined-button {
-    height: var(--main-pane-action-control-height);
-    min-height: var(--main-pane-action-control-height);
-}
-
-.main-pane-action-field-label {
-    padding-left: 14px;
-    font-size: 0.95rem;
-    line-height: 1;
-    opacity: 0.72;
-}
-
-.main-pane-action-select.mat-mdc-form-field {
-    font-size: 16px;
-}
-
-.main-pane-action-select {
-    width: 140px;
-    min-width: 140px;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-    display: none;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-text-field-wrapper {
-    height: var(--main-pane-action-control-height);
-    min-height: var(--main-pane-action-control-height);
-    padding-bottom: 0;
-    border-radius: var(--mp-radius);
-    overflow: hidden;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-form-field-flex {
-    height: 100%;
-    align-items: center;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-form-field-infix {
-    min-height: 0;
-    height: 100%;
-    padding-top: 0;
-    padding-bottom: 0;
-    display: flex;
-    align-items: center;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-select-trigger {
-    height: 100%;
-    align-items: center;
-}
-
-.main-pane-action-select ::ng-deep .mat-mdc-form-field-icon-suffix {
-    align-items: center;
-    align-self: center;
-}
-
-.main-pane-action-select ::ng-deep .mdc-notched-outline {
-    border-radius: inherit;
-    overflow: hidden;
-}
-
-.main-pane-action-select ::ng-deep .mdc-notched-outline__leading {
-    border-radius: var(--mp-radius) 0 0 var(--mp-radius);
-    width: var(--mp-leading) !important;
-    min-width: var(--mp-leading);
-    border-right: none;
-}
-
-.main-pane-action-select ::ng-deep .mdc-notched-outline__trailing {
-    border-radius: 0 var(--mp-radius) var(--mp-radius) 0;
-    border-left: none;
-}
-
-.main-pane-action-select ::ng-deep .mdc-notched-outline__notch {
-    max-width: 0;
-    padding: 0;
-    border: none;
-}
-
-.main-pane-select-spinner {
-    margin-right: 4px;
-}
-
 @media (max-width: 576px) {
-    .main-pane-actions-row {
-        align-items: stretch;
-        flex-wrap: wrap;
-        gap: 12px;
-        --mp-radius: 16px;
-        --mp-leading: 18px;
-    }
-
-    .main-pane-action-controls {
-        align-items: stretch;
-        width: 100%;
-        gap: 12px;
-    }
-
-    .main-pane-action-select,
-    .main-pane-select-group {
-        width: 100%;
-        flex: 1 1 100%;
-    }
-
-    .main-pane-action-select {
-        min-width: 0;
-    }
-
-    .main-pane-select-group {
-        gap: 6px;
-    }
-
-    .main-pane-action-field-label {
-        padding-left: 0;
-    }
-
-    .main-pane-select-group,
-    .main-pane-download-group {
-        margin-bottom: 0 !important;
-    }
-
-    .main-pane-download-group {
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-end;
+    .download-box {
+        margin-top: 16px;
+        padding: 0 12px;
     }
 }
