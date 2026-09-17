@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy, HostBinding } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
@@ -24,6 +24,20 @@ registerLocaleData(localeES);
 registerLocaleData(localeDE);
 registerLocaleData(localeZH);
 registerLocaleData(localeNB);
+
+export type FileCardLayout = 'grid' | 'list';
+
+/**
+ * In the list layout the thumbnail takes this share of the row and the details share the
+ * rest. The thumbnail alone sets the row's height, so a list card's height follows from its
+ * width, which is what lets the library size its virtualized rows before they render.
+ */
+export const LIST_CARD_THUMBNAIL_SHARE = 0.6;
+export const LIST_CARD_THUMBNAIL_ASPECT_RATIO = 16 / 9;
+
+export function getListCardHeight(card_width: number): number {
+  return Math.ceil(Math.max(0, card_width) * LIST_CARD_THUMBNAIL_SHARE / LIST_CARD_THUMBNAIL_ASPECT_RATIO);
+}
 
 @Component({
     selector: 'app-unified-file-card',
@@ -53,6 +67,7 @@ export class UnifiedFileCardComponent implements OnInit {
   @Input() theme = null;
   @Input() file_obj = null;
   @Input() card_size = 'medium';
+  @Input() layout: FileCardLayout = 'grid';
   @Input() use_youtubedl_archive = false;
   @Input() is_playlist = false;
   @Input() index: number;
@@ -72,6 +87,14 @@ export class UnifiedFileCardComponent implements OnInit {
   @ViewChild(MatMenuTrigger) contextMenu: MatMenuTrigger;
   contextMenuPosition = { x: '0px', y: '0px' };
 
+  readonly listThumbnailWidthPercent = LIST_CARD_THUMBNAIL_SHARE * 100;
+  readonly listThumbnailAspectRatio = LIST_CARD_THUMBNAIL_ASPECT_RATIO;
+
+  @HostBinding('class.list-layout')
+  get isListLayout(): boolean {
+    return this.layout === 'list';
+  }
+
   /*
     Planned sizes:
     small: 150x175
@@ -85,6 +108,10 @@ export class UnifiedFileCardComponent implements OnInit {
     return this.baseStreamPath?.endsWith('/')
       ? this.baseStreamPath.slice(0, -1)
       : this.baseStreamPath;
+  }
+
+  get isAudioFile(): boolean {
+    return !this.is_playlist && (this.file_obj?.type === 'audio' || !!this.file_obj?.isAudio);
   }
 
   get displayedDateValue(): string | number | Date | null {

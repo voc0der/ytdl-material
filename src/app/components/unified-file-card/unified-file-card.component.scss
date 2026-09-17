@@ -190,16 +190,111 @@
   bottom: 1px;
 }
 
-@media (max-width: 576px){
-  
-  // .example-card {
-  //   width: 175px !important;
-  // }
+/* The list layout is one file per row on a narrow screen: a thumbnail across most of the
+   width, and the title and details squeezed into the gutter beside it. Its thumbnail's share
+   of the row and its aspect ratio are bound from the component, which the library also sizes
+   its virtualized rows from. */
+:host(.list-layout) {
+  display: block;
+  width: 100%;
+}
 
-  // .image {
-  //     width: 175px;
-  // }
-    
+.list-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.list-thumbnail {
+  position: relative;
+  flex-grow: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.16);
+}
+
+.list-thumbnail-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.list-thumbnail-fallback {
+  opacity: 0.5;
+}
+
+.list-duration {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.list-duration mat-icon {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+}
+
+/* Size containment keeps the details out of the row's height, so the row is exactly as tall
+   as its thumbnail however long a title runs. The clamps below keep them inside it at any
+   phone width in practice; containment is what holds the row height if they do not. */
+.list-details {
+  flex: 1 1 0;
+  align-self: stretch;
+  min-width: 0;
+  contain: size;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The right padding leaves the menu button its corner. */
+.list-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  padding-right: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.list-detail {
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A touch-sized target whose icon still lines up with the title's first line. */
+.menuButton.list-menu-button {
+  top: -8px;
+  right: -8px;
+  width: 40px !important;
+  height: 40px !important;
 }
 
 :host ::ng-deep.mat-mdc-menu-panel {
