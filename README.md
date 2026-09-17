@@ -13,7 +13,7 @@
 [![Version badge](https://img.shields.io/github/v/release/voc0der/ytdl-material?display_name=tag)](https://github.com/voc0der/ytdl-material/releases/latest)
 [![Dependencies badge](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml)
 
-ytdl-material is a full suite UI for [yt-dlp](https://github.com/yt-dlp/yt-dlp). It's coded using [Angular 22](https://angular.dev/) for the frontend, and [Node.js](https://nodejs.org/) on the backend. See a list of features [here](https://github.com/voc0der/ytdl-material/wiki/Features).
+ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp). Download video and audio from a link, subscribe to channels and playlists so new uploads arrive on their own, and watch everything from a library in your browser, whether it's just you or everyone on your server. See the [full feature list](https://github.com/voc0der/ytdl-material/wiki/Features).
 
 <hr>
 
