@@ -316,6 +316,35 @@ describe('Tasks', function() {
         });
     });
 
+    describe('Next run', function() {
+        afterEach(async function() {
+            await tasks_api.updateTaskSchedule('dummy_task', null);
+        });
+
+        it('has no next run for a task that is not scheduled', function() {
+            assert.strictEqual(tasks_api.getNextRun('dummy_task'), null);
+        });
+
+        it('reports when a scheduled task runs next', async function() {
+            // The page cannot say when a task runs next without this. It read nextInvocation()
+            // off the job, which is node-schedule's name for it -- croner, which replaced it,
+            // calls it nextRun(), so the answer was always null and every scheduled task
+            // reported nothing at all.
+            await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30, tz: 'Etc/UTC'}});
+
+            const next_run = tasks_api.getNextRun('dummy_task');
+
+            assert(next_run instanceof Date, 'expected a Date for a scheduled task');
+            assert(next_run.getTime() > Date.now(), 'expected the next run to be in the future');
+            assert.strictEqual(next_run.getUTCHours(), 3);
+            assert.strictEqual(next_run.getUTCMinutes(), 30);
+        });
+
+        it('has no next run for a task that does not exist', function() {
+            assert.strictEqual(tasks_api.getNextRun('not_a_task'), null);
+        });
+    });
+
     describe('Schedule timezones', function() {
         const scheduleAt = async (tz) => {
             await tasks_api.updateTaskSchedule('dummy_task', {

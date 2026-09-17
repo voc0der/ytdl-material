@@ -3252,6 +3252,9 @@ components:
           type: string
         schedule:
           $ref: '#/components/schemas/Schedule'
+        next_invocation:
+          description: When the schedule next fires, in milliseconds since the epoch. Only set while the task is scheduled.
+          type: number
         options:
           type: object
     TaskType:
