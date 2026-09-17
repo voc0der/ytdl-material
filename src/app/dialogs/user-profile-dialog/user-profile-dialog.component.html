@@ -1,132 +1,107 @@
-<h4 mat-dialog-title i18n="User profile dialog title">Your Profile</h4>
+<header class="dialog-header">
+  <span class="dialog-symbol"><mat-icon>person_outline</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="User profile dialog title">Your Profile</h2>
+    <p class="dialog-subtitle" i18n="Profile subtitle">Make yourself at home.</p>
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-<mat-dialog-content>
+<mat-dialog-content class="dialog-content">
   @if (postsService.isLoggedIn && postsService.user) {
-    <div>
-      <div>
-        <strong><ng-container i18n="Name">Name:</ng-container></strong>&nbsp;{{postsService.user.name}}
-      </div>
-      <div>
-        <strong><ng-container i18n="UID">UID:</ng-container></strong>&nbsp;{{postsService.user.uid}}
-      </div>
-      <div>
-        <strong><ng-container i18n="Created">Created:</ng-container></strong>&nbsp;{{postsService.user.created ? (postsService.user.created | date) : 'N/A'}}
-      </div>
-      <div style="margin-top: 20px;">
-      </div>
-      <mat-divider style="margin-bottom: 20px"></mat-divider>
-
-      <div class="api-tokens">
-        <strong><ng-container i18n="API tokens heading">API tokens</ng-container></strong>
-        <div class="api-tokens-hint" i18n="API tokens explanation">
-          Full API tokens let scripts act as you, with your permissions. RSS tokens work only for a feed. Both can be revoked at any time.
-        </div>
-
-        @if (new_token) {
-          <div class="new-token">
-            <div class="new-token-warning" i18n="New API token warning">Copy this now &mdash; it is not shown again.</div>
-            <code class="new-token-value">{{new_token}}</code>
-            <div>
-              <button mat-stroked-button color="primary" (click)="copyNewToken()"><ng-container i18n="Copy">Copy</ng-container></button>
-              <button mat-button (click)="dismissNewToken()"><ng-container i18n="Done">Done</ng-container></button>
-            </div>
-          </div>
-        }
-
-        @if (api_tokens.length) {
-          @for (token of api_tokens; track token.id) {
-          <div class="token-row">
-            <div class="token-details">
-              <div class="token-label">{{token.label || 'Unnamed token'}}</div>
-              <div class="token-dates">
-                @if (token.type === 'rss') {
-                  <ng-container i18n="RSS feed token type">RSS feed</ng-container>
-                } @else {
-                  <ng-container i18n="Full API token type">Full API</ng-container>
-                }
-                &middot;
-                <ng-container i18n="Token created">Created</ng-container>&nbsp;{{token.created | date}}
-                &middot;
-                @if (token.last_used) {
-                  <ng-container i18n="Token last used">last used</ng-container>&nbsp;{{token.last_used | date}}
-                } @else {
-                  <ng-container i18n="Token never used">never used</ng-container>
-                }
-              </div>
-            </div>
-            <button mat-icon-button color="warn" (click)="revokeAPIToken(token.id)" matTooltip="Revoke" i18n-matTooltip="Revoke token tooltip">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-          }
-        } @else if (!api_tokens_loading) {
-          <div class="api-tokens-hint" i18n="No API tokens">You have no tokens yet.</div>
-        }
-
-        <div class="new-token-form">
-          <mat-form-field color="accent" class="token-label-field">
-            <mat-label i18n="Token name label">Name (optional)</mat-label>
-            <input matInput [(ngModel)]="new_token_label" placeholder="Backup script" maxlength="64">
-          </mat-form-field>
-          <button mat-stroked-button color="accent" (click)="generateAPIToken()"><ng-container i18n="Generate token">Generate</ng-container></button>
-        </div>
-
-        @if (token_error) {
-          <div class="token-error">{{token_error}}</div>
-        }
-      </div>
-
-      <mat-divider style="margin: 20px 0"></mat-divider>
-    </div>
+    <section class="dialog-section dialog-surface account-summary">
+      <h3>{{postsService.user.name}}</h3>
+      <dl class="dialog-details">
+        <div><dt i18n="Created">Created</dt><dd>{{postsService.user.created ? (postsService.user.created | date) : 'N/A'}}</dd></div>
+        <div><dt i18n="UID">UID</dt><dd class="dialog-mono">{{postsService.user.uid}}</dd></div>
+      </dl>
+    </section>
   }
-  <mat-form-field color="accent">
-    <mat-label><ng-container i18n="Language select label">Language</ng-container></mat-label>
-    <mat-select (selectionChange)="localeSelectChanged($event.value)" [(value)]="initialLocale">
-      @for (locale of supported_locales; track locale) {
-        <mat-option [value]="locale">
-          @if (all_locales[locale]) {
-            {{all_locales[locale]['nativeName']}}
-          }
-        </mat-option>
+
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>tune</mat-icon><ng-container i18n="Profile preferences heading">Preferences</ng-container></h3>
+    <div class="kit-panel settings-rows">
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-title" i18n="Language select label">Language</span>
+          <span class="settings-row-hint" i18n="Profile language hint">Reload the page to apply changes.</span>
+        </div>
+        <app-picker title="Language" i18n-title="Language select label" [options]="localeOptions" [(value)]="initialLocale" (valueChange)="localeSelectChanged($event)"></app-picker>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-title" i18n="Sidepanel mode">Sidepanel mode</span>
+          <span class="settings-row-hint" i18n="Profile sidepanel hint">Overlay the page or sit alongside it.</span>
+        </div>
+        <app-picker title="Sidepanel mode" i18n-title="Sidepanel mode" [options]="sidepanel_options" [(value)]="sidepanel_mode" (valueChange)="sidePanelModeChanged($event)"></app-picker>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-title" i18n="File card size">File card size</span>
+          <span class="settings-row-hint" i18n="Profile card size hint">Choose how much fits in your library.</span>
+        </div>
+        <app-picker title="File card size" i18n-title="File card size" [options]="card_size_options" [(value)]="card_size" (valueChange)="cardSizeOptionChanged($event)"></app-picker>
+      </div>
+    </div>
+  </section>
+
+  @if (postsService.isLoggedIn && postsService.user) {
+    <section class="dialog-section api-tokens">
+      <h3 class="dialog-section-title"><mat-icon>key</mat-icon><ng-container i18n="API tokens heading">API tokens</ng-container></h3>
+      <p class="dialog-hint" i18n="API tokens explanation">Full API tokens let scripts act as you, with your permissions. RSS tokens work only for a feed. Both can be revoked at any time.</p>
+
+      @if (new_token) {
+        <div class="new-token" role="status">
+          <div class="new-token-warning" i18n="New API token warning">Copy this now &mdash; it is not shown again.</div>
+          <code class="new-token-value">{{new_token}}</code>
+          <div class="token-actions">
+            <button type="button" class="kit-chip kit-primary" (click)="copyNewToken()"><mat-icon>content_copy</mat-icon><ng-container i18n="Copy">Copy</ng-container></button>
+            <button type="button" class="kit-chip" (click)="dismissNewToken()" i18n="Done">Done</button>
+          </div>
+        </div>
       }
-    </mat-select>
-  </mat-form-field>
-  <br/>
-  <mat-form-field>
-    <mat-label i18n="Sidepanel mode">Sidepanel mode</mat-label>
-    <mat-select [(ngModel)]="sidepanel_mode" (selectionChange)="sidePanelModeChanged($event.value)">
-      <mat-option i18n="Over" value="over">
-                Over
-            </mat-option>
-      <mat-option i18n="Side" value="side">
-                Side
-            </mat-option>
-    </mat-select>
-  </mat-form-field>
-  <br/>
-  <mat-form-field>
-    <mat-label i18n="File card size">File card size</mat-label>
-    <mat-select [(ngModel)]="card_size" (selectionChange)="cardSizeOptionChanged($event.value)">
-      <mat-option i18n="Large" value="large">
-                Large
-            </mat-option>
-      <mat-option i18n="Medium" value="medium">
-                Medium
-            </mat-option>
-      <mat-option i18n="Small" value="small">
-                Small
-            </mat-option>
-    </mat-select>
-  </mat-form-field>
+
+      <div class="dialog-surface token-list" [attr.aria-busy]="api_tokens_loading">
+        @if (api_tokens_loading) {
+          <p class="token-empty" role="status" i18n="Loading API tokens">Loading tokens…</p>
+        } @else if (api_tokens.length) {
+          @for (token of api_tokens; track token.id) {
+            <div class="token-row">
+              <mat-icon class="token-icon">{{token.type === 'rss' ? 'rss_feed' : 'key'}}</mat-icon>
+              <div class="token-details">
+                <div class="token-label">{{token.label || unnamedTokenLabel}}</div>
+                <div class="token-dates">
+                  @if (token.type === 'rss') { <ng-container i18n="RSS feed token type">RSS feed</ng-container> }
+                  @else { <ng-container i18n="Full API token type">Full API</ng-container> }
+                  &middot; <ng-container i18n="Token created">Created</ng-container>&nbsp;{{token.created | date}}
+                  &middot;
+                  @if (token.last_used) { <ng-container i18n="Token last used">last used</ng-container>&nbsp;{{token.last_used | date}} }
+                  @else { <ng-container i18n="Token never used">never used</ng-container> }
+                </div>
+              </div>
+              <button type="button" class="kit-icon-button" (click)="revokeAPIToken(token.id)" aria-label="Revoke token" i18n-aria-label="Revoke token" matTooltip="Revoke" i18n-matTooltip="Revoke token tooltip"><mat-icon>delete_outline</mat-icon></button>
+            </div>
+          }
+        } @else {
+          <p class="token-empty" i18n="No API tokens">You have no tokens yet.</p>
+        }
+      </div>
+
+      <div class="new-token-form">
+        <label class="dialog-field token-label-field">
+          <span class="dialog-field-label" i18n="Token name label">Name (optional)</span>
+          <span class="kit-field"><input [(ngModel)]="new_token_label" placeholder="Backup script" i18n-placeholder="Token name example" maxlength="64"></span>
+        </label>
+        <button type="button" class="kit-chip" (click)="generateAPIToken()"><mat-icon>add</mat-icon><ng-container i18n="Generate token">Generate</ng-container></button>
+      </div>
+      @if (token_error) { <p class="token-error" role="alert">{{token_error}}</p> }
+    </section>
+  }
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <div style="width: 100%">
-    <div style="position: relative">
-      <button mat-stroked-button mat-dialog-close color="primary"><ng-container i18n="Close">Close</ng-container></button>
-      @if (postsService.isLoggedIn) {
-        <button style="position: absolute; right: 0px;" (click)="logoutClicked()" mat-stroked-button color="warn"><ng-container i18n="Logout">Logout</ng-container></button>
-      }
-    </div>
-  </div>
+<mat-dialog-actions class="dialog-actions">
+  @if (postsService.isLoggedIn) {
+    <button type="button" class="kit-chip" (click)="logoutClicked()"><mat-icon>logout</mat-icon><ng-container i18n="Logout">Logout</ng-container></button>
+  }
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close">Close</button>
 </mat-dialog-actions>

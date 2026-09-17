@@ -1,23 +1,77 @@
-i {
-    margin-right: 1px;
+.app-logo {
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.about-intro p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--kit-on-surface-variant);
+}
+.feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 18px;
+}
+.feature-list > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--kit-on-tonal);
+  font-size: 12px;
+}
+.feature-list .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+.project-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.project-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+.project-link:hover {
+  background: var(--kit-surface-hover);
+}
+.project-link > span {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.project-link strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.project-link small {
+  color: var(--kit-on-surface-variant);
+  font-size: 12px;
+}
+.project-link > .mat-icon {
+  flex-shrink: 0;
+  color: var(--kit-on-surface-variant);
+}
+.project-link > .mat-icon:last-child {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
 }
 
-.version-spinner {
-    top: 4px;
-    margin-right: 5px;
-    margin-left: 5px;
-    display: inline-block;
-}
-
-.version-checked-icon {
-    top: 5px;
-    margin-left: 2px;
-    position: relative;
-    margin-right: -3px;
-}
-
-.logo-image {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+@media (max-width: 420px) {
+  .app-logo {
+    width: 40px;
+    height: 40px;
+  }
 }

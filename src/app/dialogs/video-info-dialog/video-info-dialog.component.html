@@ -1,98 +1,134 @@
-<h4 mat-dialog-title>
-  {{file.title}}
-  <div class="favorite-button">
-    <button [disabled]="!initialized || retrieving_file || !write_access" mat-icon-button (click)="editing = !editing"><mat-icon>edit</mat-icon></button>
-    <button [disabled]="!initialized || retrieving_file || !write_access" (click)="toggleFavorite()" mat-icon-button ><mat-icon>{{file.favorite ? 'favorite_filled' : 'favorite_outline'}}</mat-icon></button>
+<header class="dialog-header">
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Media information dialog title">Media information</h2>
+    <p class="dialog-subtitle" i18n="Media information subtitle">Details about this file in your library.</p>
   </div>
-</h4>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-<mat-dialog-content>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Name">Name</mat-label>
-    <input [(ngModel)]="new_file.title" matInput [disabled]="!editing">
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="URL">URL</mat-label>
-    <input [(ngModel)]="new_file.url" matInput [disabled]="!editing">
-    <button mat-icon-button matSuffix (click)="window.open(new_file.url, '_blank')">
-      <mat-icon>link</mat-icon>
-    </button>
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Uploader">Uploader</mat-label>
-    <input [(ngModel)]="new_file.uploader" matInput [disabled]="!editing">
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Upload date">Upload date</mat-label>
-    <input [value]="upload_date" matInput [matDatepicker]="picker" (dateChange)="uploadDateChanged($event)" [disabled]="!editing">
-    <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-    <mat-datepicker #picker></mat-datepicker>
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Thumbnail path">Thumbnail path</mat-label>
-    <input [(ngModel)]="new_file.thumbnailPath" matInput [disabled]="!editing">
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Thumbnail URL">Thumbnail URL</mat-label>
-    <input [(ngModel)]="new_file.thumbnailURL" matInput [disabled]="!editing || new_file.thumbnailPath">
-  </mat-form-field>
-  @if (initialized && postsService.categories) {
-    <mat-form-field class="info-field">
-      <mat-label i18n="Category">Category</mat-label>
-      <mat-select [value]="category" (selectionChange)="categoryChanged($event)" [compareWith]="categoryComparisonFunction" [disabled]="!editing">
-        <mat-option [value]="{}">
-          N/A
-        </mat-option>
-        @for (available_category of postsService.categories | keyvalue; track available_category) {
-          <mat-option [value]="available_category.value">
-            {{available_category.value['name']}}
-          </mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-  }
-  <mat-form-field class="info-field">
-    <mat-label i18n="View count">View count</mat-label>
-    <input type="number" [(ngModel)]="new_file.view_count" matInput [disabled]="!editing">
-  </mat-form-field>
-  <mat-form-field class="info-field">
-    <mat-label i18n="Local view count">Local view count</mat-label>
-    <input type="number" [(ngModel)]="new_file.local_view_count" matInput [disabled]="!editing">
-  </mat-form-field>
-
-  <mat-divider style="margin-bottom: 16px;"></mat-divider>
-
-  @if (!new_file.isAudio) {
-    <div class="info-item">
-      <div class="info-item-label"><strong><ng-container i18n="Video resolution property">Resolution:</ng-container>&nbsp;</strong></div>
-      <div class="info-item-value">{{new_file.height ? new_file.height + 'p' : 'N/A'}}</div>
+<mat-dialog-content class="dialog-content" [attr.aria-busy]="retrieving_file">
+  <section class="media-summary dialog-surface dialog-section">
+    <span class="dialog-symbol"><mat-icon>{{file.isAudio ? 'audiotrack' : 'movie'}}</mat-icon></span>
+    <div class="media-heading">
+      <h3>{{file.title}}</h3>
+      @if (file.uploader) { <p>{{file.uploader}}</p> }
+      <div class="media-badges">
+        <span class="media-badge">{{file.isAudio ? audioLabel : videoLabel}}</span>
+        @if (file.duration) { <span>{{formatDuration(file.duration)}}</span> }
+        @if (file.category?.name) { <span>{{file.category.name}}</span> }
+      </div>
     </div>
-  }
-  <div class="info-item">
-    <div class="info-item-label"><strong><ng-container i18n="Video audio bitrate property">Audio bitrate:</ng-container>&nbsp;</strong></div>
-    <div class="info-item-value">{{new_file.abr ? new_file.abr + ' Kbps' : 'N/A'}}</div>
-  </div>
-  <div class="info-item">
-    <div class="info-item-label"><strong><ng-container i18n="Video file size property">File size:</ng-container>&nbsp;</strong></div>
-    <div class="info-item-value">{{new_file.size ? filesize(new_file.size) : 'N/A'}}</div>
-  </div>
-  <div class="info-item">
-    <div class="info-item-label"><strong><ng-container i18n="Video path property">Path:</ng-container>&nbsp;</strong></div>
-    <div class="info-item-value">{{new_file.path ? new_file.path : 'N/A'}}</div>
-  </div>
-  <div class="info-item">
-    <div class="info-item-label"><strong><ng-container i18n="Video subtitles property">Subtitles:</ng-container>&nbsp;</strong></div>
-    <div class="info-item-value">{{getSubtitleSummary()}}</div>
-  </div>
+    <button type="button" class="kit-icon-button favorite-button" [class.is-favorite]="file.favorite"
+      [disabled]="!initialized || retrieving_file || !write_access" (click)="toggleFavorite()"
+      [attr.aria-pressed]="file.favorite" aria-label="Favorite" i18n-aria-label="Favorite"
+      matTooltip="Favorite" i18n-matTooltip="Favorite">
+      <mat-icon>{{file.favorite ? 'favorite' : 'favorite_border'}}</mat-icon>
+    </button>
+  </section>
 
+  @if (editing) {
+    <section class="dialog-section">
+      <h3 class="dialog-section-title"><mat-icon>edit</mat-icon><ng-container i18n="Edit media details">Edit details</ng-container></h3>
+      <div class="dialog-form">
+        <label class="dialog-field dialog-field-wide">
+          <span class="dialog-field-label" i18n="Name">Name</span>
+          <span class="kit-field"><input [(ngModel)]="new_file.title" [disabled]="retrieving_file"></span>
+        </label>
+        <label class="dialog-field dialog-field-wide">
+          <span class="dialog-field-label" i18n="URL">URL</span>
+          <span class="kit-field"><input type="url" [(ngModel)]="new_file.url" [disabled]="retrieving_file"></span>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-field-label" i18n="Uploader">Uploader</span>
+          <span class="kit-field"><input [(ngModel)]="new_file.uploader" [disabled]="retrieving_file"></span>
+        </label>
+        <div class="dialog-field">
+          <label class="dialog-field-label" for="media-upload-date" i18n="Upload date">Upload date</label>
+          <div class="kit-field date-field">
+            <input id="media-upload-date" [value]="upload_date" [matDatepicker]="picker" (dateChange)="uploadDateChanged($event)" [disabled]="retrieving_file">
+            <mat-datepicker-toggle [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </div>
+        </div>
+        <label class="dialog-field">
+          <span class="dialog-field-label" i18n="Thumbnail path">Thumbnail path</span>
+          <span class="kit-field"><input [(ngModel)]="new_file.thumbnailPath" [disabled]="retrieving_file"></span>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-field-label" i18n="Thumbnail URL">Thumbnail URL</span>
+          <span class="kit-field"><input [(ngModel)]="new_file.thumbnailURL" [disabled]="retrieving_file || !!new_file.thumbnailPath"></span>
+        </label>
+        @if (initialized && postsService.categories) {
+          <div class="dialog-field dialog-field-wide">
+            <span class="dialog-field-label" id="media-category-label" i18n="Category">Category</span>
+            <div class="kit-field">
+              <mat-select aria-labelledby="media-category-label" [value]="category" (selectionChange)="categoryChanged($event)" [compareWith]="categoryComparisonFunction" [disabled]="retrieving_file">
+                <mat-option [value]="{}">N/A</mat-option>
+                @for (available_category of postsService.categories | keyvalue; track available_category.key) {
+                  <mat-option [value]="available_category.value">{{available_category.value['name']}}</mat-option>
+                }
+              </mat-select>
+            </div>
+          </div>
+        }
+        <label class="dialog-field">
+          <span class="dialog-field-label" i18n="View count">View count</span>
+          <span class="kit-field"><input type="number" [(ngModel)]="new_file.view_count" [disabled]="retrieving_file"></span>
+        </label>
+        <label class="dialog-field">
+          <span class="dialog-field-label" i18n="Local view count">Local view count</span>
+          <span class="kit-field"><input type="number" [(ngModel)]="new_file.local_view_count" [disabled]="retrieving_file"></span>
+        </label>
+      </div>
+    </section>
+  } @else {
+    <section class="dialog-section">
+      <h3 class="dialog-section-title"><mat-icon>info_outline</mat-icon><ng-container i18n="Media details heading">Details</ng-container></h3>
+      <dl class="dialog-details">
+        <div><dt i18n="Upload date">Upload date</dt><dd>{{file.upload_date || 'N/A'}}</dd></div>
+        <div><dt i18n="Category">Category</dt><dd>{{file.category?.name || 'N/A'}}</dd></div>
+        <div><dt i18n="View count">View count</dt><dd>{{file.view_count == null ? 'N/A' : (file.view_count | number)}}</dd></div>
+        <div><dt i18n="Local view count">Local view count</dt><dd>{{file.local_view_count == null ? '0' : (file.local_view_count | number)}}</dd></div>
+        <div class="detail-wide"><dt i18n="URL">URL</dt><dd>
+          @if (file.url) { <a [href]="file.url" target="_blank" rel="noopener noreferrer" class="source-link">{{file.url}}<mat-icon>open_in_new</mat-icon></a> } @else { N/A }
+        </dd></div>
+      </dl>
+    </section>
+  }
+
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>description</mat-icon><ng-container i18n="File details heading">File details</ng-container></h3>
+    <dl class="dialog-details dialog-surface">
+      @if (!new_file.isAudio) {
+        <div><dt i18n="Video resolution property">Resolution</dt><dd>{{new_file.height ? new_file.height + 'p' : 'N/A'}}</dd></div>
+      }
+      <div><dt i18n="Video audio bitrate property">Audio bitrate</dt><dd>{{new_file.abr ? new_file.abr + ' Kbps' : 'N/A'}}</dd></div>
+      <div><dt i18n="Video file size property">File size</dt><dd>{{new_file.size ? filesize(new_file.size) : 'N/A'}}</dd></div>
+      <div><dt i18n="Video subtitles property">Subtitles</dt><dd>{{getSubtitleSummary()}}</dd></div>
+      <div class="detail-wide"><dt i18n="Video path property">Path</dt><dd class="dialog-mono">{{new_file.path || 'N/A'}}</dd></div>
+      @if (!editing && file.thumbnailPath) {
+        <div class="detail-wide"><dt i18n="Thumbnail path">Thumbnail path</dt><dd class="dialog-mono">{{file.thumbnailPath}}</dd></div>
+      }
+      @if (!editing && file.thumbnailURL && !file.thumbnailPath) {
+        <div class="detail-wide"><dt i18n="Thumbnail URL">Thumbnail URL</dt><dd class="dialog-mono">{{file.thumbnailURL}}</dd></div>
+      }
+    </dl>
+  </section>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close><ng-container i18n="Close video info button">Close</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
   @if (canSnip()) {
-    <button mat-button mat-dialog-close (click)="requestSnip()" matTooltip="Select a range of this video to save as a new file" i18n-matTooltip="Snip button tooltip">
-      <mat-icon class="snip-icon">content_cut</mat-icon><ng-container i18n="Snip video button">Snip</ng-container>
+    <button type="button" class="kit-chip" mat-dialog-close (click)="requestSnip()" matTooltip="Select a range of this video to save as a new file" i18n-matTooltip="Snip button tooltip">
+      <mat-icon>content_cut</mat-icon><ng-container i18n="Snip video button">Snip</ng-container>
     </button>
   }
-  <button mat-button [disabled]="!metadataChanged()" (click)="saveChanges()"><ng-container i18n="Save video info button">Save</ng-container></button>
+  @if (editing) {
+    <button type="button" class="kit-chip dialog-actions-end" [disabled]="retrieving_file" (click)="cancelEditing()" i18n="Cancel">Cancel</button>
+    <button type="button" class="kit-chip kit-primary" [disabled]="!metadataChanged() || retrieving_file || !write_access" (click)="saveChanges()"><mat-icon>check</mat-icon><ng-container i18n="Save video info button">Save</ng-container></button>
+  } @else {
+    <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Close video info button">Close</button>
+    @if (write_access) {
+      <button type="button" class="kit-chip kit-primary" [disabled]="!initialized || retrieving_file" (click)="editing = true"><mat-icon>edit</mat-icon><ng-container i18n="Edit media details">Edit details</ng-container></button>
+    }
+  }
 </mat-dialog-actions>

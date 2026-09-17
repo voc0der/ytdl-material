@@ -1,67 +1,107 @@
-
-.api-tokens {
-  margin-bottom: 10px;
-}
-
-.api-tokens-hint {
-  opacity: 0.7;
-  font-size: 12px;
-  margin: 4px 0 10px 0;
-}
-
-.new-token {
-  border: 1px solid rgba(128, 128, 128, 0.4);
-  border-radius: 4px;
-  padding: 10px;
-  margin-bottom: 12px;
-}
-
-.new-token-warning {
-  font-size: 12px;
+.account-summary h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
   font-weight: 500;
-  margin-bottom: 6px;
+  overflow-wrap: anywhere;
 }
-
+.settings-row app-picker {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.new-token {
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: var(--kit-tonal);
+}
+.new-token-warning {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
 .new-token-value {
   display: block;
-  word-break: break-all;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface);
   font-size: 12px;
-  padding: 6px;
-  margin-bottom: 8px;
-  background: rgba(128, 128, 128, 0.15);
-  border-radius: 3px;
+  overflow-wrap: anywhere;
   user-select: all;
 }
-
+.token-actions {
+  display: flex;
+  gap: 8px;
+}
 .token-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 12px;
+  padding: 12px 0;
 }
-
+.token-row + .token-row {
+  border-top: 1px solid var(--kit-divider);
+}
+.token-row:first-child {
+  padding-top: 0;
+}
+.token-row:last-child {
+  padding-bottom: 0;
+}
+.token-details {
+  flex: 1;
+  min-width: 0;
+}
 .token-label {
-  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
-
+.token-icon, .token-dates, .token-empty {
+  color: var(--kit-on-surface-variant);
+}
+.token-icon {
+  flex-shrink: 0;
+}
 .token-dates {
-  opacity: 0.7;
+  margin-top: 3px;
   font-size: 12px;
 }
-
+.token-empty {
+  margin: 0;
+  font-size: 13px;
+}
 .new-token-form {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 6px;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
 }
-
 .token-label-field {
   flex: 1;
 }
-
+.new-token-form > button {
+  height: 44px;
+  border-radius: 22px;
+}
 .token-error {
-  color: #f44336;
-  font-size: 12px;
+  margin: 12px 0 0;
+  color: var(--mat-form-field-error-text-color, #c62828);
+  font-size: 13px;
+}
+
+@media (max-width: 420px) {
+  .settings-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .settings-row-text {
+    flex-basis: 100%;
+  }
+  .new-token-form {
+    flex-wrap: wrap;
+  }
+  .token-label-field {
+    flex-basis: 100%;
+  }
 }

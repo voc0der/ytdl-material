@@ -4,29 +4,43 @@ import { Router } from '@angular/router';
 import { MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { isoLangs } from './locales_list';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatDivider } from '@angular/material/list';
-import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
-import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatSelect, MatOption } from '@angular/material/select';
 import { DatePipe } from '@angular/common';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 @Component({
     selector: 'app-user-profile-dialog',
     templateUrl: './user-profile-dialog.component.html',
     styleUrls: ['./user-profile-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDivider, MatButton, MatIconButton, MatTooltip, MatIcon, MatFormField, MatLabel, MatInput, FormsModule, MatSelect, MatOption, MatDialogActions, MatDialogClose, DatePipe]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatTooltip, MatIcon, FormsModule, PickerComponent, MatDialogActions, MatDialogClose, DatePipe]
 })
 export class UserProfileDialogComponent implements OnInit {
 
   all_locales = isoLangs;
   supported_locales = ['en', 'es', 'de', 'fr', 'nl', 'pt', 'it', 'ca', 'cs', 'nb', 'ru', 'zh', 'ko', 'id', 'en-GB'];
-  initialLocale = localStorage.getItem('locale');
+  initialLocale = localStorage.getItem('locale') || 'en';
   sidepanel_mode = this.postsService.sidepanel_mode;
   card_size = this.postsService.card_size;
+  sidepanel_options: PickerOption[] = [
+    { value: 'over', label: $localize`Over` },
+    { value: 'side', label: $localize`Side` }
+  ];
+  card_size_options: PickerOption[] = [
+    { value: 'large', label: $localize`Large` },
+    { value: 'medium', label: $localize`Medium` },
+    { value: 'small', label: $localize`Small` }
+  ];
+
+  get localeOptions(): PickerOption[] {
+    return this.supported_locales.map(locale => ({
+      value: locale,
+      label: this.all_locales[locale]?.nativeName || locale
+    }));
+  }
 
   // Per-user API tokens. new_token holds the one value the server will ever return in
   // plaintext, so it stays on screen until the dialog closes and is never fetched again.
@@ -35,6 +49,7 @@ export class UserProfileDialogComponent implements OnInit {
   new_token_label = '';
   new_token = null;
   token_error = null;
+  unnamedTokenLabel = $localize`Unnamed token`;
 
   constructor(public postsService: PostsService, private router: Router, public dialogRef: MatDialogRef<UserProfileDialogComponent>) { }
 
@@ -111,7 +126,8 @@ export class UserProfileDialogComponent implements OnInit {
     this.dialogRef.close();
   }
 
-  localeSelectChanged(new_val: string): void {
+  localeSelectChanged(new_val: unknown): void {
+    if (typeof new_val !== 'string') return;
     localStorage.setItem('locale', new_val);
     this.postsService.openSnackBar($localize`Language successfully changed! Reload to update the page.`)
   }

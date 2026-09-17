@@ -286,13 +286,21 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openAboutDialog(): void {
     this.dialog.open(AboutDialogComponent, {
-      width: '80vw'
+      panelClass: 'kit-dialog-panel',
+      width: '600px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 
   openProfileDialog(): void {
     this.dialog.open(UserProfileDialogComponent, {
-      width: '60vw'
+      panelClass: 'kit-dialog-panel',
+      width: '640px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 
