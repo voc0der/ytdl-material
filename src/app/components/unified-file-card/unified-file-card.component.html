@@ -1,5 +1,5 @@
-<div (mouseenter)="onMouseOver()" (mouseleave)="onMouseOut()" (contextmenu)="onRightClick($event)" style="position: relative; width: fit-content;">
-  @if (!loading) {
+<div (mouseenter)="onMouseOver()" (mouseleave)="onMouseOut()" (contextmenu)="onRightClick($event)" style="position: relative;" [style.width]="isListLayout ? '100%' : 'fit-content'">
+  @if (!isListLayout && !loading) {
     <div class="download-time">
       <mat-icon class="audio-video-icon">{{(file_obj.type === 'audio' || file_obj.isAudio) ? 'audiotrack' : 'movie'}}</mat-icon>
       &nbsp;&nbsp;
@@ -11,7 +11,7 @@
       }
     </div>
   }
-  @if (loading) {
+  @if (!isListLayout && loading) {
     <div class="download-time" style="width: 75%; margin-top: 5px;"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></div>
   }
   <!-- The context menu trigger must be kept above the "more info" menu -->
@@ -21,7 +21,7 @@
     [matMenuTriggerFor]="context_menu">
   </div>
   @if (!file_obj || !file_obj.auto) {
-    <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" mat-icon-button><mat-icon>more_vert</mat-icon></button>
+    <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button><mat-icon>more_vert</mat-icon></button>
   }
   <mat-menu #context_menu>
     @if (!loading) {
@@ -70,44 +70,90 @@
       <button mat-menu-item>Placeholder</button>
     }
   </mat-menu>
-  <mat-card [matTooltip]="null" (click)="navigateToFile($event)" matRipple class="file-mat-card" [ngClass]="{'small-mat-card': card_size === 'small', 'file-mat-card': card_size === 'medium', 'large-mat-card': card_size === 'large', 'mat-elevation-z4': !elevated, 'mat-elevation-z8': elevated}">
-    <div style="padding:5px">
-      @if (!loading && file_obj.thumbnailURL) {
-        <div class="img-div">
-          <div [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" style="position: relative">
-            @if (!hide_image || is_playlist || (file_obj.type === 'audio' || file_obj.isAudio)) {
-              <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
+  @if (isListLayout) {
+    <div (click)="navigateToFile($event)" matRipple class="list-card">
+      <div class="list-thumbnail" [style.flex-basis.%]="listThumbnailWidthPercent" [style.aspect-ratio]="listThumbnailAspectRatio">
+        @if (loading) {
+          <content-loader class="list-thumbnail-fill" [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 160 90"><svg:rect x="0" y="0" rx="0" ry="0" width="160" height="90" /></content-loader>
+        } @else {
+          @if (!file_obj.thumbnailURL) {
+            <mat-icon class="list-thumbnail-fallback">{{is_playlist ? 'playlist_play' : (isAudioFile ? 'audiotrack' : 'movie')}}</mat-icon>
+          } @else if (!hide_image || is_playlist || isAudioFile) {
+            <img class="list-thumbnail-fill" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
+          }
+          @if (hide_image && elevated && !is_playlist && !isAudioFile) {
+            <video class="preview-video list-thumbnail-fill" autoplay loop muted preload="none" [muted]="true" [src]="streamURL"></video>
+          }
+          <span class="list-duration">
+            @if (isAudioFile) {
+              <mat-icon>audiotrack</mat-icon>
             }
-            @if (hide_image && elevated && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
-              <video class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
-              </video>
+            {{file_length}}
+          </span>
+        }
+      </div>
+      <div class="list-details">
+        @if (loading) {
+          <content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 100 44"><svg:rect x="0" y="0" rx="3" ry="3" width="100" height="12" /><svg:rect x="0" y="18" rx="3" ry="3" width="70" height="8" /><svg:rect x="0" y="32" rx="3" ry="3" width="50" height="8" /></content-loader>
+        } @else {
+          <span class="list-title">{{!is_playlist ? file_obj.title : file_obj.name}}</span>
+          @if (is_playlist) {
+            @if (playlistItemCountLabel) {
+              <span class="list-detail">{{playlistItemCountLabel}}</span>
             }
-            <div class="duration-time">
-              {{file_length}}
+          } @else if (file_obj.uploader) {
+            <span class="list-detail">{{file_obj.uploader}}</span>
+          }
+          <span class="list-detail">
+            @if (file_obj.auto) {
+              <ng-container i18n="Auto-generated label">Auto-generated</ng-container>
+            } @else {
+              {{displayedDateValue | date:'shortDate' : displayedDateTimezone : displayedDateLocale}}
+            }
+          </span>
+        }
+      </div>
+    </div>
+  } @else {
+    <mat-card [matTooltip]="null" (click)="navigateToFile($event)" matRipple class="file-mat-card" [ngClass]="{'small-mat-card': card_size === 'small', 'file-mat-card': card_size === 'medium', 'large-mat-card': card_size === 'large', 'mat-elevation-z4': !elevated, 'mat-elevation-z8': elevated}">
+      <div style="padding:5px">
+        @if (!loading && file_obj.thumbnailURL) {
+          <div class="img-div">
+            <div [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" style="position: relative">
+              @if (!hide_image || is_playlist || (file_obj.type === 'audio' || file_obj.isAudio)) {
+                <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
+              }
+              @if (hide_image && elevated && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
+                <video class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
+                </video>
+              }
+              <div class="duration-time">
+                {{file_length}}
+              </div>
             </div>
           </div>
-        </div>
-      }
-
-      @if (loading) {
-        <div class="img-div">
-          <content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 100 55"><svg:rect x="0" y="0" rx="0" ry="0" width="100" height="55" /></content-loader>
-        </div>
-      }
-
-      @if (!loading) {
-        @if (showPlaylistItemCount) {
-          <div class="playlist-text">
-            <span class="max-one-line"><strong>{{file_obj.name}}</strong></span>
-            <span class="playlist-item-count">{{playlistItemCountLabel}}</span>
-          </div>
-        } @else {
-          <span [ngClass]="{'max-two-lines': card_size !== 'small', 'max-one-line': card_size === 'small' }">{{card_size === 'large' && file_obj.uploader ? file_obj.uploader + ' - ' : ''}}<strong>{{!is_playlist ? file_obj.title : file_obj.name}}</strong></span>
         }
-      }
-      @if (loading) {
-        <span class="title-loading"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></span>
-      }
-    </div>
-  </mat-card>
+
+        @if (loading) {
+          <div class="img-div">
+            <content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 100 55"><svg:rect x="0" y="0" rx="0" ry="0" width="100" height="55" /></content-loader>
+          </div>
+        }
+
+        @if (!loading) {
+          @if (showPlaylistItemCount) {
+            <div class="playlist-text">
+              <span class="max-one-line"><strong>{{file_obj.name}}</strong></span>
+              <span class="playlist-item-count">{{playlistItemCountLabel}}</span>
+            </div>
+          } @else {
+            <span [ngClass]="{'max-two-lines': card_size !== 'small', 'max-one-line': card_size === 'small' }">{{card_size === 'large' && file_obj.uploader ? file_obj.uploader + ' - ' : ''}}<strong>{{!is_playlist ? file_obj.title : file_obj.name}}</strong></span>
+          }
+        }
+        @if (loading) {
+          <span class="title-loading"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></span>
+        }
+      </div>
+    </mat-card>
+  }
 </div>

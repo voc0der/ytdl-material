@@ -22,7 +22,7 @@ import { SortPropertyComponent } from '../sort-property/sort-property.component'
 import { MatFormField, MatLabel, MatInput, MatSuffix } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
-import { UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
+import { FileCardLayout, getListCardHeight, UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatSelect, MatSelectTrigger, MatOption } from '@angular/material/select';
@@ -65,6 +65,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly autoLoadBufferRows = 2;
   readonly pageSizeOptions: PageSizeOption[] = [5, 10, 25, 100, 250, this.autoPageSizeOption];
   readonly categoryFilterPrefix = 'category:';
+  // Below this width a grid of cards leaves most of a phone's screen empty, so the library
+  // lists one file per row instead. It is the width the library header collapses at too.
+  readonly listLayoutMediaQuery = '(max-width: 576px)';
 
   @Input() usePaginator = true;
 
@@ -136,6 +139,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   renderedVideoRows: MediaLibraryRow<DatabaseFile>[] = [];
   visibleVideoRowStart = 0;
   visibleVideoRowEnd = 0;
+  listLayout = false;
 
   private videoGridContainerElement: HTMLElement = null;
   private latestFileRequestId = 0;
@@ -154,6 +158,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   private gridPressActive = false;
   private readonly deferredGridRefreshes = new Map<string, () => void>();
   private readonly destroy$ = new Subject<void>();
+  private listLayoutQuery: MediaQueryList | null = null;
+  private listLayoutContentWidth: number | null = null;
+  private readonly listLayoutChangeHandler = (event: MediaQueryListEvent) => {
+    this.ngZone.run(() => this.setListLayout(event.matches));
+  };
   private readonly scrollHandler = () => this.scheduleVirtualVideoWindowUpdate();
   private readonly gridPressStartHandler = () => { this.gridPressActive = true; };
   private readonly gridPressEndHandler = () => {
@@ -181,6 +190,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     private ngZone: NgZone,
     private mediaLibraryNavigationState: MediaLibraryNavigationStateService
   ) {
+    // Before anything sizes the loading placeholders below, which depend on the layout.
+    this.bindListLayoutQuery();
+
     const saved_page_size = this.getStoredPreference(this.pageSizeStorageKey, this.legacyPageSizeStorageKey);
     if (saved_page_size === this.autoPageSizeOption) {
       this.autoPaginationEnabled = true;
@@ -333,6 +345,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.unbindScrollListener();
     this.unbindGridPressListeners();
     this.unbindVideoGridResizeObserver();
+    this.unbindListLayoutQuery();
   }
 
   private getStoredPreference(storage_key: string, legacy_storage_key: string): string | null {
@@ -619,6 +632,27 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
     this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
     this.refreshVideoRowsForCurrentLayout();
+  }
+
+  get cardLayout(): FileCardLayout {
+    return this.listLayout ? 'list' : 'grid';
+  }
+
+  get cardColumnClass(): string {
+    if (this.listLayout) {
+      return 'col-12';
+    }
+
+    switch (this.postsService.card_size) {
+      case 'small':
+        return 'col-2 small-col';
+      case 'large':
+        return 'col-12 large-col';
+      case 'medium':
+        return 'col-6 col-lg-4 medium-col';
+      default:
+        return '';
+    }
   }
 
   get showLibraryTabs(): boolean {
@@ -1330,6 +1364,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getVirtualizedRowTemplateColumns(row: MediaLibraryRow<DatabaseFile>): string {
+    if (this.listLayout) {
+      return 'minmax(0, 1fr)';
+    }
+
     return `repeat(${Math.max(1, row.items.length)}, max-content)`;
   }
 
@@ -1590,7 +1628,51 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.videoGridResizeObserver = null;
   }
 
+  private bindListLayoutQuery(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    this.listLayoutQuery = window.matchMedia(this.listLayoutMediaQuery);
+    this.listLayout = this.listLayoutQuery.matches;
+    this.listLayoutQuery.addEventListener('change', this.listLayoutChangeHandler);
+  }
+
+  private unbindListLayoutQuery(): void {
+    this.listLayoutQuery?.removeEventListener('change', this.listLayoutChangeHandler);
+    this.listLayoutQuery = null;
+  }
+
+  setListLayout(list_layout: boolean): void {
+    if (this.listLayout === list_layout) {
+      return;
+    }
+
+    this.listLayout = list_layout;
+    this.loading_files = Array(this.getLoadingPlaceholderCount()).fill(0);
+    this.refreshVideoRowsForCurrentLayout();
+  }
+
+  /**
+   * A list card's height follows from its width, so the rows are sized from the width the grid
+   * gives its cards: the container's, less its padding. That is measured whenever the layout is
+   * refreshed -- which a resize of the container always does -- rather than on every read,
+   * since row heights are read for every rendered row on every change detection pass.
+   */
+  private measureListLayoutContentWidth(): void {
+    const container = this.videoGridContainerElement;
+    if (typeof HTMLElement === 'undefined' || !(container instanceof HTMLElement)) {
+      this.listLayoutContentWidth = null;
+      return;
+    }
+
+    const style = getComputedStyle(container);
+    const content_width = container.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+    this.listLayoutContentWidth = content_width > 0 ? content_width : null;
+  }
+
   private refreshVideoRowsForCurrentLayout(): void {
+    this.measureListLayoutContentWidth();
     if (this.autoPaginationEnabled && this.isVideoLibraryActive() && (this.paged_data?.length ?? 0) > 0) {
       this.rebuildVideoRows();
     } else {
@@ -1601,6 +1683,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getAutoPageColumns(): number {
+    if (this.listLayout) {
+      return 1;
+    }
+
     const viewport_width = this.getViewportWidth();
     const card_width = this.getAutoCardWidth();
     const column_gap = this.getAutoCardColumnGap();
@@ -1608,6 +1694,13 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   getAutoCardRowHeight(): number {
+    if (this.listLayout) {
+      // Until the grid has been measured, assume it spans the viewport less a container's
+      // usual padding. A row is the card plus the 8px the row shell pads it with either side.
+      const content_width = this.listLayoutContentWidth ?? Math.max(0, this.getViewportWidth() - 24);
+      return getListCardHeight(content_width) + 16;
+    }
+
     switch (this.postsService.card_size) {
       case 'small':
         return 166;

@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material/menu';
 import { OverlayContainer } from '@angular/cdk/overlay';
 
-import { UnifiedFileCardComponent } from './unified-file-card.component';
+import { getListCardHeight, UnifiedFileCardComponent } from './unified-file-card.component';
 import { configureTestBed } from '../../../testing/test-bed';
 
 describe('UnifiedFileCardComponent', () => {
@@ -275,5 +275,96 @@ describe('UnifiedFileCardComponent', () => {
 
     expect(fixture.debugElement.query(By.css('video.preview-video'))).not.toBeNull();
     expect(fixture.debugElement.query(By.css('img'))).toBeNull();
+  });
+
+  describe('list layout', () => {
+    beforeEach(() => {
+      component.layout = 'list';
+      component.loading = false;
+      component.locale = { ngID: 'en-US' } as any;
+    });
+
+    it('should lay a file out as a thumbnail with its details beside it', () => {
+      setUpFileCard({
+        uid: 'f1',
+        title: 'A video',
+        uploader: 'An uploader',
+        isAudio: false,
+        duration: 90,
+        registered: Date.UTC(2026, 2, 25, 12),
+        thumbnailURL: 'https://example.com/thumb.jpg'
+      });
+
+      expect(fixture.nativeElement.classList).toContain('list-layout');
+      expect(fixture.debugElement.query(By.css('mat-card'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.download-time'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.list-thumbnail img'))).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('.list-duration')).nativeElement.textContent.trim()).toBe('1:30');
+      expect(fixture.debugElement.query(By.css('.list-title')).nativeElement.textContent.trim()).toBe('A video');
+      const details = fixture.debugElement.queryAll(By.css('.list-detail')).map(detail => detail.nativeElement.textContent.trim());
+      expect(details).toEqual(['An uploader', '3/25/26']);
+    });
+
+    it('should size the thumbnail from the shared share and aspect ratio', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, registered: Date.now()});
+
+      const thumbnail: HTMLElement = fixture.debugElement.query(By.css('.list-thumbnail')).nativeElement;
+      // jsdom drops aspect-ratio as an unknown property, so only the share can be read back here.
+      expect(thumbnail.style.flexBasis).toBe('60%');
+      // 388px of row: a 232.8px wide thumbnail, 130.95px tall, rounded up so a row is never short.
+      expect(getListCardHeight(388)).toBe(131);
+    });
+
+    it('should mark an audio file in its duration badge', () => {
+      setUpFileCard({uid: 'f1', title: 'A song', isAudio: true, duration: 5, registered: Date.now(), thumbnailURL: 'https://example.com/thumb.jpg'});
+
+      expect(fixture.debugElement.query(By.css('.list-duration mat-icon')).nativeElement.textContent.trim()).toBe('audiotrack');
+    });
+
+    it('should stand an icon in for a file with no thumbnail, so the row keeps its height', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, duration: 5, registered: Date.now()});
+
+      expect(fixture.debugElement.query(By.css('.list-thumbnail img'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.list-thumbnail-fallback')).nativeElement.textContent.trim()).toBe('movie');
+    });
+
+    it('should show a playlist with its item count', () => {
+      component.is_playlist = true;
+      component.file_obj = {name: 'A playlist', duration: 0, registered: Date.now(), uids: ['one', 'two']} as any;
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.query(By.css('.list-title')).nativeElement.textContent.trim()).toBe('A playlist');
+      expect(fixture.debugElement.query(By.css('.list-detail')).nativeElement.textContent.trim()).toBe('2 items');
+      expect(fixture.debugElement.query(By.css('.list-thumbnail-fallback')).nativeElement.textContent.trim()).toBe('playlist_play');
+    });
+
+    it('should open the file from the row but not from its menu button', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, registered: Date.now()});
+      const go_to_file = vi.fn();
+      component.goToFile.subscribe(go_to_file);
+
+      // The button is a sibling of the row rather than inside it, so its click never reaches
+      // the row's handler.
+      fixture.debugElement.query(By.css('button.menuButton')).nativeElement.click();
+      expect(go_to_file).not.toHaveBeenCalled();
+
+      fixture.debugElement.query(By.css('.list-card')).nativeElement.click();
+      expect(go_to_file).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep every action in the menu', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5});
+
+      expect(openAddToPlaylistMenu().map(button => button.textContent.trim())).toEqual(['Alpha', 'Beta']);
+    });
+
+    it('should render a loading placeholder in the same shape', () => {
+      component.loading = true;
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.query(By.css('.list-thumbnail content-loader'))).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('.list-details content-loader'))).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('mat-card'))).toBeNull();
+    });
   });
 });

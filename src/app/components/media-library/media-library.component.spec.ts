@@ -474,6 +474,81 @@ describe('MediaLibraryComponent', () => {
     expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [24, 48], null, 'both', false, 'network-chuck', false, []);
   });
 
+  describe('list layout', () => {
+    afterEach(() => {
+      delete (window as any).matchMedia;
+    });
+
+    it('should list one file per row, each as tall as a list card at the grid width', () => {
+      const grid_element = document.createElement('div');
+      grid_element.style.padding = '0 12px';
+      Object.defineProperty(grid_element, 'clientWidth', { configurable: true, value: 412 });
+      (component as any).videoGridContainerElement = grid_element;
+
+      component.setListLayout(true);
+
+      expect(component.cardLayout).toBe('list');
+      expect(component.cardColumnClass).toBe('col-12');
+      expect(component.getAutoPageColumns()).toBe(1);
+      // 388px of card width makes a 131px thumbnail, and the row pads it 8px either side.
+      expect(component.getAutoCardRowHeight()).toBe(147);
+      expect(component.getVirtualizedRowTemplateColumns({ startIndex: 0, items: [{}, {}] } as any)).toBe('minmax(0, 1fr)');
+    });
+
+    it('should size list rows from the viewport until the grid has been measured', () => {
+      (component as any).videoGridContainerElement = {
+        getBoundingClientRect: () => ({ top: 0, width: 400 })
+      };
+      component.listLayout = true;
+
+      expect(component.getAutoCardRowHeight()).toBe(143);
+    });
+
+    it('should follow the narrow-screen media query, and stop listening when destroyed', () => {
+      let change_listener: (event: { matches: boolean }) => void = null;
+      const media_query = {
+        matches: true,
+        addEventListener: vi.fn((_type, listener) => { change_listener = listener; }),
+        removeEventListener: vi.fn()
+      };
+      (window as any).matchMedia = vi.fn().mockReturnValue(media_query);
+
+      fixture = TestBed.createComponent(MediaLibraryComponent);
+      component = fixture.componentInstance;
+
+      expect(window.matchMedia).toHaveBeenCalledWith(component.listLayoutMediaQuery);
+      expect(component.listLayout).toBe(true);
+
+      const refresh_spy = vi.spyOn(component, 'scheduleVirtualVideoWindowUpdate');
+      change_listener({ matches: false });
+
+      expect(component.listLayout).toBe(false);
+      expect(component.cardColumnClass).toBe('col-6 col-lg-4 medium-col');
+      expect(refresh_spy).toHaveBeenCalled();
+
+      fixture.destroy();
+      expect(media_query.removeEventListener).toHaveBeenCalledWith('change', change_listener);
+    });
+
+    it('should render every file card in the list layout', () => {
+      // After the first pass, whose initial fetch would otherwise replace the files set here.
+      fixture.detectChanges();
+      component.autoPaginationEnabled = false;
+      component.listLayout = true;
+      component.normal_files_received = true;
+      component.paged_data = [
+        { uid: 'file-1', title: 'One', duration: 12, registered: Date.now() },
+        { uid: 'file-2', title: 'Two', duration: 12, registered: Date.now() }
+      ] as any;
+      fixture.detectChanges();
+
+      const cards: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('[data-file-uid] app-unified-file-card'));
+      expect(cards.length).toBe(2);
+      expect(cards.every(card => card.classList.contains('list-layout'))).toBe(true);
+      expect(cards.every(card => card.parentElement.classList.contains('col-12'))).toBe(true);
+    });
+  });
+
   it('should window auto-loaded video rows instead of rendering every loaded row', () => {
     component.autoPaginationEnabled = true;
     component.normal_files_received = true;
