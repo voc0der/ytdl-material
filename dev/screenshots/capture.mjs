@@ -11,25 +11,16 @@
 // Fixed dates are what make re-running produce the same PNG.
 
 import { chromium } from 'playwright';
-import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, open, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
+import {
+    CACHE, HERE, REPO_ROOT, buildFrontend, copyBackend, hasFrontendBuild, isListening,
+    releaseBackend, say, startBackend, writeMigrationFlags
+} from './stage.mjs';
 
-const exec = promisify(execFile);
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '..', '..');
 const FIXTURES = join(HERE, 'fixtures');
 const OUTPUT = join(REPO_ROOT, 'docs', 'images', 'readme-home.png');
-
-const CACHE = process.env.YTDL_SCREENSHOT_CACHE
-    ?? join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ytdl-material', 'screenshots');
-const BUILD_DIR = join(CACHE, 'frontend');
 const RUN_DIR = join(CACHE, 'run');
 
 // Not 17442, so a dev backend left running on the default port is neither reused nor
@@ -41,55 +32,6 @@ const BASE = `http://localhost:${PORT}`;
 // 1330px wide, displayed at 1000.
 const VIEWPORT = { width: 1064, height: 900 };
 const SCALE = 1.25;
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const say = message => console.log(`\x1b[0;36m==>\x1b[0m ${message}`);
-
-async function buildFrontend() {
-    say('Building the frontend (production)...');
-    const log = join(CACHE, 'build.log');
-    await mkdir(CACHE, { recursive: true });
-    const output = await open(log, 'w');
-    try {
-        // npx rather than `npm run build`: the prebuild hook regenerates the i18n JSON in
-        // src/assets, which the screenshot does not need and which would dirty the tree.
-        const child = spawn('npx', ['ng', 'build', '--configuration', 'production', `--output-path=${BUILD_DIR}`], {
-            cwd: REPO_ROOT,
-            stdio: ['ignore', output.fd, output.fd]
-        });
-        const code = await new Promise(resolve => child.on('close', resolve));
-        if (code !== 0) {
-            const tail = (await readFile(log, 'utf8')).split('\n').slice(-30).join('\n');
-            throw new Error(`frontend build failed (full log: ${log})\n${tail}`);
-        }
-    } finally {
-        await output.close();
-    }
-}
-
-// Tracked and untracked-but-not-ignored files, so an uncommitted backend change shows up
-// in the screenshot the same way it would in `npm run debug`. That includes the shipped
-// appdata/default.json and nothing else from appdata/, which is ignored: the backend
-// cannot boot without that file, because modules read config as they are required,
-// before anything has had the chance to create it.
-async function copyBackend() {
-    const { stdout } = await exec('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', 'backend'], {
-        cwd: REPO_ROOT,
-        maxBuffer: 16 * 1024 * 1024
-    });
-    const files = stdout.split('\0')
-        .filter(Boolean)
-        .filter(file => !file.startsWith('backend/test/'))
-        .filter(file => existsSync(join(REPO_ROOT, file)));
-
-    for (const file of files) {
-        await cp(join(REPO_ROOT, file), join(RUN_DIR, relative('backend', file)));
-    }
-
-    await cp(join(REPO_ROOT, 'Public API v1.yaml'), join(RUN_DIR, 'Public API v1.yaml'));
-    await symlink(join(REPO_ROOT, 'backend', 'node_modules'), join(RUN_DIR, 'node_modules'), 'dir');
-    await symlink(join(BUILD_DIR, 'browser'), join(RUN_DIR, 'public'), 'dir');
-}
 
 // A uuid-shaped value derived from the fixture id, so a --keep session has the same
 // /player URLs from one run to the next.
@@ -163,94 +105,9 @@ async function seedLibrary() {
 
     await writeFile(join(RUN_DIR, 'appdata', 'local_db.json'), JSON.stringify({ files, playlists }, null, 2));
 
-    // Without these the first boot runs the pre-4.3 migrations, and the second of them
-    // rebuilds the local database from db.json -- emptying the files table seeded above.
-    await writeFile(join(RUN_DIR, 'appdata', 'db.json'), JSON.stringify({
-        simplified_db_migration_complete: true,
-        new_db_system_migration_complete: true,
-        tasks_manager_role_migration_complete: true,
-        archives_migration_complete: true
-    }, null, 2));
+    await writeMigrationFlags(RUN_DIR);
 
     return library.videos.length;
-}
-
-async function isListening() {
-    try {
-        await fetch(`${BASE}/api/config`);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function startBackend() {
-    // Settings from the caller's shell would otherwise leak into the capture.
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^ytdl_/i.test(key)));
-    Object.assign(env, {
-        ytdl_port: String(PORT),
-        ytdl_url: BASE,
-        ytdl_multi_user_mode: 'false',
-        ytdl_use_local_db: 'true',
-        ytdl_default_theme: 'dark'
-    });
-
-    const logPath = join(RUN_DIR, 'backend.log');
-    const log = await open(logPath, 'w');
-    // Detached into its own process group, writing to a file rather than a pipe, so that
-    // --keep can leave it running after this script exits.
-    const child = spawn(process.execPath, ['app.js'], {
-        cwd: RUN_DIR,
-        env,
-        detached: true,
-        stdio: ['ignore', log.fd, log.fd]
-    });
-    await log.close();
-    await writeFile(join(RUN_DIR, 'backend.pid'), String(child.pid));
-
-    let exited = null;
-    child.on('exit', code => { exited = code; });
-
-    // Startup waits on the downloader update check, which fetches a release over the
-    // network before the server starts listening.
-    const deadline = Date.now() + 180_000;
-    while (Date.now() < deadline) {
-        if (exited !== null) {
-            const tail = (await readFile(logPath, 'utf8')).split('\n').slice(-30).join('\n');
-            throw new Error(`backend exited with code ${exited} (full log: ${logPath})\n${tail}`);
-        }
-        try {
-            const response = await fetch(`${BASE}/api/config`);
-            if (response.ok && (response.headers.get('content-type') ?? '').includes('json')) {
-                return child;
-            }
-        } catch {
-            // not listening yet
-        }
-        await sleep(500);
-    }
-
-    await stopBackend(child);
-    throw new Error(`backend did not answer on ${BASE} within 180s (log: ${logPath})`);
-}
-
-// Waits for the exit, so the port is free again by the time this script returns.
-async function stopBackend(child) {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    const exited = new Promise(resolve => child.once('exit', resolve));
-    try {
-        process.kill(-child.pid, 'SIGTERM');
-    } catch {
-        return; // already gone
-    }
-    const stopped = await Promise.race([
-        exited.then(() => true),
-        new Promise(resolve => setTimeout(resolve, 10_000, false).unref())
-    ]);
-    if (!stopped) {
-        process.kill(-child.pid, 'SIGKILL');
-        await exited;
-    }
 }
 
 async function capture(videoCount) {
@@ -311,22 +168,22 @@ async function main() {
     const keep = process.argv.includes('--keep');
     const skipBuild = process.argv.includes('--skip-build');
 
-    if (await isListening()) {
+    if (await isListening(BASE)) {
         throw new Error(`something is already listening on ${BASE}. If it is a --keep run, stop it with: kill -- -$(cat ${join(RUN_DIR, 'backend.pid')})`);
     }
 
-    if (!skipBuild || !existsSync(join(BUILD_DIR, 'browser', 'index.html'))) {
+    if (!skipBuild || !hasFrontendBuild()) {
         await buildFrontend();
     }
 
     say(`Staging the backend and library in ${RUN_DIR}`);
     await rm(RUN_DIR, { recursive: true, force: true });
     await mkdir(RUN_DIR, { recursive: true });
-    await copyBackend();
+    await copyBackend(RUN_DIR);
     const videoCount = await seedLibrary();
 
     say(`Booting the backend on ${BASE}...`);
-    const backend = await startBackend();
+    const backend = await startBackend(RUN_DIR, PORT);
 
     try {
         say('Capturing the home page...');
@@ -336,12 +193,7 @@ async function main() {
             console.log(`    page console error: ${error.slice(0, 200)}`);
         }
     } finally {
-        if (keep) {
-            backend.unref();
-            say(`Backend left running at ${BASE} (--keep). Stop it with: kill -- -${backend.pid}`);
-        } else {
-            await stopBackend(backend);
-        }
+        await releaseBackend(backend, keep, BASE);
     }
 }
 
