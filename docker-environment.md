@@ -1,5 +1,7 @@
 # Docker Environment Variables
 
+The documentation site has the [current environment reference](https://voc0der.github.io/ytdl-material/reference/environment/) and a [complete table generated from backend defaults](https://voc0der.github.io/ytdl-material/reference/configuration/).
+
 The default [docker-compose.yml](./docker-compose.yml) now ships with PostgreSQL as the default remote database.
 
 For a fully commented example with PostgreSQL, optional MongoDB support, OIDC, reverse proxy, and other advanced options, see [docker-compose-extended.yml](./docker-compose-extended.yml).
@@ -10,7 +12,7 @@ Docker examples here use lowercase environment variable names consistently.
 
 These apply to many Docker setups regardless of which database or login method you choose:
 
-* `write_ytdl_config`: set to `'true'` to write env-backed settings into `appdata/default.json` on startup
+* Current startup writes recognized environment settings into `appdata/default.json` on every boot. The historical `write_ytdl_config` flag is no longer required.
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
@@ -100,7 +102,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 --extractor-args,,youtube:player_client=default
 ```
 
-Anything you set there takes precedence and is never overwritten. See the [wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for how to pick a client.
+Anything you set there takes precedence and is never overwritten. See [HTTP 403 while downloading](https://voc0der.github.io/ytdl-material/reference/troubleshooting/#http-403-while-downloading) before pinning a client.
 * `ytdl_js_runtimes`: pin the JavaScript runtime yt-dlp uses to solve YouTube's JS challenge, passed through as `--js-runtimes` (for example `deno` or `node`). Leave empty to let yt-dlp auto-detect an installed runtime, which is the default and is recommended. Pinning a runtime that is not installed causes downloads to fail with `unable to download video data: HTTP Error 403: Forbidden`; run `yt-dlp -v` and check the `JS Challenge Providers` line to see which runtimes are actually available (default empty)
 * `ytdl_ytdlp_update_channel`: which yt-dlp release channel to download and auto-update from. One of `'stable'` (default), `'nightly'`, or `'master'`. Also selectable in Settings under the Advanced tab. Only affects the `yt-dlp` downloader. This is separate from the ytdl-material image tag: `voc0der/ytdl-material:latest` still downloads stable yt-dlp unless this is set. An unrecognized value is rejected and the update is skipped, leaving the existing binary in place. Restart the container after changing it. With `ytdl_use_ytdlp_impersonation` enabled the entrypoint installs the matching channel from PyPI instead (`--pre` for nightly; PyPI has no `master`, so that falls back to nightly)
 

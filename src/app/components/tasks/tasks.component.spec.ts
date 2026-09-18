@@ -87,11 +87,12 @@ describe('TasksComponent', () => {
   }));
 
   it('names the downloader the app actually uses', () => {
-    listReturns(task({ key: TaskType.YOUTUBEDL_UPDATE_CHECK, title: 'Update youtube-dl' }));
+    postsService.config.Advanced.default_downloader = 'youtube-dl';
+    listReturns(task({ key: TaskType.YOUTUBEDL_UPDATE_CHECK, title: 'Update yt-dlp' }));
 
     component.ngOnInit();
 
-    expect(component.tasks[0].title).toBe('Update yt-dlp');
+    expect(component.tasks[0].title).toBe('Update youtube-dl');
   });
 
   it('puts what a task is doing ahead of when it last ran', () => {

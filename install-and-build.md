@@ -81,4 +81,4 @@ npm -g install pm2
 npm start --prefix backend
 ```
 
-If you want your instance available outside your network, set up a [reverse proxy](https://github.com/voc0der/ytdl-material/wiki/Reverse-Proxy-Setup) or port forward the configured backend port (default `17442`).
+If you want your instance available outside your network, set up a [reverse proxy](https://voc0der.github.io/ytdl-material/deployment/reverse-proxy/) or port forward the configured backend port (default `17442`).

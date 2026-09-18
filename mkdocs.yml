@@ -1,0 +1,109 @@
+site_name: ytdl-material Docs
+site_url: https://voc0der.github.io/ytdl-material/
+site_description: Install, use, and maintain your self-hosted media library.
+repo_url: https://github.com/voc0der/ytdl-material
+repo_name: voc0der/ytdl-material
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  variant: classic
+  custom_dir: docs-overrides
+  language: en
+  logo: images/logo.svg
+  favicon: images/logo.png
+  font: false
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - content.action.edit
+    - content.code.copy
+    - content.tabs.link
+    - search.highlight
+    - search.share
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Features: features.md
+  - Getting started:
+      - Quick start: getting-started/quick-start.md
+      - Configuration: getting-started/configuration.md
+  - Using ytdl-material:
+      - Downloads: usage/downloads.md
+      - Library and playlists: usage/library.md
+      - Player and editing: usage/player.md
+      - Subscriptions: usage/subscriptions.md
+      - Categories: usage/categories.md
+      - Archive and duplicates: usage/archive.md
+      - Tasks and schedules: usage/tasks.md
+  - Deployment:
+      - Docker and storage: deployment/docker.md
+      - Databases and Redis: deployment/databases.md
+      - Migrating an installation: deployment/migration.md
+      - Backups and restore: deployment/backups.md
+      - Reverse proxy and HTTPS: deployment/reverse-proxy.md
+      - Users, OIDC, and LDAP: deployment/authentication.md
+      - Hardware acceleration: deployment/hardware.md
+      - NAS and ARM hosts: deployment/platforms.md
+      - Updates: deployment/updates.md
+  - Integrations:
+      - API and tokens: integrations/api.md
+      - RSS feeds: integrations/rss.md
+      - Notifications and webhooks: integrations/notifications.md
+      - Browser extensions: integrations/browser.md
+  - Reference:
+      - Environment variables: reference/environment.md
+      - Configuration defaults: reference/configuration.md
+      - Troubleshooting: reference/troubleshooting.md
+      - FAQ: reference/faq.md
+  - Development:
+      - Local setup and contributing: development/contributing.md
+      - Architecture: development/architecture.md
+      - Maintaining the docs: development/documentation.md
+      - Documentation audit: development/audit.md

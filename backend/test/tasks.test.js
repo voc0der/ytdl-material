@@ -46,6 +46,14 @@ describe('Tasks', function() {
         assert.strictEqual(tasks_api.TASKS['apply_categories']['job'], null);
     });
 
+    it('Refreshes a stored task title on startup', async function() {
+        await db_api.updateRecord('tasks', {key: 'youtubedl_update_check'}, {title: 'Old title'});
+        await tasks_api.setupTasks();
+
+        const task = await db_api.getRecord('tasks', {key: 'youtubedl_update_check'});
+        assert.strictEqual(task['title'], 'Update yt-dlp');
+    });
+
     it('Runs subscription checks from the task manager', async function() {
         const original_check_subscriptions = subscriptions_api.checkSubscriptions;
         let check_subscriptions_called = false;

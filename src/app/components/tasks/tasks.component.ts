@@ -119,11 +119,11 @@ export class TasksComponent implements OnInit, OnDestroy {
     this.getTasks();
   }
 
-  // The backend stores the title with the old downloader's name in it.
+  // The backend titles the update task after the default downloader; show the one selected.
   private withDownloaderName(task: Task): Task {
     const downloader = this.postsService.config?.Advanced?.default_downloader;
-    if (!downloader || !task?.title?.includes('youtube-dl')) return task;
-    return {...task, title: task.title.replace('youtube-dl', downloader)};
+    if (!downloader || !task?.title?.includes('yt-dlp')) return task;
+    return {...task, title: task.title.replace('yt-dlp', downloader)};
   }
 
   get anyTaskBusy(): boolean {

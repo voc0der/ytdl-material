@@ -1,5 +1,8 @@
 .git
 .github
+site
+.cache
+.venv-docs
 backend/test
 docker-utils/container-repro.sh
 
