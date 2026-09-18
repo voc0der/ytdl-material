@@ -88,25 +88,27 @@
               <app-notifications #notifications (notificationCount)="notificationCountUpdate($event)" (click)="$event.stopPropagation()"></app-notifications>
             </mat-menu>
             <button [matMenuTriggerFor]="menuSettings" mat-icon-button aria-label="More options" i18n-aria-label="Toolbar overflow menu label"><mat-icon>more_vert</mat-icon></button>
-            <mat-menu #menuSettings="matMenu">
-              <button class="top-menu-button" (click)="openProfileDialog()" mat-menu-item>
+            <mat-menu #menuSettings="matMenu" class="kit-menu kit-action-menu">
+              <button (click)="openProfileDialog()" mat-menu-item>
                 <mat-icon>person</mat-icon>
                 <span i18n="Profile menu label">Profile</span>
               </button>
               @if (!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) {
-                <button class="top-menu-button" (click)="openArchiveDialog()" mat-menu-item>
+                <button (click)="openArchiveDialog()" mat-menu-item>
                   <mat-icon>archive</mat-icon>
                   <span i18n="Archive menu label">Archive</span>
                 </button>
               }
               @if (allowThemeChange) {
-                <button class="top-menu-button" (click)="themeMenuItemClicked($event)" mat-menu-item>
-                  <mat-icon>{{(postsService.theme.key === 'default') ? 'brightness_5' : 'brightness_2'}}</mat-icon>
+                <mat-divider></mat-divider>
+                <button class="kit-menu-toggle" (click)="themeMenuItemClicked($event)" mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="postsService.theme.key === 'dark'">
+                  <mat-icon>dark_mode</mat-icon>
                   <span i18n="Dark mode toggle label">Dark</span>
-                  <mat-slide-toggle class="theme-slide-toggle" [checked]="postsService.theme.key === 'dark'"></mat-slide-toggle>
+                  <span class="kit-menu-switch" aria-hidden="true"></span>
                 </button>
               }
-              <button class="top-menu-button" (click)="openAboutDialog()" mat-menu-item>
+              <mat-divider></mat-divider>
+              <button (click)="openAboutDialog()" mat-menu-item>
                 <mat-icon>info</mat-icon>
                 <span i18n="About menu label">About</span>
               </button>
