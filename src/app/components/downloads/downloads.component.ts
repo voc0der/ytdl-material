@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, EventEmitter, ChangeDetectionStrategy } f
 import { PostsService } from 'app/posts.services';
 import { Router, RouterLink } from '@angular/router';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Download, GetAllDownloadsResponse, RestartDownloadResponse, SuccessObject } from 'api-types';
 import { forkJoin, of, Subscription } from 'rxjs';
@@ -340,29 +340,27 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   clearDownloadsByType(): void {
     const clearEmitter = new EventEmitter<boolean>();
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogType: 'selection_list',
-        dialogTitle: $localize`Clear downloads`,
-        dialogText: $localize`Select downloads to clear`,
-        submitText: $localize`Clear`,
-        doneEmitter: clearEmitter,
-        warnSubmitColor: true,
-        list: [
-          {
-            title: $localize`Finished downloads`,
-            key: 'clear_finished'
-          },
-          {
-            title: $localize`Paused downloads`,
-            key: 'clear_paused'
-          },
-          {
-            title: $localize`Errored downloads`,
-            key: 'clear_errors'
-          }
-        ]
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogType: 'selection_list',
+      dialogTitle: $localize`Clear downloads`,
+      dialogText: $localize`Select downloads to clear`,
+      submitText: $localize`Clear`,
+      doneEmitter: clearEmitter,
+      warnSubmitColor: true,
+      list: [
+        {
+          title: $localize`Finished downloads`,
+          key: 'clear_finished'
+        },
+        {
+          title: $localize`Paused downloads`,
+          key: 'clear_paused'
+        },
+        {
+          title: $localize`Errored downloads`,
+          key: 'clear_errors'
+        }
+      ]
     });
     clearEmitter.subscribe((done: boolean) => {
       if (done) {
@@ -543,16 +541,14 @@ export class DownloadsComponent implements OnInit, OnDestroy {
 
   showError(download: Download): void {
     const copyToClipboardEmitter = new EventEmitter<boolean>();
-    this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Error for ${download['url']}:url:`,
-        dialogText: download['error'],
-        submitText: $localize`Copy to clipboard`,
-        cancelText: $localize`Close`,
-        closeOnSubmit: false,
-        onlyEmitOnDone: true,
-        doneEmitter: copyToClipboardEmitter
-      }
+    openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Error for ${download['url']}:url:`,
+      dialogIcon: 'error_outline',
+      dialogText: download['error'],
+      submitText: $localize`Copy to clipboard`,
+      cancelText: $localize`Close`,
+      closeOnSubmit: false,
+      doneEmitter: copyToClipboardEmitter
     });
     copyToClipboardEmitter.subscribe(done => {
       if (done) {

@@ -13,7 +13,7 @@ import { AboutDialogComponent } from './dialogs/about-dialog/about-dialog.compon
 import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-profile-dialog.component';
 import { SetDefaultAdminDialogComponent } from './dialogs/set-default-admin-dialog/set-default-admin-dialog.component';
 import { NotificationsComponent } from './components/notifications/notifications.component';
-import { ArchiveViewerComponent } from './components/archive-viewer/archive-viewer.component';
+import { DownloadHistoryComponent } from './components/download-history/download-history.component';
 import { PlaylistDownloadProgressDialogComponent } from './dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
@@ -124,7 +124,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     
     this.postsService.open_create_default_admin_dialog.subscribe(open => {
       if (open) {
-        const dialogRef = this.dialog.open(SetDefaultAdminDialogComponent);
+        const dialogRef = this.dialog.open(SetDefaultAdminDialogComponent, {
+          panelClass: 'kit-dialog-panel',
+          width: '440px',
+          maxWidth: 'calc(100vw - 32px)',
+          autoFocus: 'dialog'
+        });
         dialogRef.afterClosed().subscribe(res => {
           if (!res || !res['user']) {
             if (this.router.url !== '/login') { this.router.navigate(['/login']); }
@@ -304,9 +309,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  openArchivesDialog(): void {
-    this.dialog.open(ArchiveViewerComponent, {
-      width: '85vw'
+  openDownloadHistoryDialog(): void {
+    this.dialog.open(DownloadHistoryComponent, {
+      panelClass: 'kit-dialog-panel',
+      width: '760px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 

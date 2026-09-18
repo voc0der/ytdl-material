@@ -1,37 +1,41 @@
-<h4 mat-dialog-title>{{dialogTitle}}</h4>
-<mat-dialog-content>
-  <div style="margin-bottom: 10px;">
-    <!-- We can support text dialogs or dialogs where users must select items from a list -->
-    @if (dialogType === 'text') {
-      {{dialogText}}
-    }
-    @if (dialogType === 'selection_list') {
-      <mat-selection-list [(ngModel)]="selected_items">
-        @for (item of list; track item) {
-          <mat-list-option [value]="item.key">
-            {{item.title}}
-          </mat-list-option>
-        }
-      </mat-selection-list>
-    }
+<header class="dialog-header">
+  <span class="dialog-symbol" [class.is-danger]="destructive" aria-hidden="true"><mat-icon>{{dialogIcon}}</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title">{{dialogTitle}}</h2>
   </div>
-</mat-dialog-content>
-<mat-dialog-actions>
-  <!-- The mat-dialog-close directive optionally accepts a value as a result for the dialog. -->
-  @if (submitActions && submitActions.length > 0) {
-    @for (submitAction of submitActions; track submitAction.value) {
-      <button [disabled]="dialogType === 'selection_list' && selected_items.length === 0" [color]="submitAction.warnSubmitColor ? 'warn' : 'primary'" mat-flat-button type="submit" (click)="confirmClicked(submitAction.value)">{{submitAction.text}}</button>
-    }
+</header>
+
+<mat-dialog-content class="dialog-content">
+  <!-- Either a question to answer, or a set of things to pick before answering it. -->
+  @if (dialogType === 'text') {
+    <p class="dialog-text">{{dialogText}}</p>
   } @else {
-    <button [disabled]="dialogType === 'selection_list' && selected_items.length === 0" [color]="warnSubmitColor ? 'warn' : 'primary'" mat-flat-button type="submit" (click)="confirmClicked()">{{submitText}}</button>
-  }
-  @if (submitClicked) {
-    <div class="mat-spinner">
-      <mat-spinner [diameter]="25"></mat-spinner>
+    @if (dialogText) {
+      <p class="dialog-hint">{{dialogText}}</p>
+    }
+    <div class="dialog-choices" role="group" [attr.aria-label]="dialogTitle">
+      @for (item of list; track item.key) {
+        <button type="button" class="dialog-choice" role="checkbox" [attr.aria-checked]="isSelected(item.key)" (click)="toggleItem(item.key)">
+          <mat-icon [class.kit-invisible]="!isSelected(item.key)">check</mat-icon>
+          <span class="dialog-choice-label">{{item.title}}</span>
+        </button>
+      }
     </div>
   }
-  <span class="spacer"></span>
-  <button style="float: right;" mat-stroked-button mat-dialog-close>
-    {{cancelText}}
-  </button>
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  @if (submitClicked) {
+    <mat-spinner class="dialog-actions-spinner" [diameter]="20"></mat-spinner>
+  }
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close>{{cancelText}}</button>
+  @if (submitActions.length > 0) {
+    @for (submitAction of submitActions; track submitAction.value) {
+      <button type="button" class="kit-chip" [class.kit-danger]="submitAction.warnSubmitColor" [class.kit-primary]="!submitAction.warnSubmitColor"
+        [disabled]="submitDisabled" (click)="confirmClicked(submitAction.value)">{{submitAction.text}}</button>
+    }
+  } @else {
+    <button type="button" class="kit-chip" [class.kit-danger]="warnSubmitColor" [class.kit-primary]="!warnSubmitColor"
+      [disabled]="submitDisabled" (click)="confirmClicked()">{{submitText}}</button>
+  }
 </mat-dialog-actions>

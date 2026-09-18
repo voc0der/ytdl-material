@@ -5,7 +5,7 @@ import { MatPaginator } from '@angular/material/paginator';
 import { MatSort, MatSortHeader } from '@angular/material/sort';
 import { MatDialog } from '@angular/material/dialog';
 import { filter, take } from 'rxjs/operators';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { DuplicateGroup, DuplicateRemovalMode, PostsService } from 'app/posts.services';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
@@ -126,22 +126,20 @@ export class DuplicatesComponent implements OnInit, OnDestroy {
     return group && group.isAudio ? $localize`Audio` : $localize`Video`;
   }
 
-  private isRemovalMode(value: string): value is DuplicateRemovalMode {
+  private isRemovalMode(value: unknown): value is DuplicateRemovalMode {
     return value === 'newest' || value === 'oldest';
   }
 
   openRemoveDuplicatesDialog(group: DuplicateGroup): void {
     if (!group || !group.duplicate_key || this.removing_duplicate_key) return;
 
-    const dialog_ref = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Remove duplicates`,
-        dialogText: $localize`This will keep one copy and remove ${group.duplicate_count}:duplicate count: matching download(s) for ${this.getGroupTitle(group)}:duplicate title:. Choose whether to remove the newest downloads or the oldest downloads.`,
-        submitActions: [
-          {text: $localize`Remove Newest`, value: 'newest', warnSubmitColor: true},
-          {text: $localize`Remove Oldest`, value: 'oldest', warnSubmitColor: true}
-        ]
-      }
+    const dialog_ref = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Remove duplicates`,
+      dialogText: $localize`This will keep one copy and remove ${group.duplicate_count}:duplicate count: matching download(s) for ${this.getGroupTitle(group)}:duplicate title:. Choose whether to remove the newest downloads or the oldest downloads.`,
+      submitActions: [
+        {text: $localize`Remove Newest`, value: 'newest', warnSubmitColor: true},
+        {text: $localize`Remove Oldest`, value: 'oldest', warnSubmitColor: true}
+      ]
     });
 
     dialog_ref.afterClosed().subscribe(removal_mode => {

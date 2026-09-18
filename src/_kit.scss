@@ -17,6 +17,10 @@
   --kit-on-tonal: #0d47a1;
   --kit-sheet: #ffffff;
   --kit-divider: rgba(0, 0, 0, 0.12);
+  --kit-danger: #c62828;
+  --kit-on-danger: #ffffff;
+  --kit-danger-tonal: rgba(198, 40, 40, 0.12);
+  --kit-on-danger-tonal: #b71c1c;
 }
 
 .light-theme {
@@ -36,6 +40,10 @@
   --kit-on-tonal: #9ccfff;
   --kit-sheet: #1f1f1f;
   --kit-divider: rgba(255, 255, 255, 0.1);
+  --kit-danger: #ef5350;
+  --kit-on-danger: #2b0b0b;
+  --kit-danger-tonal: rgba(239, 83, 80, 0.18);
+  --kit-on-danger-tonal: #ff8a80;
 }
 
 .kit-invisible {
@@ -132,6 +140,22 @@
 .kit-chip.kit-primary:hover:not(:disabled) {
   background: var(--kit-accent);
   filter: brightness(1.08);
+}
+
+// The action that deletes or discards something, where that is the point of the form.
+.kit-chip.kit-danger {
+  background: var(--kit-danger);
+  color: var(--kit-on-danger);
+  font-weight: 500;
+}
+
+.kit-chip.kit-danger:hover:not(:disabled) {
+  background: var(--kit-danger);
+  filter: brightness(1.08);
+}
+
+.kit-chip.kit-danger:focus-visible {
+  outline-color: var(--kit-danger);
 }
 
 .kit-chip .mat-icon {
@@ -489,6 +513,29 @@
   padding-right: 2px;
 }
 
+// What page of a long list is shown, and the way to the next one.
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.pager-range {
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--kit-on-surface-variant);
+}
+
 // Text that has to stay on one line, ending in an ellipsis when it cannot.
 .kit-one-line {
   overflow: hidden;
@@ -621,6 +668,12 @@
     background: var(--kit-surface);
   }
 
+  // A page centres its empty state in the width of the page; a dialog has to be told to.
+  .empty-state {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   .dialog-symbol {
     display: inline-flex;
     align-items: center;
@@ -631,6 +684,71 @@
     border-radius: 18px;
     background: var(--kit-tonal);
     color: var(--kit-on-tonal);
+  }
+
+  // What a dialog is headed with when it asks to delete or discard something.
+  .dialog-symbol.is-danger {
+    background: var(--kit-danger-tonal);
+    color: var(--kit-on-danger-tonal);
+  }
+
+  // The sentence a confirmation asks its question in. Line breaks are kept, because what it
+  // shows is sometimes an error message rather than a sentence.
+  .dialog-text {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  // What a confirmation offers to pick from instead of asking a yes-or-no question.
+  .dialog-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dialog-choice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--kit-surface);
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+
+  .dialog-choice:hover {
+    background: var(--kit-surface-hover);
+  }
+
+  .dialog-choice[aria-checked='true'] {
+    background: var(--kit-tonal);
+    color: var(--kit-on-tonal);
+    font-weight: 500;
+  }
+
+  .dialog-choice:focus-visible {
+    outline: 2px solid var(--kit-accent);
+    outline-offset: -2px;
+  }
+
+  .dialog-choice-label {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dialog-choice > .mat-icon {
+    flex-shrink: 0;
   }
 
   .dialog-details {
@@ -687,6 +805,14 @@
   }
   .dialog-field .kit-field > input {
     font-size: 14px;
+  }
+
+  // What a field means, under it rather than in it.
+  .dialog-field-hint {
+    margin-top: 6px;
+    color: var(--kit-on-surface-variant);
+    font-size: 12px;
+    line-height: 18px;
   }
 
   .dialog-actions.mat-mdc-dialog-actions {

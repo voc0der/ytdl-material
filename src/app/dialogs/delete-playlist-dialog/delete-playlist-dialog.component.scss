@@ -1,19 +1,29 @@
-.dialog-copy {
-    margin-bottom: 8px;
+.delete-options {
+  margin-top: 16px;
 }
 
-.dialog-subtext {
-    margin-bottom: 0;
-    opacity: 0.82;
+// Each choice is a name and what it costs, rather than one line of text.
+.dialog-choice-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.dialog-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+.dialog-choice-label strong {
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.spacer {
-    flex: 1 1 auto;
+.dialog-choice-label small {
+  color: var(--kit-on-surface-variant);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dialog-choice.is-danger > .mat-icon {
+  color: var(--kit-on-danger-tonal);
+}
+
+.dialog-choice.is-danger:hover {
+  background: var(--kit-danger-tonal);
 }

@@ -192,7 +192,7 @@
                   }
                 </div>
               }
-              <button style="margin-top: 10px;" mat-mini-fab (click)="openAddCategoryDialog()"><mat-icon>add</mat-icon></button>
+              <button style="margin-top: 10px;" mat-mini-fab (click)="openAddCategoryDialog()" aria-label="Add category" i18n-aria-label="Add category button label"><mat-icon>add</mat-icon></button>
               @if (postsService.categories && postsService.categories.length === 0) {
                 <button style="margin-top: 10px; margin-left: 8px;" mat-button color="accent" [disabled]="addingDefaultCategories" (click)="addDefaultCategories()" i18n="Add default category set button">(Add default set)</button>
               }

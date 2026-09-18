@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { Subscription } from 'api-types';
 import { firstValueFrom } from 'rxjs';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { ConfirmDialogData, openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { PostsService } from 'app/posts.services';
 import { saveBlob } from 'app/utils/save-blob';
 
@@ -97,13 +97,13 @@ export class SubscriptionActionsService {
       return true;
     } catch (err) {
       console.error(err);
-      this.postsService.openSnackBar($localize`Couldn't export the archive for ${sub.name}:subscription name:.`);
+      this.postsService.openSnackBar($localize`Couldn't export the download history for ${sub.name}:subscription name:.`);
       return false;
     }
   }
 
-  private async confirm(data: Record<string, unknown>): Promise<boolean> {
-    return !!(await firstValueFrom(this.dialog.open(ConfirmDialogComponent, { data }).afterClosed()));
+  private async confirm(data: ConfirmDialogData): Promise<boolean> {
+    return !!(await firstValueFrom(openConfirmDialog(this.dialog, data).afterClosed()));
   }
 
   private async succeeded(request: ReturnType<PostsService['checkSubscription']>, failure: string): Promise<boolean> {

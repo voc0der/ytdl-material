@@ -1,19 +1,22 @@
-<h4 mat-dialog-title>{{inputTitle}}</h4>
-<mat-dialog-content>
-  <div>
-    <mat-form-field color="accent">
-      <input matInput (keyup.enter)="enterPressed()" [(ngModel)]="inputText" [placeholder]="inputPlaceholder">
-    </mat-form-field>
+<header class="dialog-header">
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title">{{inputTitle}}</h2>
   </div>
+</header>
+
+<mat-dialog-content class="dialog-content">
+  <label class="dialog-field dialog-field-wide">
+    <span class="dialog-field-label">{{inputPlaceholder}}</span>
+    <span class="kit-field">
+      <input [(ngModel)]="inputText" (keyup.enter)="enterPressed()" [attr.aria-label]="inputPlaceholder">
+    </span>
+  </label>
 </mat-dialog-content>
-<mat-dialog-actions>
-  <!-- TODO: Internationalize these buttons -->
-  <button mat-button mat-dialog-close>Cancel</button>
-  <!-- The mat-dialog-close directive optionally accepts a value as a result for the dialog. -->
-  <button mat-button [disabled]="!inputText" type="submit" (click)="enterPressed()">{{submitText}}</button>
+
+<mat-dialog-actions class="dialog-actions">
   @if (inputSubmitted) {
-    <div class="mat-spinner">
-      <mat-spinner [diameter]="25"></mat-spinner>
-    </div>
+    <mat-spinner class="dialog-actions-spinner" [diameter]="20"></mat-spinner>
   }
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" [disabled]="!inputText" (click)="enterPressed()">{{submitText}}</button>
 </mat-dialog-actions>

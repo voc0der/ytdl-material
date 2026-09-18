@@ -8,7 +8,7 @@ import { ShareMediaDialogComponent } from '../dialogs/share-media-dialog/share-m
 import { DatabaseFile, FileType, FileTypeFilter, Playlist, Sort } from '../../api-types';
 import { TwitchChatComponent } from 'app/components/twitch-chat/twitch-chat.component';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { saveBlob } from '../utils/save-blob';
 import { filesize } from 'filesize';
 import { Subscription } from 'rxjs';
@@ -551,12 +551,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     const playlist_summary = total_size > 0
       ? $localize`${file_count}:playlist file count: files, ${filesize(total_size)}:playlist size:`
       : $localize`${file_count}:playlist file count: files`;
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Download playlist?`,
-        dialogText: $localize`Download the entire playlist as a zip (${playlist_summary})? Creating the archive can take a while and use significant disk space.`,
-        submitText: $localize`Download`
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Download playlist?`,
+      dialogText: $localize`Download the entire playlist as a zip (${playlist_summary})? Creating the archive can take a while and use significant disk space.`,
+      submitText: $localize`Download`
     });
 
     dialogRef.afterClosed().pipe(take(1)).subscribe(confirmed => {
@@ -628,7 +626,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         uuid: this.postsService.isLoggedIn ? this.postsService.user.uid : this.uuid,
         current_timestamp: this.api.time.current
       },
-      width: '60vw'
+      panelClass: 'kit-dialog-panel',
+      width: '520px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
 
     dialogRef.afterClosed().subscribe(() => {

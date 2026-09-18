@@ -1,28 +1,31 @@
-<h4 mat-dialog-title><ng-container i18n="Delete playlist dialog title">Delete playlist</ng-container></h4>
+<header class="dialog-header">
+  <span class="dialog-symbol is-danger" aria-hidden="true"><mat-icon>playlist_remove</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Delete playlist dialog title">Delete playlist</h2>
+    <p class="dialog-subtitle">{{playlistName}}</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-  <div class="dialog-copy">
-    <p>
-      <ng-container i18n="Delete playlist dialog prompt prefix">Choose what to remove for</ng-container>
-      &nbsp;<strong>{{playlistName}}</strong>.
-    </p>
-    <p class="dialog-subtext">
-      <ng-container i18n="Delete playlist dialog explanation">
-        Deleting the playlist keeps your files. Deleting files too will permanently remove {{fileCount}} file(s) from your library.
-      </ng-container>
-    </p>
+<mat-dialog-content class="dialog-content">
+  <p class="dialog-text" i18n="Delete playlist dialog prompt">Choose what to remove.</p>
+  <div class="dialog-choices delete-options">
+    <button type="button" class="dialog-choice" (click)="deletePlaylistOnly()">
+      <mat-icon>playlist_remove</mat-icon>
+      <span class="dialog-choice-label">
+        <strong i18n="Delete playlist only button">Delete playlist</strong>
+        <small i18n="Delete playlist only hint">The files stay in your library.</small>
+      </span>
+    </button>
+    <button type="button" class="dialog-choice is-danger" (click)="confirmDeletePlaylistAndFiles()">
+      <mat-icon>delete_forever</mat-icon>
+      <span class="dialog-choice-label">
+        <strong i18n="Delete playlist and files button">Delete playlist and files</strong>
+        <small i18n="Delete playlist and files hint">{fileCount, plural, =1 {Its 1 file is deleted too, for good.} other {Its {{fileCount}} files are deleted too, for good.}}</small>
+      </span>
+    </button>
   </div>
 </mat-dialog-content>
 
 <mat-dialog-actions class="dialog-actions">
-  <button mat-flat-button color="primary" type="button" (click)="deletePlaylistOnly()">
-    <ng-container i18n="Delete playlist only button">Delete playlist</ng-container>
-  </button>
-  <button mat-stroked-button color="warn" type="button" (click)="confirmDeletePlaylistAndFiles()">
-    <ng-container i18n="Delete playlist and files button">Delete playlist and files</ng-container>
-  </button>
-  <span class="spacer"></span>
-  <button mat-stroked-button mat-dialog-close type="button">
-    <ng-container i18n="Cancel delete playlist dialog button">Cancel</ng-container>
-  </button>
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel delete playlist dialog button">Cancel</button>
 </mat-dialog-actions>

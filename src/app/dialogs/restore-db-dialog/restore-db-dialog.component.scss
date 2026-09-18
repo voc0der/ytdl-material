@@ -1,0 +1,25 @@
+// Sits ahead of the answers, so the wait is next to what is being waited on.
+.dialog-actions-spinner {
+  margin-right: 4px;
+}
+
+// Each backup is when it was taken, with its size and where it came from underneath.
+.backup-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-label strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.backup-label small {
+  color: var(--kit-on-surface-variant);
+  font-size: 12px;
+}
+
+.backup-source {
+  text-transform: capitalize;
+}

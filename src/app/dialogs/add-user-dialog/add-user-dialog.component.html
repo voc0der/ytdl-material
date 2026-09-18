@@ -1,21 +1,27 @@
-<h4 mat-dialog-title i18n="Register user dialog title">Register a user</h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>person_add</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Register user dialog title">Register a user</h2>
+    <p class="dialog-subtitle" i18n="Register user dialog subtitle">They get their own library and their own downloads.</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-    <div>
-        <mat-form-field>
-            <mat-label i18n="User name">User name</mat-label>
-            <input matInput [(ngModel)]="usernameInput">
-        </mat-form-field>
-    </div>
-    <div>
-        <mat-form-field>
-            <mat-label i18n="Password">Password</mat-label>
-            <input matInput [(ngModel)]="passwordInput" type="password">
-        </mat-form-field>
-    </div>
+<mat-dialog-content class="dialog-content">
+  <div class="dialog-form">
+    <label class="dialog-field dialog-field-wide">
+      <span class="dialog-field-label" i18n="User name">User name</span>
+      <span class="kit-field"><input autocomplete="off" [(ngModel)]="usernameInput"></span>
+    </label>
+    <label class="dialog-field dialog-field-wide">
+      <span class="dialog-field-label" i18n="Password">Password</span>
+      <span class="kit-field"><input type="password" autocomplete="new-password" [(ngModel)]="passwordInput" (keyup.enter)="createUser()"></span>
+    </label>
+  </div>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-    <button color="accent" (click)="createUser()" mat-raised-button><ng-container i18n="Register user button">Register</ng-container></button>
-    <button mat-dialog-close mat-button><ng-container i18n="Close button">Close</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" [disabled]="!usernameInput || !passwordInput" (click)="createUser()">
+    <ng-container i18n="Register user button">Register</ng-container>
+  </button>
 </mat-dialog-actions>

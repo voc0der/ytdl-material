@@ -95,7 +95,12 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
   }
 
   openAddUserDialog() {
-    const dialogRef = this.dialog.open(AddUserDialogComponent);
+    const dialogRef = this.dialog.open(AddUserDialogComponent, {
+      panelClass: 'kit-dialog-panel',
+      width: '440px',
+      maxWidth: 'calc(100vw - 32px)',
+      autoFocus: 'dialog'
+    });
     dialogRef.afterClosed().subscribe(user => {
       if (user && !user.error) {
         this.openSnackBar('Successfully added user ' + user.name);

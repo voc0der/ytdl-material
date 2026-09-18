@@ -4,10 +4,10 @@ import { Router } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PostsService } from 'app/posts.services';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatCheckbox } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
-import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
-import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatTooltip } from '@angular/material/tooltip';
 import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
 
 @Component({
@@ -15,7 +15,8 @@ import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
     templateUrl: './share-media-dialog.component.html',
     styleUrls: ['./share-media-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatCheckbox, FormsModule, MatFormField, MatLabel, MatInput, MatButton, CdkCopyToClipboard, MatDialogActions, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatSlideToggle, MatTooltip, FormsModule, CdkCopyToClipboard, MatDialogActions, MatDialogClose]
 })
 export class ShareMediaDialogComponent implements OnInit {
 
@@ -27,6 +28,9 @@ export class ShareMediaDialogComponent implements OnInit {
   is_playlist = null;
   current_timestamp = null
   timestamp_enabled = false;
+
+  readonly secondsLabel = $localize`Seconds`;
+  readonly linkLabel = $localize`Share link`;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, public router: Router, private snackBar: MatSnackBar,
               public postsService: PostsService) { }

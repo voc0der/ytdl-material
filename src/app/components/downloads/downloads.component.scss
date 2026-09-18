@@ -183,28 +183,6 @@
   color: var(--kit-on-surface-variant);
 }
 
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-top: 4px;
-}
-
-.pager-range {
-  font-size: 13px;
-  color: var(--kit-on-surface-variant);
-  font-variant-numeric: tabular-nums;
-}
-
-.pager-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--kit-on-surface-variant);
-}
-
 @media (max-width: 900px) {
   .download-actions {
     display: none;

@@ -224,6 +224,44 @@ Like the subscriptions harness it is not part of CI, because it downloads from t
 - **A download that cannot start still gets a row.** Failures are rows with a one-line
   summary, not silence; the full error is behind the summary.
 
+# Exercising the dialogs
+
+The download history is the one screen that is only reachable as a dialog, and what it does
+is spread over three endpoints: it lists what has already been downloaded, removes items from
+that list, and takes an archive file in or hands one back out. Nothing but running it shows
+whether those still line up. `dev/screenshots/dialogs.sh` does that against a throwaway
+backend, driving the dialog the way a person would:
+
+```bash
+dev/screenshots/dialogs.sh               # build, boot, run, stop
+dev/screenshots/dialogs.sh --skip-build  # reuse the last frontend build
+dev/screenshots/dialogs.sh --keep        # leave the backend running on :17452 afterwards
+```
+
+It seeds 28 history items, opens the dialog from the toolbar menu, and checks the list, its
+pages, searching by title, id and source, sorting, and the type filter -- which is the
+server's, not the list's. It then selects a row and removes it through the confirmation,
+cancels that and checks nothing went, selects the whole history and removes it for real,
+checks the database is empty and the dialog says so, imports a three-line archive file and
+checks one item was recorded per line, and exports one back out and checks the file that was
+saved says what went in. It finishes on the two dialogs the Settings page opens that were
+rebuilt with it: naming a category, and the webhook template whose fields a toggle turns on.
+Screenshots of each, desktop and phone, light and dark, are left in the `shots` folder it
+prints.
+
+Unlike the subscriptions and downloads harnesses it downloads nothing from the site, so it
+is repeatable offline. It is still not part of CI: it needs Playwright and a production
+frontend build, which is a minute of work for a check that belongs to a UI change.
+
+## Things worth knowing
+
+- **An extractor name never has a space in it.** An archive file is `<extractor> <id>` per
+  line and the import takes the space as the separator, so a line with two of them is
+  skipped. A fixture that names a source "a site" imports nothing at all.
+- **"No subscription" is not "all subscriptions".** The backend keeps one history per
+  subscription and filters on `sub_id` exactly, so the unfiltered list is the items that
+  belong to no subscription. The picker says so.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`
@@ -239,8 +277,8 @@ dev/screenshots/capture.sh --keep        # leave the backend running on :17449 a
 The first run installs Playwright into `dev/screenshots/node_modules` and downloads its
 Chromium. After that a run takes about ten seconds. Nothing it does touches
 `backend/public` or `backend/appdata`: the build, the backend copy it runs from, and that
-copy's data and log all live under `~/.cache/ytdl-material/screenshots`. Both harnesses
-share that build and the staging code in `dev/screenshots/stage.mjs`.
+copy's data and log all live under `~/.cache/ytdl-material/screenshots`. Every harness here
+shares that build and the staging code in `dev/screenshots/stage.mjs`.
 
 The output is byte-identical between runs, so if a re-run changes the PNG, the page changed.
 Commit the image in the same PR as the UI change that moved it. Like the coverage badge, it

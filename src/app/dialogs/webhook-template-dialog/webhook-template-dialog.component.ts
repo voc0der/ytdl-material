@@ -1,10 +1,9 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatCheckbox } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
-import { MatFormField, MatLabel, MatInput, MatHint } from '@angular/material/input';
-import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 
 export type WebhookTemplateDialogData = {
   customEnabled: boolean;
@@ -23,7 +22,8 @@ export type WebhookTemplateDialogResult = {
     templateUrl: './webhook-template-dialog.component.html',
     styleUrls: ['./webhook-template-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatCheckbox, FormsModule, MatFormField, MatLabel, MatInput, MatHint, MatDialogActions, MatButton, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatSlideToggle, FormsModule, MatDialogActions, MatDialogClose]
 })
 export class WebhookTemplateDialogComponent {
   customEnabled = false;
