@@ -107,10 +107,11 @@ async function seedLibrary() {
 
     await writeMigrationFlags(RUN_DIR);
 
-    return library.videos.length;
+    return library;
 }
 
-async function capture(videoCount) {
+async function capture(library) {
+    const videoCount = library.videos.length;
     const browser = await chromium.launch();
     const errors = [];
 
@@ -123,10 +124,17 @@ async function capture(videoCount) {
             colorScheme: 'dark',
             reducedMotion: 'reduce'
         });
-        // The chip the README image has always shown selected.
+        // The chip the README image has always shown selected, and the library sorted by
+        // Upload Date, newest first.
         await context.addInitScript(() => {
             localStorage.setItem('file_filter', JSON.stringify(['video_only']));
+            localStorage.setItem('sort_property', 'upload_date');
+            localStorage.setItem('media_library_sort_order', 'descending');
         });
+        // Sorted by upload date, each card says how long ago its video went up, counted from
+        // now. Holding now at the day the library was downloaded keeps that text, and the
+        // PNG, the same from one run to the next.
+        await context.clock.setFixedTime(library.downloaded);
 
         const page = await context.newPage();
         page.on('console', message => {
@@ -180,14 +188,14 @@ async function main() {
     await rm(RUN_DIR, { recursive: true, force: true });
     await mkdir(RUN_DIR, { recursive: true });
     await copyBackend(RUN_DIR);
-    const videoCount = await seedLibrary();
+    const library = await seedLibrary();
 
     say(`Booting the backend on ${BASE}...`);
     const backend = await startBackend(RUN_DIR, PORT);
 
     try {
         say('Capturing the home page...');
-        const { clip, errors } = await capture(videoCount);
+        const { clip, errors } = await capture(library);
         console.log(`    ${relative(REPO_ROOT, OUTPUT)} (${Math.round(clip.width * SCALE)}x${Math.round(clip.height * SCALE)})`);
         for (const error of errors) {
             console.log(`    page console error: ${error.slice(0, 200)}`);

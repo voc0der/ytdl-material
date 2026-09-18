@@ -501,6 +501,9 @@ The media files themselves are empty placeholders. The home page never opens one
 - **The library is written into the local database, not imported.** An import stamps each
   file with the time it ran, and that is the date the card shows. Fixed timestamps are what
   keep the PNG stable.
+- **The page clock is held at the library's `downloaded` date.** The screenshot sorts by
+  Upload Date, and that sort labels each card with how long ago its video went up, counted
+  from now. On the real clock the labels, and the PNG, drift as the months pass.
 - **`appdata/db.json` has to carry the migration flags.** Without them the first boot runs
   the pre-4.3 migrations, one of which rebuilds the local database from `db.json` and
   empties the seeded tables.
