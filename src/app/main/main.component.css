@@ -79,29 +79,10 @@
     padding: 0 10px;
 }
 
-.playlist-shortcut-action.mat-mdc-button-base {
-    min-width: 0;
-    padding: 0 2px 0 4px;
-    margin: 0 0 0 auto;
-    line-height: 28px;
-    color: inherit !important;
-    opacity: 0.68;
-    letter-spacing: 0.02em;
-    font-size: 0.95rem;
-    transition: opacity 160ms ease;
-}
-
-.playlist-shortcut-action.mat-mdc-button-base:hover,
-.playlist-shortcut-action.mat-mdc-button-base:focus-visible {
-    opacity: 0.92;
-}
-
-.playlist-shortcut-action .mat-icon {
-    margin-right: 6px;
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    opacity: 0.84;
+/* Last in the row, kept against the right edge while there is room for it. */
+.playlist-shortcut-action {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 mat-form-field.mat-mdc-form-field {
