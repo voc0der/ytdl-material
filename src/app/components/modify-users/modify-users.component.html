@@ -1,104 +1,80 @@
-@if (dataSource) {
-  <div>
-    <div style="padding: 15px">
-      <div class="row">
-        <div class="table-responsive w-100 mb-3 pb-4 pt-4">
-          <div class="example-header">
-            <mat-form-field appearance="outline">
-              <mat-label i18n="Search">Search</mat-label>
-              <input matInput (keyup)="applyFilter($event)">
-            </mat-form-field>
-          </div>
-          <div class="mat-elevation-z8" style="margin-right: 15px;">
-            <mat-table #table [dataSource]="dataSource" matSort>
-              <!-- Name Column -->
-              <ng-container matColumnDef="name">
-                <mat-header-cell *matHeaderCellDef mat-sort-header><ng-container i18n="Username users table header"> User name </ng-container></mat-header-cell>
-                <mat-cell *matCellDef="let row">
-                  @if (editObject && editObject.uid === row.uid) {
-                    <span>
-                      <span style="width: 80%;">
-                        <mat-form-field>
-                          <input matInput [(ngModel)]="constructedObject['name']" type="text" style="font-size: 12px">
-                        </mat-form-field>
-                      </span>
-                    </span>
-                  } @else {
-                    {{row.name}}
-                  }
-                </mat-cell>
-              </ng-container>
-              <!-- Email Column -->
-              <ng-container matColumnDef="role">
-                <mat-header-cell *matHeaderCellDef mat-sort-header><ng-container i18n="Role users table header"> Role </ng-container></mat-header-cell>
-                <mat-cell *matCellDef="let row">
-                  @if (editObject && editObject.uid === row.uid) {
-                    <span>
-                      <span style="width: 80%;">
-                        <mat-form-field>
-                          <mat-select [(ngModel)]="constructedObject['role']">
-                            <mat-option value="admin">Admin</mat-option>
-                            <mat-option value="user">User</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </span>
-                    </span>
-                  } @else {
-                    {{row.role}}
-                  }
-                </mat-cell>
-              </ng-container>
-              <!-- Actions Column -->
-              <ng-container matColumnDef="actions">
-                <mat-header-cell *matHeaderCellDef mat-sort-header><ng-container i18n="Actions users table header"> Actions </ng-container></mat-header-cell>
-                <mat-cell *matCellDef="let row">
-                  @if (editObject && editObject.uid === row.uid) {
-                    <span>
-                      <button mat-icon-button color="primary" (click)="finishEditing(row.uid)" matTooltip="Save" i18n-matTooltip="save user edit action button tooltip">
-                        <mat-icon>done</mat-icon>
-                      </button>
-                      <button mat-icon-button (click)="disableEditMode()" matTooltip="Cancel" i18n-matTooltip="cancel user edit action button tooltip">
-                        <mat-icon>cancel</mat-icon>
-                      </button>
-                    </span>
-                  } @else {
-                    <button mat-icon-button (click)="enableEditMode(row.uid)" matTooltip="Edit user" i18n-matTooltip="edit user action button tooltip">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                  }
-                  <button (click)="manageUser(row.uid)" mat-icon-button [disabled]="editObject && editObject.uid === row.uid" matTooltip="Manage user" i18n-matTooltip="manage user action button tooltip">
-                    <mat-icon>settings</mat-icon>
-                  </button>
-                  <button mat-icon-button [disabled]="editObject && editObject.uid === row.uid || row.uid === postsService.user.uid" (click)="removeUser(row.uid)" matTooltip="Delete user" i18n-matTooltip="delete user action button tooltip">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </mat-cell>
-              </ng-container>
-              <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-              <mat-row *matRowDef="let row; columns: displayedColumns;">
-              </mat-row>
-            </mat-table>
-            <mat-paginator #paginator [length]="length"
-              [pageSize]="pageSize"
-              [pageSizeOptions]="pageSizeOptions">
-            </mat-paginator>
-            <button color="primary" [disabled]="!this.users" mat-raised-button (click)="openAddUserDialog()" style="float: left; top: -45px; left: 15px">
-              <ng-container i18n="Add users button">Add Users</ng-container>
-            </button>
-          </div>
-        </div>
-      </div>
-      <button color="primary" [matMenuTriggerFor]="edit_roles_menu" class="edit-role" mat-raised-button><ng-container i18n="Edit role">Edit Role</ng-container></button>
-      <mat-menu #edit_roles_menu="matMenu">
-        @for (role of roles; track role) {
-          <button (click)="openModifyRole(role)" mat-menu-item>{{role.key}}</button>
-        }
-      </mat-menu>
-    </div>
+@if (!users) {
+  <div class="list-loading" aria-busy="true">
+    <mat-spinner [diameter]="32"></mat-spinner>
   </div>
 } @else {
-  <mat-spinner></mat-spinner>
-}
+  <div class="kit-panel">
+    <div class="users-toolbar">
+      <label class="kit-field users-search">
+        <mat-icon>search</mat-icon>
+        <input type="search" [ngModel]="filter" (ngModelChange)="filterChanged($event)" [attr.aria-label]="searchLabel"
+          placeholder="Search users" i18n-placeholder="Search users placeholder">
+      </label>
+      <div class="kit-rail kit-rail-wrap">
+        <button type="button" class="kit-chip kit-primary" (click)="openAddUserDialog()">
+          <mat-icon>person_add</mat-icon><span i18n="Add users button">Add Users</span>
+        </button>
+        <button type="button" class="kit-chip" [matMenuTriggerFor]="edit_roles_menu" [disabled]="!roles">
+          <mat-icon>badge</mat-icon><span i18n="Edit role">Edit Role</span>
+        </button>
+      </div>
+    </div>
 
-<div style="position: absolute" class="centered">
-</div>
+    @if (visibleUsers.length === 0) {
+      <p class="settings-empty" i18n="No users match text">No user matches that search.</p>
+    } @else {
+      <ul class="user-list">
+        @for (user of pageUsers; track user.uid) {
+          <li class="user-row">
+            @if (editObject && editObject.uid === user.uid) {
+              <span class="kit-field user-name-field">
+                <input [(ngModel)]="constructedObject['name']" [attr.aria-label]="userNameLabel">
+              </span>
+              <app-picker [title]="roleLabel" [options]="roleOptions" [value]="constructedObject['role']"
+                (valueChange)="constructedObject['role'] = $any($event)"></app-picker>
+              <button type="button" class="kit-icon-button" (click)="finishEditing(user.uid)"
+                matTooltip="Save" i18n-matTooltip="save user edit action button tooltip"
+                aria-label="Save" i18n-aria-label="save user edit action button tooltip"><mat-icon>done</mat-icon></button>
+              <button type="button" class="kit-icon-button" (click)="disableEditMode()"
+                matTooltip="Cancel" i18n-matTooltip="cancel user edit action button tooltip"
+                aria-label="Cancel" i18n-aria-label="cancel user edit action button tooltip"><mat-icon>close</mat-icon></button>
+            } @else {
+              <span class="user-symbol" aria-hidden="true"><mat-icon>person</mat-icon></span>
+              <span class="user-text">
+                <span class="user-name kit-one-line">{{user.name}}</span>
+                <span class="user-role">{{user.role}}</span>
+              </span>
+              <button type="button" class="kit-icon-button" (click)="enableEditMode(user.uid)"
+                matTooltip="Edit user" i18n-matTooltip="edit user action button tooltip"
+                aria-label="Edit user" i18n-aria-label="edit user action button tooltip"><mat-icon>edit</mat-icon></button>
+              <button type="button" class="kit-icon-button" (click)="manageUser(user.uid)"
+                matTooltip="Manage user" i18n-matTooltip="manage user action button tooltip"
+                aria-label="Manage user" i18n-aria-label="manage user action button tooltip"><mat-icon>settings</mat-icon></button>
+              <button type="button" class="kit-icon-button" [disabled]="user.uid === postsService.user?.uid" (click)="removeUser(user.uid)"
+                matTooltip="Delete user" i18n-matTooltip="delete user action button tooltip"
+                aria-label="Delete user" i18n-aria-label="delete user action button tooltip"><mat-icon>delete_outline</mat-icon></button>
+            }
+          </li>
+        }
+      </ul>
+
+      @if (pageCount > 1) {
+        <div class="pager">
+          <span class="pager-range" i18n="Users page range">{{rangeStart}}–{{rangeEnd}} of {{visibleUsers.length}}</span>
+          <div class="pager-controls">
+            <button type="button" class="kit-icon-button" [disabled]="pageIndex === 0" (click)="goToPage(pageIndex - 1)"
+              [attr.aria-label]="previousPageLabel" [matTooltip]="previousPageLabel"><mat-icon>chevron_left</mat-icon></button>
+            <button type="button" class="kit-icon-button" [disabled]="pageIndex >= pageCount - 1" (click)="goToPage(pageIndex + 1)"
+              [attr.aria-label]="nextPageLabel" [matTooltip]="nextPageLabel"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <mat-menu #edit_roles_menu="matMenu" class="kit-menu">
+    @for (role of roles; track role) {
+      <button mat-menu-item (click)="openModifyRole(role)">{{role.key}}</button>
+    }
+  </mat-menu>
+}

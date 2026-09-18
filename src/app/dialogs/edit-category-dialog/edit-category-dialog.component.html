@@ -1,78 +1,87 @@
-<h4 mat-dialog-title><ng-container i18n="Editing category dialog title">Editing category</ng-container>&nbsp;{{category['name']}}</h4>
-
-<mat-dialog-content style="max-height: 50vh">
-  <mat-form-field style="width: 250px; margin-bottom: 5px;">
-    <mat-label i18n="Category name">Name</mat-label>
-    <input matInput [(ngModel)]="category['name']" required>
-  </mat-form-field>
-
-  <div class="quick-filter-option">
-    <mat-checkbox color="accent" [(ngModel)]="category['show_as_filter']">
-      <ng-container i18n="Show category as library filter">Show as library filter</ng-container>
-    </mat-checkbox>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>label</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Editing category dialog title">Editing category</h2>
+    <p class="dialog-subtitle">{{category['name']}}</p>
   </div>
+</header>
 
-  <mat-divider></mat-divider>
-
-  <h6 style="margin-top: 20px;" i18n="Rules">Rules</h6>
-
-  <mat-list>
-    @for (rule of category['rules']; track rule; let i = $index) {
-      <mat-list-item>
-        <mat-form-field [style.visibility]="i === 0 ? 'hidden' : null" class="operator-select">
-          <mat-select [disabled]="i === 0" [(ngModel)]="rule['preceding_operator']">
-            <mat-option value="or">OR</mat-option>
-            <mat-option value="and">AND</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field class="property-select">
-          <mat-select [(ngModel)]="rule['property']">
-            @for (propertyOption of propertyOptions; track propertyOption) {
-              <mat-option [value]="propertyOption.value">{{propertyOption.label}}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field class="comparator-select">
-          <mat-select [(ngModel)]="rule['comparator']">
-            @for (comparatorOption of comparatorOptions; track comparatorOption) {
-              <mat-option [value]="comparatorOption.value">{{comparatorOption.label}}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field class="value-input">
-          <input matInput [(ngModel)]="rule['value']">
-        </mat-form-field>
-        <span class="rule-buttons">
-          <button [disabled]="i === category['rules'].length-1" (click)="swapRules(i, i+1)" mat-icon-button><mat-icon>arrow_downward</mat-icon></button>
-          <button [disabled]="i === 0" (click)="swapRules(i, i-1)" mat-icon-button><mat-icon>arrow_upward</mat-icon></button>
-          <button (click)="removeRule(i)" mat-icon-button><mat-icon>cancel</mat-icon></button>
+<mat-dialog-content class="dialog-content">
+  <section class="dialog-section">
+    <div class="settings-rows">
+      <label class="settings-row settings-field-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Category name">Name</span>
         </span>
-      </mat-list-item>
-    }
-  </mat-list>
+        <span class="kit-field"><input [(ngModel)]="category['name']" required></span>
+      </label>
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" id="category-as-filter" i18n="Show category as library filter">Show as library filter</span>
+        </span>
+        <mat-slide-toggle [(ngModel)]="category['show_as_filter']" aria-labelledby="category-as-filter"></mat-slide-toggle>
+      </div>
+    </div>
+  </section>
 
-  <button style="margin-bottom: 8px;" mat-icon-button (click)="addNewRule()" matTooltip="Add new rule" i18n-matTooltip="Add new rule tooltip"><mat-icon>add</mat-icon></button>
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>rule</mat-icon><ng-container i18n="Rules">Rules</ng-container></h3>
+    <p class="dialog-hint" i18n="Category rules hint">A download is filed under this category when its rules match.</p>
 
-  <mat-divider></mat-divider>
-
-  <mat-form-field style="width: 250px; margin-top: 10px;">
-    <mat-label i18n="Custom file output">Custom file output</mat-label>
-    <input matInput [(ngModel)]="category['custom_output']">
-    <mat-hint>
-      <a target="_blank" href="https://github.com/yt-dlp/yt-dlp#output-template">
-        <ng-container i18n="Custom output template documentation link">Documentation</ng-container></a>.
-        <ng-container i18n="Custom Output input hint">Path is relative to the config download path. Don't include extension.</ng-container>
-      </mat-hint>
-    </mat-form-field>
-  </mat-dialog-content>
-
-  <mat-dialog-actions>
-    <button mat-button mat-dialog-close><ng-container i18n="Cancel">Cancel</ng-container></button>
-
-    <button mat-button [disabled]="categoryChanged()" type="submit" (click)="saveClicked()"><ng-container i18n="Save button">Save</ng-container></button>
-    @if (updating) {
-      <div class="mat-spinner">
-        <mat-spinner [diameter]="25"></mat-spinner>
+    @for (rule of category['rules']; track $index) {
+      <div class="rule-row">
+        <app-picker class="rule-operator" [class.kit-invisible]="$index === 0" [title]="operatorLabel" [options]="operatorOptions"
+          [value]="rule['preceding_operator']" [disabled]="$index === 0"
+          (valueChange)="rule['preceding_operator'] = $any($event)"></app-picker>
+        <app-picker [title]="propertyLabel" [options]="propertyOptions" [value]="rule['property']"
+          (valueChange)="rule['property'] = $any($event)"></app-picker>
+        <app-picker [title]="comparatorLabel" [options]="comparatorOptions" [value]="rule['comparator']"
+          (valueChange)="rule['comparator'] = $any($event)"></app-picker>
+        <span class="kit-field rule-value">
+          <input [(ngModel)]="rule['value']" [attr.aria-label]="valueLabel">
+        </span>
+        <span class="rule-buttons">
+          <button type="button" class="kit-icon-button" [disabled]="$index === category['rules'].length - 1" (click)="swapRules($index, $index + 1)"
+            aria-label="Move rule down" i18n-aria-label="Move rule down button"><mat-icon>arrow_downward</mat-icon></button>
+          <button type="button" class="kit-icon-button" [disabled]="$index === 0" (click)="swapRules($index, $index - 1)"
+            aria-label="Move rule up" i18n-aria-label="Move rule up button"><mat-icon>arrow_upward</mat-icon></button>
+          <button type="button" class="kit-icon-button" (click)="removeRule($index)"
+            aria-label="Remove rule" i18n-aria-label="Remove rule button"><mat-icon>close</mat-icon></button>
+        </span>
       </div>
     }
-  </mat-dialog-actions>
+    @if (category['rules'].length === 0) {
+      <p class="settings-empty" i18n="No category rules text">No rules yet, so nothing matches this category.</p>
+    }
+
+    <button type="button" class="kit-chip" (click)="addNewRule()"
+      matTooltip="Add new rule" i18n-matTooltip="Add new rule tooltip">
+      <mat-icon>add</mat-icon><span i18n="Add rule button">Add rule</span>
+    </button>
+  </section>
+
+  <section class="dialog-section">
+    <div class="settings-rows">
+      <label class="settings-row settings-field-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Custom file output">Custom file output</span>
+          <span class="settings-row-hint">
+            <ng-container i18n="Custom Output input hint">Path is relative to the config download path. Don't include extension.</ng-container>
+            <a target="_blank" rel="noopener" href="https://github.com/yt-dlp/yt-dlp#output-template" i18n="Custom output template documentation link">Documentation</a>
+          </span>
+        </span>
+        <span class="kit-field"><input [(ngModel)]="category['custom_output']"></span>
+      </label>
+    </div>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  @if (updating) {
+    <mat-spinner class="dialog-actions-spinner" [diameter]="20"></mat-spinner>
+  }
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" [disabled]="categoryChanged() || updating" (click)="saveClicked()">
+    <mat-icon>done</mat-icon><span i18n="Save button">Save</span>
+  </button>
+</mat-dialog-actions>

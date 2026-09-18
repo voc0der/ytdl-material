@@ -1,33 +1,36 @@
-.operator-select {
-    width: 90px;
+// Sits ahead of the answers, so the wait is next to what is being waited on.
+.dialog-actions-spinner {
+  margin-right: 4px;
 }
 
-.property-select {
-    margin-left: 10px;
-    width: 110px;
+// One rule: how it joins the one before, what it looks at, how, and for what.
+.rule-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--kit-divider);
 }
 
-.comparator-select {
-    margin-left: 10px;
+.rule-row:first-of-type {
+  border-top: 0;
 }
 
-.value-input {
-    margin-left: 10px;
+.rule-value {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding-right: 16px;
 }
 
-:host ::ng-deep.mdc-list-item {
-    height: 75px !important;
-}
-
-:host ::ng-deep.mdc-list-item__content {
-    pointer-events: unset;
+.rule-value > input {
+  font-size: 14px;
 }
 
 .rule-buttons {
-    position: relative;
-    top: 8px;
-}
-
-.quick-filter-option {
-    margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--kit-on-surface-variant);
 }

@@ -1,17 +1,28 @@
-.info-menu-icon {
-    float: right;
+.args-chips {
+  margin-bottom: 12px;
 }
 
-.info-autocomplete-icon {
-    float: right;
-    position: relative;
-    top: -12px;
+.args-input > input {
+  font-size: 14px;
 }
 
-:host ::ng-deep.mat-menu-panel {
-    max-width: none !important;
+.args-actions {
+  padding-top: 12px;
 }
 
-:host ::ng-deep.mdc-list-item__primary-text {
-    width: 100%;
+// The description of an arg, at the end of its row in the autocomplete.
+:host ::ng-deep .kit-autocomplete .mat-mdc-option .kit-menu-detail {
+  margin-left: auto;
+  padding-left: 16px;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .kit-autocomplete .mat-mdc-option .mdc-list-item__primary-text {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  min-width: 0;
 }

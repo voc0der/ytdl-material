@@ -148,4 +148,40 @@ describe('UpdaterComponent', () => {
     expect(component.showCurrentVersionOption).toBe(true);
     expect(component.versionsLoaded).toBe(true);
   });
+
+  describe('the versions it offers', () => {
+    it('offers only the version in use when there are no releases', () => {
+      postsService.getAvailableRelease.mockReturnValue(of([]));
+
+      component.getAvailableVersions();
+
+      expect(component.versionOptions).toEqual([
+        { value: currentVersionTag, label: `${currentVersionTag} - Current Version` }
+      ]);
+    });
+
+    it('marks the latest stable and the one that is installed', () => {
+      postsService.getAvailableRelease.mockReturnValue(of([
+        { tag_name: nextPatchVersion },
+        { tag_name: currentVersionTag }
+      ] as any));
+
+      component.getAvailableVersions();
+
+      expect(component.versionOptions).toEqual([
+        { value: nextPatchVersion, label: nextPatchVersion, detail: 'Latest stable' },
+        { value: currentVersionTag, label: currentVersionTag, detail: 'Current version' }
+      ]);
+    });
+
+    it('offers nightly beside the releases when that is what is running', () => {
+      postsService.getVersionInfo.mockReturnValue(of({ version_info: { tag: 'nightly' } } as any));
+      postsService.getAvailableRelease.mockReturnValue(of([{ tag_name: nextPatchVersion }] as any));
+
+      component.loadCurrentVersionAndAvailableVersions();
+
+      expect(component.versionOptions[0]).toEqual({ value: 'nightly', label: 'nightly - Current Version' });
+      expect(component.versionOptions.map(option => option.value)).toContain(nextPatchVersion);
+    });
+  });
 });

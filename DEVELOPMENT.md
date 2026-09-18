@@ -224,6 +224,42 @@ Like the subscriptions harness it is not part of CI, because it downloads from t
 - **A download that cannot start still gets a row.** Failures are rows with a one-line
   summary, not silence; the full error is behind the summary.
 
+# Exercising the settings page
+
+Settings is the page where a broken control is invisible until someone's server stops doing
+what they told it to: every row writes into one config object, and one Save writes that object
+to disk. `dev/screenshots/settings.sh` works it against a throwaway backend:
+
+```bash
+dev/screenshots/settings.sh               # build, boot, run, stop
+dev/screenshots/settings.sh --skip-build  # reuse the last frontend build
+dev/screenshots/settings.sh --keep        # leave the backend running on :17453 afterwards
+```
+
+It opens every tab from the rail and checks each one rendered, that the open tab is in the URL
+and that a link to one opens on it. It then changes a setting of each kind the page has -- a
+toggle, a text field, a picker -- across two tabs, checks the change survives switching between
+them, saves once, and reads the config back off the backend to see that each value was stored.
+It checks Cancel puts the page back, that the kinds of notification can only be picked when
+there is a choice to make, and that the Users tab says why it is unavailable without multi-user
+mode. Then the categories list: adding the default set, naming a new one, giving it a rule, and
+removing it through its confirmation. Finally the dialogs the page opens -- args, cookies, RSS
+and the webhook template -- including that an arg built in the args dialog lands in the field it
+was opened from. Screenshots of every tab, desktop and phone, light and dark, are left in the
+`shots` folder it prints.
+
+Like the dialogs harness it downloads nothing, and like all of them it is not part of CI.
+
+## Things worth knowing
+
+- **`--skip-build` reuses the build in the cache dir**, not `backend/public`. Running
+  `npm run build` does not update it, so after changing frontend code, run without that flag
+  or the harness tests the previous build. Both of the runs that "pass a change that was never
+  built" and the ones that "fail a fix that is already in" come from this.
+- **Enabling multi-user mode from the page opens the create-admin dialog on save**, because
+  that is what the app does when the first admin does not exist yet. The harness therefore
+  changes other settings instead; anything driving that toggle has to expect the dialog.
+
 # Exercising the dialogs
 
 The archive is the one screen that is only reachable as a dialog, and what it does is spread

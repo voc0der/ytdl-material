@@ -1,1 +1,37 @@
-.spacer {flex: 1 1 auto;}
+:host {
+  display: block;
+}
+
+.logs-toolbar {
+  padding-bottom: 12px;
+}
+
+.logs-spacer {
+  flex: 1 1 auto;
+}
+
+.logs-output {
+  max-height: min(60vh, 560px);
+}
+
+.log-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// The level a line was logged at, in the theme's colours rather than named ones.
+.log-line[data-level='error'] {
+  color: var(--kit-on-danger-tonal);
+}
+
+.log-line[data-level='warn'] {
+  color: #b8860b;
+}
+
+:host-context(.dark-theme) .log-line[data-level='warn'] {
+  color: #e0b34a;
+}
+
+.log-line[data-level='verbose'] {
+  color: var(--kit-on-surface-variant);
+}

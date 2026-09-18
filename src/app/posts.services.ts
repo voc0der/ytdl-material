@@ -1126,8 +1126,11 @@ export class PostsService {
         return this.http.post<GetRolesResponse>(this.path + 'getRoles', {}, this.httpOptions);
     }
 
-    setUserPermission(user_uid: string, permission: UserPermission, new_value: YesNo) {
-        const body: ChangeUserPermissionsRequest = {user_uid: user_uid, permission: permission, new_value: new_value};
+    setUserPermission(user_uid: string, permission: UserPermission, new_value: YesNo | 'default') {
+        // 'default' drops the override so the user's role decides, which is what the backend
+        // does with anything that is neither yes nor no. The generated request type knows only
+        // those two, because the API spec does not describe the third value yet.
+        const body: ChangeUserPermissionsRequest = {user_uid: user_uid, permission: permission, new_value: new_value as YesNo};
         return this.http.post<SuccessObject>(this.path + 'changeUserPermissions', body,
                                                                     this.httpOptions);
     }

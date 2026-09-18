@@ -5,10 +5,9 @@ import {DomSanitizer} from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
 import { CURRENT_VERSION } from 'app/consts';
-import { MatCheckboxChange, MatCheckbox } from '@angular/material/checkbox';
 import { CookiesUploaderDialogComponent } from 'app/dialogs/cookies-uploader-dialog/cookies-uploader-dialog.component';
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
-import { moveItemInArray, CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder } from '@angular/cdk/drag-drop';
+import { moveItemInArray, CdkDragDrop, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder } from '@angular/cdk/drag-drop';
 import { InputDialogComponent } from 'app/input-dialog/input-dialog.component';
 import { EditCategoryDialogComponent } from 'app/dialogs/edit-category-dialog/edit-category-dialog.component';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,15 +15,12 @@ import { Category, DBInfoResponse } from 'api-types';
 import { GenerateRssUrlComponent } from 'app/dialogs/generate-rss-url/generate-rss-url.component';
 import { filter, take } from 'rxjs/operators';
 import { WebhookTemplateDialogComponent, WebhookTemplateDialogResult } from 'app/dialogs/webhook-template-dialog/webhook-template-dialog.component';
-import { MatTabGroup, MatTab, MatTabContent, MatTabLabel } from '@angular/material/tabs';
-import { MatFormField, MatLabel, MatInput, MatHint } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatDivider, MatList, MatListItem } from '@angular/material/list';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatTooltip } from '@angular/material/tooltip';
-import { MatSelect, MatOption } from '@angular/material/select';
-import { MatIconButton, MatMiniFabButton, MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 import { UpdaterComponent } from '../updater/updater.component';
 import { ModifyUsersComponent } from '../components/modify-users/modify-users.component';
 import { LogsViewerComponent } from '../components/logs-viewer/logs-viewer.component';
@@ -54,7 +50,7 @@ const YTDLP_UPDATE_CHANNELS = ['stable', 'nightly', 'master'];
     templateUrl: './settings.component.html',
     styleUrls: ['./settings.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatTabGroup, MatTab, MatTabContent, MatFormField, MatLabel, MatInput, FormsModule, MatHint, MatDivider, MatCheckbox, MatTooltip, MatSelect, MatOption, MatIconButton, MatIcon, CdkDropList, CdkDrag, CdkDragPlaceholder, MatMiniFabButton, MatButton, MatList, MatListItem, MatProgressSpinner, UpdaterComponent, MatTabLabel, ModifyUsersComponent, LogsViewerComponent, KeyValuePipe]
+    imports: [FormsModule, MatSlideToggle, MatTooltip, MatIcon, MatProgressSpinner, PickerComponent, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder, UpdaterComponent, ModifyUsersComponent, LogsViewerComponent, KeyValuePipe]
 })
 export class SettingsComponent implements OnInit {
   initial_config = null;
@@ -79,13 +75,97 @@ export class SettingsComponent implements OnInit {
   downloaderInfo: Record<string, DownloaderVersionInfo> = {};
   addingDefaultCategories = false;
 
-  tabs = ['main', 'downloader', 'extra', 'database', 'notifications', 'advanced', 'users', 'logs'];
-  tabIndex = 0;
-  
-  INDEX_TO_TAB = Object.assign({}, this.tabs);
-  TAB_TO_INDEX = {};
-  
+  // The key is what the route carries (/settings;tab=downloader), so it cannot change.
+  readonly tabs: { key: string, label: string, icon: string }[] = [
+    { key: 'main',          label: $localize`Main`,          icon: 'tune' },
+    { key: 'downloader',    label: $localize`Downloader`,    icon: 'download' },
+    { key: 'extra',         label: $localize`Extra`,         icon: 'extension' },
+    { key: 'database',      label: $localize`Database`,      icon: 'storage' },
+    { key: 'notifications', label: $localize`Notifications`, icon: 'notifications' },
+    { key: 'advanced',      label: $localize`Advanced`,      icon: 'build' },
+    { key: 'users',         label: $localize`Users`,         icon: 'group' },
+    { key: 'logs',          label: $localize`Logs`,          icon: 'receipt_long' }
+  ];
+  tab = 'main';
+
   usersTabDisabledTooltip = $localize`You must enable multi-user mode to access this tab.`;
+
+  readonly themeOptions: PickerOption[] = [
+    { value: 'default', label: $localize`Default` },
+    { value: 'dark', label: $localize`Dark` }
+  ];
+
+  readonly transcodingOptions: PickerOption[] = [
+    { value: false, label: $localize`None` },
+    { value: 'amf', label: 'AMD AMF' },
+    { value: 'nvenc', label: 'Nvidia NVENC' },
+    { value: 'qsv', label: 'Intel Quicksync (QSV)' },
+    { value: 'vaapi', label: 'Video Acceleration API (VAAPI)' }
+  ];
+
+  readonly remoteDbTypeOptions: PickerOption[] = [
+    { value: '', label: $localize`Automatic` },
+    { value: 'postgres', label: 'PostgreSQL' },
+    { value: 'mongo', label: 'MongoDB' }
+  ];
+
+  readonly dbMigrateOptions: PickerOption[] = [
+    { value: '', label: $localize`Disabled` },
+    { value: 'postgres', label: $localize`MongoDB to PostgreSQL on startup` },
+    { value: 'mongo', label: $localize`PostgreSQL to MongoDB on startup` }
+  ];
+
+  readonly downloadingAgentOptions: PickerOption[] = ['aria2c', 'avconv', 'axel', 'curl', 'ffmpeg', 'httpie', 'wget']
+    .map(agent => ({ value: agent, label: agent }));
+
+  readonly loggerLevelOptions: PickerOption[] = [
+    { value: 'debug', label: 'Debug' },
+    { value: 'verbose', label: 'Verbose' },
+    { value: 'info', label: 'Info' },
+    { value: 'warn', label: 'Warn' },
+    { value: 'error', label: 'Error' }
+  ];
+
+  readonly jwtExpirationOptions: PickerOption[] = [
+    { value: 3600, label: $localize`1 Hour` },
+    { value: 86400, label: $localize`1 Day` },
+    { value: 604800, label: $localize`1 Week` },
+    { value: 2592000, label: $localize`1 Month` },
+    { value: 31536000, label: $localize`1 Year` }
+  ];
+
+  readonly authMethodOptions: PickerOption[] = [
+    { value: 'internal', label: $localize`Internal` },
+    { value: 'ldap', label: $localize`LDAP` }
+  ];
+
+  // The three kinds a notification can be, as chips rather than a multiple select.
+  readonly notificationTypes: { key: string, label: string }[] = [
+    { key: 'download_complete', label: $localize`Download complete` },
+    { key: 'download_error', label: $localize`Download error` },
+    { key: 'task_finished', label: $localize`Task finished` }
+  ];
+
+  readonly themeLabel = $localize`Theme`;
+  readonly transcodingLabel = $localize`Hardware acceleration`;
+  readonly remoteDbTypeLabel = $localize`Remote database`;
+  readonly dbMigrateLabel = $localize`Migration`;
+  readonly downloaderLabel = $localize`Downloader`;
+  readonly downloadingAgentLabel = $localize`Download agent`;
+  readonly loggerLevelLabel = $localize`Log level`;
+  readonly jwtExpirationLabel = $localize`Login expires`;
+  readonly authMethodLabel = $localize`Auth method`;
+
+  // Names for the controls whose label is the row they sit in rather than their own element.
+  readonly argsLabel = $localize`Global custom args`;
+  readonly notificationTypesLabel = $localize`Allowed notification types`;
+  readonly webhookLabel = $localize`Webhook URL`;
+  readonly discordLabel = $localize`Discord Webhook URL`;
+  readonly slackLabel = $localize`Slack Webhook URL`;
+  readonly postgresLabel = $localize`PostgreSQL Connection String`;
+  readonly mongoLabel = $localize`MongoDB Connection String`;
+  readonly redisLabel = $localize`Redis Connection String`;
+  readonly cookiesTestUrlLabel = $localize`Test URL`;
 
   get settingsAreTheSame(): boolean {
     this._settingsSame = this.settingsSame()
@@ -109,10 +189,7 @@ export class SettingsComponent implements OnInit {
   }
 
   constructor(public postsService: PostsService, private snackBar: MatSnackBar, private sanitizer: DomSanitizer,
-    private dialog: MatDialog, private router: Router, private route: ActivatedRoute) {
-      // invert index to tab
-      Object.keys(this.INDEX_TO_TAB).forEach(key => { this.TAB_TO_INDEX[this.INDEX_TO_TAB[key]] = key; });
-    }
+    private dialog: MatDialog, private router: Router, private route: ActivatedRoute) { }
 
   ngOnInit(): void {
     if (this.postsService.initialized) {
@@ -133,8 +210,12 @@ export class SettingsComponent implements OnInit {
 
     this.getLatestGithubRelease();
 
-    const tab = this.route.snapshot.paramMap.get('tab');
-    this.tabIndex = tab && this.TAB_TO_INDEX[tab] ? this.TAB_TO_INDEX[tab] : 0;
+    // Followed rather than read once, so a link to a tab works while the page is already open,
+    // and so do the back and forward buttons.
+    this.route.paramMap.subscribe(params => {
+      const tab = params.get('tab');
+      this.tab = this.tabs.some(candidate => candidate.key === tab) ? tab : 'main';
+    });
   }
 
   getConfig(): void {
@@ -193,6 +274,34 @@ export class SettingsComponent implements OnInit {
       : `${downloader} ${channel}`;
   }
 
+  // Built each time it is read, because the version each label carries arrives separately.
+  get downloaderOptions(): PickerOption[] {
+    return [
+      { value: 'youtube-dl', label: this.getDownloaderLabel('youtube-dl') },
+      { value: 'yt-dlp', label: this.getDownloaderLabel('yt-dlp', 'stable') },
+      { value: 'yt-dlp@nightly', label: this.getDownloaderLabel('yt-dlp', 'nightly') },
+      { value: 'yt-dlp@master', label: this.getDownloaderLabel('yt-dlp', 'master') }
+    ];
+  }
+
+  notificationTypeEnabled(type: string): boolean {
+    const allowed = this.new_config?.['Extra']?.['allowed_notification_types'];
+    return Array.isArray(allowed) && allowed.includes(type);
+  }
+
+  toggleNotificationType(type: string): void {
+    const allowed = this.new_config['Extra']['allowed_notification_types'];
+    const current: string[] = Array.isArray(allowed) ? allowed : [];
+    this.new_config['Extra']['allowed_notification_types'] = this.notificationTypeEnabled(type)
+      ? current.filter(entry => entry !== type)
+      : [...current, type];
+  }
+
+  /** Whether the kinds of notification to send can still be chosen. */
+  get notificationTypesLocked(): boolean {
+    return !this.new_config?.['Extra']?.['enable_notifications'] || !!this.new_config?.['Extra']?.['enable_all_notifications'];
+  }
+
   settingsSame(): boolean {
     return JSON.stringify(this.new_config) === JSON.stringify(this.initial_config);
   }
@@ -218,9 +327,15 @@ export class SettingsComponent implements OnInit {
     this.new_config = JSON.parse(JSON.stringify(this.initial_config));
   }
 
-  tabChanged(event): void {
-    const index = event['index'];
-    this.router.navigate(['/settings', {tab: this.INDEX_TO_TAB[index]}]);
+  selectTab(tab: string): void {
+    if (tab === this.tab || this.tabDisabled(tab)) return;
+    this.tab = tab;
+    this.router.navigate(['/settings', {tab: tab}]);
+  }
+
+  /** Users only exist in multi-user mode, so its tab is not worth opening without it. */
+  tabDisabled(tab: string): boolean {
+    return tab === 'users' && !this.postsService.config?.Advanced?.multi_user_mode;
   }
 
   dropCategory(event: CdkDragDrop<string[]>): void {
@@ -305,6 +420,11 @@ export class SettingsComponent implements OnInit {
 
   openEditCategoryDialog(category: Category): void {
     this.dialog.open(EditCategoryDialogComponent, {
+      panelClass: 'kit-dialog-panel',
+      width: '580px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog',
       data: {
         category: category
       }
@@ -324,8 +444,8 @@ export class SettingsComponent implements OnInit {
     return bookmarkletCode;
   }
 
-  bookmarkletAudioOnlyChanged(event:  MatCheckboxChange): void {
-    this.bookmarkletAudioOnly = event.checked;
+  bookmarkletAudioOnlyChanged(audio_only: boolean): void {
+    this.bookmarkletAudioOnly = audio_only;
     this.generated_bookmarklet_code = this.sanitizer.bypassSecurityTrustUrl(this.generateBookmarkletCode());
   }
 
@@ -352,6 +472,11 @@ export class SettingsComponent implements OnInit {
 
  openArgsModifierDialog(): void {
    const dialogRef = this.dialog.open(ArgModifierDialogComponent, {
+     panelClass: 'kit-dialog-panel',
+     width: '640px',
+     maxWidth: 'calc(100vw - 32px)',
+     maxHeight: 'calc(100dvh - 32px)',
+     autoFocus: 'dialog',
      data: {
       initial_args: this.new_config['Downloader']['custom_args']
      }
@@ -371,7 +496,11 @@ export class SettingsComponent implements OnInit {
 
   openCookiesUploaderDialog(): void {
     this.dialog.open(CookiesUploaderDialogComponent, {
-      width: '65vw'
+      panelClass: 'kit-dialog-panel',
+      width: '560px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 
@@ -542,8 +671,11 @@ export class SettingsComponent implements OnInit {
 
   openGenerateRSSURLDialog(): void {
     this.dialog.open(GenerateRssUrlComponent, {
-      width: '80vw',
-      maxWidth: '880px'
+      panelClass: 'kit-dialog-panel',
+      width: '640px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 }

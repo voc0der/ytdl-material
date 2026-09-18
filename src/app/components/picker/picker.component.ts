@@ -33,6 +33,8 @@ export class PickerComponent {
   @Input() icon: string | null = null;
   @Input() iconOnly = false;
   @Input() disabled = false;
+  // Shown in place of the value when it matches none of the options, so the chip is never blank.
+  @Input() placeholder = '—';
   @Input() loading = false;
   @Input() segments: PickerOption<string>[] = [];
   @Input() segment: string | null = null;
@@ -49,6 +51,17 @@ export class PickerComponent {
 
   get selectedLabel(): string {
     return this.options.find(option => option.value === this.value)?.label ?? '';
+  }
+
+  /**
+   * What a screen reader calls the chip. With a visible label it already reads "Quality Best"
+   * and needs nothing; with only the value on it, as in a settings row, the name of the choice
+   * has to come from somewhere, so it is said ahead of the value.
+   */
+  get ariaLabel(): string | null {
+    if (this.iconOnly) return this.title;
+    if (this.label || !this.title) return null;
+    return this.selectedLabel ? `${this.title} ${this.selectedLabel}` : this.title;
   }
 
   open(): void {

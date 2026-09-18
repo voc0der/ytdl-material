@@ -132,6 +132,26 @@ describe('PickerComponent', () => {
     expect(fixture.nativeElement.querySelector('mat-spinner')).not.toBeNull();
   });
 
+  it('leaves a chip that already shows the choice unnamed', () => {
+    expect(chip().getAttribute('aria-label')).toBeNull();
+  });
+
+  it('names a chip that shows only its value by the choice and the value', () => {
+    component.label = null;
+    fixture.detectChanges();
+
+    expect(chip().getAttribute('aria-label')).toBe('Quality Best');
+  });
+
+  it('shows a dash rather than nothing when the value matches no option', () => {
+    component.label = null;
+    component.value = 'not-an-option';
+    fixture.detectChanges();
+
+    expect(chip().textContent).toContain('—');
+    expect(chip().getAttribute('aria-label')).toBe('Quality');
+  });
+
   it('should name an icon-only chip by its title', () => {
     component.iconOnly = true;
     component.icon = 'swap_vert';

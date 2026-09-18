@@ -1,5 +1,5 @@
 <button #trigger type="button" [class.kit-chip]="!iconOnly" [class.kit-icon-button]="iconOnly" [disabled]="disabled"
-  aria-haspopup="true" [attr.aria-expanded]="expanded" [attr.aria-label]="iconOnly ? title : null" [attr.aria-busy]="loading || null"
+  aria-haspopup="true" [attr.aria-expanded]="expanded" [attr.aria-label]="ariaLabel" [attr.aria-busy]="loading || null"
   (click)="open()">
   @if (icon) {
     <mat-icon>{{icon}}</mat-icon>
@@ -8,7 +8,7 @@
     @if (label) {
       <span class="kit-chip-label">{{label}}</span>
     }
-    <span class="picker-value">{{selectedLabel}}</span>
+    <span class="picker-value">{{selectedLabel || placeholder}}</span>
     @if (loading) {
       <mat-spinner class="picker-spinner" [diameter]="16"></mat-spinner>
     } @else {

@@ -1,4 +1,15 @@
-.mat-mdc-radio-button {
-    margin-right: 10px;
-    margin-top: 5px;
+.password-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-row > .kit-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 16px;
+}
+
+.password-row > .kit-field > input {
+  font-size: 14px;
 }
