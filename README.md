@@ -13,7 +13,9 @@
 [![Version badge](https://img.shields.io/github/v/release/voc0der/ytdl-material?display_name=tag)](https://github.com/voc0der/ytdl-material/releases/latest)
 [![Dependencies badge](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml)
 
-ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp). Download video and audio from a link, subscribe to channels and playlists so new uploads arrive on their own, and watch everything from a library in your browser, whether it's just you or everyone on your server. See the [full feature list](https://github.com/voc0der/ytdl-material/wiki/Features).
+ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp). Download video and audio from a link, subscribe to channels and playlists so new uploads arrive on their own, and watch everything from a library in your browser, whether it's just you or everyone on your server. See the [full feature list](https://voc0der.github.io/ytdl-material/features/).
+
+**[Documentation](https://voc0der.github.io/ytdl-material/)** · [Quick start](https://voc0der.github.io/ytdl-material/getting-started/quick-start/) · [Troubleshooting](https://voc0der.github.io/ytdl-material/reference/troubleshooting/)
 
 <hr>
 
@@ -36,10 +38,10 @@ docker compose pull   # if needed
 docker compose up -d
 ```
 
-Docker environment variables: [docker-environment.md](./docker-environment.md). See [Wiki](https://github.com/voc0der/ytdl-material/wiki#environment-specific-guideshelp) for host-specific instructions.
+Docker environment variables: [reference](https://voc0der.github.io/ytdl-material/reference/environment/). See the [NAS and ARM host guide](https://voc0der.github.io/ytdl-material/deployment/platforms/) for host-specific instructions.
 
 #### Migration
-If migrating from [YoutubeDL-Material](https://github.com/Tzahi12345/YoutubeDL-Material), download [docker-compose-youtubedl-material.yml](https://github.com/voc0der/ytdl-material/blob/main/docker-compose-youtubedl-material.yml) instead.
+For an existing installation, follow the [migration guide](https://voc0der.github.io/ytdl-material/deployment/migration/) before replacing your Compose file or changing database engines.
 
 #### Build manually
 See the [install and build guide](./install-and-build.md).

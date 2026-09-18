@@ -1,5 +1,7 @@
 <h1>Development</h1>
 
+For the documentation site, see [Maintaining the docs](./docs/development/documentation.md). The site builds independently of the application and deploys through GitHub Pages.
+
 - [Setup](#setup)
 - [Running locally](#running-locally)
 - [Visual Studio Code](#visual-studio-code)

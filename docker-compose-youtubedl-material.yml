@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       # MongoDB migration guide:
-      # https://github.com/voc0der/ytdl-material/wiki/Migrating-between-MongoDB-and-PostgreSQL
+      # https://voc0der.github.io/ytdl-material/deployment/migration/#mongodb-to-postgresql
       ytdl_use_local_db: 'false'
       ytdl_remote_db_type: 'mongo'
       ytdl_mongodb_connection_string: 'mongodb://ytdl-mongo-db:27017'

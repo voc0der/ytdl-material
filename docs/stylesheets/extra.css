@@ -1,0 +1,39 @@
+:root {
+  --md-text-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --md-code-font: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --md-primary-fg-color: #243d46;
+  --md-primary-fg-color--light: #345762;
+  --md-primary-fg-color--dark: #182c33;
+}
+
+/* Links and the active nav item default to the primary color, which is too dark to read on
+   slate and too close to body text on white. */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #15798a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 205;
+  --md-primary-fg-color: #20363e;
+  --md-typeset-a-color: #6cc2d1;
+}
+
+.md-typeset .docs-intro {
+  font-size: 1.2em;
+  max-width: 42em;
+}
+
+.md-typeset .grid.cards > ul > li {
+  border-radius: .4rem;
+}
+
+.md-typeset .library-preview {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .5rem;
+  box-shadow: 0 .3rem 1.2rem #00000012;
+}
+
+.md-header__button.md-logo img {
+  height: 1.5rem;
+  width: 1.5rem;
+}
