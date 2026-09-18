@@ -181,7 +181,7 @@
         <ng-container>
           @for (file of loading_files; track $index; let i = $index) {
             <div class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="[normal_files_received ? 'hide' : '', cardColumnClass]">
-              <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
+              <app-unified-file-card [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [displayDateProperty]="sortProperty" [loading]="true" [theme]="postsService.theme"></app-unified-file-card>
             </div>
           }
         </ng-container>
