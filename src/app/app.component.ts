@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSidenav, MatSidenavContainer, MatSidenavContent } from '@angular/material/sidenav';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router, NavigationStart, NavigationEnd, RouterLink, RouterOutlet } from '@angular/router';
+import { Router, NavigationStart, NavigationEnd, RouterLink, RouterLinkActive, RouterOutlet, IsActiveMatchOptions } from '@angular/router';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { THEMES_CONFIG } from '../themes';
 import { AboutDialogComponent } from './dialogs/about-dialog/about-dialog.component';
@@ -23,7 +23,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatBadge } from '@angular/material/badge';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressBar } from '@angular/material/progress-bar';
-import { MatNavList, MatListItem, MatDivider } from '@angular/material/list';
+import { MatNavList, MatListItem, MatListItemIcon, MatListItemTitle, MatDivider } from '@angular/material/list';
 import { AvatarComponent } from 'ngx-avatars';
 
 @Component({
@@ -35,7 +35,7 @@ import { AvatarComponent } from 'ngx-avatars';
             useValue: {}
         }],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatToolbar, MatIconButton, MatIcon, RouterLink, MatMenuTrigger, MatBadge, MatMenu, MatTooltip, MatProgressBar, MatMenuItem, NotificationsComponent, MatSidenavContainer, MatSidenav, MatNavList, MatListItem, MatDivider, AvatarComponent, MatSidenavContent, RouterOutlet]
+    imports: [MatToolbar, MatIconButton, MatIcon, RouterLink, RouterLinkActive, MatMenuTrigger, MatBadge, MatMenu, MatTooltip, MatProgressBar, MatMenuItem, NotificationsComponent, MatSidenavContainer, MatSidenav, MatNavList, MatListItem, MatListItemIcon, MatListItemTitle, MatDivider, AvatarComponent, MatSidenavContent, RouterOutlet]
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -43,6 +43,14 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   THEMES_CONFIG = THEMES_CONFIG;
 
   window = window;
+
+  // Match the subscription id while allowing extra route state, such as an open settings panel.
+  readonly navigationMatchOptions: IsActiveMatchOptions = {
+    paths: 'exact',
+    matrixParams: 'subset',
+    queryParams: 'ignored',
+    fragment: 'ignored'
+  };
 
   // config items
   topBarTitle = 'Youtube Downloader';

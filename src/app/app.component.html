@@ -6,7 +6,7 @@
           <div class="col-6" style="text-align: left; margin-top: 1px;">
             <div style="display: flex; align-items: center;">
               @if (router.url.split(';')[0] !== '/player') {
-                <button #hamburgerMenu style="outline: none" mat-icon-button aria-label="Toggle side navigation" (click)="toggleSidenav()"><mat-icon>menu</mat-icon></button>
+                <button #hamburgerMenu mat-icon-button aria-label="Toggle side navigation" [attr.aria-expanded]="sidenav.opened" aria-controls="primary-navigation" (click)="toggleSidenav()"><mat-icon>menu</mat-icon></button>
               }
               @if (router.url.split(';')[0] === '/player') {
                 <button (click)="goBack()" mat-icon-button><mat-icon>arrow_back</mat-icon></button>
@@ -119,37 +119,61 @@
     </mat-toolbar>
   </div>
   <div class="sidenav-container" style="height: calc(100% - 64px)">
-    <mat-sidenav-container style="height: 100%">
-      <mat-sidenav [opened]="postsService.sidepanel_mode === 'side' && !window.location.href.includes('/player')" [mode]="postsService.sidepanel_mode" #sidenav>
-        <mat-nav-list>
+    <mat-sidenav-container class="navigation-container" [class.drawer-open]="sidenav.opened" style="height: 100%">
+      <mat-sidenav id="primary-navigation" class="navigation-drawer" [opened]="postsService.sidepanel_mode === 'side' && !window.location.href.includes('/player')" [mode]="postsService.sidepanel_mode" #sidenav>
+        <mat-nav-list class="navigation-list" aria-label="Main navigation" i18n-aria-label="Main navigation label">
           @if (postsService.config && (!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn)) {
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/home'><ng-container i18n="Navigation menu Home Page title">Home</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/home'>
+              <mat-icon matListItemIcon class="navigation-icon">home</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Home Page title">Home</span>
+            </a>
           }
           @if (postsService.config && postsService.config.Advanced.multi_user_mode && !postsService.isLoggedIn) {
-            <a mat-list-item (click)="sidenav.close()" routerLink='/login'><ng-container i18n="Navigation menu Login Page title">Login</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="sidenav.close()" routerLink='/login'>
+              <mat-icon matListItemIcon class="navigation-icon">login</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Login Page title">Login</span>
+            </a>
           }
           @if (postsService.config && allowSubscriptions && postsService.hasPermission('subscriptions')) {
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/subscriptions'><ng-container i18n="Navigation menu Subscriptions Page title">Subscriptions</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/subscriptions'>
+              <mat-icon matListItemIcon class="navigation-icon">subscriptions</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Subscriptions Page title">Subscriptions</span>
+            </a>
           }
           @if (postsService.config && enableDownloadsManager && postsService.hasPermission('downloads_manager')) {
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/downloads'><ng-container i18n="Navigation menu Downloads Page title">Downloads</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/downloads'>
+              <mat-icon matListItemIcon class="navigation-icon">download</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Downloads Page title">Downloads</span>
+            </a>
           }
           @if (postsService.config && canViewDuplicates && hasDuplicateGroups && postsService.hasPermission('filemanager')) {
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/duplicates'><ng-container i18n="Navigation menu Duplicates Page title">Duplicates</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/duplicates'>
+              <mat-icon matListItemIcon class="navigation-icon">content_copy</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Duplicates Page title">Duplicates</span>
+            </a>
           }
           @if (postsService.config && postsService.hasPermission('tasks_manager')) {
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/tasks'><ng-container i18n="Navigation menu Tasks Page title">Tasks</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/tasks'>
+              <mat-icon matListItemIcon class="navigation-icon">task_alt</mat-icon>
+              <span matListItemTitle i18n="Navigation menu Tasks Page title">Tasks</span>
+            </a>
           }
           @if (postsService.config && postsService.hasPermission('settings')) {
             <mat-divider></mat-divider>
-            <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/settings'><ng-container i18n="Settings menu label">Settings</ng-container></a>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/settings'>
+              <mat-icon matListItemIcon class="navigation-icon">settings</mat-icon>
+              <span matListItemTitle i18n="Settings menu label">Settings</span>
+            </a>
           }
           @if (postsService.config && allowSubscriptions && postsService.subscriptions && postsService.hasPermission('subscriptions')) {
             @if (postsService.subscriptions.length > 0) {
               <mat-divider></mat-divider>
             }
             @for (subscription of postsService.subscriptions; track subscription) {
-              <a mat-list-item (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" [routerLink]="['/subscription', { id: subscription.id }]"><ngx-avatars [style.display]="'inline-block'" [style.margin-right]="'10px'" size="32" [name]="subscription.name"></ngx-avatars>{{subscription.name}}</a>
+              <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" [routerLink]="['/subscription', { id: subscription.id }]" [matTooltip]="subscription.name">
+                <span matListItemIcon class="navigation-icon" aria-hidden="true"><ngx-avatars size="28" [initialsSize]="2" [name]="subscription.name"></ngx-avatars></span>
+                <span matListItemTitle>{{subscription.name}}</span>
+              </a>
             }
           }
         </mat-nav-list>
