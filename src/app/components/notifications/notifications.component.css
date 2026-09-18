@@ -1,27 +1,36 @@
-.notification-title {
-    margin-bottom: 6px;
-    text-align: center
+/* The panel behind the toolbar's bell. */
+.notifications-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 12px 12px;
 }
 
-.notifications-empty-state {
-    margin: 10px;
+.notifications-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.notifications-title {
+    color: var(--kit-on-surface);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.notifications-filters {
+    padding-bottom: 2px;
+}
+
+.notifications-empty {
+    margin: 0;
+    padding: 12px 0 8px;
+    color: var(--kit-on-surface-variant);
+    font-size: 14px;
     text-align: center;
-    color: var(--mat-menu-item-label-text-color, var(--mat-sidenav-container-text-color, inherit));
-}
-
-:host-context(.dark-theme) .notifications-empty-state {
-    color: rgba(255, 255, 255, 0.87);
-}
-
-:host-context(.light-theme) .notifications-empty-state {
-    color: rgba(0, 0, 0, 0.87);
-}
-
-.notifications-list-parent {
-    overflow-y: auto;
-    padding: 0px 10px 10px 10px;
 }
 
 .notifications-list {
-    display: block
+    display: block;
 }

@@ -1,5 +1,5 @@
 import { Component, OnInit, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
-import { PostsService } from 'app/posts.services';
+import { OIDCStatus, PostsService } from 'app/posts.services';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {DomSanitizer} from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
@@ -89,6 +89,10 @@ export class SettingsComponent implements OnInit {
   tab = 'main';
 
   usersTabDisabledTooltip = $localize`You must enable multi-user mode to access this tab.`;
+
+  // What the backend answered about OIDC, which is the only way to tell whether the settings
+  // it was given actually work.
+  oidcStatus: OIDCStatus = null;
 
   readonly themeOptions: PickerOption[] = [
     { value: 'default', label: $localize`Default` },
@@ -188,6 +192,66 @@ export class SettingsComponent implements OnInit {
     return !!(status && status.mode && !status.checked);
   }
 
+  /*************************************************
+   * Single sign-on, shown but never edited here: it
+   * is set with the ytdl_oidc_* environment
+   * variables, and the settings page saves the whole
+   * config document, so an editable copy of it would
+   * be one more thing that can overwrite what the
+   * environment put there.
+   *
+   * Read from the saved config rather than the
+   * pending one for the same reason: this describes
+   * the server as it is running, not an edit.
+   ************************************************/
+  get oidcSettings(): Record<string, unknown> {
+    const oidc = this.postsService.config?.['Users']?.['oidc'];
+    return oidc && oidc['enabled'] ? oidc : null;
+  }
+
+  // The three the backend treats as secrets. An admin is handed them in full -- they are
+  // still credentials, so the page says whether each one is there and nothing more.
+  get oidcSecrets(): { label: string, configured: boolean }[] {
+    const oidc = this.oidcSettings;
+    if (!oidc) return [];
+    return [
+      { label: $localize`Issuer URL`, configured: !!this.oidcText(oidc['issuer_url']) },
+      { label: $localize`Client ID`, configured: !!this.oidcText(oidc['client_id']) },
+      { label: $localize`Client secret`, configured: !!this.oidcText(oidc['client_secret']) }
+    ];
+  }
+
+  // Everything else, carrying the same fallback the backend applies to a blank value, so the
+  // page says what is in force rather than what happens to be written down.
+  get oidcDetails(): { label: string, value: string }[] {
+    const oidc = this.oidcSettings;
+    if (!oidc) return [];
+    const unset = $localize`Not set`;
+    return [
+      { label: $localize`Redirect URI`, value: this.oidcText(oidc['redirect_uri']) || unset },
+      { label: $localize`Scope`, value: this.oidcText(oidc['scope']) || 'openid profile email' },
+      { label: $localize`Register users on first sign-in`, value: oidc['auto_register'] === false ? $localize`No` : $localize`Yes` },
+      { label: $localize`Username claim`, value: this.oidcText(oidc['username_claim']) || 'preferred_username' },
+      { label: $localize`Display name claim`, value: this.oidcText(oidc['display_name_claim']) || 'preferred_username' },
+      { label: $localize`Admin claim`, value: `${this.oidcText(oidc['admin_claim']) || 'groups'} = ${this.oidcText(oidc['admin_value']) || 'admin'}` },
+      { label: $localize`Group claim`, value: this.oidcText(oidc['group_claim']) || 'groups' },
+      { label: $localize`Allowed groups`, value: this.oidcText(oidc['allowed_groups']) || $localize`Any group` }
+    ];
+  }
+
+  private oidcText(value: unknown): string {
+    return String(value ?? '').trim();
+  }
+
+  getOIDCStatus(): void {
+    if (!this.oidcSettings) return;
+    this.postsService.getOIDCStatus().subscribe(res => {
+      this.oidcStatus = res;
+    }, () => {
+      this.oidcStatus = null;
+    });
+  }
+
   constructor(public postsService: PostsService, private snackBar: MatSnackBar, private sanitizer: DomSanitizer,
     private dialog: MatDialog, private router: Router, private route: ActivatedRoute) { }
 
@@ -196,6 +260,7 @@ export class SettingsComponent implements OnInit {
       this.getConfig();
       this.getDBInfo();
       this.getDownloaderInfo();
+      this.getOIDCStatus();
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
@@ -203,6 +268,7 @@ export class SettingsComponent implements OnInit {
           this.getConfig();
           this.getDBInfo();
           this.getDownloaderInfo();
+          this.getOIDCStatus();
         });
     }
 

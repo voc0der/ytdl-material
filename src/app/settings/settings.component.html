@@ -1049,6 +1049,55 @@
             </div>
           </section>
 
+          @if (oidcSettings) {
+            <section class="settings-section">
+              <h2 class="settings-section-title" i18n="Settings single sign-on section">Single sign-on</h2>
+              <p class="settings-section-hint" i18n="Settings OIDC read-only hint">Set with the <code>ytdl_oidc_*</code> environment variables. Shown here so you can check it; change it where you set it.</p>
+              <div class="kit-panel">
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="OIDC provider status setting">Identity provider</span>
+                      <span class="settings-row-hint" i18n="OIDC provider status hint">Whether this server reached the provider and read its configuration.</span>
+                    </span>
+                    @if (oidcStatus === null) {
+                      <span class="settings-row-value" i18n="OIDC status unknown">Unknown</span>
+                    } @else if (oidcStatus.initialized) {
+                      <span class="settings-badge" i18n="OIDC status connected">Connected</span>
+                    } @else {
+                      <span class="settings-badge is-warning" i18n="OIDC status not connected">Not connected</span>
+                    }
+                  </div>
+                  @for (secret of oidcSecrets; track secret.label) {
+                    <div class="settings-row">
+                      <span class="settings-row-text"><span class="settings-row-title">{{secret.label}}</span></span>
+                      @if (secret.configured) {
+                        <span class="settings-row-value settings-secret">
+                          <span class="settings-secret-mask" aria-hidden="true">••••••••</span>
+                          <span i18n="A secret setting that has a value">Set</span>
+                        </span>
+                      } @else {
+                        <span class="settings-row-value settings-row-muted" i18n="A setting with no value">Not set</span>
+                      }
+                    </div>
+                  }
+                  @for (detail of oidcDetails; track detail.label) {
+                    <div class="settings-row">
+                      <span class="settings-row-text"><span class="settings-row-title">{{detail.label}}</span></span>
+                      <span class="settings-row-value settings-row-wrap">{{detail.value}}</span>
+                    </div>
+                  }
+                </div>
+                @if (oidcStatus && !oidcStatus.initialized) {
+                  <p class="settings-note is-warning">
+                    <mat-icon>error_outline</mat-icon>
+                    <span i18n="OIDC not initialized note">Sign-in through the provider will fail until this is fixed. The server log says which setting it could not use.</span>
+                  </p>
+                }
+              </div>
+            </section>
+          }
+
           <section class="settings-section">
             <h2 class="settings-section-title" i18n="Settings who can sign in section">Who can sign in</h2>
             <app-modify-users></app-modify-users>

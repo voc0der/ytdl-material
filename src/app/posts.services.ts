@@ -165,6 +165,14 @@ export interface TranscodingStatus {
     last_checked: number | null;
 }
 
+// What /api/auth/oidc/status answers: the settings say what was asked for, this says what
+// the backend could make of it.
+export interface OIDCStatus {
+    enabled: boolean;
+    initialized: boolean;
+    auto_register: boolean;
+}
+
 @Injectable()
 export class PostsService {
     path = '';
@@ -930,6 +938,12 @@ export class PostsService {
 
     getOIDCLoginURL(return_to = '/home'): string {
         return `${this.path}auth/oidc/login?returnTo=${encodeURIComponent(return_to)}`;
+    }
+
+    // What the backend made of the OIDC settings: whether discovery against the issuer
+    // actually succeeded, which is the one thing the config file cannot tell anybody.
+    getOIDCStatus() {
+        return this.http.get<OIDCStatus>(this.path + 'auth/oidc/status', this.httpOptions);
     }
 
     private getStoredJwtToken(): string | null {

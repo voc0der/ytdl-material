@@ -245,8 +245,13 @@ there is a choice to make, and that the Users tab says why it is unavailable wit
 mode. Then the categories list: adding the default set, naming a new one, giving it a rule, and
 removing it through its confirmation. Finally the dialogs the page opens -- args, cookies, RSS
 and the webhook template -- including that an arg built in the args dialog lands in the field it
-was opened from. Screenshots of every tab, desktop and phone, light and dark, are left in the
-`shots` folder it prints.
+was opened from. It checks the Logs tab opens scrolled to the newest line rather than the
+oldest one it fetched. Finally it stops the backend and boots it again in multi-user mode for
+the single sign-on panel, which only exists with accounts: that it reports whether the provider
+could be reached, says each secret is set without printing any of them, fills in the values the
+backend falls back to, offers nothing to type into, and is gone entirely when OIDC is off.
+Screenshots of every tab, desktop and phone, light and dark, are left in the `shots` folder it
+prints.
 
 Like the dialogs harness it downloads nothing, and like all of them it is not part of CI.
 
@@ -259,6 +264,13 @@ Like the dialogs harness it downloads nothing, and like all of them it is not pa
 - **Enabling multi-user mode from the page opens the create-admin dialog on save**, because
   that is what the app does when the first admin does not exist yet. The harness therefore
   changes other settings instead; anything driving that toggle has to expect the dialog.
+- **OIDC cannot be enabled when the backend boots.** Startup runs discovery against the issuer
+  and calls `process.exit(1)` when it fails, so a fake provider takes the server down with it.
+  The harness boots with it off and turns it on through `/api/setConfig` afterwards, which is
+  also the state the panel has to describe: configured, and not connected.
+- **The page holds the config it was handed at startup.** Moving between routes never asks for
+  it again, so a config change made behind the page's back needs a reload, not a navigation, to
+  show up.
 
 # Exercising the dialogs
 
@@ -297,6 +309,42 @@ frontend build, which is a minute of work for a check that belongs to a UI chang
 - **"No subscription" is not "all subscriptions".** The backend keeps one archive per
   subscription and filters on `sub_id` exactly, so the unfiltered list is the items that
   belong to no subscription. The picker says so.
+
+# Exercising the notifications
+
+A notification is the only part of the app that appears without anybody asking for it, and the
+panel behind the toolbar's bell is where the actions attached to one live: play what finished,
+retry what failed, look at the task that ran. None of that is reachable from a page, so nothing
+but running it shows whether it still works. `dev/screenshots/notifications.sh` does that
+against a throwaway backend:
+
+```bash
+dev/screenshots/notifications.sh               # build, boot, run, stop
+dev/screenshots/notifications.sh --skip-build  # reuse the last frontend build
+dev/screenshots/notifications.sh --keep        # leave the backend running on :17454 afterwards
+```
+
+It seeds a library and one notification of each kind -- finished, failed, task -- and checks the
+bell counts what has not been read and says so in its label. It opens the panel and checks every
+notification is there, newest first, that the unread ones are marked, and that no row runs wider
+than the panel or carries its actions off the edge of it. Then it filters by kind and back,
+follows the failed download to the Downloads page and the finished one to the player, removes one
+notification and clears the rest, checking the backend after each. It also checks that closing
+the panel is what marks what was in it read, and the shape of the library cards on the page
+behind it. Screenshots at a desktop and a phone width, light and dark, are left in the `shots`
+folder it prints.
+
+Like the dialogs and settings harnesses it downloads nothing, and it is not part of CI.
+
+## Things worth knowing
+
+- **An open menu outlives a navigation.** Routing does not close it, and the CDK backdrop then
+  swallows every click on the page behind it -- which reads as the app having frozen. Anything
+  driving a menu has to put it away before going anywhere else.
+- **Closing the panel marks everything in it read**, so the order of the checks matters: the
+  unread markers and the count are only there until the first close.
+- **The fixture videos are empty files.** The library never opens one, but the player does, and
+  it answers a range request over no bytes with a 416. The harness ignores that one error.
 
 # Regenerating the README screenshot
 

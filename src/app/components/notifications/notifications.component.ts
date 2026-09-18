@@ -3,10 +3,9 @@ import { Router } from '@angular/router';
 import { PostsService } from 'app/posts.services';
 import { Notification, NotificationType } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
-import { MatChipListboxChange, MatChipListbox, MatChipOption } from '@angular/material/chips';
 import { filter, take } from 'rxjs/operators';
-import { NotificationsListComponent } from '../notifications-list/notifications-list.component';
-import { MatButton } from '@angular/material/button';
+import { NotificationsListComponent, NOTIFICATION_ROW_HEIGHT } from '../notifications-list/notifications-list.component';
+import { MatIcon } from '@angular/material/icon';
 import { KeyValuePipe } from '@angular/common';
 
 @Component({
@@ -14,7 +13,7 @@ import { KeyValuePipe } from '@angular/common';
     templateUrl: './notifications.component.html',
     styleUrls: ['./notifications.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatChipListbox, MatChipOption, NotificationsListComponent, MatButton, KeyValuePipe]
+    imports: [NotificationsListComponent, MatIcon, KeyValuePipe]
 })
 export class NotificationsComponent implements OnInit {
 
@@ -39,7 +38,9 @@ export class NotificationsComponent implements OnInit {
     },
   };
 
-  selectedFilters = [];
+  selectedFilters: string[] = [];
+
+  readonly filtersLabel = $localize`:Notification filters group label:Filter notifications`;
 
   constructor(public postsService: PostsService, private router: Router, private elRef: ElementRef) { }
 
@@ -119,15 +120,18 @@ export class NotificationsComponent implements OnInit {
     this.calculateListHeight();
   }
 
-  selectedFiltersChanged(event: MatChipListboxChange): void {
-    this.selectedFilters = event.value;
+  toggleFilter(type: string): void {
+    this.selectedFilters = this.selectedFilters.includes(type)
+      ? this.selectedFilters.filter(entry => entry !== type)
+      : [...this.selectedFilters, type];
     this.filterNotifications();
   }
 
+  // The list is virtualized, so it needs a height of its own rather than one its rows give
+  // it: as tall as the rows when there are few, and capped when there are many.
   calculateListHeight() {
-    const avgHeight = 166;
-    const calcHeight = this.filtered_notifications.length * avgHeight;
-    this.list_height = calcHeight > window.innerHeight*0.65 ? '65vh' : `${calcHeight}px`;
+    const calcHeight = this.filtered_notifications.length * NOTIFICATION_ROW_HEIGHT;
+    this.list_height = calcHeight > window.innerHeight*0.6 ? '60vh' : `${calcHeight}px`;
   }
 
   originalOrder = (): number => {

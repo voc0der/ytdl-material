@@ -3,21 +3,28 @@ import { Notification } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
 import { NotificationType } from 'api-types/models/NotificationType';
 import { CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf } from '@angular/cdk/scrolling';
-import { MatCard, MatCardHeader, MatCardSubtitle, MatCardTitle, MatCardContent, MatCardActions } from '@angular/material/card';
-import { MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
 import { DatePipe } from '@angular/common';
+
+// Every row is this tall, because a virtualized list has to know before it renders one.
+// Kept beside the styles that produce it -- and the panel sizes itself from it too.
+export const NOTIFICATION_ROW_HEIGHT = 88;
 
 @Component({
     selector: 'app-notifications-list',
     templateUrl: './notifications-list.component.html',
     styleUrls: ['./notifications-list.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf, MatCard, MatCardHeader, MatCardSubtitle, MatCardTitle, MatCardContent, MatCardActions, MatIconButton, MatTooltip, MatIcon, DatePipe]
+    imports: [CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf, MatTooltip, MatIcon, DatePipe]
 })
 export class NotificationsListComponent {
   @Input() notifications = null;
+
+  readonly rowHeight = NOTIFICATION_ROW_HEIGHT;
+  readonly removeLabel = $localize`:Remove notification button:Remove`;
+  readonly unreadLabel = $localize`:Unread notification marker:Unread`;
+
   @Output() deleteNotification = new EventEmitter<string>();
   @Output() notificationAction = new EventEmitter<{notification: Notification, action: NotificationAction}>();
 
@@ -46,6 +53,13 @@ export class NotificationsListComponent {
     retry_download: 'primary',
     view_download_error: 'warn',
     view_tasks: 'primary'
+  }
+
+  // What kind of thing happened, next to the row rather than spelled out again in it.
+  NOTIFICATION_TYPE_ICON: { [key in NotificationType]: string } = {
+    download_complete: 'download_done',
+    download_error: 'error_outline',
+    task_finished: 'task_alt'
   }
 
   NOTIFICATION_ICON: { [key in NotificationAction]: string } = {

@@ -15,11 +15,11 @@
 //   --keep leaves the backend running with everything in place.
 
 import { chromium } from 'playwright';
-import { mkdir, rm } from 'node:fs/promises';
+import { appendFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
     CACHE, buildFrontend, copyBackend, hasFrontendBuild, isListening, releaseBackend, say, sleep, startBackend,
-    writeMigrationFlags
+    stopBackend, writeMigrationFlags
 } from './stage.mjs';
 
 const RUN_DIR = join(CACHE, 'settings');
@@ -341,6 +341,115 @@ async function phoneAndLight(browser, errors) {
     await light.context().close();
 }
 
+// A log is read from the bottom, so the box opens there rather than on the oldest line it
+// fetched. Seeded first, because a backend that has just booted has barely logged anything.
+async function theLogsTab(page) {
+    say('Checking the log opens on the newest line');
+    await appendFile(join(RUN_DIR, 'appdata', 'logs', 'combined.log'),
+        Array.from({ length: 80 }, (_, i) => JSON.stringify({
+            level: 'info', message: `settings harness log line ${i + 1} of 80`, timestamp: new Date().toISOString()
+        })).join('\n') + '\n');
+
+    await openSettings(page, 'logs');
+    const box = page.locator('.log-box');
+    await box.waitFor({ timeout: 20_000 });
+    await page.waitForTimeout(500);
+
+    const scroll = await box.evaluate(element => ({
+        top: Math.round(element.scrollTop),
+        height: element.scrollHeight,
+        client: element.clientHeight
+    }));
+    check('the log box has more than fits in it', scroll.height > scroll.client, `${scroll.height}px in ${scroll.client}px`);
+    check('and it opens scrolled to the newest line',
+        Math.abs(scroll.top - (scroll.height - scroll.client)) <= 2, `scrollTop ${scroll.top}`);
+
+    // The backend keeps logging while the harness runs, so the newest line is whatever it
+    // wrote last rather than one of the seeded ones -- what matters is that it is in view.
+    const lastLineInView = await box.evaluate(element => {
+        const last = [...element.querySelectorAll('.log-line')].pop();
+        if (!last) return false;
+        // Measured on screen rather than from offsetTop, which is relative to whichever
+        // ancestor happens to be positioned and not to the box being scrolled.
+        const box_rect = element.getBoundingClientRect();
+        const line_rect = last.getBoundingClientRect();
+        return line_rect.bottom <= box_rect.bottom + 2 && line_rect.top >= box_rect.top - 2;
+    });
+    check('so the newest line is one of the ones in view', lastLineInView);
+}
+
+// The Users tab carries a read-only account of the single sign-on settings. OIDC cannot be on
+// when the backend boots without a real provider to discover -- it exits -- so this boots a
+// second time in multi-user mode and turns it on the way an admin editing the config would.
+async function theOIDCPanel(browser, errors) {
+    say('Checking the single sign-on panel');
+    const admin_password = 'settings-harness-password';
+    const post = async (route, body, jwt) => {
+        const response = await fetch(`${BASE}/api/${route}${jwt ? `?jwt=${encodeURIComponent(jwt)}` : ''}`, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`/api/${route} answered ${response.status}`);
+        return response.json();
+    };
+
+    await post('auth/register', { userid: 'admin', username: 'admin', password: admin_password });
+    const { token } = await post('auth/login', { username: 'admin', password: admin_password });
+
+    const current = await (await fetch(`${BASE}/api/config?jwt=${encodeURIComponent(token)}`)).json();
+    const config = current['config_file'];
+    Object.assign(config['YtdlMaterial']['Users']['oidc'], {
+        enabled: true,
+        issuer_url: 'https://id.example.com/realms/media',
+        client_id: 'ytdl-material',
+        client_secret: 'a-secret-that-must-not-be-printed',
+        redirect_uri: `${BASE}/api/auth/oidc/callback`,
+        scope: '',
+        auto_register: false,
+        admin_claim: 'groups',
+        admin_value: 'media-admins',
+        group_claim: 'roles',
+        allowed_groups: '',
+        username_claim: '',
+        display_name_claim: 'name'
+    });
+    await post('setConfig', { new_config_file: config }, token);
+
+    const page = await newPage(browser, 'desktop', errors);
+    await page.context().addInitScript(jwt => localStorage.setItem('jwt_token', jwt), token);
+    await openSettings(page, 'users');
+
+    const panel = page.locator('.settings-section', { hasText: 'Single sign-on' });
+    await panel.waitFor({ timeout: 20_000 });
+    check('the Users tab is reachable in multi-user mode',
+        await page.getByRole('tab', { name: 'Users', exact: true }).getAttribute('aria-selected') === 'true');
+
+    const text = await panel.innerText();
+    check('the panel says the provider could not be reached', text.includes('Not connected'));
+    check('and what that means for signing in', text.includes('will fail until this is fixed'));
+    check('it says each secret is set', (text.match(/Set/g) ?? []).length >= 3);
+    check('but prints none of them',
+        !text.includes('a-secret-that-must-not-be-printed') && !text.includes('id.example.com') && !text.includes('ytdl-material'));
+    check('it fills in the value the backend falls back to', text.includes('openid profile email') && text.includes('preferred_username'));
+    check('and the values that were set', text.includes('groups = media-admins') && text.includes('roles') && text.includes('Any group'));
+    check('auto-registration is reported as it was left', /Register users on first sign-in\s*No/.test(text), text.includes('sign-in\nNo') ? 'No' : '');
+    check('nothing in the panel can be typed into', await panel.locator('input, textarea, mat-slide-toggle').count() === 0);
+
+    await shoot(page, 'settings-users-oidc-desktop');
+
+    // Off again, and the tab goes back to what it was.
+    const restored = await (await fetch(`${BASE}/api/config?jwt=${encodeURIComponent(token)}`)).json();
+    restored['config_file']['YtdlMaterial']['Users']['oidc']['enabled'] = false;
+    await post('setConfig', { new_config_file: restored['config_file'] }, token);
+    // A reload, not a navigation: the page holds the config it was handed when the app
+    // started, and moving between routes never asks for it again.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByText('Who can sign in').waitFor({ timeout: 20_000 });
+    check('and with OIDC off the panel is not there at all',
+        await page.locator('.settings-section', { hasText: 'Single sign-on' }).count() === 0);
+
+    await page.context().close();
+}
+
 async function main() {
     const keep = process.argv.includes('--keep');
     const skipBuild = process.argv.includes('--skip-build');
@@ -372,15 +481,30 @@ async function main() {
         await notificationChips(page);
         await categories(page);
         await theDialogsSettingsOpens(page);
+        await theLogsTab(page);
         await page.context().close();
         await phoneAndLight(browser, errors);
+    } catch (error) {
+        await browser.close();
+        await releaseBackend(backend, false, BASE);
+        throw error;
+    }
+
+    // The rest of the page is checked without accounts, which is the common way to run this
+    // server. The single sign-on panel only exists with them, so it gets its own boot.
+    await stopBackend(backend);
+    let multi_user_backend = null;
+    try {
+        say('Rebooting in multi-user mode');
+        multi_user_backend = await startBackend(RUN_DIR, PORT, { ytdl_multi_user_mode: 'true' });
+        await theOIDCPanel(browser, errors);
 
         for (const error of errors) console.log(`    page console error: ${error.slice(0, 200)}`);
         check('no page errors', errors.length === 0);
         console.log(`    screenshots: ${SHOTS_DIR}`);
     } finally {
         await browser.close();
-        await releaseBackend(backend, keep, BASE);
+        if (multi_user_backend) await releaseBackend(multi_user_backend, keep, BASE);
     }
 
     const failed = results.filter(result => !result.ok);

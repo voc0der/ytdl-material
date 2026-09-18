@@ -1,22 +1,27 @@
+/* The grid card, at its three sizes. The radius and the clip are what the list layout gets
+   from .list-card and .list-thumbnail, so a card looks the same on a desktop as on a phone. */
+.large-mat-card,
+.file-mat-card,
+.small-mat-card {
+  padding: 0px;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
 .large-mat-card {
   width: 300px;
   height: 250px;
-  padding: 0px;
-  cursor: pointer;
 }
 
 .file-mat-card {
     width: 200px;
     height: 200px;
-    padding: 0px;
-    cursor: pointer;
 }
 
 .small-mat-card {
   width: 150px;
   height: 150px;
-  padding: 0px;
-  cursor: pointer;
 }
 
 .menuButton {
@@ -39,22 +44,30 @@
   justify-content: center;
 }
 
+/* The thumbnail runs the full width of the card, so its own corners are what the card's
+   corners look like. The radius is the list layout's, and the clip keeps the preview and the
+   duration inside it. */
+.image-large,
+.image,
+.image-small {
+  object-fit: cover;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .image-large {
   width: 300px;
   height: 167.5px;
-  object-fit: cover;
 }
 
 .image {
   width: 200px;
   height: 112.5px;
-  object-fit: cover;
 }
 
 .image-small {
   width: 150px;
   height: 84.5px;
-  object-fit: cover;
 }
 
 // A preview is laid over the thumbnail, which stays in the flow before it: without an explicit
@@ -157,15 +170,19 @@
   opacity: 0.7;
 }
 
+/* The same badge the list layout puts on its thumbnail, so the two layouts read alike. */
 .duration-time {
   position: absolute;
-  bottom: 5px;
-  right: 5px;
+  bottom: 6px;
+  right: 6px;
   z-index: 99999;
-  background: rgba(255,255,255,0.6);
-  padding-left: 5px;
-  padding-right: 5px;
-  color: black;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
 }
 
 /* This strip is a sibling of the card rather than a child of it, so it covers the top
