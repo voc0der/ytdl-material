@@ -13,7 +13,7 @@ import { AboutDialogComponent } from './dialogs/about-dialog/about-dialog.compon
 import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-profile-dialog.component';
 import { SetDefaultAdminDialogComponent } from './dialogs/set-default-admin-dialog/set-default-admin-dialog.component';
 import { NotificationsComponent } from './components/notifications/notifications.component';
-import { DownloadHistoryComponent } from './components/download-history/download-history.component';
+import { ArchiveViewerComponent } from './components/archive-viewer/archive-viewer.component';
 import { PlaylistDownloadProgressDialogComponent } from './dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { Download } from 'api-types';
 import { filter, take } from 'rxjs/operators';
@@ -309,8 +309,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  openDownloadHistoryDialog(): void {
-    this.dialog.open(DownloadHistoryComponent, {
+  openArchiveDialog(): void {
+    this.dialog.open(ArchiveViewerComponent, {
       panelClass: 'kit-dialog-panel',
       width: '760px',
       maxWidth: 'calc(100vw - 32px)',

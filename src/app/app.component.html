@@ -94,9 +94,9 @@
                 <span i18n="Profile menu label">Profile</span>
               </button>
               @if (!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) {
-                <button class="top-menu-button" (click)="openDownloadHistoryDialog()" mat-menu-item>
-                  <mat-icon>history</mat-icon>
-                  <span i18n="Download history menu label">Download history</span>
+                <button class="top-menu-button" (click)="openArchiveDialog()" mat-menu-item>
+                  <mat-icon>archive</mat-icon>
+                  <span i18n="Archive menu label">Archive</span>
                 </button>
               }
               @if (allowThemeChange) {

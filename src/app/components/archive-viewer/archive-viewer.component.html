@@ -1,19 +1,19 @@
 <header class="dialog-header">
-  <span class="dialog-symbol" aria-hidden="true"><mat-icon>history</mat-icon></span>
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>archive</mat-icon></span>
   <div class="dialog-heading">
-    <h2 mat-dialog-title class="dialog-title" i18n="Download history dialog title">Download history</h2>
-    <p class="dialog-subtitle" i18n="Download history subtitle">What has already been downloaded. Anything listed here is skipped next time.</p>
+    <h2 mat-dialog-title class="dialog-title" i18n="Archive dialog title">Archive</h2>
+    <p class="dialog-subtitle" i18n="Archive subtitle">What has already been downloaded. Anything listed here is skipped next time.</p>
   </div>
   <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
 </header>
 
 <mat-dialog-content class="dialog-content" [attr.aria-busy]="!archives_retrieved">
   <section class="dialog-section">
-    <div class="history-tools">
-      <label class="kit-field history-search">
+    <div class="archive-tools">
+      <label class="kit-field archive-search">
         <mat-icon>search</mat-icon>
         <input type="search" [ngModel]="text_filter" (ngModelChange)="filterChanged($event)" [attr.aria-label]="searchLabel"
-          placeholder="Search history" i18n-placeholder="Search download history placeholder">
+          placeholder="Search the archive" i18n-placeholder="Search archive placeholder">
       </label>
       <div class="kit-rail kit-rail-wrap">
         <app-picker [title]="subscriptionLabel" [label]="subscriptionLabel" [options]="subscriptionPickerOptions"
@@ -32,51 +32,51 @@
     </div>
   } @else if (matching.length === 0) {
     <section class="empty-state">
-      <span class="empty-state-icon"><mat-icon>{{filtered ? 'search_off' : 'history'}}</mat-icon></span>
+      <span class="empty-state-icon"><mat-icon>{{filtered ? 'search_off' : 'archive'}}</mat-icon></span>
       @if (filtered) {
-        <h2 i18n="No matching history title">Nothing matches</h2>
-        <p i18n="No matching history text">No item in your download history matches those filters.</p>
+        <h2 i18n="No matching archive items title">Nothing matches</h2>
+        <p i18n="No matching archive items text">No item in your archive matches those filters.</p>
       } @else {
-        <h2 i18n="Empty download history title">Your history is empty</h2>
-        <p i18n="Empty download history text">Everything you download is listed here, so it is not downloaded again. You can also import a yt-dlp archive file below.</p>
+        <h2 i18n="Empty archive title">Your archive is empty</h2>
+        <p i18n="Empty archive text">Everything you download is added here, so it is not downloaded again. You can also import a yt-dlp archive file below.</p>
       }
     </section>
   } @else {
     <section class="dialog-section">
-      <div class="history-header">
+      <div class="archive-header">
         <button type="button" class="kit-chip" [attr.aria-pressed]="all_selected" (click)="toggleAll()">
           <mat-icon>{{all_selected ? 'check_box' : (selected_count ? 'indeterminate_check_box' : 'check_box_outline_blank')}}</mat-icon>
-          <span i18n="Select all history items">Select all</span>
+          <span i18n="Select all archive items">Select all</span>
         </button>
-        <span class="history-count">
+        <span class="archive-count">
           @if (selected_count) {
-            <ng-container i18n="Selected history item count">{{selected_count}} selected</ng-container>
+            <ng-container i18n="Selected archive item count">{{selected_count}} selected</ng-container>
           } @else {
-            <ng-container i18n="History item count">{matching.length, plural, =1 {1 item} other {{{matching.length}} items}}</ng-container>
+            <ng-container i18n="Archive item count">{matching.length, plural, =1 {1 item} other {{{matching.length}} items}}</ng-container>
           }
         </span>
         <button type="button" class="kit-chip kit-danger" [disabled]="!selected_count" (click)="openDeleteSelectedArchivesDialog()">
           <mat-icon>delete_outline</mat-icon>
-          <span i18n="Remove selected history items">Remove</span>
+          <span i18n="Remove selected archive items">Remove</span>
         </button>
       </div>
 
       <!-- Selecting is all a row does, so the row itself is the checkbox. -->
-      <ul class="history-list">
+      <ul class="archive-list">
         @for (archive of pageItems; track archive.uid) {
-          <li class="history-row">
-            <button type="button" class="history-row-button" role="checkbox" [attr.aria-checked]="isSelected(archive)" (click)="toggleSelected(archive)">
-              <span class="history-symbol" [class.is-selected]="isSelected(archive)" aria-hidden="true">
+          <li class="archive-row">
+            <button type="button" class="archive-row-button" role="checkbox" [attr.aria-checked]="isSelected(archive)" (click)="toggleSelected(archive)">
+              <span class="archive-symbol" [class.is-selected]="isSelected(archive)" aria-hidden="true">
                 <mat-icon>{{isSelected(archive) ? 'check' : typeIcon(archive)}}</mat-icon>
               </span>
-              <span class="history-text">
-                <span class="history-title kit-one-line" [matTooltip]="archive.title || null">{{archive.title || untitledLabel}}</span>
-                <span class="history-meta">
+              <span class="archive-text">
+                <span class="archive-title kit-one-line" [matTooltip]="archive.title || null">{{archive.title || untitledLabel}}</span>
+                <span class="archive-meta">
                   <span>{{archive.timestamp * 1000 | date: 'short'}}</span>
                   <span aria-hidden="true">·</span>
                   <span class="kit-one-line">{{archive.extractor}}</span>
                   <span aria-hidden="true">·</span>
-                  <span class="history-id kit-one-line">{{archive.id}}</span>
+                  <span class="archive-id kit-one-line">{{archive.id}}</span>
                 </span>
               </span>
             </button>
@@ -86,7 +86,7 @@
 
       @if (page_count > 1) {
         <div class="pager">
-          <span class="pager-range" i18n="Download history page range">{{range_start}}–{{range_end}} of {{matching.length}}</span>
+          <span class="pager-range" i18n="Archive page range">{{range_start}}–{{range_end}} of {{matching.length}}</span>
           <div class="pager-controls">
             <button type="button" class="kit-icon-button" [disabled]="page_index === 0" (click)="goToPage(page_index - 1)"
               [attr.aria-label]="previousPageLabel" [matTooltip]="previousPageLabel">
@@ -103,8 +103,8 @@
   }
 
   <section class="dialog-section">
-    <h3 class="dialog-section-title"><mat-icon>upload_file</mat-icon><ng-container i18n="Import download history heading">Import</ng-container></h3>
-    <p class="dialog-hint" i18n="Import download history hint">Take in a yt-dlp archive file, so everything in it counts as already downloaded.</p>
+    <h3 class="dialog-section-title"><mat-icon>upload_file</mat-icon><ng-container i18n="Import archive heading">Import</ng-container></h3>
+    <p class="dialog-hint" i18n="Import archive hint">Take in a yt-dlp archive file, so everything in it counts as already downloaded.</p>
 
     <ngx-file-drop [multiple]="false" accept=".txt" (onFileDrop)="dropped($event)">
       <ng-template ngx-file-drop-content-tmp let-openFileSelector="openFileSelector">
@@ -144,9 +144,9 @@
 
 <mat-dialog-actions class="dialog-actions">
   <button type="button" class="kit-chip" [disabled]="!archives?.length" (click)="downloadArchive()"
-    matTooltip="Saves the history for the chosen subscription and type as a yt-dlp archive file" i18n-matTooltip="Export download history tooltip">
+    matTooltip="Saves the archive for the chosen subscription and type as a yt-dlp archive file" i18n-matTooltip="Export archive tooltip">
     <mat-icon>download</mat-icon>
-    <span i18n="Export download history button">Export</span>
+    <span i18n="Export archive button">Export</span>
   </button>
   <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close">Close</button>
 </mat-dialog-actions>

@@ -97,7 +97,7 @@ export class SubscriptionActionsService {
       return true;
     } catch (err) {
       console.error(err);
-      this.postsService.openSnackBar($localize`Couldn't export the download history for ${sub.name}:subscription name:.`);
+      this.postsService.openSnackBar($localize`Couldn't export the archive for ${sub.name}:subscription name:.`);
       return false;
     }
   }
