@@ -45,7 +45,7 @@ const TASKS = {
     youtubedl_update_check: {
         run: youtubedl_api.checkForYoutubeDLUpdate,
         confirm: youtubedl_api.updateYoutubeDL,
-        title: 'Update youtube-dl'
+        title: 'Update yt-dlp'
     },
     delete_old_files: {
         run: checkForAutoDeleteFiles,
@@ -270,8 +270,9 @@ async function setupTasks() {
                 }
             }
 
-            // reset task if necessary
-            await db_api.updateRecord('tasks', {key: task_key}, {running: false, confirming: false});
+            // reset task if necessary, and refresh the title so a renamed task does not keep
+            // the name it was first stored with
+            await db_api.updateRecord('tasks', {key: task_key}, {running: false, confirming: false, title: TASKS[task_key]['title']});
 
             // schedule task and save job
             if (task_in_db['schedule']) {
