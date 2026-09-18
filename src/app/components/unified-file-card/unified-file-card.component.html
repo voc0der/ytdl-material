@@ -23,13 +23,13 @@
   @if (!file_obj || !file_obj.auto) {
     <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button aria-label="More actions" i18n-aria-label="File card actions"><mat-icon>more_vert</mat-icon></button>
   }
-  <mat-menu #context_menu>
+  <mat-menu #context_menu class="kit-menu kit-action-menu">
     @if (!loading) {
       <button (click)="navigateToFile($event)" mat-menu-item><mat-icon>open_in_browser</mat-icon><ng-container i18n="Open file button">Open file</ng-container></button>
       <button (click)="navigateToFile({ctrlKey: true})" mat-menu-item><mat-icon>open_in_new</mat-icon><ng-container i18n="Open file in new tab">Open file in new tab</ng-container></button>
     }
   </mat-menu>
-  <mat-menu #action_menu="matMenu">
+  <mat-menu #action_menu="matMenu" class="kit-menu kit-action-menu">
     @if (!is_playlist && !loading) {
       <button (click)="emitToggleFavorite()" mat-menu-item>
         <mat-icon>{{file_obj.favorite ? 'favorite_filled' : 'favorite_outline'}}</mat-icon>
@@ -42,10 +42,10 @@
       </button>
       <button (click)="openFileInfoDialog()" mat-menu-item><mat-icon>info</mat-icon><ng-container i18n="Video info button">Info</ng-container></button>
       @if (file_obj.sub_id) {
-        <button (click)="navigateToSubscription()" mat-menu-item><mat-icon>{{file_obj.isAudio ? 'library_music' : 'video_library'}}</mat-icon>&nbsp;<ng-container i18n="Go to subscription menu item">Go to subscription</ng-container></button>
+        <button (click)="navigateToSubscription()" mat-menu-item><mat-icon>{{file_obj.isAudio ? 'library_music' : 'video_library'}}</mat-icon><ng-container i18n="Go to subscription menu item">Go to subscription</ng-container></button>
       }
-      <button [disabled]="playlistsToAddTo.length === 0" [matMenuTriggerFor]="addtoplaylist" mat-menu-item><mat-icon>playlist_add</mat-icon>&nbsp;<ng-container i18n="Add to playlist menu item">Add to playlist</ng-container></button>
-      <mat-menu #addtoplaylist="matMenu">
+      <button [disabled]="playlistsToAddTo.length === 0" [matMenuTriggerFor]="addtoplaylist" mat-menu-item><mat-icon>playlist_add</mat-icon><ng-container i18n="Add to playlist menu item">Add to playlist</ng-container></button>
+      <mat-menu #addtoplaylist="matMenu" class="kit-menu kit-action-menu">
         @for (playlist of playlistsToAddTo; track playlist.id) {
           <button [disabled]="playlistContainsFile(playlist)" (click)="emitAddFileToPlaylist(playlist.id)" mat-menu-item>{{playlist.name}}</button>
         }
@@ -55,16 +55,16 @@
         <button (click)="emitDeleteFile()" mat-menu-item><mat-icon>restore</mat-icon><ng-container i18n="Delete and redownload subscription video button">Delete and redownload</ng-container></button>
       }
       @if (!file_obj.sub_id) {
-        <button (click)="emitDeleteFile()" mat-menu-item><mat-icon>delete</mat-icon><ng-container i18n="Delete video button">Delete</ng-container></button>
+        <button (click)="emitDeleteFile()" mat-menu-item class="kit-menu-danger"><mat-icon>delete</mat-icon><ng-container i18n="Delete video button">Delete</ng-container></button>
       }
       @if (file_obj.sub_id || use_youtubedl_archive) {
-        <button (click)="emitDeleteFile(true)" mat-menu-item><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete and don't download again">Delete and don't download again</ng-container></button>
+        <button (click)="emitDeleteFile(true)" mat-menu-item class="kit-menu-danger"><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete and don't download again">Delete and don't download again</ng-container></button>
       }
     }
     @if (is_playlist && !loading) {
       <button (click)="emitEditPlaylist()" mat-menu-item><mat-icon>edit</mat-icon><ng-container i18n="Playlist edit button">Edit</ng-container></button>
       <mat-divider></mat-divider>
-      <button (click)="emitDeleteFile()" mat-menu-item><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete playlist">Delete</ng-container></button>
+      <button (click)="emitDeleteFile()" mat-menu-item class="kit-menu-danger"><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete playlist">Delete</ng-container></button>
     }
     @if (loading) {
       <button mat-menu-item>Placeholder</button>

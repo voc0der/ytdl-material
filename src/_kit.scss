@@ -280,6 +280,91 @@
   color: inherit;
 }
 
+// Compact action menus for file cards and the toolbar, including nested playlists.
+.mat-mdc-menu-panel.kit-action-menu {
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  background: var(--kit-sheet);
+  color: var(--kit-on-surface);
+  border: 1px solid var(--kit-divider);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --mat-menu-item-label-text-color: var(--kit-on-surface);
+  --mat-menu-item-label-text-size: 14px;
+  --mat-menu-item-label-text-line-height: 20px;
+  --mat-menu-item-label-text-tracking: normal;
+  --mat-menu-item-icon-color: var(--kit-on-surface-variant);
+  --mat-menu-item-icon-size: 20px;
+  --mat-menu-item-hover-state-layer-color: var(--kit-surface-hover);
+  --mat-menu-item-focus-state-layer-color: var(--kit-surface-hover);
+
+  .mat-mdc-menu-content {
+    padding: 6px;
+  }
+
+  .mat-mdc-menu-item {
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .mat-mdc-menu-item-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .mat-mdc-menu-item > .mat-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-inline-end: 12px;
+    font-size: 20px;
+  }
+
+  .mat-divider {
+    margin: 6px 8px;
+    border-top-color: var(--kit-divider);
+  }
+
+  .kit-menu-danger {
+    --mat-menu-item-label-text-color: var(--kit-danger);
+    --mat-menu-item-icon-color: var(--kit-danger);
+  }
+
+  .kit-menu-toggle .mat-mdc-menu-item-text {
+    align-items: center;
+  }
+}
+
+// The menu row owns focus and its checked state; the switch is only a visual indicator.
+.kit-menu-switch {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 32px;
+  align-items: center;
+  height: 20px;
+  margin-inline-start: auto;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--kit-on-surface-variant);
+
+  &::after {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--kit-sheet);
+  }
+}
+
+.kit-menu-toggle[aria-checked='true'] .kit-menu-switch {
+  justify-content: flex-end;
+  background: var(--kit-accent);
+
+  &::after {
+    background: var(--kit-on-accent);
+  }
+}
+
 // The sheet it opens on a narrow screen. The class is set on the overlay pane that holds it.
 .kit-sheet-panel .mat-bottom-sheet-container {
   box-sizing: border-box;

@@ -23,7 +23,6 @@ import { MatIcon } from '@angular/material/icon';
 import { MatBadge } from '@angular/material/badge';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressBar } from '@angular/material/progress-bar';
-import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatNavList, MatListItem, MatDivider } from '@angular/material/list';
 import { AvatarComponent } from 'ngx-avatars';
 
@@ -36,7 +35,7 @@ import { AvatarComponent } from 'ngx-avatars';
             useValue: {}
         }],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatToolbar, MatIconButton, MatIcon, RouterLink, MatMenuTrigger, MatBadge, MatMenu, MatTooltip, MatProgressBar, MatMenuItem, NotificationsComponent, MatSlideToggle, MatSidenavContainer, MatSidenav, MatNavList, MatListItem, MatDivider, AvatarComponent, MatSidenavContent, RouterOutlet]
+    imports: [MatToolbar, MatIconButton, MatIcon, RouterLink, MatMenuTrigger, MatBadge, MatMenu, MatTooltip, MatProgressBar, MatMenuItem, NotificationsComponent, MatSidenavContainer, MatSidenav, MatNavList, MatListItem, MatDivider, AvatarComponent, MatSidenavContent, RouterOutlet]
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -258,11 +257,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   flipTheme(): void {
-    if (this.postsService.theme.key === 'default') {
-      this.setTheme('dark');
-    } else if (this.postsService.theme.key === 'dark') {
-      this.setTheme('default');
-    }
+    this.setTheme(this.postsService.theme.key === 'dark' ? 'default' : 'dark');
   }
 
   themeMenuItemClicked(event): void {
