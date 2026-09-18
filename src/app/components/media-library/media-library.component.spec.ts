@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { MatPaginatorIntl } from '@angular/material/paginator';
 import { PostsService } from 'app/posts.services';
 import { MediaLibraryNavigationStateService, PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 
@@ -327,6 +328,75 @@ describe('MediaLibraryComponent', () => {
     expect(component.manualPageIndex).toBe(0);
     expect(localStorage.setItem).toHaveBeenCalledWith(component.pageSizeStorageKey, 'auto');
     expect(component.getAllFiles).toHaveBeenCalled();
+  });
+
+  it('should page from the footer and disable navigation at each end', () => {
+    const files = Array.from({ length: 12 }, (_, index) => ({ uid: `file-${index}`, duration: 12 }));
+    postsServiceStub.getAllFiles.mockImplementation((_sort, range) => of({
+      files: files.slice(range[0], range[1]), file_count: files.length
+    }));
+    fixture.detectChanges();
+    component.getAllFiles();
+    fixture.detectChanges();
+
+    const footer: HTMLElement = fixture.nativeElement.querySelector('.library-pagination');
+    const previous = footer.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]');
+    const next = footer.querySelector<HTMLButtonElement>('button[aria-label="Next page"]');
+    const range = footer.querySelector('[role="status"]');
+    expect(previous.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
+    expect(range.textContent).toBe('1 – 10 of 12');
+
+    next.click();
+    fixture.detectChanges();
+    expect(postsServiceStub.getAllFiles.mock.lastCall[1]).toEqual([10, 20]);
+    expect(range.textContent).toBe('11 – 12 of 12');
+    expect(previous.disabled).toBe(false);
+    expect(next.disabled).toBe(true);
+
+    previous.click();
+    fixture.detectChanges();
+    expect(postsServiceStub.getAllFiles.mock.lastCall[1]).toEqual([0, 10]);
+    expect(range.textContent).toBe('1 – 10 of 12');
+    expect(previous.disabled).toBe(true);
+  });
+
+  it('should show loaded items in the same footer when switching to Auto and back', () => {
+    fixture.detectChanges();
+    const savePreference = vi.spyOn(localStorage, 'setItem');
+    const files = Array.from({ length: 30 }, (_, index) => ({ uid: `file-${index}`, duration: 12 }));
+    postsServiceStub.getAllFiles.mockImplementation((_sort, range) => of({
+      files: files.slice(range[0], range[1]), file_count: files.length
+    }));
+    vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(2);
+    vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(2);
+
+    component.pageSizeOptionChanged('auto');
+    fixture.detectChanges();
+    const footer: HTMLElement = fixture.nativeElement.querySelector('.library-pagination');
+    expect(footer.querySelector('[role="status"]').textContent).toBe('1 – 2 of 30');
+    expect(footer.querySelector('.pagination-actions')).toBeNull();
+
+    postsServiceStub.getAllFiles.mockClear();
+    component.changePage(1);
+    expect(postsServiceStub.getAllFiles).not.toHaveBeenCalled();
+
+    component.pageSizeOptionChanged(5);
+    fixture.detectChanges();
+    expect(footer.querySelector('[role="status"]').textContent).toBe('1 – 5 of 30');
+    expect(footer.querySelector('.pagination-actions')).not.toBeNull();
+    expect(savePreference).toHaveBeenCalledWith(component.pageSizeStorageKey, '5');
+  });
+
+  it('should not request pages outside an empty library', () => {
+    component.file_count = 0;
+    const fetch = vi.spyOn(component, 'getAllFiles');
+    component.changePage(-1);
+    component.changePage(0);
+    component.changePage(1);
+    expect(component.manualPageIndex).toBe(0);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(component.getPaginationRangeLabel()).toBe('0 of 0');
   });
 
   it('should calculate an auto batch size that fills full rows', () => {
@@ -668,7 +738,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should capture the visible anchor from rendered card positions', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet), TestBed.inject(MatPaginatorIntl));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({
@@ -709,7 +779,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should correct restored scroll using the rendered anchor element position', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet), TestBed.inject(MatPaginatorIntl));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.file_count = 4;
@@ -757,7 +827,7 @@ describe('MediaLibraryComponent', () => {
   });
 
   it('should keep the clicked file uid as the anchor when the rendered lookup misses', () => {
-    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet));
+    const manualComponent = new MediaLibraryComponent(postsServiceStub, routerStub, dialogStub, TestBed.inject(NgZone), navigationStateService, TestBed.inject(MatBottomSheet), TestBed.inject(MatPaginatorIntl));
     manualComponent.autoPaginationEnabled = true;
     manualComponent.normal_files_received = true;
     manualComponent.paged_data = Array.from({ length: 4 }, (_, index) => ({

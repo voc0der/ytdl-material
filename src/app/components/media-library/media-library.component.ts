@@ -25,7 +25,7 @@ import { PickerComponent, type PickerOption } from '../picker/picker.component';
 import { openPickerSheet } from '../picker/picker-sheet.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatButton } from '@angular/material/button';
-import { MatPaginator } from '@angular/material/paginator';
+import { MatPaginatorIntl } from '@angular/material/paginator';
 
 
 type PageSizeOption = number | 'auto';
@@ -46,7 +46,7 @@ interface MediaLibraryFilter {
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgTemplateOutlet, SortPropertyComponent, NgClass, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent, MatPaginator]
+    imports: [NgTemplateOutlet, SortPropertyComponent, NgClass, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent]
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'media_library_page_size';
@@ -168,7 +168,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private ngZone: NgZone,
     private mediaLibraryNavigationState: MediaLibraryNavigationStateService,
-    private bottomSheet: MatBottomSheet
+    private bottomSheet: MatBottomSheet,
+    public readonly paginatorIntl: MatPaginatorIntl
   ) {
     // Before anything sizes the loading placeholders below, which depend on the layout.
     this.bindNarrowScreenQuery();
@@ -1736,27 +1737,23 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return page_size_option === this.autoPageSizeOption ? $localize`Auto` : `${page_size_option}`;
   }
 
-  getAutoRangeLabel(): string {
-    if (!this.file_count) {
-      return '0 of 0';
-    }
-
-    const loaded_count = this.paged_data?.length ?? 0;
-    if (loaded_count === 0) {
-      return `0 of ${this.file_count}`;
-    }
-
-    return `1 - ${loaded_count} of ${this.file_count}`;
+  getPaginationRangeLabel(): string {
+    return this.autoPaginationEnabled
+      ? this.paginatorIntl.getRangeLabel(0, this.paged_data?.length ?? 0, this.file_count)
+      : this.paginatorIntl.getRangeLabel(this.manualPageIndex, this.pageSize, this.file_count);
   }
 
   loadMoreAutoFiles(): void {
     this.getAllFiles(false, true);
   }
 
-  pageChangeEvent(event) {
-    this.manualPageIndex = event.pageIndex;
-    this.pageSize = event.pageSize;
-    localStorage.setItem(this.pageSizeStorageKey, '' + this.pageSize);
+  changePage(page_index: number): void {
+    if (this.autoPaginationEnabled || page_index === this.manualPageIndex
+      || page_index < 0 || page_index >= Math.ceil(this.file_count / this.pageSize)) {
+      return;
+    }
+
+    this.manualPageIndex = page_index;
     this.loading_files = Array(this.pageSize).fill(0);
     this.getAllFiles();
   }
