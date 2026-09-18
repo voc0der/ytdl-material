@@ -1,9 +1,9 @@
 import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { take } from 'rxjs/operators';
-import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from '../confirm-dialog/confirm-dialog.component';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 export type DeletePlaylistDialogAction = 'playlist_only' | 'playlist_and_files';
 
@@ -12,7 +12,8 @@ export type DeletePlaylistDialogAction = 'playlist_only' | 'playlist_and_files';
     templateUrl: './delete-playlist-dialog.component.html',
     styleUrls: ['./delete-playlist-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatDialogActions, MatButton, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatDialogActions, MatDialogClose]
 })
 export class DeletePlaylistDialogComponent {
   playlistName = $localize`this playlist`;
@@ -36,13 +37,11 @@ export class DeletePlaylistDialogComponent {
   }
 
   confirmDeletePlaylistAndFiles(): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Delete playlist files`,
-        dialogText: $localize`This will delete the playlist and ${this.fileCount}:file count: file(s) from ${this.playlistName}:playlist name:. This cannot be undone.`,
-        submitText: $localize`Delete files too`,
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Delete playlist files`,
+      dialogText: $localize`This will delete the playlist and ${this.fileCount}:file count: file(s) from ${this.playlistName}:playlist name:. This cannot be undone.`,
+      submitText: $localize`Delete files too`,
+      warnSubmitColor: true
     });
 
     dialogRef.afterClosed().pipe(take(1)).subscribe(confirmed => {

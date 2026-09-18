@@ -10,7 +10,7 @@ import { YoutubeSearchResultsComponent } from '../components/youtube-search-resu
 import { Router, ActivatedRoute } from '@angular/router';
 import { Platform } from '@angular/cdk/platform';
 import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-modifier-dialog.component';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
@@ -1670,13 +1670,12 @@ export class MainComponent implements OnInit {
 
   private openDuplicateSkippedDialog(download: Download): void {
     const duplicate_title = download && download['title'] ? download['title'] : (download && download.url ? download.url : $localize`This video`);
-    this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Duplicate skipped`,
-        dialogText: $localize`${duplicate_title}:download title: was already downloaded, so the duplicate was skipped.`,
-        submitText: $localize`OK`,
-        cancelText: $localize`Close`
-      }
+    openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Duplicate skipped`,
+      dialogIcon: 'info_outline',
+      dialogText: $localize`${duplicate_title}:download title: was already downloaded, so the duplicate was skipped.`,
+      submitText: $localize`OK`,
+      cancelText: $localize`Close`
     });
   }
 

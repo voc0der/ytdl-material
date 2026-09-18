@@ -7,7 +7,7 @@ import { ArgModifierDialogComponent } from 'app/dialogs/arg-modifier-dialog/arg-
 import { CURRENT_VERSION } from 'app/consts';
 import { MatCheckboxChange, MatCheckbox } from '@angular/material/checkbox';
 import { CookiesUploaderDialogComponent } from 'app/dialogs/cookies-uploader-dialog/cookies-uploader-dialog.component';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { moveItemInArray, CdkDragDrop, CdkDropList, CdkDrag, CdkDragPlaceholder } from '@angular/cdk/drag-drop';
 import { InputDialogComponent } from 'app/input-dialog/input-dialog.component';
 import { EditCategoryDialogComponent } from 'app/dialogs/edit-category-dialog/edit-category-dialog.component';
@@ -235,7 +235,10 @@ export class SettingsComponent implements OnInit {
   openAddCategoryDialog(): void {
     const done = new EventEmitter<boolean>();
     const dialogRef = this.dialog.open(InputDialogComponent, {
-      width: '300px',
+      panelClass: 'kit-dialog-panel',
+      width: '400px',
+      maxWidth: 'calc(100vw - 32px)',
+      autoFocus: 'dialog',
       data: {
         inputTitle: 'Name the category',
         inputPlaceholder: 'Name',
@@ -280,13 +283,11 @@ export class SettingsComponent implements OnInit {
   }
 
   deleteCategory(category: Category): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Delete category`,
-        dialogText: $localize`Would you like to delete ${category['name']}:category name:?`,
-        submitText: $localize`Delete`,
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Delete category`,
+      dialogText: $localize`Would you like to delete ${category['name']}:category name:?`,
+      submitText: $localize`Delete`,
+      warnSubmitColor: true
     });
     dialogRef.afterClosed().subscribe(confirmed => {
       if (confirmed) {
@@ -376,7 +377,11 @@ export class SettingsComponent implements OnInit {
 
   openWebhookTemplateDialog(): void {
     const dialogRef = this.dialog.open(WebhookTemplateDialogComponent, {
-      width: '680px',
+      panelClass: 'kit-dialog-panel',
+      width: '600px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog',
       data: {
         customEnabled: !!this.new_config['API']['use_custom_webhook_template'],
         titleTemplate: this.new_config['API']['custom_webhook_title_template'],
@@ -394,14 +399,12 @@ export class SettingsComponent implements OnInit {
 
   killAllDownloads(): void {
     const done = new EventEmitter<boolean>();
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: 'Kill downloads',
-        dialogText: 'Are you sure you want to kill all downloads? Any subscription and non-subscription downloads will end immediately, though this operation may take a minute or so to complete.',
-        submitText: 'Kill all downloads',
-        doneEmitter: done,
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: 'Kill downloads',
+      dialogText: 'Are you sure you want to kill all downloads? Any subscription and non-subscription downloads will end immediately, though this operation may take a minute or so to complete.',
+      submitText: 'Kill all downloads',
+      doneEmitter: done,
+      warnSubmitColor: true
     });
     done.subscribe(confirmed => {
       if (confirmed) {
@@ -423,14 +426,12 @@ export class SettingsComponent implements OnInit {
 
   deleteOrphanFiles(): void {
     const done = new EventEmitter<boolean>();
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: 'Delete orphan videos',
-        dialogText: 'Are you sure you want to delete all orphan videos? These are videos that exist in your download directories but are not tracked in the database. This cannot be undone.',
-        submitText: 'Delete orphans',
-        doneEmitter: done,
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: 'Delete orphan videos',
+      dialogText: 'Are you sure you want to delete all orphan videos? These are videos that exist in your download directories but are not tracked in the database. This cannot be undone.',
+      submitText: 'Delete orphans',
+      doneEmitter: done,
+      warnSubmitColor: true
     });
     done.subscribe(confirmed => {
       if (confirmed) {
@@ -460,12 +461,10 @@ export class SettingsComponent implements OnInit {
   }
 
   transferDB(): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: 'Transfer DB',
-        dialogText: `Are you sure you want to transfer the DB?`,
-        submitText: 'Transfer',
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: 'Transfer DB',
+      dialogText: `Are you sure you want to transfer the DB?`,
+      submitText: 'Transfer',
     });
     dialogRef.afterClosed().subscribe(confirmed => {
       if (confirmed) {

@@ -1,17 +1,16 @@
-import { Component, OnInit, Input, Inject, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, Inject, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatFormField, MatInput } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatButton } from '@angular/material/button';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-input-dialog',
     templateUrl: './input-dialog.component.html',
-    styleUrls: ['./input-dialog.component.css'],
+    styleUrls: ['./input-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatInput, FormsModule, MatDialogActions, MatButton, MatDialogClose, MatProgressSpinner]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, FormsModule, MatDialogActions, MatDialogClose, MatProgressSpinner]
 })
 export class InputDialogComponent implements OnInit {
 

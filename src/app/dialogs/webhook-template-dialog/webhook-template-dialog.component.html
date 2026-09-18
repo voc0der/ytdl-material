@@ -1,35 +1,48 @@
-<h4 mat-dialog-title i18n="Webhook template dialog title">Webhook Template</h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>webhook</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Webhook template dialog title">Webhook template</h2>
+    <p class="dialog-subtitle" i18n="Webhook template dialog subtitle">What each notification says when it is sent.</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-  <div class="template-dialog">
-    <div class="template-variables-title" i18n="Webhook template variables title">Available Handlebars variables</div>
+<mat-dialog-content class="dialog-content">
+  <div class="settings-rows">
+    <div class="settings-row">
+      <div class="settings-row-text">
+        <span class="settings-row-title" i18n="Webhook template custom enabled checkbox">Use a custom template</span>
+        <span class="settings-row-hint" i18n="Webhook template custom enabled hint">Off means the default title and body are sent.</span>
+      </div>
+      <mat-slide-toggle [(ngModel)]="customEnabled"></mat-slide-toggle>
+    </div>
+  </div>
+
+  <section class="dialog-section">
+    <div class="dialog-form">
+      <label class="dialog-field dialog-field-wide">
+        <span class="dialog-field-label" i18n="Webhook template title label">Title template</span>
+        <span class="kit-field"><input [(ngModel)]="titleTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_name}}'"></span>
+        <span class="dialog-field-hint" i18n="Webhook template title hint">Leave blank to send an empty title.</span>
+      </label>
+      <label class="dialog-field dialog-field-wide">
+        <span class="dialog-field-label" i18n="Webhook template body label">Body template</span>
+        <span class="kit-field template-body"><textarea rows="5" [(ngModel)]="bodyTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_body}}'"></textarea></span>
+        <span class="dialog-field-hint" i18n="Webhook template body hint">Leave blank to send an empty body.</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>data_object</mat-icon><ng-container i18n="Webhook template variables title">Variables you can use</ng-container></h3>
     <div class="template-variables">
       @for (variable of availableVariables; track variable) {
         <code>{{variable}}</code>
       }
     </div>
-
-    <div class="template-checkbox-row">
-      <mat-checkbox color="accent" [(ngModel)]="customEnabled">
-        <ng-container i18n="Webhook template custom enabled checkbox">Use custom webhook template</ng-container>
-      </mat-checkbox>
-    </div>
-
-    <mat-form-field class="template-field" color="accent">
-      <mat-label i18n="Webhook template title label">Title template</mat-label>
-      <input matInput [(ngModel)]="titleTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_name}}'">
-      <mat-hint i18n="Webhook template title hint">Leave blank to send an empty title.</mat-hint>
-    </mat-form-field>
-
-    <mat-form-field class="template-field" color="accent">
-      <mat-label i18n="Webhook template body label">Body template</mat-label>
-      <textarea matInput rows="5" [(ngModel)]="bodyTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_body}}'"></textarea>
-      <mat-hint i18n="Webhook template body hint">Leave blank to send an empty body.</mat-hint>
-    </mat-form-field>
-  </div>
+  </section>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-stroked-button mat-dialog-close><ng-container i18n="Cancel">Cancel</ng-container></button>
-  <button mat-flat-button color="accent" (click)="save()"><ng-container i18n="Save">Save</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close><ng-container i18n="Cancel">Cancel</ng-container></button>
+  <button type="button" class="kit-chip kit-primary" (click)="save()"><ng-container i18n="Save">Save</ng-container></button>
 </mat-dialog-actions>

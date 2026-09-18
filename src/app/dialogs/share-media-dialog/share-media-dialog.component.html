@@ -1,35 +1,56 @@
-<h4 mat-dialog-title>
-  @if (is_playlist) {
-    <ng-container i18n="Share playlist dialog title">Share playlist</ng-container>
-  }
-  @if (!is_playlist) {
-    <ng-container i18n="Share video dialog title">Share file</ng-container>
-  }
-</h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>share</mat-icon></span>
+  <div class="dialog-heading">
+    @if (is_playlist) {
+      <h2 mat-dialog-title class="dialog-title" i18n="Share playlist dialog title">Share playlist</h2>
+    } @else {
+      <h2 mat-dialog-title class="dialog-title" i18n="Share video dialog title">Share file</h2>
+    }
+    <p class="dialog-subtitle" i18n="Share dialog subtitle">Anyone with the link can watch it while sharing is on.</p>
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-<mat-dialog-content>
-  <div>
-    <div>
-      <mat-checkbox [checked]="sharing_enabled" (change)="sharingChanged($event)" [disabled]="uuid && (!postsService.isLoggedIn || postsService.user?.uid !== uuid)"><ng-container i18n="Enable sharing checkbox">Enable sharing</ng-container></mat-checkbox>
+<mat-dialog-content class="dialog-content">
+  <div class="settings-rows">
+    <div class="settings-row">
+      <div class="settings-row-text">
+        <span class="settings-row-title" i18n="Enable sharing checkbox">Sharing</span>
+        <span class="settings-row-hint" i18n="Enable sharing hint">Turn it off again and the link stops working.</span>
+      </div>
+      <mat-slide-toggle [checked]="sharing_enabled" (change)="sharingChanged($event)"
+        [disabled]="uuid && (!postsService.isLoggedIn || postsService.user?.uid !== uuid)"></mat-slide-toggle>
     </div>
-    <div>
-      <mat-checkbox style="margin-right: 15px;" (change)="useTimestampChanged()" [(ngModel)]="timestamp_enabled"><ng-container i18n="Use timestamp">Use timestamp</ng-container></mat-checkbox>
-      <mat-form-field>
-        <mat-label i18n="Seconds">Seconds</mat-label>
-        <input matInput type="number" [(ngModel)]="current_timestamp" [disabled]="!timestamp_enabled" (change)="timestampInputChanged($event)">
-      </mat-form-field>
-    </div>
-    <div>
-      <mat-form-field style="width: 100%">
-        <input matInput [disabled]="!sharing_enabled" [readonly]="true" [value]="share_url">
-      </mat-form-field>
-    </div>
-    <div style="margin-bottom: 10px;">
-      <button color="accent" (click)="copiedToClipboard()" [disabled]="!sharing_enabled" [cdkCopyToClipboard]="share_url" mat-raised-button><ng-container i18n="Copy to clipboard button">Copy to clipboard</ng-container></button>
-    </div>
+    @if (!is_playlist) {
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-title" i18n="Use timestamp">Start at a time</span>
+          <span class="settings-row-hint" i18n="Use timestamp hint">The link opens at the second you give.</span>
+        </div>
+        <span class="timestamp-controls">
+          <span class="kit-field timestamp-field">
+            <input type="number" min="0" [(ngModel)]="current_timestamp" [disabled]="!timestamp_enabled"
+              (change)="timestampInputChanged($event)" [attr.aria-label]="secondsLabel">
+          </span>
+          <mat-slide-toggle [(ngModel)]="timestamp_enabled" (change)="useTimestampChanged()"></mat-slide-toggle>
+        </span>
+      </div>
+    }
+  </div>
+
+  <div class="share-link">
+    <span class="kit-field">
+      <mat-icon>link</mat-icon>
+      <input [disabled]="!sharing_enabled" [readonly]="true" [value]="share_url" [attr.aria-label]="linkLabel">
+      <button type="button" class="kit-icon-button" [disabled]="!sharing_enabled" [cdkCopyToClipboard]="share_url"
+        (click)="copiedToClipboard()" matTooltip="Copy to clipboard" i18n-matTooltip="Copy to clipboard button"
+        aria-label="Copy to clipboard" i18n-aria-label="Copy to clipboard button">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </span>
   </div>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close><ng-container i18n="Close button">Close</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close button">Close</button>
 </mat-dialog-actions>

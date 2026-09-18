@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { RestoreDbDialogComponent } from 'app/dialogs/restore-db-dialog/restore-db-dialog.component';
 import { PostsService } from 'app/posts.services';
 import { Task, TaskType } from 'api-types';
@@ -200,13 +200,11 @@ export class TasksComponent implements OnInit, OnDestroy {
   runTask(task_key: TaskType): void {
     const taskToRequireDialog = this.TASKS_TO_REQUIRE_DIALOG[task_key];
     if (taskToRequireDialog) {
-      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-        data: {
-          dialogTitle: taskToRequireDialog['dialogTitle'],
-          dialogText: taskToRequireDialog['dialogText'],
-          submitText: taskToRequireDialog['submitText'],
-          warnSubmitColor: taskToRequireDialog['warnSubmitColor']
-        }
+      const dialogRef = openConfirmDialog(this.dialog, {
+        dialogTitle: taskToRequireDialog['dialogTitle'],
+        dialogText: taskToRequireDialog['dialogText'],
+        submitText: taskToRequireDialog['submitText'],
+        warnSubmitColor: taskToRequireDialog['warnSubmitColor']
       });
       dialogRef.afterClosed().subscribe(confirmed => {
         if (confirmed) {
@@ -240,17 +238,21 @@ export class TasksComponent implements OnInit, OnDestroy {
   }
 
   openRestoreDBBackupDialog(): void {
-    this.dialog.open(RestoreDbDialogComponent, {width: '80vw'});
+    this.dialog.open(RestoreDbDialogComponent, {
+      panelClass: 'kit-dialog-panel',
+      width: '520px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
+    });
   }
 
   resetTasks(): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Reset tasks`,
-        dialogText: $localize`Would you like to reset your tasks? All your schedules will be removed as well.`,
-        submitText: $localize`Reset`,
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Reset tasks`,
+      dialogText: $localize`Would you like to reset your tasks? All your schedules will be removed as well.`,
+      submitText: $localize`Reset`,
+      warnSubmitColor: true
     });
     dialogRef.afterClosed().subscribe(confirmed => {
       if (confirmed) {
@@ -272,16 +274,14 @@ export class TasksComponent implements OnInit, OnDestroy {
 
   showError(task: Task): void {
     const copyToClipboardEmitter = new EventEmitter<boolean>();
-    this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Error for: ${task['title']}`,
-        dialogText: task['error'],
-        submitText: $localize`Copy to clipboard`,
-        cancelText: $localize`Close`,
-        closeOnSubmit: false,
-        onlyEmitOnDone: true,
-        doneEmitter: copyToClipboardEmitter
-      }
+    openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Error for: ${task['title']}`,
+      dialogIcon: 'error_outline',
+      dialogText: task['error'],
+      submitText: $localize`Copy to clipboard`,
+      cancelText: $localize`Close`,
+      closeOnSubmit: false,
+      doneEmitter: copyToClipboardEmitter
     });
     copyToClipboardEmitter.subscribe((done: boolean) => {
       if (done) {

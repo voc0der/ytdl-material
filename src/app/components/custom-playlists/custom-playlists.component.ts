@@ -104,7 +104,12 @@ export class CustomPlaylistsComponent implements OnInit {
       data: {
         playlistName: playlist.name,
         fileCount: Array.isArray(playlist.uids) ? playlist.uids.length : 0
-      }
+      },
+      width: '440px',
+      panelClass: 'kit-dialog-panel',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
 
     dialogRef.afterClosed().pipe(take(1)).subscribe((action: DeletePlaylistDialogAction | undefined) => {

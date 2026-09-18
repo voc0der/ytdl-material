@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from '../../posts.services';
 import { MatDialog } from '@angular/material/dialog';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { NgStyle } from '@angular/common';
 import { MatMiniFabButton, MatButton } from '@angular/material/button';
@@ -67,13 +67,11 @@ export class LogsViewerComponent implements OnInit {
   }
 
   clearLogs() {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: 'Clear logs',
-        dialogText: 'Would you like to clear your logs? This will delete all your current logs, permanently.',
-        submitText: 'Clear',
-        warnSubmitColor: true
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: 'Clear logs',
+      dialogText: 'Would you like to clear your logs? This will delete all your current logs, permanently.',
+      submitText: 'Clear',
+      warnSubmitColor: true
     });
     dialogRef.afterClosed().subscribe(confirmed => {
       if (confirmed) {

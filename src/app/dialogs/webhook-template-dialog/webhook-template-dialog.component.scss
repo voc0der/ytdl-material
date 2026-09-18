@@ -1,33 +1,25 @@
-.template-dialog {
-  width: 100%;
-  max-width: 680px;
+.template-body {
+  align-items: stretch;
+  padding: 12px 16px;
+  border-radius: 20px;
 }
 
-.template-variables-title {
+.template-body > textarea {
   font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  resize: vertical;
 }
 
 .template-variables {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
 }
 
 .template-variables code {
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #c9ced6;
-  background: #f8f9fb;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface-variant);
+  font-family: ui-monospace, monospace;
   font-size: 12px;
-}
-
-.template-checkbox-row {
-  margin-bottom: 8px;
-}
-
-.template-field {
-  width: 100%;
 }

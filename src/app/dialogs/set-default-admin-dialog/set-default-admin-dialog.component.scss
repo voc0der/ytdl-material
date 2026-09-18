@@ -1,5 +1,4 @@
-.spinner-div {
-    position: relative;
-    left: 10px;
-    bottom: 5px;
+// Sits ahead of the answers, so the wait is next to what is being waited on.
+.dialog-actions-spinner {
+  margin-right: 4px;
 }

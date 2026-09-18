@@ -1,0 +1,22 @@
+.timestamp-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timestamp-field {
+  width: 110px;
+  padding-right: 16px;
+}
+
+.timestamp-field > input {
+  font-size: 15px;
+}
+
+.share-link {
+  margin-top: 20px;
+}
+
+.share-link .kit-field > input {
+  font-size: 14px;
+}

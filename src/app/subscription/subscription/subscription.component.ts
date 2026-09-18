@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { ConfirmDialogComponent } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
+import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { Subscription, SubscriptionRefreshStatus } from 'api-types';
 import { saveBlob } from '../../utils/save-blob';
 import { firstValueFrom, Subscription as RxSubscription } from 'rxjs';
@@ -165,12 +165,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     if (this.downloading) return;
 
     const file_count = this.getSubscriptionFileCount(this.subscription);
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        dialogTitle: $localize`Download subscription?`,
-        dialogText: $localize`Download all ${file_count}:subscription file count: files from ${this.subscription.name}:subscription name: as a zip? Creating the archive can take a while and use significant disk space.`,
-        submitText: $localize`Download`
-      }
+    const dialogRef = openConfirmDialog(this.dialog, {
+      dialogTitle: $localize`Download subscription?`,
+      dialogText: $localize`Download all ${file_count}:subscription file count: files from ${this.subscription.name}:subscription name: as a zip? Creating the archive can take a while and use significant disk space.`,
+      submitText: $localize`Download`
     });
 
     dialogRef.afterClosed().pipe(take(1)).subscribe(confirmed => {

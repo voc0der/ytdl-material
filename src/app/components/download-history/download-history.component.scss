@@ -1,0 +1,201 @@
+.history-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-search > input {
+  font-size: 15px;
+}
+
+// Search cancel buttons differ per browser and would sit next to the field's own icon.
+.history-search > input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 6px;
+}
+
+.history-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-row {
+  border-top: 1px solid var(--kit-divider);
+}
+
+.history-row:first-child {
+  border-top: 0;
+}
+
+.history-row-button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.history-row-button:hover {
+  background: var(--kit-surface);
+}
+
+.history-row-button:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: -2px;
+}
+
+.history-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface-variant);
+}
+
+.history-symbol.is-selected {
+  background: var(--kit-accent);
+  color: var(--kit-on-accent);
+}
+
+.history-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.history-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--kit-on-surface-variant);
+  white-space: nowrap;
+}
+
+.history-id {
+  font-family: ui-monospace, monospace;
+}
+
+// The area a file is dropped on. The library it comes from styles this itself, as specifically
+// as a component stylesheet can, so these name the element as well to win.
+:host ::ng-deep ngx-file-drop .ngx-file-drop__drop-zone {
+  height: auto;
+  margin: 0;
+  border: 1px dashed var(--kit-divider);
+  border-radius: 20px;
+}
+
+:host ::ng-deep ngx-file-drop .ngx-file-drop__drop-zone--over {
+  border-color: var(--kit-accent);
+  background: var(--kit-tonal);
+}
+
+:host ::ng-deep ngx-file-drop .ngx-file-drop__content {
+  display: block;
+  align-items: stretch;
+  height: auto;
+  color: inherit;
+}
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 16px;
+}
+
+.drop-zone > .mat-icon {
+  color: var(--kit-on-surface-variant);
+}
+
+.drop-zone-text {
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+}
+
+.import-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 20px;
+  background: var(--kit-surface);
+}
+
+.import-file > .mat-icon {
+  flex-shrink: 0;
+  color: var(--kit-on-surface-variant);
+}
+
+.import-file-names {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.import-options {
+  margin-top: 10px;
+}
+
+.import-options .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--kit-on-accent);
+  --mat-progress-spinner-active-indicator-color: var(--kit-on-accent);
+}
+
+@media (max-width: 576px) {
+  .history-header {
+    flex-wrap: wrap;
+  }
+
+  .history-count {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .history-meta {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+}

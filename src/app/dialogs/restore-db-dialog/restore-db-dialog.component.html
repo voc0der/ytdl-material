@@ -1,33 +1,36 @@
-<h4 mat-dialog-title><ng-container i18n="Restore DB from backup">Restore DB from backup</ng-container></h4>
+<header class="dialog-header">
+  <span class="dialog-symbol is-danger" aria-hidden="true"><mat-icon>settings_backup_restore</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Restore DB from backup">Restore from backup</h2>
+    <p class="dialog-subtitle" i18n="Restore DB dialog subtitle">Your current database is replaced by the one you pick.</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-  <mat-selection-list [multiple]="false" [(ngModel)]="selected_backup">
-    @for (db_backup of db_backups; track db_backup) {
-      <mat-list-option [value]="db_backup.name" [matTooltip]="db_backup.name">
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-4">
-              {{db_backup.timestamp*1000 | date: 'short'}}
-            </div>
-            <div class="col-4">
-              {{(db_backup.size/1000).toFixed(2)}} kB
-            </div>
-            <div class="col-4" style="text-transform: capitalize;">
-              {{db_backup.source}}
-            </div>
-          </div>
-        </div>
-      </mat-list-option>
-    }
-  </mat-selection-list>
+<mat-dialog-content class="dialog-content">
+  @if (db_backups?.length) {
+    <div class="dialog-choices" role="radiogroup" [attr.aria-label]="backupsLabel">
+      @for (db_backup of db_backups; track db_backup.name) {
+        <button type="button" class="dialog-choice" role="radio" [attr.aria-checked]="isSelected(db_backup)"
+          [matTooltip]="db_backup.name" (click)="select(db_backup)">
+          <mat-icon [class.kit-invisible]="!isSelected(db_backup)">check</mat-icon>
+          <span class="dialog-choice-label backup-label">
+            <strong>{{db_backup.timestamp * 1000 | date: 'medium'}}</strong>
+            <small>{{(db_backup.size / 1000).toFixed(2)}} kB · <span class="backup-source">{{db_backup.source}}</span></small>
+          </span>
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="dialog-text" i18n="No DB backups text">There are no backups to restore from yet.</p>
+  }
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close><ng-container i18n="Restore DB cancel button">Cancel</ng-container></button>
-  <button mat-button [disabled]="restoring" (click)="restoreClicked()" [disabled]="!selected_backup || selected_backup.length !== 1"><ng-container i18n="Restore button">Restore</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
   @if (restoring) {
-    <div class="mat-spinner">
-      <mat-spinner [diameter]="25"></mat-spinner>
-    </div>
+    <mat-spinner class="dialog-actions-spinner" [diameter]="20"></mat-spinner>
   }
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close><ng-container i18n="Restore DB cancel button">Cancel</ng-container></button>
+  <button type="button" class="kit-chip kit-danger" [disabled]="restoring || !selected_backup || selected_backup.length !== 1" (click)="restoreClicked()">
+    <ng-container i18n="Restore button">Restore</ng-container>
+  </button>
 </mat-dialog-actions>

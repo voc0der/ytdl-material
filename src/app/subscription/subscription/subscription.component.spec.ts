@@ -62,13 +62,13 @@ describe('SubscriptionComponent', () => {
 
     component.downloadContent();
 
-    expect(dialog.open).toHaveBeenCalledWith(expect.any(Function), {
+    expect(dialog.open).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({
       data: {
         dialogTitle: 'Download subscription?',
         dialogText: expect.stringContaining('125 files from Test subscription'),
         submitText: 'Download'
       }
-    });
+    }));
     expect(postsService.downloadSubFromServer).not.toHaveBeenCalled();
   });
 

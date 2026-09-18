@@ -1,22 +1,24 @@
-<h4 mat-dialog-title><ng-container i18n="Create admin account dialog title">Create admin account</ng-container></h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>admin_panel_settings</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Create admin account dialog title">Create admin account</h2>
+    <p class="dialog-subtitle" i18n="Create admin account subtitle">The user name is <strong>admin</strong>.</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-  <div>
-    <p i18n="No default admin detected explanation">No default admin account detected. This will create and set the password for an admin account with the user name as 'admin'.</p>
-  </div>
-  <div style="position: relative">
-    <div>
-      <mat-form-field color="accent">
-        <mat-label i18n="Password">Password</mat-label>
-        <input type="password" (keyup.enter)="create()" matInput [(ngModel)]="input">
-      </mat-form-field>
-    </div>
-  </div>
+<mat-dialog-content class="dialog-content">
+  <p class="dialog-hint" i18n="No default admin detected explanation">No admin account exists yet. Give it a password and it is created for you.</p>
+  <label class="dialog-field dialog-field-wide">
+    <span class="dialog-field-label" i18n="Password">Password</span>
+    <span class="kit-field"><input type="password" autocomplete="new-password" [(ngModel)]="input" (keyup.enter)="create()"></span>
+  </label>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button [disabled]="input.length === 0" color="accent" style="margin-bottom: 12px;" (click)="create()" mat-raised-button><ng-container i18n="Create">Create</ng-container></button>
-  <div class="spinner-div">@if (creating) {
-    <mat-spinner [diameter]="25"></mat-spinner>
-  }</div>
+<mat-dialog-actions class="dialog-actions">
+  @if (creating) {
+    <mat-spinner class="dialog-actions-spinner" [diameter]="20"></mat-spinner>
+  }
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" [disabled]="input.length === 0 || creating" (click)="create()">
+    <ng-container i18n="Create">Create</ng-container>
+  </button>
 </mat-dialog-actions>
