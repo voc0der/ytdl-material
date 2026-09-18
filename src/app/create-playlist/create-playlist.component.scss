@@ -1,9 +1,289 @@
-.fixActionRow {
-    height: 89vh;
-    display: flex;
-    flex-direction: column;
+// The dialog's height is fixed (see openPlaylistDialog), so the host fills the surface and the
+// list is the one part of it that scrolls.
+:host {
+  flex: 1 1 auto;
+  height: 100%;
 }
 
-.spacer {
-    flex-grow: 1;
+.playlist-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+  padding: 0 24px 12px;
+}
+
+.playlist-controls .kit-field > input {
+  font-size: 15px;
+}
+
+.playlist-views {
+  margin-top: 2px;
+}
+
+.playlist-views .list-filter-option {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.playlist-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.playlist-search {
+  flex: 1 1 auto;
+  padding-right: 16px;
+}
+
+// Search cancel buttons differ per browser and would sit next to the field's own icon.
+.playlist-search > input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.playlist-list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.playlist-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.playlist-list-header .kit-chip:first-child {
+  margin-right: 4px;
+}
+
+.playlist-content.mat-mdc-dialog-content {
+  flex: 1 1 auto;
+  padding-top: 4px;
+  border-top: 1px solid var(--kit-divider);
+}
+
+.file-list,
+.order-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+}
+
+// A file in the library: whether it is picked, what it looks like, what it is.
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.file-row:hover {
+  background: var(--kit-surface);
+}
+
+.file-row:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: -2px;
+}
+
+.file-row[aria-checked='true'] {
+  background: var(--kit-tonal);
+}
+
+.file-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border: 2px solid var(--kit-on-surface-variant);
+  border-radius: 11px;
+  color: transparent;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.file-check .mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.file-check.is-checked {
+  border-color: var(--kit-accent);
+  background: var(--kit-accent);
+  color: var(--kit-on-accent);
+}
+
+.file-thumb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  width: 80px;
+  height: 45px;
+  border-radius: 8px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface-variant);
+}
+
+.file-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-duration {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.file-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--kit-on-surface-variant);
+  white-space: nowrap;
+}
+
+.file-date {
+  flex-shrink: 0;
+}
+
+.show-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
+// A file in the playlist, where it plays, and the handle it is dragged by.
+.order-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 4px;
+  background: var(--kit-sheet);
+}
+
+.order-row + .order-row {
+  border-top: 1px solid var(--kit-divider);
+}
+
+.order-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.order-position {
+  flex-shrink: 0;
+  min-width: 20px;
+  font-size: 13px;
+  color: var(--kit-on-surface-variant);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+// Where the row being dragged will land.
+.order-placeholder {
+  height: 57px;
+  border: 1px dashed var(--kit-accent);
+  border-radius: 16px;
+  background: var(--kit-tonal);
+}
+
+// The row under the pointer while it is dragged. It stays in the list rather than the page's
+// body, so the theme's colours still reach it.
+.order-row.cdk-drag-preview {
+  box-sizing: border-box;
+  border-top: 0;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.cdk-drag-animating,
+.order-list.cdk-drop-list-dragging .order-row:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.dialog-actions .mat-mdc-progress-spinner {
+  align-self: center;
+}
+
+@media (max-width: 576px) {
+  .playlist-controls {
+    gap: 12px;
+    padding: 0 16px 10px;
+  }
+
+  .playlist-tools {
+    flex-wrap: wrap;
+  }
+
+  .playlist-search {
+    flex-basis: 100%;
+  }
+
+  .file-row {
+    gap: 12px;
+    padding: 8px 4px;
+  }
+
+  .file-thumb {
+    width: 64px;
+    height: 36px;
+  }
+
+  .order-position {
+    display: none;
+  }
+
+  .order-row {
+    gap: 8px;
+  }
 }

@@ -56,6 +56,8 @@ export class NotificationsComponent implements OnInit {
   }
 
   getNotifications(): void {
+    // Nobody is logged in to have any.
+    if (!this.postsService.hasSession()) return;
     this.postsService.getNotifications().subscribe(res => {
       this.notifications = res['notifications'];
       this.notifications.sort((a, b) => b.timestamp - a.timestamp);

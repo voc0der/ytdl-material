@@ -1,16 +1,14 @@
-import { Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, NgZone, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { NARROW_SCREEN_QUERY } from 'app/utils/narrow-screen';
 import { Router } from '@angular/router';
-import { Category, DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort, Subscription } from 'api-types';
+import { Category, DatabaseFile, DeletePlaylistResponse, FileType, FileTypeFilter, Playlist, Sort } from 'api-types';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
-import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
-import { MatSelectionListChange, MatSelectionList, MatListOption } from '@angular/material/list';
 import { saveBlob } from '../../utils/save-blob';
 import { MatDialog } from '@angular/material/dialog';
-import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
+import { openPlaylistDialog } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 import {
   MediaLibraryNavigationStateService,
@@ -18,21 +16,16 @@ import {
   MediaLibraryRestoreState,
   PLAYER_NAVIGATOR_STORAGE_KEY
 } from 'app/media-library-navigation-state.service';
-import { NgTemplateOutlet, NgClass, DatePipe } from '@angular/common';
+import { NgTemplateOutlet, NgClass } from '@angular/common';
 import { SortPropertyComponent } from '../sort-property/sort-property.component';
-import { MatFormField, MatLabel } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { FileCardLayout, getListCardHeight, UnifiedFileCardComponent } from '../unified-file-card/unified-file-card.component';
 import { PickerComponent, type PickerOption } from '../picker/picker.component';
 import { openPickerSheet } from '../picker/picker-sheet.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { MatButton, MatIconButton } from '@angular/material/button';
-import { MatSelect, MatOption } from '@angular/material/select';
+import { MatButton } from '@angular/material/button';
 import { MatPaginator } from '@angular/material/paginator';
-import { MatTabGroup, MatTab } from '@angular/material/tabs';
-import { MatButtonToggleGroup, MatButtonToggle } from '@angular/material/button-toggle';
-import { ContentLoaderModule } from '@ngneat/content-loader';
 
 
 type PageSizeOption = number | 'auto';
@@ -53,7 +46,7 @@ interface MediaLibraryFilter {
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgTemplateOutlet, SortPropertyComponent, MatFormField, NgClass, MatLabel, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent, MatSelect, MatOption, MatPaginator, MatTabGroup, MatTab, MatIconButton, MatButtonToggleGroup, CdkDropList, MatButtonToggle, CdkDrag, MatSelectionList, MatListOption, ContentLoaderModule, DatePipe]
+    imports: [NgTemplateOutlet, SortPropertyComponent, NgClass, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent, MatPaginator]
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'media_library_page_size';
@@ -70,28 +63,13 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly categoryFilterPrefix = 'category:';
   readonly pageSizeTitle = $localize`:Page size picker title:Items per page`;
 
-  @Input() usePaginator = true;
-
-  // File selection
-
-  @Input() selectMode = false;
-  @Input() defaultSelected: DatabaseFile[] = [];
   @Input() sub_id = null;
-  @Input() customHeader = null;
-  @Input() selectedIndex = 1;
-  @Output() fileSelectionEmitter = new EventEmitter<{new_selection: string[], thumbnailURL: string | null}>();
 
   pageSize = 10;
   paged_data: DatabaseFile[] = null;
   manualPageIndex = 0;
   autoPaginationEnabled = false;
   autoPageLoadInProgress = false;
-
-  selected_data: string[] = [];
-  selected_data_objs: DatabaseFile[] = [];
-  reverse_order = false;
-  selection_sources: Subscription[] = [];
-  selection_sources_received = false;
 
   // File listing (with cards)
 
@@ -229,7 +207,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
     // set file type filter to cached value
     const cached_file_filter = localStorage.getItem('file_filter');
-    if (this.usePaginator && cached_file_filter) {
+    if (cached_file_filter) {
       try {
         this.selectedFilters = this.sanitizeSelectedFilters(JSON.parse(cached_file_filter));
       } catch {
@@ -249,26 +227,18 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.refreshScrollListener();
 
-    // Playlist selection does not expose the library filter controls. Inputs are
-    // assigned after construction, so clear any persisted filters here rather than
-    // letting an invisible audio/favorite/category filter omit candidates.
-    if (this.selectMode) this.selectedFilters = [];
-
     if (this.sub_id) {
       // subscriptions can't download both audio and video (for now), so don't let users filter for these
       delete this.fileFilters['audio_only'];
       delete this.fileFilters['video_only'];
     }
 
-    if (!this.selectMode) {
-      this.pendingNavigationRestoreState = this.mediaLibraryNavigationState.consumePendingRestoreState(this.getCurrentRouteKey(), this.sub_id);
-      if (this.pendingNavigationRestoreState) {
-        this.applyRestoredNavigationSnapshot(this.pendingNavigationRestoreState.snapshot);
-      }
+    this.pendingNavigationRestoreState = this.mediaLibraryNavigationState.consumePendingRestoreState(this.getCurrentRouteKey(), this.sub_id);
+    if (this.pendingNavigationRestoreState) {
+      this.applyRestoredNavigationSnapshot(this.pendingNavigationRestoreState.snapshot);
     }
 
     const initializeLibrary = () => {
-      if (this.selectMode) this.getSelectionSources();
       const restored_from_navigation = this.restoreLibraryFromNavigationState();
       if (!restored_from_navigation) {
         this.getAllFiles();
@@ -318,10 +288,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
           }
         });
       });
-
-    
-    this.selected_data = this.defaultSelected.map(file => file.uid);
-    this.selected_data_objs = this.defaultSelected;    
 
     this.searchChangedSubject
       .pipe(
@@ -658,11 +624,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   get showLibraryTabs(): boolean {
-    return !this.selectMode && !this.sub_id;
-  }
-
-  get showPaginationControls(): boolean {
-    return this.usePaginator && this.selectedIndex > 0;
+    return !this.sub_id;
   }
 
   get pageSizeSelectorValue(): PageSizeOption {
@@ -677,8 +639,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   get showAutoLoadAnchor(): boolean {
-    return this.showPaginationControls
-      && this.autoPaginationEnabled
+    return this.autoPaginationEnabled
       && this.normal_files_received
       && this.isVideoLibraryActive()
       && (this.paged_data?.length ?? 0) > 0
@@ -934,7 +895,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const fileTypeFilter = this.getFileTypeFilter();
     const favoriteFilter = this.getFavoriteFilter();
     const categoryFilterUids = this.getCategoryFilterUids();
-    this.postsService.getAllFiles(sort, this.usePaginator ? range : null, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
+    this.postsService.getAllFiles(sort, range, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
       // Deferring the request is not enough on its own: a refresh asked for just before a card
       // was pressed lands during it, and it is applying the response that rebuilds the grid.
       // The in-progress flags below belong solely to this request and are cleared either way,
@@ -1800,117 +1761,14 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.getAllFiles();
   }
 
-  fileSelectionChanged(event: MatSelectionListChange): void {
-    const option = event.options?.[0];
-    if (!option) return;
-    const adding = option.selected;
-    const value = option.value;
-    if (adding) {
-      this.selected_data.push(value.uid);
-      this.selected_data_objs.push(value);
-    } else {
-      this.selected_data      = this.selected_data.filter(e => e !== value.uid);
-      this.selected_data_objs = this.selected_data_objs.filter(e => e.uid !== value.uid);
-    }
-
-    this.emitFileSelection();
-  }
-
-  getSelectionSources(): void {
-    this.postsService.getAllSubscriptions().subscribe(res => {
-      this.selection_sources = res['subscriptions'] || [];
-      this.selection_sources_received = true;
-    }, () => {
-      this.selection_sources = [];
-      this.selection_sources_received = true;
-    });
-  }
-
-  selectionSourceChanged(sub_id: string | null): void {
-    this.sub_id = sub_id || null;
-    // If the previous source is still loading, its response must not repopulate the
-    // selector while the replacement request is queued.
-    this.latestFileRequestId += 1;
-    this.manualPageIndex = 0;
-    this.paged_data = [];
-    this.normal_files_received = false;
-    this.getAllFiles();
-  }
-
-  selectAllAvailableFiles(): void {
-    const selected_uids = new Set(this.selected_data);
-    for (const file of this.paged_data || []) {
-      if (selected_uids.has(file.uid)) continue;
-      selected_uids.add(file.uid);
-      this.selected_data.push(file.uid);
-      this.selected_data_objs.push(file);
-    }
-    this.emitFileSelection();
-  }
-
-  clearFileSelection(): void {
-    this.selected_data = [];
-    this.selected_data_objs = [];
-    this.emitFileSelection();
-  }
-
-  allAvailableFilesSelected(): boolean {
-    return (this.paged_data?.length ?? 0) > 0
-      && this.paged_data.every(file => this.selected_data.includes(file.uid));
-  }
-
-  private emitFileSelection(): void {
-    this.fileSelectionEmitter.emit({
-      new_selection: this.selected_data,
-      thumbnailURL: this.selected_data_objs[0]?.thumbnailURL ?? null
-    });
-  }
-
-  toggleSelectionOrder(): void {
-    this.reverse_order = !this.reverse_order;
-    localStorage.setItem('default_playlist_order_reversed', '' + this.reverse_order);
-  }
-
-  drop(event: CdkDragDrop<string[]>): void {
-    if (this.reverse_order) {
-      event.previousIndex = this.selected_data.length - 1 - event.previousIndex;
-      event.currentIndex = this.selected_data.length - 1 - event.currentIndex;
-    }
-    moveItemInArray(this.selected_data, event.previousIndex, event.currentIndex);
-    moveItemInArray(this.selected_data_objs, event.previousIndex, event.currentIndex);
-    this.emitFileSelection();
-  }
-
-  removeSelectedFile(index: number): void {
-    if (this.reverse_order) {
-      index = this.selected_data.length - 1 - index;
-    }
-    this.selected_data.splice(index, 1);
-    this.selected_data_objs.splice(index, 1);
-    this.emitFileSelection();
-  }
-
   toggleFavorite(file_obj): void {
     file_obj.favorite = !file_obj.favorite;
     this.postsService.updateFile(file_obj.uid, {favorite: file_obj.favorite}).subscribe(res => {});
   }
 
+  // The dialog reports what it saved on playlists_changed, which is what refreshes the lists.
   openCreatePlaylistDialog(): void {
-    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
-      data: {
-        create_mode: true
-      },
-      minWidth: '90vw',
-      minHeight: '95vh'
-    });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.getAllPlaylists();
-        this.postsService.openSnackBar($localize`Successfully created playlist!`);
-      } else if (result === false) {
-        this.postsService.openSnackBar($localize`ERROR: failed to create playlist!`);
-      }
-    });
+    openPlaylistDialog(this.dialog, {create_mode: true});
   }
 
   goToPlaylist(info_obj: { file: Playlist; event?: KeyboardEvent | MouseEvent | { ctrlKey?: boolean } }): void {
@@ -2016,19 +1874,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   editPlaylistDialog(args: { playlist: Playlist; }): void {
-    const playlist = args.playlist;
-    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
-      data: {
-        playlist_id: playlist.id,
-        create_mode: false
-      },
-      minWidth: '85vw'
-    });
-
-    dialogRef.afterClosed().subscribe(() => {
-      if (dialogRef.componentInstance.playlist_updated) {
-        this.getAllPlaylists();
-      }
-    });
+    openPlaylistDialog(this.dialog, {playlist_id: args.playlist.id});
   }
 }

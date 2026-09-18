@@ -67,12 +67,12 @@ one. `coverage.sh` warns when it cannot find a server, and picks up the URL from
 
 **Watch for "missing from the report".** A file that is on disk but absent from the lcov
 output is not counted as uncovered, it is not counted at all, which inflates the result.
-`coverage.sh` lists any such file. There is currently one:
-`src/app/components/duplicates/duplicates.component.ts`. `@vitest/coverage-v8` hands
-uncovered files to rolldown's parser without saying which language they are, so it parses
-them as JavaScript and fails on `implements`. The file is untested, so the true figure is
-marginally *lower* than what is printed. Writing any spec for that component would both fix
-the gap and pull it into the report.
+`coverage.sh` lists any such file. There are none at the moment; the last was
+`src/app/components/duplicates/duplicates.component.ts`, until it got a spec.
+`@vitest/coverage-v8` hands files no test loaded to rolldown's parser without saying which
+language they are, so it parses them as JavaScript and fails on `implements`. Any untested
+component can fall out of the report the same way, which makes the printed figure higher than
+the true one. A spec that loads the file puts it back.
 
 ### Expect the last digit to move
 

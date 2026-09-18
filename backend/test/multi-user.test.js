@@ -2,6 +2,7 @@ const {
     assert,
     fs,
     auth_api,
+    config_api,
     db_api,
     utils,
     subscriptions_api,
@@ -28,6 +29,20 @@ describe('Multi User', async function() {
             await auth_api.registerUser(user_to_test, user_to_test, user_password);
             const user = await auth_api.login(user_to_test, user_password);
             assert(user);
+        });
+        // Asking LDAP when it is not the method sent every wrong password on to a directory
+        // nobody set up, and the refused connection answered with a 500 instead of a 401.
+        it('Only asks LDAP to check a password when LDAP is the auth method', function() {
+            const original_getConfigItem = config_api.getConfigItem;
+            try {
+                let auth_method = 'internal';
+                config_api.getConfigItem = key => key === 'ytdl_auth_method' ? auth_method : original_getConfigItem(key);
+                assert.deepStrictEqual(auth_api.passwordLoginStrategies(), ['local']);
+                auth_method = 'ldap';
+                assert.deepStrictEqual(auth_api.passwordLoginStrategies(), ['local', 'ldap']);
+            } finally {
+                config_api.getConfigItem = original_getConfigItem;
+            }
         });
     });
     describe('Video player - normal', async function() {

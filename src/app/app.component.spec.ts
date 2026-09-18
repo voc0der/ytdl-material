@@ -68,6 +68,41 @@ describe('AppComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  // In multi-user mode the login page is shown with nobody logged in. Asking for what belongs to
+  // a user then only earned a 401 apiece; logging in reloads the config, which asks again.
+  describe('loading the config', () => {
+    beforeEach(() => {
+      vi.spyOn(component, 'setTheme').mockImplementation(() => { });
+      posts_service_mock.config = {
+        Advanced: { multi_user_mode: true },
+        Extra: { title_top: 'ytdl-material', enable_downloads_manager: true, file_manager_enabled: true },
+        Subscriptions: { allow_subscriptions: true },
+        Themes: { default_theme: 'default', allow_theme_change: true }
+      };
+      posts_service_mock.reloadSubscriptions = vi.fn().mockName('reloadSubscriptions');
+      posts_service_mock.reloadCategories = vi.fn().mockName('reloadCategories');
+      posts_service_mock.getDuplicateSummary = () => of({ has_duplicates: false });
+    });
+
+    it('asks for no subscriptions or categories before anybody logs in', () => {
+      posts_service_mock.hasSession = () => false;
+
+      component.loadConfig();
+
+      expect(posts_service_mock.reloadSubscriptions).not.toHaveBeenCalled();
+      expect(posts_service_mock.reloadCategories).not.toHaveBeenCalled();
+    });
+
+    it('asks for them once somebody has', () => {
+      posts_service_mock.hasSession = () => true;
+
+      component.loadConfig();
+
+      expect(posts_service_mock.reloadSubscriptions).toHaveBeenCalled();
+      expect(posts_service_mock.reloadCategories).toHaveBeenCalled();
+    });
+  });
+
   it('filters out paused, finished, cancelled and errored downloads', () => {
     posts_service_mock.getCurrentDownloads = () => of({
       downloads: [

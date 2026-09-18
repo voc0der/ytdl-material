@@ -381,6 +381,21 @@ exports.deleteUser = async (uid) => {
  ************************************************/
 
 
+/*************************************************
+ * The strategies a password login is tried against.
+ *
+ * Internal accounts always work, LDAP or not, so
+ * local always goes first. LDAP is only asked when
+ * it is the configured method: asking it anyway sent
+ * every wrong password on to a directory nobody set
+ * up, and the refused connection answered with a 500
+ * where a wrong password should get a 401. Read per
+ * request, since the method can change at runtime.
+ ************************************************/
+exports.passwordLoginStrategies = () => {
+  return config_api.getConfigItem('ytdl_auth_method') === 'ldap' ? ['local', 'ldap'] : ['local'];
+}
+
 exports.login = async (username, password) => {
   // even if we're using LDAP, we still want users to be able to login using internal credentials
   const user = await db_api.getRecord('users', {name: username});

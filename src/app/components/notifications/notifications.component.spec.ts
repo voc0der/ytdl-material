@@ -37,6 +37,7 @@ describe('NotificationsComponent filtering', () => {
     const posts_service: any = {
       initialized: true,
       service_initialized: of(true),
+      hasSession: () => true,
       getNotifications: vi.fn().mockName('getNotifications').mockReturnValue(of({
         notifications: [notification('download_complete', 'a'), notification('download_error', 'b'), notification('task_finished', 'c')]
       }))
@@ -66,5 +67,21 @@ describe('NotificationsComponent filtering', () => {
   it('sizes the list from the rows it will hold', () => {
     component.toggleFilter('download_error');
     expect(component.list_height).toBe(`${NOTIFICATION_ROW_HEIGHT}px`);
+  });
+});
+
+describe('NotificationsComponent before anybody logs in', () => {
+  it('asks for nothing, since there is nobody to have any', () => {
+    const posts_service: any = {
+      initialized: true,
+      service_initialized: of(true),
+      hasSession: () => false,
+      getNotifications: vi.fn().mockName('getNotifications').mockReturnValue(of({ notifications: [] }))
+    };
+    const component = new NotificationsComponent(posts_service, {} as any, {} as any);
+
+    component.ngOnInit();
+
+    expect(posts_service.getNotifications).not.toHaveBeenCalled();
   });
 });

@@ -1,40 +1,194 @@
-@if (create_mode) {
-  <h4 mat-dialog-title ><ng-container i18n="Create a playlist dialog title">Create a playlist</ng-container></h4>
-}
-@if (!create_mode) {
-  <h4 mat-dialog-title><ng-container i18n="Modify playlist dialog title">Modify playlist</ng-container></h4>
-}
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>{{create_mode ? 'playlist_add' : 'edit_note'}}</mat-icon></span>
+  <div class="dialog-heading">
+    @if (create_mode) {
+      <h2 mat-dialog-title class="dialog-title" i18n="Create a playlist dialog title">Create a playlist</h2>
+    } @else {
+      <h2 mat-dialog-title class="dialog-title" i18n="Edit playlist dialog title">Edit playlist</h2>
+    }
+    <p class="dialog-subtitle">
+      @if (selected.length) {
+        <ng-container i18n="Playlist file count">{selected.length, plural, =1 {1 file} other {{{selected.length}} files}}</ng-container>
+        @if (total_duration) {
+          <span aria-hidden="true"> · </span>{{total_duration}}
+        }
+      } @else {
+        <ng-container i18n="Playlist editor subtitle">Pick files from your library, then put them in the order they play.</ng-container>
+      }
+    </p>
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-<mat-dialog-content style="max-height: 85vh;">
-  <form>
-    @if (create_mode || playlist) {
-      <div>
-        <div>
-          <mat-form-field color="accent">
-            <mat-label i18n="Playlist name">Name</mat-label>
-            <input [(ngModel)]="name" matInput type="text" required aria-required [ngModelOptions]="{standalone: true}">
-          </mat-form-field>
-        </div>
-        <app-media-library [selectMode]="true" [usePaginator]="false" [defaultSelected]="preselected_files" [customHeader]="'Select files'" (fileSelectionEmitter)="fileSelectionChanged($event)" [selectedIndex]="create_mode ? 1 : 0"></app-media-library>
+<!-- What stays put while the list under it scrolls. -->
+<div class="playlist-controls">
+  <label class="dialog-field">
+    <span class="dialog-field-label" i18n="Playlist name">Name</span>
+    <span class="kit-field"><input [(ngModel)]="name" required autocomplete="off" (keyup.enter)="save()"></span>
+  </label>
+
+  <div class="list-filter playlist-views" role="tablist">
+    <button type="button" role="tab" class="list-filter-option" [class.active]="view === 'library'" [attr.aria-selected]="view === 'library'"
+      (click)="view = 'library'">
+      <span i18n="Playlist editor library tab">Library</span>
+      @if (files_received) {
+        <span class="list-filter-count">{{files.length}}</span>
+      }
+    </button>
+    <button type="button" role="tab" class="list-filter-option" [class.active]="view === 'playlist'" [attr.aria-selected]="view === 'playlist'"
+      (click)="view = 'playlist'">
+      <span i18n="Playlist editor playlist tab">In playlist</span>
+      <span class="list-filter-count">{{selected.length}}</span>
+    </button>
+  </div>
+
+  @if (view === 'library') {
+    <div class="playlist-tools">
+      <label class="kit-field playlist-search">
+        <mat-icon>search</mat-icon>
+        <input type="search" [ngModel]="search_text" (ngModelChange)="searchChanged($event)" [attr.aria-label]="searchLabel"
+          placeholder="Search files" i18n-placeholder="Search playlist candidates">
+      </label>
+      @if (sources.length) {
+        <app-picker [title]="sourceLabel" [options]="sourceOptions" [value]="source" (valueChange)="sourceChanged($any($event))"></app-picker>
+      }
+    </div>
+    @if (files_received && matching.length) {
+      <div class="playlist-list-header">
+        <button type="button" class="kit-chip" [attr.aria-pressed]="all_matching_selected" (click)="toggleAllMatching()">
+          <mat-icon>{{all_matching_selected ? 'check_box' : (matching_selected_count ? 'indeterminate_check_box' : 'check_box_outline_blank')}}</mat-icon>
+          <span i18n="Select all playlist files button">Select all</span>
+        </button>
+        <span class="playlist-count" i18n="Picked playlist file count">{{matching_selected_count}} of {{matching.length}} picked</span>
       </div>
     }
-  </form>
+  } @else if (selected.length) {
+    <div class="playlist-list-header">
+      <span class="playlist-count">
+        <ng-container i18n="Playlist order hint">Plays top to bottom.</ng-container>
+      </span>
+      <button type="button" class="kit-chip" (click)="reverse()" [disabled]="selected.length < 2">
+        <mat-icon>swap_vert</mat-icon><span i18n="Reverse playlist order button">Reverse</span>
+      </button>
+      <button type="button" class="kit-chip" (click)="clearSelection()">
+        <mat-icon>clear_all</mat-icon><span i18n="Clear playlist selection button">Clear</span>
+      </button>
+    </div>
+  }
+</div>
+
+<mat-dialog-content class="dialog-content playlist-content">
+  @if (view === 'library') {
+    @if (!files_received) {
+      <div class="list-loading" aria-busy="true"><mat-spinner [diameter]="32"></mat-spinner></div>
+    } @else if (matching.length === 0) {
+      <section class="empty-state">
+        <span class="empty-state-icon"><mat-icon>{{files_failed ? 'cloud_off' : (search_text ? 'search_off' : 'video_library')}}</mat-icon></span>
+        @if (files_failed) {
+          <h2 i18n="Playlist files failed to load title">Couldn't load your files</h2>
+          <button type="button" class="kit-chip" (click)="getFiles()"><mat-icon>refresh</mat-icon><span i18n="Retry button">Retry</span></button>
+        } @else if (search_text) {
+          <h2 i18n="No matching playlist files title">Nothing matches</h2>
+          <p i18n="No matching playlist files text">No file in your library matches that search.</p>
+        } @else {
+          <h2 i18n="No playlist files title">No files to pick from</h2>
+          <p i18n="No playlist files text">Files you download show up here, ready to go in a playlist.</p>
+        }
+      </section>
+    } @else {
+      <!-- Picking is all a row does, so the row itself is the checkbox. -->
+      <ul class="file-list">
+        @for (file of shown; track file.uid) {
+          <li>
+            <button type="button" class="file-row" role="checkbox" [attr.aria-checked]="isSelected(file)" (click)="toggle(file)">
+              <span class="file-check" [class.is-checked]="isSelected(file)" aria-hidden="true"><mat-icon>check</mat-icon></span>
+              <ng-container [ngTemplateOutlet]="fileSummary" [ngTemplateOutletContext]="{ $implicit: file }"></ng-container>
+            </button>
+          </li>
+        }
+      </ul>
+      @if (hidden_count > 0) {
+        <div class="show-more">
+          <button type="button" class="kit-chip" (click)="showMore()">
+            <mat-icon>expand_more</mat-icon>
+            <span i18n="Show more playlist files button">Show more ({{hidden_count}} left)</span>
+          </button>
+        </div>
+      }
+    }
+  } @else {
+    @if (!create_mode && !playlist && !playlist_failed) {
+      <div class="list-loading" aria-busy="true"><mat-spinner [diameter]="32"></mat-spinner></div>
+    } @else if (playlist_failed) {
+      <section class="empty-state">
+        <span class="empty-state-icon"><mat-icon>cloud_off</mat-icon></span>
+        <h2 i18n="Playlist failed to load title">Couldn't load this playlist</h2>
+        <button type="button" class="kit-chip" (click)="getPlaylist()"><mat-icon>refresh</mat-icon><span i18n="Retry button">Retry</span></button>
+      </section>
+    } @else if (selected.length === 0) {
+      <section class="empty-state">
+        <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
+        <h2 i18n="Empty playlist title">Nothing in it yet</h2>
+        <p i18n="Empty playlist text">Pick what goes in it from your library.</p>
+        <button type="button" class="kit-chip" (click)="view = 'library'">
+          <mat-icon>video_library</mat-icon><span i18n="Go to playlist library tab button">Pick files</span>
+        </button>
+      </section>
+    } @else {
+      <ol class="order-list" cdkDropList cdkDropListLockAxis="y" (cdkDropListDropped)="drop($event)">
+        @for (file of selected; track file.uid; let i = $index) {
+          <li class="order-row" cdkDrag cdkDragPreviewContainer="parent">
+            <div class="order-placeholder" *cdkDragPlaceholder></div>
+            <button #orderHandle type="button" class="kit-icon-button order-handle" cdkDragHandle
+              [attr.aria-label]="moveLabel" [matTooltip]="moveLabel"
+              (keydown.arrowup)="move(i, -1, $event)" (keydown.arrowdown)="move(i, 1, $event)">
+              <mat-icon>drag_indicator</mat-icon>
+            </button>
+            <span class="order-position" aria-hidden="true">{{i + 1}}</span>
+            <ng-container [ngTemplateOutlet]="fileSummary" [ngTemplateOutletContext]="{ $implicit: file }"></ng-container>
+            <button type="button" class="kit-icon-button" (click)="remove(i)" [attr.aria-label]="removeLabel" [matTooltip]="removeLabel">
+              <mat-icon>close</mat-icon>
+            </button>
+          </li>
+        }
+      </ol>
+    }
+  }
 </mat-dialog-content>
 
-<div class="spacer"></div>
-
-<mat-dialog-actions>
-  @if (create_mode) {
-    <button (click)="createPlaylist()" [disabled]="!name || !filesSelect.value || filesSelect.value.length === 0" color="primary" style="float: right" mat-button>
+<mat-dialog-actions class="dialog-actions">
+  @if (saving) {
+    <mat-spinner [diameter]="20"></mat-spinner>
+  }
+  <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" [disabled]="!can_save" (click)="save()">
+    @if (create_mode) {
       <ng-container i18n="Create button">Create</ng-container>
-    </button>
-  }
-  @if (!create_mode) {
-    <button (click)="updatePlaylist()" [disabled]="!name || !playlistChanged()" color="primary" style="float: right" mat-button>
+    } @else {
       <ng-container i18n="Save button">Save</ng-container>
-    </button>
-  }
-  @if (create_in_progress) {
-    <div style="margin-left: 10px"><mat-spinner [diameter]="25"></mat-spinner></div>
-  }
+    }
+  </button>
 </mat-dialog-actions>
+
+<ng-template #fileSummary let-file>
+  <span class="file-thumb" aria-hidden="true">
+    @if (thumbnailFor(file); as src) {
+      <img [src]="src" alt="" loading="lazy">
+    } @else {
+      <mat-icon>{{file.isAudio ? 'audiotrack' : 'movie'}}</mat-icon>
+    }
+    @if (durationFor(file); as length) {
+      <span class="file-duration">{{length}}</span>
+    }
+  </span>
+  <span class="file-text">
+    <span class="file-title kit-one-line" [matTooltip]="file.title" matTooltipShowDelay="600">{{file.title}}</span>
+    <span class="file-meta">
+      @if (file.uploader) {
+        <span class="kit-one-line">{{file.uploader}}</span>
+        <span aria-hidden="true">·</span>
+      }
+      <span class="file-date">{{file.registered | date: 'mediumDate'}}</span>
+    </span>
+  </span>
+</ng-template>

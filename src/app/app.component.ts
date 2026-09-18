@@ -192,12 +192,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       this.setTheme(storedTheme);
     }
 
-    // gets the subscriptions
-    if (this.allowSubscriptions) {
-      this.postsService.reloadSubscriptions();
+    // Logging in reloads the config, so these are fetched then if there is nobody to ask for yet.
+    if (this.postsService.hasSession()) {
+      if (this.allowSubscriptions) {
+        this.postsService.reloadSubscriptions();
+      }
+      this.postsService.reloadCategories();
     }
-
-    this.postsService.reloadCategories();
 
     this.postsService.getVersionInfo().subscribe(res => {
       this.postsService.version_info = res['version_info'];

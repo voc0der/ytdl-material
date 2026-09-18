@@ -135,6 +135,25 @@ the `openapi` binary, `@types/*` are ambient), and a version that tried flagged 
 frontend packages of which most were load-bearing. Finding genuinely dead dependencies is
 `git log -S "require('name')"` work, done by hand.
 
+# Checking for import cycles
+
+Two frontend modules that import each other work everywhere except a production build. The dev
+server and the unit tests evaluate modules in an order where both are defined by the time either
+needs the other; the production bundle can put one first, and a standalone component's `imports`
+then holds `undefined` where the other component should be. Angular reports that as NG0919
+("Cannot read @Component metadata") the first time the component renders. The playlist editor
+embedded the media library that opens it, and New playlist opened an empty dialog in releases
+only.
+
+```bash
+node dev/deps/check-cycles.mjs
+```
+
+It walks every runtime import under `src/app` -- type-only imports are erased and cannot form a
+cycle -- and exits non-zero naming each group of files that can reach itself. Worth a run after
+moving a component into another's template, or whenever a production build shows an NG0919 that
+`ng serve` does not. Like `check-declared.mjs`, it is not part of CI.
+
 # Exercising subscriptions
 
 Subscriptions are the hardest part of the app to test by hand: a real one has to be created,
@@ -345,6 +364,73 @@ Like the dialogs and settings harnesses it downloads nothing, and it is not part
   unread markers and the count are only there until the first close.
 - **The fixture videos are empty files.** The library never opens one, but the player does, and
   it answers a range request over no bytes with a 416. The harness ignores that one error.
+
+# Exercising the library
+
+The playlist editor and the Duplicates page are the library's own tools, and both only show what
+they do against a library: the editor picks from every file there is and puts them in order, and
+the duplicates page deletes the copies it finds. `dev/screenshots/library.sh` stages one and
+works both:
+
+```bash
+dev/screenshots/library.sh               # build, boot, run, stop
+dev/screenshots/library.sh --skip-build  # reuse the last frontend build
+dev/screenshots/library.sh --keep        # leave the backend running on :17455 afterwards
+```
+
+It stages the README's library with two of its videos downloaded again, one of them twice. It
+opens New playlist from the Playlists tab and checks the editor is there rather than an empty
+dialog, that it is dialog-sized, that only its list scrolls, and that searching narrows the list.
+Then it picks three files, checks the order and the running time, creates the playlist and reads
+it back off the backend. It reopens it with Edit and reorders by dragging and by the arrow keys,
+removes a file, reverses the rest and renames it, then checks the backend has exactly that. On the
+Duplicates page it checks every duplicated file has a row, the summary counts the extra copies,
+and a row opens onto its copies. Then it cleans up one file keeping the first download and the
+other keeping the latest, checking which records and which files on disk are left each time,
+until the page says there is nothing left. Screenshots at a desktop and a phone width, light and
+dark, are left in the `shots` folder it prints.
+
+It downloads nothing, and like the others it is not part of CI.
+
+## Things worth knowing
+
+- **Only a production build shows NG0919.** That is why this builds one rather than pointing
+  at `ng serve`, and why its last check is that the page logged no errors at all.
+- **The duplicate copies are real files, however empty.** Cleaning up deletes them from disk,
+  and a copy that is not there to delete counts as a failure.
+
+# Exercising the login page
+
+The login page only exists with accounts, so it is the one page nothing else here reaches.
+`dev/screenshots/login.sh` boots the backend in multi-user mode and works the page:
+
+```bash
+dev/screenshots/login.sh               # build, boot, run, stop
+dev/screenshots/login.sh --skip-build  # reuse the last frontend build
+dev/screenshots/login.sh --keep        # leave the backend running on :17456 afterwards
+```
+
+It registers an admin through the API first, then follows a page that needs an account to the
+login page. It checks that nothing on the page asked for anything that needs an account, that
+the card cannot be submitted empty, and that a wrong password is said on the card without losing
+where to go afterwards. Then it registers an account, and on the way checks that clicking into a
+password field sends nothing and that passwords that differ are caught before anything is sent.
+Finally it logs in with the new account. Every request to register is counted, and the run
+expects exactly one. Screenshots at a desktop and a phone width, light and dark, are left in
+the `shots` folder it prints.
+
+## Things worth knowing
+
+- **Without an admin the create-admin dialog covers the page.** The app opens it whenever
+  multi-user mode has no `admin` account, which is why the harness registers one before it
+  opens anything.
+- **`/api/auth` allows 25 requests in 15 minutes per address.** A run makes about ten, and the
+  count lives in the backend process, so each run starts from zero. A `--keep` backend poked at
+  by hand does not.
+- **A wrong password used to be a 500.** Login tried LDAP after the local account whatever the
+  auth method was, and with no directory there the refused connection became the answer. It is
+  only asked when `auth_method` is `ldap` now; the check that the card says the password was
+  wrong is what would notice it coming back.
 
 # Regenerating the README screenshot
 

@@ -1,30 +1,223 @@
-mat-header-cell, mat-cell {
-    justify-content: center;
+.duplicates-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.one-line {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.duplicates-summary {
+  font-size: 14px;
+  color: var(--kit-on-surface-variant);
+  font-variant-numeric: tabular-nums;
 }
 
-.group-title-cell {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+.duplicate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.group-title-meta {
-    font-size: 12px;
-    opacity: 0.7;
+// One file that exists more than once: what it is, how many times, and the way to clean it up.
+.duplicate-row {
+  min-width: 0;
+  border-radius: 20px;
+  background: var(--kit-surface);
 }
 
-.icon-button-spinner {
-    position: absolute;
-    top: -13px;
-    left: 10px;
+.duplicate-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px 12px 12px 12px;
 }
 
-.button-span {
-    position: relative;
+.duplicate-thumb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  width: 128px;
+  height: 72px;
+  border-radius: 12px;
+  background: var(--kit-surface-hover);
+  color: var(--kit-on-surface-variant);
+}
+
+.duplicate-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.duplicate-duration {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.duplicate-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 3px;
+  min-width: 0;
+}
+
+.duplicate-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.duplicate-meta,
+.duplicate-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--kit-on-surface-variant);
+  white-space: nowrap;
+}
+
+.duplicate-meta {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.duplicate-source {
+  font-size: 12px;
+}
+
+// How many there are is the point of the page, so it is the one fact in the accent colour.
+.duplicate-copies-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--kit-on-tonal);
+}
+
+.duplicate-copies-count .mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.duplicate-id {
+  font-family: ui-monospace, monospace;
+}
+
+.duplicate-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.duplicate-actions .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: currentColor;
+  --mat-progress-spinner-active-indicator-color: currentColor;
+}
+
+// Every copy, oldest first, which is the order the two ways of cleaning up are described in.
+.copy-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 12px;
+  padding: 4px 0 8px;
+  border-top: 1px solid var(--kit-divider);
+  list-style: none;
+  counter-reset: copy;
+}
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 13px;
+  line-height: 20px;
+  counter-increment: copy;
+}
+
+.copy-row::before {
+  content: counter(copy);
+  flex-shrink: 0;
+  min-width: 16px;
+  color: var(--kit-on-surface-variant);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.copy-when {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.copy-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--kit-on-surface-variant);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.copy-badge {
+  flex-shrink: 0;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+@media (max-width: 576px) {
+  .duplicate-main {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .duplicate-thumb {
+    width: 96px;
+    height: 54px;
+  }
+
+  .duplicate-text {
+    flex-basis: calc(100% - 108px);
+  }
+
+  // The actions get a row of their own under what they act on, the clean-up first.
+  .duplicate-actions {
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+
+  .copy-row {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .copy-path {
+    order: 3;
+    flex-basis: 100%;
+    padding-left: 28px;
+  }
 }

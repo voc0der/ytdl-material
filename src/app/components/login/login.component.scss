@@ -1,31 +1,172 @@
+.login-page {
+  display: flex;
+  justify-content: center;
+  padding-top: max(32px, 8vh);
+  padding-bottom: 48px;
+}
+
+// The same surface a dialog is drawn on, since it asks the same kind of thing one does.
 .login-card {
-    max-width: 400px;
-    width: 80%;
-    margin: 0 auto;
-    margin-top: 20px;
-    padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  width: min(100%, 420px);
+  padding: 32px;
+  border: 1px solid var(--kit-divider);
+  border-radius: 28px;
+  background: var(--kit-sheet);
+  color: var(--kit-on-surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
 }
 
-.login-div {
-    height: calc(100% - 170px);
-    overflow-y: auto;
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
 }
 
-.login-button-div {
-    bottom: 0px;
-    width: 100%;
-    height: 42px;
-    position: absolute;
+.login-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 20px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
 }
 
-.login-button-div > button {
-    width: 100%;
-    height: 100%;
-    border-radius: 0px 0px 4px 4px !important;
+.login-symbol .mat-icon {
+  width: 30px;
+  height: 30px;
+  font-size: 30px;
 }
 
-.login-progress-bar {
-    position: absolute;
-    bottom: 0px;
-    border-radius: 0px 0px 4px 4px;
+.login-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 32px;
+}
+
+.login-subtitle {
+  margin: 0;
+  color: var(--kit-on-surface-variant);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.login-modes {
+  align-self: stretch;
+}
+
+.login-modes > button {
+  flex: 1 1 0;
+  font-size: 14px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.login-field-label {
+  color: var(--kit-on-surface-variant);
+  font-size: 12px;
+}
+
+.login-field .kit-field {
+  padding-right: 16px;
+}
+
+.login-field .kit-field:has(.kit-icon-button) {
+  padding-right: 4px;
+}
+
+.login-field .kit-field > input {
+  min-height: 44px;
+}
+
+// Browsers draw their own reveal button on a password field, beside the one the field has.
+.login-field input::-ms-reveal {
+  display: none;
+}
+
+.login-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.login-message > .mat-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.login-message.is-error {
+  background: var(--kit-danger-tonal);
+  color: var(--kit-on-danger-tonal);
+}
+
+.login-message.is-good {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+}
+
+// The one action on the card, as wide as the fields it submits and a little taller than a chip.
+.login-submit {
+  align-self: stretch;
+  height: 44px;
+  border-radius: 22px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.login-submit .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--kit-on-accent);
+  --mat-progress-spinner-active-indicator-color: var(--kit-on-accent);
+}
+
+.login-redirect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--kit-on-surface-variant);
+}
+
+.login-redirect p {
+  margin: 0;
+}
+
+@media (max-width: 576px) {
+  .login-page {
+    padding-top: 16px;
+  }
+
+  .login-card {
+    padding: 24px 20px;
+    border-radius: 24px;
+    box-shadow: none;
+  }
 }

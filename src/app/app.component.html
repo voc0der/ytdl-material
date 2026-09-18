@@ -77,7 +77,7 @@
                 }
               </mat-menu>
             }
-            @if (postsService.config?.Extra.enable_notifications) {
+            @if (postsService.config?.Extra.enable_notifications && postsService.hasSession()) {
               <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button
                 [attr.aria-label]="notificationsLabel" [matTooltip]="notificationsLabel">
                 <mat-icon [matBadge]="notificationBadge" [matBadgeHidden]="notification_count === 0"

@@ -26,7 +26,10 @@ export const h401InterceptorFn: HttpInterceptorFn = (request, next) => {
         catchError((err: HttpErrorResponse) => {
             if (err.status === 401) {
                 localStorage.setItem('jwt_token', null);
-                if (router.url !== '/login' && !router.url.includes('player')) {
+                // The login page's own URL usually carries ?returnTo=, and a wrong password is a
+                // 401 too. Neither is a session expiring, and sending the page to itself would
+                // lose where to go after logging in.
+                if (!router.url.startsWith('/login') && !router.url.includes('player')) {
                     router.navigate(['/login']).then(() => {
                         snackBar.open('Login expired, please login again.', '', { duration: 2000 });
                     });
