@@ -201,23 +201,26 @@
     </div>
   }
 
-  <div class="paginator-shell">
-    <div class="paginator-page-size">
-      <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
-      <app-picker [title]="pageSizeTitle" [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue" (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
+  <nav class="library-pagination container" aria-label="Media pagination" i18n-aria-label="Media library pagination label">
+    <app-picker [title]="pageSizeTitle" [label]="narrowScreen ? null : pageSizeTitle"
+      [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue"
+      (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
+    <div class="pagination-status">
+      <span class="pagination-range" role="status" aria-live="polite" aria-atomic="true">{{getPaginationRangeLabel()}}</span>
+      @if (!autoPaginationEnabled) {
+        <div class="pagination-actions">
+          <button type="button" class="kit-icon-button" [disabled]="manualPageIndex <= 0"
+            [attr.aria-label]="paginatorIntl.previousPageLabel" [title]="paginatorIntl.previousPageLabel"
+            (click)="changePage(manualPageIndex - 1)">
+            <mat-icon class="pagination-arrow">chevron_left</mat-icon>
+          </button>
+          <button type="button" class="kit-icon-button" [disabled]="(manualPageIndex + 1) * pageSize >= file_count"
+            [attr.aria-label]="paginatorIntl.nextPageLabel" [title]="paginatorIntl.nextPageLabel"
+            (click)="changePage(manualPageIndex + 1)">
+            <mat-icon class="pagination-arrow">chevron_right</mat-icon>
+          </button>
+        </div>
+      }
     </div>
-
-    @if (!autoPaginationEnabled) {
-      <mat-paginator class="paginator paginator-manual" (page)="pageChangeEvent($event)" [length]="file_count"
-        [pageIndex]="manualPageIndex"
-        [pageSize]="pageSize"
-        [hidePageSize]="true">
-      </mat-paginator>
-    } @else {
-      <div class="auto-pagination-status">
-        {{getAutoRangeLabel()}}
-      </div>
-    }
-  </div>
+  </nav>
 </ng-template>
-
