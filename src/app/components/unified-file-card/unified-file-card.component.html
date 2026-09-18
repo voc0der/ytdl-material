@@ -1,5 +1,5 @@
-<div (mouseenter)="onMouseOver()" (mouseleave)="onMouseOut()" (contextmenu)="onRightClick($event)" style="position: relative;" [style.width]="isListLayout ? '100%' : 'fit-content'">
-  @if (!isListLayout && !loading) {
+<div (mouseenter)="onMouseOver()" (mouseleave)="onMouseOut()" (contextmenu)="onRightClick($event)" style="position: relative;" [style.width]="isListLayout ? '100%' : 'fit-content'" [class.upload-date-layout]="isUploadDateGrid" [attr.data-card-size]="card_size">
+  @if (!isListLayout && !isUploadDateGrid && !loading) {
     <div class="download-time">
       <mat-icon class="audio-video-icon">{{(file_obj.type === 'audio' || file_obj.isAudio) ? 'audiotrack' : 'movie'}}</mat-icon>
       &nbsp;&nbsp;
@@ -11,7 +11,7 @@
       }
     </div>
   }
-  @if (!isListLayout && loading) {
+  @if (!isListLayout && !isUploadDateGrid && loading) {
     <div class="download-time" style="width: 75%; margin-top: 5px;"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></div>
   }
   <!-- The context menu trigger must be kept above the "more info" menu -->
@@ -21,7 +21,7 @@
     [matMenuTriggerFor]="context_menu">
   </div>
   @if (!file_obj || !file_obj.auto) {
-    <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button><mat-icon>more_vert</mat-icon></button>
+    <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button aria-label="More actions" i18n-aria-label="File card actions"><mat-icon>more_vert</mat-icon></button>
   }
   <mat-menu #context_menu>
     @if (!loading) {
@@ -137,25 +137,45 @@
           </div>
         }
 
+        @if (isUploadDateGrid && !loading && !file_obj.thumbnailURL) {
+          <div class="img-div upload-thumbnail-fallback">
+            <mat-icon>{{isAudioFile ? 'audiotrack' : 'movie'}}</mat-icon>
+          </div>
+        }
+
         @if (loading) {
           <div class="img-div">
             <content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 100 55"><svg:rect x="0" y="0" rx="0" ry="0" width="100" height="55" /></content-loader>
           </div>
         }
 
-        @if (!loading) {
-          @if (showPlaylistItemCount) {
-            <div class="playlist-text">
-              <span class="max-one-line"><strong>{{file_obj.name}}</strong></span>
-              <span class="playlist-item-count">{{playlistItemCountLabel}}</span>
-            </div>
-          } @else {
-            <span [ngClass]="{'max-two-lines': card_size !== 'small', 'max-one-line': card_size === 'small' }">{{card_size === 'large' && file_obj.uploader ? file_obj.uploader + ' - ' : ''}}<strong>{{!is_playlist ? file_obj.title : file_obj.name}}</strong></span>
+        <div [class.upload-details]="isUploadDateGrid">
+          @if (!loading) {
+            @if (showPlaylistItemCount) {
+              <div class="playlist-text">
+                <span class="max-one-line"><strong>{{file_obj.name}}</strong></span>
+                <span class="playlist-item-count">{{playlistItemCountLabel}}</span>
+              </div>
+            } @else {
+              <span [ngClass]="{'max-two-lines': card_size !== 'small', 'max-one-line': card_size === 'small' }">{{card_size === 'large' && file_obj.uploader ? file_obj.uploader + ' - ' : ''}}<strong>{{!is_playlist ? file_obj.title : file_obj.name}}</strong></span>
+            }
           }
-        }
-        @if (loading) {
-          <span class="title-loading"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></span>
-        }
+          @if (loading) {
+            <span class="title-loading"><content-loader [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 250 30"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="30" /></content-loader></span>
+          }
+          @if (isUploadDateGrid) {
+            @if (loading) {
+              <content-loader class="upload-metadata" [backgroundColor]="theme.ghost_primary" [foregroundColor]="theme.ghost_secondary" viewBox="0 0 150 16"><svg:rect x="0" y="0" rx="3" ry="3" width="100" height="14" /></content-loader>
+            } @else {
+              <div class="upload-metadata">
+                <mat-icon>{{isAudioFile ? 'audiotrack' : 'movie'}}</mat-icon>
+                <span [matTooltip]="displayedDateValue | date:'longDate' : displayedDateTimezone : displayedDateLocale">
+                  {{relativeUploadDate ?? (displayedDateValue | date:'shortDate' : displayedDateTimezone : displayedDateLocale)}}
+                </span>
+              </div>
+            }
+          }
+        </div>
       </div>
     </mat-card>
   }

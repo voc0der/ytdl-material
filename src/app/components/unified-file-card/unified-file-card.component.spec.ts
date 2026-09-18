@@ -280,6 +280,69 @@ describe('UnifiedFileCardComponent', () => {
     expect(thumbnail.nativeElement.compareDocumentPosition(preview.nativeElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  describe('upload-date grid', () => {
+    beforeEach(() => {
+      component.displayDateProperty = 'upload_date';
+      component.locale = { ngID: 'en-US' } as any;
+      vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 8, 18, 12));
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('shows the media icon and relative age below the title', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, upload_date: '2024-09-18', registered: Date.now()});
+
+      expect(fixture.debugElement.query(By.css('.download-time'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.upload-details')).nativeElement.textContent).toContain('A video');
+      expect(fixture.debugElement.query(By.css('.upload-metadata mat-icon')).nativeElement.textContent.trim()).toBe('movie');
+      expect(fixture.debugElement.query(By.css('.upload-metadata span')).nativeElement.textContent.trim()).toBe('2 years ago');
+    });
+
+    it('keeps the menu functional without navigating to the file', () => {
+      setUpFileCard({uid: 'f1', title: 'A song', isAudio: true, duration: 5, upload_date: '2024-09-18', registered: Date.now()});
+      const navigate = vi.fn();
+      component.goToFile.subscribe(navigate);
+
+      fixture.debugElement.query(By.css('button.menuButton')).nativeElement.click();
+      expect(navigate).not.toHaveBeenCalled();
+      expect(openAddToPlaylistMenu().map(button => button.textContent.trim())).toEqual(['Alpha', 'Beta']);
+      expect(fixture.debugElement.query(By.css('.upload-metadata mat-icon')).nativeElement.textContent.trim()).toBe('audiotrack');
+
+      fixture.debugElement.query(By.css('.upload-metadata')).nativeElement.click();
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['N/A', undefined, '2026-02-30', '2026-13-01'])('keeps the download-date fallback absolute for %s', upload_date => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, upload_date, registered: Date.UTC(2026, 8, 16, 12)});
+
+      expect(fixture.debugElement.query(By.css('.upload-metadata span')).nativeElement.textContent.trim()).toBe('9/16/26');
+    });
+
+    it('restores the existing header and date when switching to download-date sorting', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, upload_date: '2024-09-18', registered: Date.UTC(2026, 8, 16, 12)});
+      component.displayDateProperty = 'registered';
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.query(By.css('.upload-date-layout'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.upload-metadata'))).toBeNull();
+      expect(fixture.debugElement.query(By.css('.download-time')).nativeElement.textContent).toContain('9/16/26');
+    });
+
+    it('leaves playlist cards and the list layout unchanged', () => {
+      component.is_playlist = true;
+      component.loading = false;
+      component.file_obj = {name: 'Playlist', uids: ['f1'], duration: 5, registered: Date.now()};
+      fixture.detectChanges();
+      expect(fixture.debugElement.query(By.css('.download-time'))).not.toBeNull();
+      expect(fixture.debugElement.query(By.css('.upload-details'))).toBeNull();
+
+      component.layout = 'list';
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, upload_date: '2024-09-18', registered: Date.now()});
+      expect(fixture.debugElement.query(By.css('.list-detail')).nativeElement.textContent.trim()).toBe('9/18/24');
+      expect(fixture.debugElement.query(By.css('.upload-details'))).toBeNull();
+    });
+  });
+
   describe('list layout', () => {
     beforeEach(() => {
       component.layout = 'list';

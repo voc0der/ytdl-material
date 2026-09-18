@@ -17,6 +17,7 @@ import { MatDivider } from '@angular/material/list';
 import { MatCard } from '@angular/material/card';
 import { MatRipple } from '@angular/material/core';
 import { MatTooltip } from '@angular/material/tooltip';
+import { formatRelativeDate } from 'app/utils/relative-time';
 
 registerLocaleData(localeGB);
 registerLocaleData(localeFR);
@@ -114,6 +115,16 @@ export class UnifiedFileCardComponent implements OnInit {
     return !this.is_playlist && (this.file_obj?.type === 'audio' || !!this.file_obj?.isAudio);
   }
 
+  get isUploadDateGrid(): boolean {
+    return !this.isListLayout && !this.is_playlist && this.displayDateProperty === 'upload_date';
+  }
+
+  get relativeUploadDate(): string | null {
+    return this.hasDisplayableUploadDate()
+      ? formatRelativeDate(Date.parse(this.file_obj.upload_date), Date.now(), this.displayedDateLocale)
+      : null;
+  }
+
   get displayedDateValue(): string | number | Date | null {
     if (!this.file_obj) {
       return null;
@@ -191,8 +202,11 @@ export class UnifiedFileCardComponent implements OnInit {
   }
 
   private hasDisplayableUploadDate(): boolean {
-    return typeof this.file_obj?.upload_date === 'string'
-      && /^\d{4}-\d{2}-\d{2}$/.test(this.file_obj.upload_date);
+    const value = this.file_obj?.upload_date;
+    return typeof value === 'string'
+      && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      && Number.isFinite(Date.parse(value))
+      && new Date(value).toISOString().slice(0, 10) === value;
   }
 
   ngOnInit(): void {

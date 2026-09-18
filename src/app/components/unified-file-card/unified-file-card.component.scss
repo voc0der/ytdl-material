@@ -212,6 +212,87 @@
   bottom: 1px;
 }
 
+// Upload-date cards use the space above the thumbnail for details below it instead.
+// Keep the existing card heights: the virtualized library sizes its rows from them.
+.upload-date-layout {
+  --upload-thumbnail-height: 112.5px;
+
+  &[data-card-size='small'] {
+    --upload-thumbnail-height: 84.5px;
+  }
+
+  &[data-card-size='large'] {
+    --upload-thumbnail-height: 167.5px;
+  }
+
+  .img-div {
+    margin-top: -5px;
+    max-height: none;
+    height: var(--upload-thumbnail-height);
+  }
+
+  .upload-thumbnail-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--kit-surface);
+    color: var(--kit-on-surface-variant);
+  }
+
+  .upload-details {
+    padding: 8px 3px 0;
+  }
+
+  .max-one-line,
+  .max-two-lines,
+  .title-loading {
+    position: static;
+    width: calc(100% - 28px);
+    font-size: 14px;
+    line-height: 18px;
+    max-height: 36px;
+    overflow-wrap: anywhere;
+  }
+
+  .max-one-line {
+    -webkit-line-clamp: 1;
+    max-height: 18px;
+  }
+
+  .title-loading {
+    display: block;
+  }
+
+  .menuButton {
+    top: calc(var(--upload-thumbnail-height) + 2px);
+    right: 2px;
+  }
+}
+
+.upload-metadata {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--kit-on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+
+  mat-icon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* The list layout is one file per row on a narrow screen: a thumbnail across most of the
    width, and the title and details squeezed into the gutter beside it. Its thumbnail's share
    of the row and its aspect ratio are bound from the component, which the library also sizes
