@@ -45,16 +45,20 @@
 }
 
 /* This spinner is a sibling of the button it sits over, not a child of it, so it does not
-   pass clicks on. It covers 66% of that button including the icon at the centre, which left
-   "Cancel playlist download" unclickable for as long as the download it cancels was running. */
+   pass clicks on. It covers most of that button including the icon at the centre, which left
+   "Cancel playlist download" unclickable for as long as the download it cancels was running.
+   It is centred on the button rather than placed by offsets: those were set for a 48px button,
+   and once the button was 40px they left the ring 3.5px right of and 4.5px below the icon. */
 .spinner {
-    bottom: -2px;
-    left: 6px;
-    position: absolute;
+    inset: 0;
+    margin: auto;
     pointer-events: none;
+    position: absolute;
 }
 
+/* As big as the button it holds, which is the box the spinner is centred in. */
 .buttons {
+    display: inline-flex;
     position: relative;
 }
 

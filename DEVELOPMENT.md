@@ -450,9 +450,10 @@ another row, turns Autoplay on and waits for the next file to start on its own, 
 and waits for the same file to start again, drags a row to another place, and checks theater
 mode hides the list. It plays the library's oldest file on its own, checks the list says what
 Autoplay would do and that the row offers Watch together, then turns Autoplay on and checks the
-library is queued with that file last. With Autoplay already on as the page opens, it checks the
-list has scrolled itself to the playing row without moving the page. Screenshots at a desktop
-and a phone width, light and dark, are left in the `shots` folder it prints.
+library is queued with that file last. It then downloads the file and checks the spinner that
+rings the download icon is centred on it. With Autoplay already on as the page opens, it checks
+the list has scrolled itself to the playing row without moving the page. Screenshots at a
+desktop and a phone width, light and dark, are left in the `shots` folder it prints.
 
 It downloads nothing, and like the others it is not part of CI.
 

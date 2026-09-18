@@ -270,6 +270,25 @@ async function playingOneFile(browser, seeded, errors) {
     check('turning Autoplay on queues the library', await queueTitle(page) === 'Library' && await rows(page).count() === seeded.files.length, `${await rows(page).count()} rows`);
     check('with the file still playing, now last of all', await playingIndex(page) === seeded.files.length - 1
         && await queueMeta(page) === `${seeded.files.length} of ${seeded.files.length}`, await queueMeta(page));
+
+    // The download is held open so the ring stays up long enough to be measured. It was once
+    // placed by offsets meant for a bigger button, and sat below and to the right of the icon.
+    await page.route(/downloadFileFromServer/, () => {});
+    await page.getByRole('button', { name: 'Download this file' }).click();
+    await page.locator('.action-buttons-row mat-spinner').waitFor({ timeout: 5_000 }).catch(() => {});
+    const ring = await page.evaluate(() => {
+        const spinner = document.querySelector('.action-buttons-row mat-spinner');
+        const icon = spinner?.closest('.buttons').querySelector('mat-icon');
+        if (!spinner || !icon) return null;
+        const centre = element => {
+            const box = element.getBoundingClientRect();
+            return [box.left + box.width / 2, box.top + box.height / 2];
+        };
+        const [[sx, sy], [ix, iy]] = [centre(spinner), centre(icon)];
+        return { x: Math.abs(sx - ix), y: Math.abs(sy - iy) };
+    });
+    check('downloading the file rings its icon, centred on it', ring && ring.x < 0.5 && ring.y < 0.5,
+        ring ? `off by ${ring.x}px, ${ring.y}px` : 'no ring');
     await page.context().close();
 
     // Autoplay already on: the library is queued as the page opens, with the page at the top.
