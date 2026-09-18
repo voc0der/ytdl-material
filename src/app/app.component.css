@@ -16,6 +16,106 @@
     z-index: -1 !important;
 }
 
+.navigation-container {
+    --navigation-duration: 160ms;
+    --navigation-easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.navigation-container.drawer-open {
+    --navigation-duration: 200ms;
+}
+
+/* Keep the docked page movement in step with the panel and the overlay's fade. */
+.navigation-container.mat-drawer-transition > .navigation-drawer,
+.navigation-container.mat-drawer-transition > .mat-drawer-content {
+    transition-duration: var(--navigation-duration);
+    transition-timing-function: var(--navigation-easing);
+}
+
+/* The backdrop is created by Material, so scope its internal element to this container. */
+:host ::ng-deep .navigation-container > .mat-drawer-backdrop {
+    background-color: rgba(0, 0, 0, 0.28);
+    opacity: 0;
+}
+
+:host ::ng-deep .navigation-container > .mat-drawer-backdrop.mat-drawer-shown {
+    opacity: 1;
+}
+
+:host ::ng-deep .navigation-container.mat-drawer-transition > .mat-drawer-backdrop {
+    transition-property: opacity, visibility;
+    transition-duration: var(--navigation-duration);
+    transition-timing-function: var(--navigation-easing);
+}
+
+.navigation-drawer {
+    width: 264px;
+    max-width: calc(100vw - 56px);
+    border-inline-end: 1px solid var(--kit-divider);
+}
+
+.navigation-drawer.mat-drawer-over {
+    border-start-end-radius: 16px;
+    border-end-end-radius: 16px;
+}
+
+.navigation-list {
+    padding: 12px 8px;
+    --mat-list-active-indicator-shape: 12px;
+    --mat-list-list-item-label-text-size: 14px;
+    --mat-list-list-item-label-text-line-height: 20px;
+    --mat-list-list-item-label-text-tracking: normal;
+    --mat-list-list-item-label-text-color: var(--kit-on-surface);
+    --mat-list-list-item-hover-label-text-color: var(--kit-on-surface);
+    --mat-list-list-item-focus-label-text-color: var(--kit-on-surface);
+    --mat-list-list-item-leading-icon-color: var(--kit-on-surface-variant);
+    --mat-list-list-item-hover-leading-icon-color: var(--kit-on-surface-variant);
+    --mat-list-list-item-focus-leading-icon-color: var(--kit-on-surface-variant);
+    --mat-list-list-item-leading-icon-size: 28px;
+}
+
+.navigation-list .navigation-link {
+    height: 44px;
+    margin-block: 2px;
+}
+
+.navigation-link .navigation-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-inline: 12px;
+    font-size: 20px;
+}
+
+.navigation-link.navigation-active {
+    background: var(--kit-tonal);
+    --mat-list-list-item-label-text-color: var(--kit-on-tonal);
+    --mat-list-list-item-hover-label-text-color: var(--kit-on-tonal);
+    --mat-list-list-item-focus-label-text-color: var(--kit-on-tonal);
+    --mat-list-list-item-label-text-weight: 500;
+    --mat-list-list-item-leading-icon-color: var(--kit-on-tonal);
+    --mat-list-list-item-hover-leading-icon-color: var(--kit-on-tonal);
+    --mat-list-list-item-focus-leading-icon-color: var(--kit-on-tonal);
+}
+
+.navigation-link:focus-visible {
+    outline: 2px solid var(--kit-accent);
+    outline-offset: -2px;
+}
+
+.navigation-list .mat-divider {
+    margin: 10px 12px;
+    border-top-color: var(--kit-divider);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .navigation-container,
+    .navigation-container.drawer-open {
+        /* Visually instant; retain transitionend so Material completes focus and visibility updates. */
+        --navigation-duration: 0.01ms;
+    }
+}
+
 .top-toolbar {
     height: 64px;
     background: unset;
