@@ -124,7 +124,7 @@
                         }
                         @if (downloading) {
                           <button (click)="cancelPlaylistDownload()" matTooltip="Cancel playlist download" i18n-matTooltip="Cancel playlist download tooltip" aria-label="Cancel playlist download" i18n-aria-label="Cancel playlist download label" mat-icon-button><mat-icon>cancel</mat-icon></button>
-                          <mat-spinner class="spinner" [diameter]="35"></mat-spinner>
+                          <mat-spinner class="spinner" [diameter]="36"></mat-spinner>
                         }
                       </span>
                     }
@@ -132,7 +132,7 @@
                       <span class="buttons">
                         <button (click)="downloadFile()" [disabled]="downloading" matTooltip="Download this file" i18n-matTooltip="Download file tooltip" aria-label="Download this file" i18n-aria-label="Download file label" mat-icon-button><mat-icon>cloud_download</mat-icon></button>
                         @if (downloading) {
-                          <mat-spinner class="spinner" [diameter]="35"></mat-spinner>
+                          <mat-spinner class="spinner" [diameter]="36"></mat-spinner>
                         }
                       </span>
                     }
