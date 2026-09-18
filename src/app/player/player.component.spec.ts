@@ -283,6 +283,135 @@ describe('PlayerComponent', () => {
     expect(playlistRows()[0].querySelector('.playlist-autoplay-button')).toBeTruthy();
   });
 
+  describe('the list under the player', () => {
+    function showTwo(overrides: Partial<DatabaseFile>[] = []): void {
+      component.playlist_id = 'playlist-1';
+      component.db_playlist = {id: 'playlist-1', name: 'Space Station', uids: ['f1', 'f2']} as any;
+      component.file_objs = [
+        {uid: 'f1', title: 'First video', isAudio: false, url: 'https://example.com/first', uploader: 'NASA', duration: 1504, thumbnailPath: 'video/f1.jpg', ...overrides[0]} as DatabaseFile,
+        {uid: 'f2', title: 'Second video', isAudio: false, url: 'https://example.com/second', uploader: 'ESA', duration: '4:03', thumbnailURL: 'https://example.com/f2.jpg', ...overrides[1]} as DatabaseFile
+      ];
+      component.uids = ['f1', 'f2'];
+      component.parseFileNames();
+      fixture.detectChanges();
+    }
+
+    const text = (element: Element | null) => element?.textContent.replace(/\s+/g, ' ').trim();
+
+    it('is headed by what is playing and where it is in it', () => {
+      showTwo();
+
+      expect(text(playerPlaylist().querySelector('.queue-title'))).toBe('Space Station');
+      expect(text(playerPlaylist().querySelector('.queue-meta'))).toBe('1 of 2');
+
+      component.onClickPlaylistItem(component.playlist[1], 1);
+      fixture.detectChanges();
+      expect(text(playerPlaylist().querySelector('.queue-meta'))).toBe('2 of 2');
+    });
+
+    it('shows each file the way the library does: thumbnail, title, uploader and length', () => {
+      showTwo();
+
+      const [first, second] = playlistRows();
+      expect(first.querySelector('img').getAttribute('src')).toBe('/api/thumbnail/f1');
+      expect(second.querySelector('img').getAttribute('src')).toBe('https://example.com/f2.jpg');
+      expect(text(first.querySelector('.queue-item-title'))).toBe('First video');
+      expect(text(first.querySelector('.queue-item-meta'))).toBe('NASA');
+      expect(text(first.querySelector('.queue-duration'))).toBe('25:04');
+      expect(text(second.querySelector('.queue-duration'))).toBe('4:03');
+    });
+
+    it('marks the playing row, and plays another when it is clicked', () => {
+      showTwo();
+
+      const buttons = () => playlistRows().map(row => row.querySelector('.queue-item') as HTMLButtonElement);
+      expect(buttons()[0].getAttribute('aria-current')).toBe('true');
+      expect(buttons()[1].hasAttribute('aria-current')).toBe(false);
+      expect(text(playlistRows()[1].querySelector('.queue-position'))).toBe('2');
+
+      buttons()[1].click();
+      fixture.detectChanges();
+
+      expect(component.currentItem.uid).toBe('f2');
+      expect(buttons()[0].hasAttribute('aria-current')).toBe(false);
+      expect(buttons()[1].getAttribute('aria-current')).toBe('true');
+      expect(text(playlistRows()[0].querySelector('.queue-position'))).toBe('1');
+    });
+
+    it('shows an icon for a thumbnail that is missing or will not load', () => {
+      showTwo([{thumbnailPath: null}, {}]);
+
+      expect(playlistRows()[0].querySelector('img')).toBeNull();
+      expect(text(playlistRows()[0].querySelector('.queue-thumb mat-icon'))).toBe('movie');
+
+      playlistRows()[1].querySelector('img').dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+      expect(playlistRows()[1].querySelector('img')).toBeNull();
+      expect(text(playlistRows()[1].querySelector('.queue-thumb mat-icon'))).toBe('movie');
+    });
+
+    it('lets a touch screen scroll the list, dragging a row only after a press and hold', () => {
+      expect(component.dragStartDelay).toEqual({touch: 400, mouse: 0});
+    });
+
+    it('says what Autoplay would do for a file played on its own', () => {
+      component.uid = 'f1';
+      component.db_file = {uid: 'f1', title: 'A video', isAudio: false, url: 'https://example.com/video'} as DatabaseFile;
+      component.uids = ['f1'];
+      component.autoplay_enabled = false;
+      component.parseFileNames();
+      fixture.detectChanges();
+
+      expect(text(playerPlaylist().querySelector('.queue-title'))).toBe('Now playing');
+      expect(text(playerPlaylist().querySelector('.queue-meta'))).toBe('Turn on Autoplay to keep playing from your library.');
+    });
+
+    it('becomes the library once Autoplay has queued it', () => {
+      const library = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValue(library.asObservable());
+      component.uid = 'f2';
+      component.db_file = {uid: 'f2', title: 'Second video', isAudio: false, url: 'https://example.com/second'} as DatabaseFile;
+      component.uids = ['f2'];
+      component.autoplay_enabled = false;
+      component.parseFileNames();
+      fixture.detectChanges();
+
+      playlistAutoplayButtons()[0].click();
+      fixture.detectChanges();
+      expect(text(playerPlaylist().querySelector('.queue-meta'))).toBe('Loading your library…');
+
+      library.next({files: [
+        {uid: 'f1', title: 'First video', isAudio: false, url: 'https://example.com/first'},
+        {uid: 'f2', title: 'Second video', isAudio: false, url: 'https://example.com/second'},
+        {uid: 'f3', title: 'Third video', isAudio: false, url: 'https://example.com/third'}
+      ]});
+      fixture.detectChanges();
+
+      expect(text(playerPlaylist().querySelector('.queue-title'))).toBe('Library');
+      expect(text(playerPlaylist().querySelector('.queue-meta'))).toBe('2 of 3');
+      expect(playlistRows()).toHaveLength(3);
+      expect(playlistRows()[1].querySelector('.queue-item').getAttribute('aria-current')).toBe('true');
+    });
+
+    it('scrolls the list, not the page, to a playing row that is out of sight', () => {
+      showTwo();
+      const list = playerPlaylist().querySelector('.queue-list') as HTMLElement;
+      const row = playlistRows()[1];
+      Object.defineProperty(list, 'scrollHeight', {configurable: true, value: 600});
+      Object.defineProperty(list, 'clientHeight', {configurable: true, value: 200});
+      Object.defineProperty(row, 'offsetTop', {configurable: true, value: 400});
+      Object.defineProperty(row, 'offsetHeight', {configurable: true, value: 66});
+      Object.defineProperty(list, 'scrollTop', {configurable: true, writable: true, value: 0});
+      const pageScroll = vi.spyOn(window, 'scrollTo');
+
+      component.onClickPlaylistItem(component.playlist[1], 1);
+      fixture.detectChanges();
+
+      expect(list.scrollTop).toBe(392);
+      expect(pageScroll).not.toHaveBeenCalled();
+    });
+  });
+
   it('should place theater mode before download and make the video the only visible player content', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;

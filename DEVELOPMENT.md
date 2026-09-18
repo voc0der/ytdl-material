@@ -432,6 +432,37 @@ the `shots` folder it prints.
   only asked when `auth_method` is `ldap` now; the check that the card says the password was
   wrong is what would notice it coming back.
 
+# Exercising the player's list
+
+Autoplay only shows what it does when a video ends, so `dev/screenshots/player.sh` stages a
+library whose files really play, and works the list under the player:
+
+```bash
+dev/screenshots/player.sh               # build, boot, run, stop
+dev/screenshots/player.sh --skip-build  # reuse the last frontend build
+dev/screenshots/player.sh --keep        # leave the backend running on :17457 afterwards
+```
+
+It opens the README's Space Station playlist and checks the list is headed by it and counts its
+place, that each row has the file's thumbnail, length and uploader in the playlist's order, and
+that the playing row, and only it, is marked and carries Repeat and Autoplay. Then it plays
+another row, turns Autoplay on and waits for the next file to start on its own, turns Repeat on
+and waits for the same file to start again, drags a row to another place, and checks theater
+mode hides the list. It plays the library's oldest file on its own, checks the list says what
+Autoplay would do and that the row offers Watch together, then turns Autoplay on and checks the
+library is queued with that file last. With Autoplay already on as the page opens, it checks the
+list has scrolled itself to the playing row without moving the page. Screenshots at a desktop
+and a phone width, light and dark, are left in the `shots` folder it prints.
+
+It downloads nothing, and like the others it is not part of CI.
+
+## Things worth knowing
+
+- **It needs ffmpeg.** Every file is the same two-second H.264 clip, made on each run.
+- **The browser is started allowing playback without a click.** Otherwise a video that starts
+  itself is blocked, and Autoplay has nothing to follow. A person opening the player has clicked
+  something already.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`

@@ -32,13 +32,6 @@
     height: 75vh;
 }
 
-/* TODO(mdc-migration): The following rule targets internal classes of button that may no longer apply for the MDC version. */
-::ng-deep .mat-button-toggle-label-content {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
 .container-video {
     max-width: 100%;
     padding-left: 0px;
@@ -277,10 +270,248 @@
     white-space: nowrap;
 }
 
+/* The list under the player: what is playing, and what Autoplay plays after it. It scrolls on
+   its own once it is taller than it needs to be, so a long queue does not push the rest of the
+   page away, and the playing row is kept in view as Autoplay moves down it. */
 .player-playlist-section {
-    height: fit-content;
-    margin-top: 20px;
+    box-sizing: border-box;
+    margin: 16px 0 24px;
+    padding: 0 12px;
     width: 100%;
+}
+
+.queue-header {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    padding: 0 4px 10px;
+}
+
+.queue-title {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.queue-meta {
+    align-items: center;
+    color: var(--kit-on-surface-variant);
+    display: inline-flex;
+    font-size: 13px;
+    gap: 6px;
+    line-height: 18px;
+    margin: 0;
+}
+
+/* Rows measure where they are against the list, which is what scrolls. */
+.queue-list {
+    background: var(--kit-surface);
+    border-radius: 20px;
+    box-sizing: border-box;
+    list-style: none;
+    margin: 0;
+    max-height: min(60vh, 520px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    position: relative;
+}
+
+.playlist-row {
+    align-items: center;
+    border-radius: 14px;
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+}
+
+.playlist-row.current {
+    background: var(--kit-tonal);
+}
+
+.queue-item {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 14px;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    flex: 1 1 auto;
+    font: inherit;
+    gap: 12px;
+    margin: 0;
+    min-width: 0;
+    padding: 6px 8px;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.playlist-row:not(.current) .queue-item:hover {
+    background: var(--kit-surface-hover);
+}
+
+.playlist-row.current .queue-item {
+    cursor: default;
+}
+
+.queue-item:focus-visible {
+    outline: 2px solid var(--kit-accent);
+    outline-offset: -2px;
+}
+
+.queue-position {
+    align-items: center;
+    color: var(--kit-on-surface-variant);
+    display: inline-flex;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    justify-content: center;
+    width: 24px;
+}
+
+.queue-position .mat-icon {
+    color: var(--kit-on-tonal);
+    font-size: 22px;
+    height: 22px;
+    width: 22px;
+}
+
+.queue-thumb {
+    align-items: center;
+    background: var(--kit-surface);
+    border-radius: 10px;
+    color: var(--kit-on-surface-variant);
+    display: inline-flex;
+    flex-shrink: 0;
+    height: 54px;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    width: 96px;
+}
+
+.queue-thumb > img {
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+}
+
+.queue-duration {
+    background: rgba(0, 0, 0, 0.72);
+    border-radius: 4px;
+    bottom: 4px;
+    color: #fff;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
+    padding: 0 4px;
+    position: absolute;
+    right: 4px;
+}
+
+.queue-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.queue-item-title {
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    font-size: 14px;
+    font-weight: 500;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 20px;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.queue-item-meta {
+    color: var(--kit-on-surface-variant);
+    font-size: 12px;
+    line-height: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playlist-row-actions {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    padding-right: 6px;
+}
+
+.playlist-row-actions .mat-mdc-icon-button {
+    --mdc-icon-button-state-layer-size: 40px;
+    height: 40px;
+    padding: 8px;
+    width: 40px;
+}
+
+/* The preview is drawn over the list, so it needs a surface of its own under the row's. */
+.playlist-row.cdk-drag-preview {
+    background: var(--kit-sheet);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+    box-sizing: border-box;
+}
+
+.playlist-row.current.cdk-drag-preview {
+    background: linear-gradient(var(--kit-tonal), var(--kit-tonal)), var(--kit-sheet);
+}
+
+.playlist-row.cdk-drag-placeholder {
+    opacity: 0.4;
+}
+
+.cdk-drag-animating,
+.queue-list.cdk-drop-list-dragging .playlist-row:not(.cdk-drag-placeholder) {
+    transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* On a phone the playing row's controls go under its title, which needs the width more. */
+@media (max-width: 575px) {
+    .player-playlist-section {
+        padding: 0 8px;
+    }
+
+    .queue-list {
+        border-radius: 16px;
+        padding: 4px;
+    }
+
+    .playlist-row {
+        flex-wrap: wrap;
+    }
+
+    .queue-item {
+        gap: 10px;
+        padding: 6px;
+    }
+
+    .queue-position {
+        width: 20px;
+    }
+
+    .queue-thumb {
+        border-radius: 8px;
+        height: 45px;
+        width: 80px;
+    }
+
+    .playlist-row-actions {
+        justify-content: flex-end;
+        padding: 0 6px 4px;
+        width: 100%;
+    }
 }
 
 :host-context(.light-theme) {

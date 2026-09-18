@@ -294,52 +294,6 @@ app-player .player-page.theater-mode-active .player-toolbar-section mat-icon {
   color: inherit;
 }
 
-app-player .playlist-row {
-  align-items: center;
-  display: flex;
-  min-width: 0;
-  position: relative;
-  width: 100%;
-}
-
-app-player .playlist-row.current {
-  background-color: var(--mat-button-toggle-selected-state-background-color, var(--mat-sys-secondary-container));
-  color: var(--mat-button-toggle-selected-state-text-color, var(--mat-sys-on-secondary-container));
-}
-
-app-player .playlist-row .toggle-button {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 100%;
-}
-
-app-player .playlist-row.current .toggle-button {
-  background-color: transparent;
-}
-
-app-player .playlist-row + .playlist-row {
-  border-top: solid 1px var(--mat-button-toggle-divider-color, var(--mat-sys-outline));
-}
-
-app-player .playlist-row.current .mat-button-toggle-label-content {
-  padding-left: 48px;
-  padding-right: 16px;
-}
-
-app-player .playlist-row-actions {
-  align-items: center;
-  display: flex;
-  flex: 0 0 auto;
-  padding: 0 4px;
-}
-
-app-player .playlist-row-actions .mat-mdc-icon-button {
-  --mdc-icon-button-state-layer-size: 40px;
-  height: 40px;
-  padding: 8px;
-  width: 40px;
-}
-
 @media (max-width: 767px) {
   app-player .player-page:not(.theater-mode-active) .media-info-row {
     flex-wrap: wrap;
