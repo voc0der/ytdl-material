@@ -1,68 +1,97 @@
-<mat-card class="login-card">
-  @if (oidcEnabled) {
-    <div style="padding: 16px 0;">
-      <p i18n="OIDC login redirecting text">Redirecting to your identity provider...</p>
-      <mat-progress-bar class="login-progress-bar" mode="indeterminate"></mat-progress-bar>
-      <div class="login-button-div">
-        <button [disabled]="oidcRedirecting" color="primary" (click)="redirectToOIDC()" mat-raised-button>
-          <ng-container i18n="OIDC login continue button">Continue</ng-container>
-        </button>
-      </div>
-    </div>
-  } @else {
-    <mat-tab-group mat-stretch-tabs style="margin-bottom: 20px" [(selectedIndex)]="selectedTabIndex">
-      <mat-tab label="Login" i18n-label="Login">
-        <div style="margin-top: 10px;">
-          <mat-form-field style="width: 100%">
-            <mat-label i18n="User name">User name</mat-label>
-            <input [(ngModel)]="loginUsernameInput" matInput>
-          </mat-form-field>
-        </div>
-        <div>
-          <mat-form-field style="width: 100%">
-            <mat-label i18n="Password">Password</mat-label>
-            <input [(ngModel)]="loginPasswordInput" (keyup.enter)="login()" type="password" matInput>
-          </mat-form-field>
-        </div>
-      </mat-tab>
-      @if (registrationEnabled) {
-        <mat-tab label="Register" i18n-label="Register">
-          <div style="margin-top: 10px;">
-            <mat-form-field style="width: 100%">
-              <mat-label i18n="User name">User name</mat-label>
-              <input [(ngModel)]="registrationUsernameInput" matInput>
-            </mat-form-field>
-          </div>
-          <div>
-            <mat-form-field style="width: 100%">
-              <mat-label i18n="Password">Password</mat-label>
-              <input [(ngModel)]="registrationPasswordInput" (click)="register()" type="password" matInput>
-            </mat-form-field>
-          </div>
-          <div>
-            <mat-form-field style="width: 100%">
-              <mat-label i18n="Confirm Password">Confirm Password</mat-label>
-              <input [(ngModel)]="registrationPasswordConfirmationInput" (click)="register()" type="password" matInput>
-            </mat-form-field>
-          </div>
-        </mat-tab>
+<div class="container login-page">
+  <section class="login-card" [attr.aria-busy]="busy || oidcRedirecting">
+    <header class="login-header">
+      <span class="login-symbol" aria-hidden="true">
+        <mat-icon>{{mode === 'register' && !oidcEnabled ? 'person_add' : 'account_circle'}}</mat-icon>
+      </span>
+      @if (oidcEnabled) {
+        <h1 class="login-title" i18n="OIDC login title">Signing you in</h1>
+      } @else if (mode === 'register') {
+        <h1 class="login-title" i18n="Register page title">Create an account</h1>
+      } @else {
+        <h1 class="login-title" i18n="Login page title">Log in</h1>
       }
-    </mat-tab-group>
-    @if (selectedTabIndex === 0) {
-      <div class="login-button-div">
-        <button [disabled]="loggingIn" color="primary" (click)="login()" mat-raised-button><ng-container i18n="Login">Login</ng-container></button>
-        @if (loggingIn) {
-          <mat-progress-bar class="login-progress-bar" mode="indeterminate"></mat-progress-bar>
-        }
+      <p class="login-subtitle" i18n="Login page subtitle">to continue to {{appTitle}}</p>
+    </header>
+
+    @if (oidcEnabled) {
+      <div class="login-redirect">
+        <mat-spinner [diameter]="20"></mat-spinner>
+        <p i18n="OIDC login redirecting text">Redirecting to your identity provider...</p>
       </div>
-    }
-    @if (selectedTabIndex === 1) {
-      <div class="login-button-div">
-        <button [disabled]="registering" color="primary" (click)="register()" mat-raised-button><ng-container i18n="Register">Register</ng-container></button>
-        @if (registering) {
-          <mat-progress-bar class="login-progress-bar" mode="indeterminate"></mat-progress-bar>
+      <button type="button" class="kit-chip kit-primary login-submit" [disabled]="oidcRedirecting" (click)="redirectToOIDC()">
+        <ng-container i18n="OIDC login continue button">Continue</ng-container>
+      </button>
+    } @else {
+      @if (registrationEnabled) {
+        <div class="kit-segmented login-modes" role="radiogroup" aria-label="Log in or register" i18n-aria-label="Login or register choice">
+          <button type="button" role="radio" [attr.aria-checked]="mode === 'login'" (click)="setMode('login')" i18n="Log in choice">Log in</button>
+          <button type="button" role="radio" [attr.aria-checked]="mode === 'register'" (click)="setMode('register')" i18n="Register">Register</button>
+        </div>
+      }
+
+      <form class="login-form" (ngSubmit)="submit()">
+        @if (mode === 'login') {
+          <label class="login-field">
+            <span class="login-field-label" i18n="User name">User name</span>
+            <span class="kit-field">
+              <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" [(ngModel)]="loginUsernameInput">
+            </span>
+          </label>
+          <label class="login-field">
+            <span class="login-field-label" i18n="Password">Password</span>
+            <span class="kit-field">
+              <input name="password" [type]="showPassword ? 'text' : 'password'" autocomplete="current-password" [(ngModel)]="loginPasswordInput">
+              <ng-container [ngTemplateOutlet]="revealPassword"></ng-container>
+            </span>
+          </label>
+        } @else {
+          <label class="login-field">
+            <span class="login-field-label" i18n="User name">User name</span>
+            <span class="kit-field">
+              <input name="new-username" autocomplete="username" autocapitalize="none" spellcheck="false" [(ngModel)]="registrationUsernameInput">
+            </span>
+          </label>
+          <label class="login-field">
+            <span class="login-field-label" i18n="Password">Password</span>
+            <span class="kit-field">
+              <input name="new-password" [type]="showPassword ? 'text' : 'password'" autocomplete="new-password" [(ngModel)]="registrationPasswordInput">
+              <ng-container [ngTemplateOutlet]="revealPassword"></ng-container>
+            </span>
+          </label>
+          <label class="login-field">
+            <span class="login-field-label" i18n="Confirm Password">Confirm Password</span>
+            <span class="kit-field">
+              <input name="confirm-password" [type]="showPassword ? 'text' : 'password'" autocomplete="new-password" [(ngModel)]="registrationPasswordConfirmationInput">
+            </span>
+          </label>
         }
-      </div>
+
+        @if (error) {
+          <p class="login-message is-error" role="alert"><mat-icon aria-hidden="true">error_outline</mat-icon><span>{{error}}</span></p>
+        }
+        @if (notice) {
+          <p class="login-message is-good" role="status"><mat-icon aria-hidden="true">check_circle</mat-icon><span>{{notice}}</span></p>
+        }
+
+        <button type="submit" class="kit-chip kit-primary login-submit" [disabled]="mode === 'register' ? !canRegister : !canLogin">
+          @if (busy) {
+            <mat-spinner [diameter]="18"></mat-spinner>
+          }
+          @if (mode === 'register') {
+            <ng-container i18n="Register">Register</ng-container>
+          } @else {
+            <ng-container i18n="Log in button">Log in</ng-container>
+          }
+        </button>
+      </form>
     }
-  }
-</mat-card>
+  </section>
+</div>
+
+<ng-template #revealPassword>
+  <button type="button" class="kit-icon-button" (click)="showPassword = !showPassword" [attr.aria-pressed]="showPassword"
+    [attr.aria-label]="showPasswordLabel" [matTooltip]="showPassword ? hidePasswordLabel : showPasswordLabel">
+    <mat-icon>{{showPassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+  </button>
+</ng-template>

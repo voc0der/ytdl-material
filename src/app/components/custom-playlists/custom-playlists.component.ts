@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { CreatePlaylistComponent } from 'app/create-playlist/create-playlist.component';
+import { openPlaylistDialog } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistResponse, Playlist } from 'api-types';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 import { saveBlob } from '../../utils/save-blob';
@@ -49,23 +49,9 @@ export class CustomPlaylistsComponent implements OnInit {
     });
   }
 
-  // creating a playlist
+  // The dialog reports what it saved on playlists_changed, which is what refreshes the list.
   openCreatePlaylistDialog(): void {
-    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
-      data: {
-        create_mode: true
-      },
-      minWidth: '90vw',
-      minHeight: '95vh'
-    });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.getAllPlaylists();
-        this.postsService.openSnackBar($localize`Successfully created playlist!`);
-      } else if (result === false) {
-        this.postsService.openSnackBar($localize`ERROR: failed to create playlist!`);
-      }
-    });
+    openPlaylistDialog(this.dialog, {create_mode: true});
   }
 
   goToPlaylist(info_obj: { file: Playlist; }): void {
@@ -148,22 +134,7 @@ export class CustomPlaylistsComponent implements OnInit {
   }
 
   editPlaylistDialog(args: { playlist: Playlist; index: number; }): void {
-    const playlist = args.playlist;
-    const index = args.index;
-    const dialogRef = this.dialog.open(CreatePlaylistComponent, {
-      data: {
-        playlist_id: playlist.id,
-        create_mode: false
-      },
-      minWidth: '85vw'
-    });
-
-    dialogRef.afterClosed().subscribe(() => {
-      // updates playlist in file manager if it changed
-      if (dialogRef.componentInstance.playlist_updated) {
-        this.playlists[index] = dialogRef.componentInstance.playlist;
-      }
-    });
+    openPlaylistDialog(this.dialog, {playlist_id: args.playlist.id});
   }
 
 }

@@ -1,9 +1,7 @@
-@if (!selectMode) {
-  @if (showLibraryTabs && activeLibraryTab === 1) {
-    <ng-container [ngTemplateOutlet]="playlistLibraryContent"></ng-container>
-  } @else {
-    <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
-  }
+@if (showLibraryTabs && activeLibraryTab === 1) {
+  <ng-container [ngTemplateOutlet]="playlistLibraryContent"></ng-container>
+} @else {
+  <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
 }
 
 <ng-template #librarySwitcher>
@@ -111,10 +109,8 @@
       <div class="library-header-title">
         @if (showLibraryTabs) {
           <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
-        } @else if (!customHeader) {
-          <h4 class="my-videos-title" i18n="My files title">My files</h4>
         } @else {
-          <h4 class="my-videos-title">{{customHeader}}</h4>
+          <h4 class="my-videos-title" i18n="My files title">My files</h4>
         }
       </div>
       @if (!narrowScreen) {
@@ -205,101 +201,23 @@
     </div>
   }
 
-  @if (showPaginationControls) {
-    <div class="paginator-shell">
-      <div class="paginator-page-size">
-        <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
-        <app-picker [title]="pageSizeTitle" [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue" (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
-      </div>
-
-      @if (!autoPaginationEnabled) {
-        <mat-paginator class="paginator paginator-manual" (page)="pageChangeEvent($event)" [length]="file_count"
-          [pageIndex]="manualPageIndex"
-          [pageSize]="pageSize"
-          [hidePageSize]="true">
-        </mat-paginator>
-      } @else {
-        <div class="auto-pagination-status">
-          {{getAutoRangeLabel()}}
-        </div>
-      }
+  <div class="paginator-shell">
+    <div class="paginator-page-size">
+      <span class="paginator-page-size-label" i18n="Items per page label">Items per page:</span>
+      <app-picker [title]="pageSizeTitle" [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue" (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
     </div>
-  }
+
+    @if (!autoPaginationEnabled) {
+      <mat-paginator class="paginator paginator-manual" (page)="pageChangeEvent($event)" [length]="file_count"
+        [pageIndex]="manualPageIndex"
+        [pageSize]="pageSize"
+        [hidePageSize]="true">
+      </mat-paginator>
+    } @else {
+      <div class="auto-pagination-status">
+        {{getAutoRangeLabel()}}
+      </div>
+    }
+  </div>
 </ng-template>
 
-@if (selectMode) {
-  <div>
-    <mat-tab-group [(selectedIndex)]="selectedIndex">
-      <mat-tab label="Order" i18n-label="Order">
-        @if (selected_data.length) {
-          <div>
-            @if (reverse_order === false) {
-              <span i18n="Normal order">Normal order&nbsp;</span>
-            }
-            @if (reverse_order === true) {
-              <span i18n="Reverse order">Reverse order&nbsp;</span>
-            }
-            <button (click)="toggleSelectionOrder()" mat-icon-button><mat-icon>{{!reverse_order ? 'arrow_downward' : 'arrow_upward'}}</mat-icon></button>
-          </div>
-        }
-        @if (selected_data.length) {
-          <mat-button-toggle-group class="media-list" cdkDropList (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical #group="matButtonToggleGroup">
-            @for (file of (reverse_order ? selected_data_objs.slice().reverse() : selected_data_objs); track file.uid; let i = $index) {
-              <mat-button-toggle class="media-box" cdkDrag [checked]="false"><div><div class="playlist-item-text">{{file.title}}</div> <button (click)="removeSelectedFile(i)" class="remove-item-button" mat-icon-button><mat-icon>cancel</mat-icon></button></div></mat-button-toggle>
-            }
-          </mat-button-toggle-group>
-        }
-        @if (!selected_data.length) {
-          <div style="margin-top: 20px;">
-            <h4 style="text-align: center;">No files selected!</h4>
-          </div>
-        }
-      </mat-tab>
-      <mat-tab label="Select files" i18n-label="Select files">
-        <div class="d-flex align-items-center flex-wrap mt-2 mb-3" style="gap: 12px;">
-          @if (selection_sources_received && selection_sources.length > 0) {
-            <mat-form-field appearance="outline">
-              <mat-label i18n="Playlist source filter label">Download source</mat-label>
-              <mat-select [value]="sub_id" (selectionChange)="selectionSourceChanged($event.value)">
-                <mat-option [value]="null" i18n="All download sources option">All files</mat-option>
-                @for (subscription of selection_sources; track subscription.id) {
-                  <mat-option [value]="subscription.id">{{subscription.name}}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-          }
-          <button mat-stroked-button type="button" (click)="selectAllAvailableFiles()" [disabled]="!paged_data?.length || allAvailableFilesSelected()" i18n="Select all playlist files button">Select all files</button>
-          <button mat-stroked-button type="button" (click)="clearFileSelection()" [disabled]="selected_data.length === 0" i18n="Clear playlist selection button">Clear selection</button>
-        </div>
-        @if (normal_files_received) {
-          <mat-selection-list (selectionChange)="fileSelectionChanged($event)">
-            @for (file of paged_data; track file.uid) {
-              <mat-list-option [selected]="selected_data.includes(file.uid)" [value]="file">
-                <div class="container">
-                  <div class="row justify-content-center">
-                    <div class="col-10 select-file-title">
-                      <mat-icon class="audio-video-icon">{{file.isAudio ? 'audiotrack' : 'movie'}}</mat-icon>
-                      {{file.title}}
-                    </div>
-                    <div class="col-2">{{file.registered | date:'shortDate'}}</div>
-                  </div>
-                </div>
-              </mat-list-option>
-            }
-          </mat-selection-list>
-        }
-        @if (!normal_files_received && loading_files && loading_files.length > 0) {
-          @if (!normal_files_received) {
-            <mat-selection-list>
-              @for (file of paged_data; track $index) {
-                <mat-list-option>
-                  <content-loader class="list-ghosts" [backgroundColor]="postsService.theme.ghost_primary" [foregroundColor]="postsService.theme.ghost_secondary" viewBox="0 0 250 8"><svg:rect x="0" y="0" rx="3" ry="3" width="250" height="8" /></content-loader>
-                </mat-list-option>
-              }
-            </mat-selection-list>
-          }
-        }
-      </mat-tab>
-    </mat-tab-group>
-  </div>
-}

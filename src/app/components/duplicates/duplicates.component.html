@@ -1,66 +1,118 @@
-<div>
-  <div [hidden]="!(duplicate_groups && duplicate_groups.length > 0)">
-    <div class="mat-elevation-z8">
-      <mat-table matSort [dataSource]="dataSource">
-        <ng-container matColumnDef="newest_registered">
-          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Date">Date</ng-container> </mat-header-cell>
-          <mat-cell *matCellDef="let element"> {{element.newest_registered | date: 'short'}} </mat-cell>
-        </ng-container>
+<div class="container kit-page duplicates-page">
+  <header class="page-header">
+    <h1 class="page-title" i18n="Duplicates title">Duplicates</h1>
+    <p class="page-intro" i18n="Duplicates page introduction">Files that were downloaded more than once. Cleaning one up keeps a single copy and deletes the rest.</p>
+  </header>
 
-        <ng-container matColumnDef="title">
-          <mat-header-cell *matHeaderCellDef mat-sort-header style="flex: 2"> <ng-container i18n="Title">Title</ng-container> </mat-header-cell>
-          <mat-cell *matCellDef="let element" style="flex: 2">
-            <div class="group-title-cell">
-              <span class="one-line" [matTooltip]="getGroupTitle(element)">
-                {{getGroupTitle(element)}}
+  @if (!duplicates_retrieved) {
+    <div class="list-loading" aria-busy="true">
+      <mat-spinner [diameter]="32"></mat-spinner>
+    </div>
+  } @else if (duplicate_groups.length === 0) {
+    <section class="empty-state">
+      <span class="empty-state-icon"><mat-icon>{{load_failed ? 'cloud_off' : 'library_add_check'}}</mat-icon></span>
+      @if (load_failed) {
+        <h2 i18n="Duplicates failed to load title">Couldn't check for duplicates</h2>
+        <p i18n="Duplicates loading error">Retrying on its own.</p>
+      } @else {
+        <h2 i18n="No duplicates label">No duplicates found!</h2>
+        <p i18n="No duplicates text">Everything in your library was downloaded once.</p>
+      }
+    </section>
+  } @else {
+    <div class="duplicates-toolbar">
+      <span class="duplicates-summary" i18n="Duplicates summary">{duplicate_groups.length, plural, =1 {1 file downloaded more than once} other {{{duplicate_groups.length}} files downloaded more than once}} · {extra_copy_count, plural, =1 {1 extra copy} other {{{extra_copy_count}} extra copies}}</span>
+      <app-picker [title]="orderLabel" [label]="orderLabel" [options]="orderOptions" [value]="order"
+        (valueChange)="orderChanged($any($event))"></app-picker>
+    </div>
+
+    <ul class="duplicate-list">
+      @for (group of page_groups; track group.duplicate_key) {
+        <li class="duplicate-row" [class.is-open]="isExpanded(group)">
+          <div class="duplicate-main">
+            <span class="duplicate-thumb" aria-hidden="true">
+              @if (thumbnailFor(group); as src) {
+                <img [src]="src" alt="" loading="lazy">
+              } @else {
+                <mat-icon>{{group.isAudio ? 'audiotrack' : 'movie'}}</mat-icon>
+              }
+              @if (durationFor(group); as length) {
+                <span class="duplicate-duration">{{length}}</span>
+              }
+            </span>
+
+            <div class="duplicate-text">
+              <span class="duplicate-title kit-one-line" [matTooltip]="getGroupTitle(group)" matTooltipShowDelay="600">{{getGroupTitle(group)}}</span>
+              <span class="duplicate-meta">
+                <span class="duplicate-copies-count">
+                  <mat-icon aria-hidden="true">content_copy</mat-icon>
+                  <ng-container i18n="Duplicate copy count">{group.total_count, plural, =1 {1 copy} other {{{group.total_count}} copies}}</ng-container>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{{getGroupTypeLabel(group)}}</span>
+                @if (lastDownloadedText(group)) {
+                  <span aria-hidden="true">·</span>
+                  <span [matTooltip]="group.newest_registered | date: 'medium'" i18n="Duplicate last downloaded">last downloaded {{lastDownloadedText(group)}}</span>
+                }
               </span>
-              <span class="group-title-meta">
-                {{getGroupSourceID(element)}}
+              <span class="duplicate-source">
+                @if (group.source_extractor) {
+                  <span>{{group.source_extractor}}</span>
+                  <span aria-hidden="true">·</span>
+                }
+                <span class="duplicate-id kit-one-line">{{getGroupSourceID(group)}}</span>
               </span>
             </div>
-          </mat-cell>
-        </ng-container>
 
-        <ng-container matColumnDef="type">
-          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Type">Type</ng-container> </mat-header-cell>
-          <mat-cell *matCellDef="let element"> {{getGroupTypeLabel(element)}} </mat-cell>
-        </ng-container>
-
-        <ng-container matColumnDef="duplicate_count">
-          <mat-header-cell *matHeaderCellDef mat-sort-header> <ng-container i18n="Duplicates">Duplicates</ng-container> </mat-header-cell>
-          <mat-cell *matCellDef="let element"> {{element.duplicate_count}} </mat-cell>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <mat-header-cell *matHeaderCellDef> <ng-container i18n="Actions">Actions</ng-container> </mat-header-cell>
-          <mat-cell *matCellDef="let element">
-            <span class="button-span">
-              @if (removing_duplicate_key === element.duplicate_key) {
-                <mat-spinner [diameter]="28" class="icon-button-spinner"></mat-spinner>
-              }
-              <button
-                mat-icon-button
-                [disabled]="removing_duplicate_key === element.duplicate_key"
-                matTooltip="Remove duplicates"
-                i18n-matTooltip="Remove duplicates tooltip"
-                (click)="openRemoveDuplicatesDialog(element)">
-                <mat-icon>cleaning_services</mat-icon>
+            <div class="duplicate-actions">
+              <button type="button" class="kit-chip" [disabled]="!!removing_duplicate_key" (click)="openRemoveDuplicatesDialog(group)">
+                @if (removing_duplicate_key === group.duplicate_key) {
+                  <mat-spinner [diameter]="16"></mat-spinner>
+                } @else {
+                  <mat-icon>cleaning_services</mat-icon>
+                }
+                <span i18n="Clean up duplicates button">Clean up</span>
               </button>
-            </span>
-          </mat-cell>
-        </ng-container>
+              <button type="button" class="kit-icon-button" (click)="toggleExpanded(group)" [attr.aria-expanded]="isExpanded(group)"
+                aria-label="Show every copy" i18n-aria-label="Show duplicate copies" matTooltip="Show every copy" i18n-matTooltip="Show duplicate copies">
+                <mat-icon>{{isExpanded(group) ? 'expand_less' : 'expand_more'}}</mat-icon>
+              </button>
+            </div>
+          </div>
 
-        <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
-        <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
-      </mat-table>
+          @if (isExpanded(group)) {
+            <ol class="copy-list">
+              @for (copy of copies(group); track copy.uid; let first = $first; let last = $last) {
+                <li class="copy-row">
+                  <span class="copy-when">{{copy.registered | date: 'medium'}}</span>
+                  <span class="copy-path kit-one-line" [matTooltip]="copy.path" matTooltipShowDelay="600">{{copy.path}}</span>
+                  @if (first) {
+                    <span class="copy-badge" i18n="First download of a duplicate">First download</span>
+                  } @else if (last) {
+                    <span class="copy-badge" i18n="Latest download of a duplicate">Latest</span>
+                  }
+                </li>
+              }
+            </ol>
+          }
+        </li>
+      }
+    </ul>
 
-      <mat-paginator [pageSizeOptions]="[5, 10, 20]" showFirstLastButtons aria-label="Select page of duplicates"></mat-paginator>
-    </div>
-  </div>
-
-  @if ((!duplicate_groups || duplicate_groups.length === 0) && duplicates_retrieved) {
-    <div>
-      <h4 style="text-align: center; margin-top: 10px;" i18n="No duplicates label">No duplicates found!</h4>
-    </div>
+    @if (page_count > 1) {
+      <div class="pager">
+        <span class="pager-range" i18n="Duplicates page range">{{range_start}}–{{range_end}} of {{sorted.length}}</span>
+        <div class="pager-controls">
+          <button type="button" class="kit-icon-button" [disabled]="page_index === 0" (click)="goToPage(page_index - 1)"
+            [attr.aria-label]="previousPageLabel" [matTooltip]="previousPageLabel">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <button type="button" class="kit-icon-button" [disabled]="page_index >= page_count - 1" (click)="goToPage(page_index + 1)"
+            [attr.aria-label]="nextPageLabel" [matTooltip]="nextPageLabel">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
   }
 </div>

@@ -932,6 +932,15 @@ export class PostsService {
         return call;
     }
 
+    /**
+     * Whether what belongs to a user can be asked for yet: always without accounts, and in
+     * multi-user mode once somebody has logged in. The app shell asks before fetching any of it,
+     * or every visit to the login page logged a 401 for each thing it tried.
+     */
+    hasSession(): boolean {
+        return !this.config?.['Advanced']?.['multi_user_mode'] || this.isLoggedIn;
+    }
+
     isOIDCEnabled(): boolean {
         return !!(this.config && this.config['Users'] && this.config['Users']['oidc'] && this.config['Users']['oidc']['enabled']);
     }
