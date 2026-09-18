@@ -160,11 +160,46 @@
               </div>
             </div>
           </div>
-          <div class="player-playlist-section" [hidden]="theater_mode_enabled">
-            <mat-button-toggle-group cdkDropList [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="drop($event)" style="width: 80%; left: 9%" vertical name="videoSelect" aria-label="Video Select" #group="matButtonToggleGroup">
+          <section class="player-playlist-section" [hidden]="theater_mode_enabled" aria-labelledby="player-queue-title">
+            <div class="queue-header">
+              <h2 class="queue-title" id="player-queue-title">{{queueTitle()}}</h2>
+              @if (queueMeta(); as meta) {
+                <p class="queue-meta">
+                  @if (autoplay_queue_loading) {
+                    <mat-spinner class="queue-spinner" [diameter]="14"></mat-spinner>
+                  }
+                  {{meta}}
+                </p>
+              }
+            </div>
+            <ol #queueList class="queue-list" cdkDropList cdkDropListLockAxis="y" (cdkDropListDropped)="drop($event)">
               @for (playlist_item of playlist; track (playlist_item.uid ?? playlist_item.url ?? $index); let i = $index) {
-                <div cdkDrag class="playlist-row" [class.current]="currentItem === playlist_item">
-                  <mat-button-toggle [checked]="currentItem === playlist_item" (click)="onClickPlaylistItem(playlist_item, i)" class="toggle-button" [value]="playlist_item.title">{{playlist_item.label}}</mat-button-toggle>
+                <li cdkDrag cdkDragPreviewContainer="parent" [cdkDragStartDelay]="dragStartDelay" [cdkDragDisabled]="playlist.length < 2" class="playlist-row" [class.current]="currentItem === playlist_item">
+                  <button type="button" class="queue-item" (click)="onClickPlaylistItem(playlist_item, i)" [attr.aria-current]="currentItem === playlist_item ? 'true' : null">
+                    <span class="queue-position" aria-hidden="true">
+                      @if (currentItem === playlist_item) {
+                        <mat-icon>play_arrow</mat-icon>
+                      } @else {
+                        {{i + 1}}
+                      }
+                    </span>
+                    <span class="queue-thumb">
+                      @if (playlist_item.thumbnail && !failed_thumbnails.has(playlist_item.thumbnail)) {
+                        <img [src]="playlist_item.thumbnail" alt="" loading="lazy" decoding="async" draggable="false" (error)="failed_thumbnails.add(playlist_item.thumbnail)">
+                      } @else {
+                        <mat-icon>{{playlist_item.type === 'audio/mp3' ? 'music_note' : 'movie'}}</mat-icon>
+                      }
+                      @if (playlist_item.duration) {
+                        <span class="queue-duration">{{playlist_item.duration}}</span>
+                      }
+                    </span>
+                    <span class="queue-text">
+                      <span class="queue-item-title">{{playlist_item.label}}</span>
+                      @if (playlist_item.uploader) {
+                        <span class="queue-item-meta">{{playlist_item.uploader}}</span>
+                      }
+                    </span>
+                  </button>
                   @if (currentItem === playlist_item) {
                     <div class="playlist-row-actions" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
                       @if (db_file && api && api.time && postsService.config) {
@@ -178,10 +213,10 @@
                       </button>
                     </div>
                   }
-                </div>
+                </li>
               }
-            </mat-button-toggle-group>
-          </div>
+            </ol>
+          </section>
           <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists']">
             @if (api_ready && db_file && db_file.url.includes('twitch.tv')) {
               <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="api?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>

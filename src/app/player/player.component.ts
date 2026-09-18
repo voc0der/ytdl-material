@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { VgApiService, VgCoreModule } from '@videogular/ngx-videogular/core';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,6 +10,7 @@ import { TwitchChatComponent } from 'app/components/twitch-chat/twitch-chat.comp
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { saveBlob } from '../utils/save-blob';
+import { fileThumbnailURL, formatDuration } from '../utils/file-display';
 import { filesize } from 'filesize';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
@@ -22,7 +23,6 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { MatButtonToggleGroup, MatButtonToggle } from '@angular/material/button-toggle';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
@@ -36,6 +36,10 @@ export interface IMedia {
   uid?: string;
   chapters?: IChapter[];
   subtitles?: ISubtitleTrack[];
+  // What the list under the player shows beside the title.
+  thumbnail?: string | null;
+  duration?: string;
+  uploader?: string;
 }
 
 export interface ISubtitleTrack {
@@ -61,15 +65,19 @@ const MIN_SNIP_DURATION_SECONDS = 1;
 const SNIP_STATUS_POLL_INTERVAL_MS = 1000;
 const SNIP_SEEK_DEBOUNCE_MS = 80;
 const THEATER_TOOLBAR_HIDE_DELAY_MS = 2000;
+// A row of the list under the player is dragged at once with a mouse, but only after a press
+// and hold on a touch screen. Otherwise every swipe that starts on a row drags it, and the
+// list cannot be scrolled.
+const QUEUE_TOUCH_DRAG_DELAY_MS = 400;
 
 @Component({
     selector: 'app-player',
     templateUrl: './player.component.html',
     styleUrls: ['./player.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgClass, MatDrawerContainer, VgCoreModule, MatIcon, MatSlider, MatSliderRangeThumb, MatProgressBar, MatButton, MatTooltip, SeeMoreComponent, MatIconButton, MatProgressSpinner, MatButtonToggleGroup, CdkDropList, CdkDrag, MatButtonToggle, ConcurrentStreamComponent, MatDrawer, TwitchChatComponent_1]
+    imports: [NgClass, MatDrawerContainer, VgCoreModule, MatIcon, MatSlider, MatSliderRangeThumb, MatProgressBar, MatButton, MatTooltip, SeeMoreComponent, MatIconButton, MatProgressSpinner, CdkDropList, CdkDrag, ConcurrentStreamComponent, MatDrawer, TwitchChatComponent_1]
 })
-export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
+export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
 
   playlist: Array<IMedia> = [];
   original_playlist: string = null;
@@ -132,6 +140,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   autoplay_queue_file_objs: DatabaseFile[] = [];
   playbackTime = 0;
 
+  readonly dragStartDelay = {touch: QUEUE_TOUCH_DRAG_DELAY_MS, mouse: 0};
+  // Thumbnails that failed to load, such as a shared playlist's for somebody not logged in.
+  // Their rows show an icon instead of a broken image.
+  failed_thumbnails = new Set<string>();
+  private revealed_queue_row: string | null = null;
+
   // snip mode
   snip_mode = false;
   snip_start = 0;
@@ -161,6 +175,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
+  @ViewChild('queueList') queueList?: ElementRef<HTMLElement>;
 
   ngOnInit(): void {
     this.initPlaybackModeToggles();
@@ -194,6 +209,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.detectChanges();
     // On hard refresh, AppComponent may not have assigned the shared sidenav yet.
     setTimeout(() => this.postsService.sidenav?.close());
+  }
+
+  ngAfterViewChecked(): void {
+    const row = this.currentItem ? `${this.currentIndex}/${this.playlist.length}/${this.theater_mode_enabled}` : null;
+    if (row === this.revealed_queue_row) return;
+    this.revealed_queue_row = row;
+    this.revealCurrentQueueRow();
   }
 
   ngOnDestroy(): void {
@@ -448,6 +470,35 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
   onClickPlaylistItem(item: IMedia, index: number): void {
     if (item === this.currentItem) return;
     this.updateCurrentItem(item, index);
+  }
+
+  // The list under the player: the playlist or subscription being played, the library once
+  // Autoplay has queued it, or the one file.
+  queueTitle(): string {
+    if (this.db_playlist?.name) return this.db_playlist.name;
+    if (this.subscription?.name) return this.subscription.name;
+    if (this.isSingleFileMode() && this.autoplay_queue_initialized) return $localize`:Player queue title for the library:Library`;
+    return $localize`:Player queue title for a single file:Now playing`;
+  }
+
+  queueMeta(): string {
+    if (this.autoplay_queue_loading) return $localize`Loading your library…`;
+    if (this.playlist.length > 1) return $localize`:Player queue position:${this.currentIndex + 1}:position: of ${this.playlist.length}:count:`;
+    if (this.isSingleFileMode() && !this.autoplay_enabled) return $localize`Turn on Autoplay to keep playing from your library.`;
+    return '';
+  }
+
+  // Scrolls the list, and only the list, until the playing row is in it. The page stays where
+  // it is, because the video is what is being watched when the next one starts.
+  revealCurrentQueueRow(): void {
+    const list = this.queueList?.nativeElement;
+    const row = list?.querySelector<HTMLElement>('.playlist-row.current');
+    if (!list || !row || list.scrollHeight <= list.clientHeight) return;
+    const top = row.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (top < list.scrollTop || bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(0, top - 8);
+    }
   }
 
   toggleAutoplayFromPlaylistRow(event: MouseEvent): void {
@@ -910,7 +961,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, OnDestroy {
       url: file_obj.url,
       uid: file_obj.uid,
       chapters: normalizedChapters,
-      subtitles: normalizedSubtitles
+      subtitles: normalizedSubtitles,
+      thumbnail: fileThumbnailURL(file_obj, this.baseStreamPath, this.postsService.isLoggedIn ? this.postsService.token : null),
+      duration: formatDuration(file_obj.duration),
+      uploader: file_obj.uploader || ''
     };
     return mediaObject;
   }
