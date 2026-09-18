@@ -13,27 +13,26 @@ import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.com
 import { PostsService } from 'app/posts.services';
 import { saveBlob } from '../../utils/save-blob';
 
-type HistoryOrder = 'newest' | 'oldest' | 'title' | 'source';
+type ArchiveOrder = 'newest' | 'oldest' | 'title' | 'source';
 
 const PAGE_SIZE = 25;
 // What the subscription pickers mean by "not filtered by one" and "not tied to one".
 const NO_SUBSCRIPTION = 'none';
 
 /**
- * The download history: what has already been downloaded, which is what subscriptions and the
- * download box check so the same upload is not fetched twice. It is one item per extractor and
- * id, the same pair a yt-dlp archive file holds, so a file of them can be taken in and handed
- * back out.
+ * The archive: what has already been downloaded, which is what subscriptions and the download
+ * box check so the same upload is not fetched twice. It is one item per extractor and id, the
+ * same pair a yt-dlp archive file holds, so a file of them can be taken in and handed back out.
  */
 @Component({
-    selector: 'app-download-history',
-    templateUrl: './download-history.component.html',
-    styleUrls: ['./download-history.component.scss'],
+    selector: 'app-archive-viewer',
+    templateUrl: './archive-viewer.component.html',
+    styleUrls: ['./archive-viewer.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     host: { class: 'kit-dialog' },
     imports: [MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatIcon, MatTooltip, MatProgressSpinner, FormsModule, NgxFileDropModule, PickerComponent, DatePipe]
 })
-export class DownloadHistoryComponent implements OnInit {
+export class ArchiveViewerComponent implements OnInit {
   archives: Archive[] = null;
   archives_retrieved = false;
   // What the filters and the order leave, which is what the pages and Select all are over.
@@ -45,7 +44,7 @@ export class DownloadHistoryComponent implements OnInit {
   text_filter = '';
   sub_id = NO_SUBSCRIPTION;
   type: FileType | 'both' = 'both';
-  order: HistoryOrder = 'newest';
+  order: ArchiveOrder = 'newest';
 
   // importing
   upload_sub_id = NO_SUBSCRIPTION;
@@ -55,7 +54,7 @@ export class DownloadHistoryComponent implements OnInit {
   files: NgxFileDropEntry[] = [];
 
   readonly untitledLabel = $localize`Untitled`;
-  readonly searchLabel = $localize`Search history`;
+  readonly searchLabel = $localize`Search the archive`;
   readonly subscriptionLabel = $localize`Subscription`;
   readonly fileTypeLabel = $localize`Type`;
   readonly orderLabel = $localize`Sort`;
@@ -87,8 +86,8 @@ export class DownloadHistoryComponent implements OnInit {
   }
 
   /**
-   * Which subscription's history to show, or the items that belong to none of them. The
-   * server keeps one history per subscription, so this is a choice between them rather than
+   * Which subscription's archive to show, or the items that belong to none of them. The
+   * server keeps one archive per subscription, so this is a choice between them rather than
    * a way to narrow one list -- "No subscription" is not "all of them".
    */
   get subscriptionPickerOptions(): PickerOption[] {
@@ -159,7 +158,7 @@ export class DownloadHistoryComponent implements OnInit {
     this.applyFilters();
   }
 
-  orderChanged(order: HistoryOrder): void {
+  orderChanged(order: ArchiveOrder): void {
     this.order = order;
     this.applyFilters();
   }
@@ -221,7 +220,7 @@ export class DownloadHistoryComponent implements OnInit {
           this.uploading_archive = false;
           if (res['success']) {
             this.uploaded_archive = true;
-            this.postsService.openSnackBar($localize`Download history imported.`);
+            this.postsService.openSnackBar($localize`Archive imported.`);
           }
           this.getArchives();
         }, err => {
@@ -243,10 +242,10 @@ export class DownloadHistoryComponent implements OnInit {
     if (count === 0) return;
 
     const dialogRef = openConfirmDialog(this.dialog, {
-      dialogTitle: $localize`Remove from history`,
+      dialogTitle: $localize`Remove from archive`,
       dialogText: count === 1
-        ? $localize`This item is removed from your download history, so it can be downloaded again.`
-        : $localize`These ${count}:removed history amount: items are removed from your download history, so they can be downloaded again.`,
+        ? $localize`This item is removed from your archive, so it can be downloaded again.`
+        : $localize`These ${count}:removed archive amount: items are removed from your archive, so they can be downloaded again.`,
       submitText: $localize`Remove`,
       warnSubmitColor: true
     });
@@ -267,14 +266,14 @@ export class DownloadHistoryComponent implements OnInit {
 
     this.postsService.deleteArchiveItems(selected).subscribe(res => {
       if (res['success']) {
-        this.postsService.openSnackBar($localize`Removed from your download history.`);
+        this.postsService.openSnackBar($localize`Removed from your archive.`);
       } else {
-        this.postsService.openSnackBar($localize`Couldn't remove those items from your download history.`);
+        this.postsService.openSnackBar($localize`Couldn't remove those items from your archive.`);
       }
       this.getArchives();
     }, err => {
       console.error(err);
-      this.postsService.openSnackBar($localize`Couldn't remove those items from your download history.`);
+      this.postsService.openSnackBar($localize`Couldn't remove those items from your archive.`);
       this.getArchives();
     });
   }
@@ -291,7 +290,7 @@ export class DownloadHistoryComponent implements OnInit {
     this.uploaded_archive = false;
   }
 
-  /** Narrows the history to what the filters leave, in the order that was asked for. */
+  /** Narrows the archive to what the filters leave, in the order that was asked for. */
   private applyFilters(): void {
     const text = this.text_filter.trim().toLowerCase();
     const matching = (this.archives ?? []).filter(archive => {

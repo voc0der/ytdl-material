@@ -2,13 +2,13 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { NEVER, of, throwError } from 'rxjs';
 
-import { DownloadHistoryComponent } from './download-history.component';
+import { ArchiveViewerComponent } from './archive-viewer.component';
 import { PostsService } from 'app/posts.services';
 import { configureTestBed } from '../../../testing/test-bed';
 
-describe('DownloadHistoryComponent', () => {
-  let component: DownloadHistoryComponent;
-  let fixture: ComponentFixture<DownloadHistoryComponent>;
+describe('ArchiveViewerComponent', () => {
+  let component: ArchiveViewerComponent;
+  let fixture: ComponentFixture<ArchiveViewerComponent>;
   let postsServiceStub: any;
   let dialogStub: any;
 
@@ -43,7 +43,7 @@ describe('DownloadHistoryComponent', () => {
     dialogStub = { open: vi.fn().mockName('open').mockReturnValue({ afterClosed: () => of(true) }) };
 
     configureTestBed({
-      imports: [DownloadHistoryComponent],
+      imports: [ArchiveViewerComponent],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
         { provide: MatDialog, useValue: dialogStub }
@@ -57,7 +57,7 @@ describe('DownloadHistoryComponent', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
-    fixture = TestBed.createComponent(DownloadHistoryComponent);
+    fixture = TestBed.createComponent(ArchiveViewerComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
@@ -70,7 +70,7 @@ describe('DownloadHistoryComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('asks for the whole history when nothing is filtered', () => {
+  it('asks for the whole archive when nothing is filtered', () => {
     expect(postsServiceStub.getArchives).toHaveBeenCalledWith(null, null);
     expect(component.archives_retrieved).toBe(true);
     expect(component.matching.length).toBe(3);
@@ -161,7 +161,7 @@ describe('DownloadHistoryComponent', () => {
     expect(component.selected_count).toBe(0);
   });
 
-  it('puts the history back from the server when the removal fails', () => {
+  it('puts the archive back from the server when the removal fails', () => {
     component.toggleSelected(archives[0]);
     postsServiceStub.deleteArchiveItems.mockReturnValue(throwError(() => new Error('nope')));
 
@@ -187,7 +187,7 @@ describe('DownloadHistoryComponent', () => {
     expect(component.selected_count).toBe(0);
   });
 
-  it('pages a history longer than one page', () => {
+  it('pages an archive longer than one page', () => {
     postsServiceStub.getArchives.mockReturnValue(of({
       archives: Array.from({ length: 30 }, (_, index) => archive({ uid: `archive-${index}`, id: `id-${index}`, timestamp: index }))
     }));
@@ -209,7 +209,7 @@ describe('DownloadHistoryComponent', () => {
     expect(component.page_index).toBe(1);
   });
 
-  it('exports the history the filters ask for', () => {
+  it('exports the archive the filters ask for', () => {
     component.subFilterSelectionChanged('sub-1');
     component.downloadArchive();
 
@@ -235,7 +235,7 @@ describe('DownloadHistoryComponent', () => {
     expect(component.files).toEqual([]);
   });
 
-  it('stays usable when the history cannot be loaded', () => {
+  it('stays usable when the archive cannot be loaded', () => {
     postsServiceStub.getArchives.mockReturnValue(throwError(() => new Error('nope')));
 
     component.getArchives();

@@ -226,11 +226,11 @@ Like the subscriptions harness it is not part of CI, because it downloads from t
 
 # Exercising the dialogs
 
-The download history is the one screen that is only reachable as a dialog, and what it does
-is spread over three endpoints: it lists what has already been downloaded, removes items from
-that list, and takes an archive file in or hands one back out. Nothing but running it shows
-whether those still line up. `dev/screenshots/dialogs.sh` does that against a throwaway
-backend, driving the dialog the way a person would:
+The archive is the one screen that is only reachable as a dialog, and what it does is spread
+over three endpoints: it lists what has already been downloaded, removes items from that list,
+and takes an archive file in or hands one back out. Nothing but running it shows whether those
+still line up. `dev/screenshots/dialogs.sh` does that against a throwaway backend, driving the
+dialog the way a person would:
 
 ```bash
 dev/screenshots/dialogs.sh               # build, boot, run, stop
@@ -238,10 +238,10 @@ dev/screenshots/dialogs.sh --skip-build  # reuse the last frontend build
 dev/screenshots/dialogs.sh --keep        # leave the backend running on :17452 afterwards
 ```
 
-It seeds 28 history items, opens the dialog from the toolbar menu, and checks the list, its
+It seeds 28 archive items, opens the dialog from the toolbar menu, and checks the list, its
 pages, searching by title, id and source, sorting, and the type filter -- which is the
 server's, not the list's. It then selects a row and removes it through the confirmation,
-cancels that and checks nothing went, selects the whole history and removes it for real,
+cancels that and checks nothing went, selects the whole archive and removes it for real,
 checks the database is empty and the dialog says so, imports a three-line archive file and
 checks one item was recorded per line, and exports one back out and checks the file that was
 saved says what went in. It finishes on the two dialogs the Settings page opens that were
@@ -258,7 +258,7 @@ frontend build, which is a minute of work for a check that belongs to a UI chang
 - **An extractor name never has a space in it.** An archive file is `<extractor> <id>` per
   line and the import takes the space as the separator, so a line with two of them is
   skipped. A fixture that names a source "a site" imports nothing at all.
-- **"No subscription" is not "all subscriptions".** The backend keeps one history per
+- **"No subscription" is not "all subscriptions".** The backend keeps one archive per
   subscription and filters on `sub_id` exactly, so the unfiltered list is the items that
   belong to no subscription. The picker says so.
 
