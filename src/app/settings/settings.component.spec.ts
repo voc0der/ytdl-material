@@ -338,3 +338,91 @@ describe('SettingsComponent notification types', () => {
     expect(component.new_config['Extra']['allowed_notification_types']).toEqual(['download_error']);
   });
 });
+
+describe('SettingsComponent OIDC panel', () => {
+  const buildComponent = (oidc: any, status: any = { enabled: true, initialized: true, auto_register: true }): SettingsComponent => {
+    const posts_service_mock: any = {
+      initialized: false,
+      service_initialized: of(false),
+      config: oidc === null ? {} : { Users: { oidc: oidc } },
+      getOIDCStatus: vi.fn().mockName('getOIDCStatus').mockReturnValue(of(status)),
+      openSnackBar: vi.fn().mockName('openSnackBar')
+    };
+    const snack_bar_mock: any = { open: () => { } };
+    const sanitizer_mock: any = {};
+    const dialog_mock: any = { open: () => ({ afterClosed: () => of(null) }) };
+    const router_mock: any = { navigate: () => { } };
+    const route_mock: any = { snapshot: { paramMap: { get: () => null } } };
+    return new SettingsComponent(posts_service_mock, snack_bar_mock, sanitizer_mock, dialog_mock, router_mock, route_mock);
+  };
+
+  const configured = {
+    enabled: true,
+    issuer_url: 'https://id.example.com/realms/media',
+    client_id: 'ytdl-material',
+    client_secret: 'super-secret',
+    redirect_uri: 'https://media.example.com/api/auth/oidc/callback',
+    scope: '',
+    auto_register: false,
+    admin_claim: '',
+    admin_value: '',
+    group_claim: 'roles',
+    allowed_groups: '',
+    username_claim: '',
+    display_name_claim: 'name'
+  };
+
+  it('has nothing to show when OIDC is off, or absent entirely', () => {
+    expect(buildComponent(null).oidcSettings).toBeNull();
+    expect(buildComponent({ enabled: false, issuer_url: 'https://id.example.com' }).oidcSettings).toBeNull();
+    expect(buildComponent(null).oidcSecrets).toEqual([]);
+    expect(buildComponent(null).oidcDetails).toEqual([]);
+  });
+
+  it('says a secret is there without saying what it is', () => {
+    const component = buildComponent(configured);
+    const secrets = component.oidcSecrets;
+
+    expect(secrets.map(secret => secret.configured)).toEqual([true, true, true]);
+    const printed = JSON.stringify(secrets) + JSON.stringify(component.oidcDetails);
+    expect(printed).not.toContain('super-secret');
+    expect(printed).not.toContain('id.example.com/realms');
+    expect(printed).not.toContain('ytdl-material');
+  });
+
+  it('reports a blank secret as not configured', () => {
+    const secrets = buildComponent({ ...configured, client_secret: '   ' }).oidcSecrets;
+    expect(secrets.find(secret => secret.configured === false)).toBeTruthy();
+  });
+
+  it('shows the value the backend falls back to, not the blank that is stored', () => {
+    const details = buildComponent(configured).oidcDetails;
+    const value = (label: string) => details.find(detail => detail.label === label).value;
+
+    expect(value('Scope')).toBe('openid profile email');
+    expect(value('Username claim')).toBe('preferred_username');
+    expect(value('Display name claim')).toBe('name');
+    expect(value('Admin claim')).toBe('groups = admin');
+    expect(value('Group claim')).toBe('roles');
+    expect(value('Allowed groups')).toBe('Any group');
+    expect(value('Register users on first sign-in')).toBe('No');
+  });
+
+  it('asks the backend how it went only when OIDC is on', () => {
+    const off = buildComponent(null);
+    off.getOIDCStatus();
+    expect((off as any).postsService.getOIDCStatus).not.toHaveBeenCalled();
+    expect(off.oidcStatus).toBeNull();
+
+    const on = buildComponent(configured);
+    on.getOIDCStatus();
+    expect(on.oidcStatus.initialized).toBe(true);
+  });
+
+  it('leaves the status unknown when the call fails', () => {
+    const component = buildComponent(configured, null);
+    (component as any).postsService.getOIDCStatus.mockReturnValue(throwError(() => new Error('nope')));
+    component.getOIDCStatus();
+    expect(component.oidcStatus).toBeNull();
+  });
+});

@@ -490,6 +490,16 @@
   color: var(--kit-on-tonal);
 }
 
+// Bootstrap colours a bare <code> pink, which is not what a hint reads like here.
+.settings-section-hint code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--kit-surface);
+  color: inherit;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
 // A heading for part of a panel, under the section's own.
 .settings-subheading {
   margin: 16px 0 8px;
@@ -548,6 +558,33 @@
   font-weight: 500;
 }
 
+// A value the page reports that is not a short word: a claim name, a URI. It gives up its
+// place on the row rather than pushing the label out of the panel.
+.settings-row-wrap {
+  flex-shrink: 1;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.settings-row-muted {
+  font-weight: 400;
+  color: var(--kit-on-surface-variant);
+}
+
+// A credential the page will not print: the dots say there is something there, the word
+// beside them is what a screen reader gets, since dots read as nothing at all.
+.settings-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-secret-mask {
+  color: var(--kit-on-surface-variant);
+  letter-spacing: 2px;
+}
+
 // A row whose control needs the whole width: a connection string, a set of chips, a log.
 .settings-row-stacked {
   flex-direction: column;
@@ -598,6 +635,11 @@
   background: var(--kit-tonal);
   color: var(--kit-on-tonal);
   font-size: 12px;
+}
+
+.settings-badge.is-warning {
+  background: var(--kit-danger-tonal);
+  color: var(--kit-on-danger-tonal);
 }
 
 .settings-empty {

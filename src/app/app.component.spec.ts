@@ -260,3 +260,41 @@ describe('AppComponent', () => {
     expect(cancel_spy).toHaveBeenCalledWith('active-1');
   });
 });
+
+describe('AppComponent notification bell', () => {
+  let component: AppComponent;
+
+  beforeEach(() => {
+    const posts_service_mock: any = {
+      config_reloaded: of(false),
+      files_changed: new Subject<boolean>(),
+      open_create_default_admin_dialog: of(false),
+      service_initialized: of(true),
+      initialized: true,
+      config: { Advanced: { multi_user_mode: false } },
+      getCurrentDownloads: () => of({ downloads: [] })
+    };
+    const router_mock: any = { events: of(), navigate: () => { }, url: '/home' };
+    const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
+    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock);
+  });
+
+  it('counts up to ninety-nine and then stops growing', () => {
+    component.notification_count = 0;
+    expect(component.notificationBadge).toBe('0');
+
+    component.notification_count = 99;
+    expect(component.notificationBadge).toBe('99');
+
+    component.notification_count = 250;
+    expect(component.notificationBadge).toBe('99+');
+  });
+
+  it('says how many are waiting, for anyone who cannot see the badge', () => {
+    component.notification_count = 0;
+    expect(component.notificationsLabel).toBe('Notifications');
+
+    component.notification_count = 3;
+    expect(component.notificationsLabel).toContain('3');
+  });
+});

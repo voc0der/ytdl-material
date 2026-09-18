@@ -78,13 +78,13 @@
               </mat-menu>
             }
             @if (postsService.config?.Extra.enable_notifications) {
-              <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button>@if (notification_count > 0) {
-                <mat-icon [matBadge]="notification_count" matBadgeColor="warn" matBadgeSize="small">notifications</mat-icon>
-                }@if (notification_count === 0) {
-                <mat-icon>notifications_none</mat-icon>
-              }</button>
+              <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button
+                [attr.aria-label]="notificationsLabel" [matTooltip]="notificationsLabel">
+                <mat-icon [matBadge]="notificationBadge" [matBadgeHidden]="notification_count === 0"
+                  matBadgeColor="warn" matBadgeSize="small">{{notification_count > 0 ? 'notifications' : 'notifications_none'}}</mat-icon>
+              </button>
             }
-            <mat-menu [classList]="'notifications-menu'" (close)="notificationMenuClosed()" #notificationsMenu="matMenu">
+            <mat-menu [classList]="'notifications-menu kit-menu'" (close)="notificationMenuClosed()" #notificationsMenu="matMenu">
               <app-notifications #notifications (notificationCount)="notificationCountUpdate($event)" (click)="$event.stopPropagation()"></app-notifications>
             </mat-menu>
             <button [matMenuTriggerFor]="menuSettings" mat-icon-button aria-label="More options" i18n-aria-label="Toolbar overflow menu label"><mat-icon>more_vert</mat-icon></button>

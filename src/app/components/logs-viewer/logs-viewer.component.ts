@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from '../../posts.services';
 import { MatDialog } from '@angular/material/dialog';
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
@@ -16,6 +16,8 @@ import { PickerComponent, PickerOption } from 'app/components/picker/picker.comp
     imports: [MatProgressSpinner, CdkCopyToClipboard, MatIcon, MatTooltip, PickerComponent]
 })
 export class LogsViewerComponent implements OnInit {
+
+  @ViewChild('logsOutput') logsOutput: ElementRef<HTMLElement>;
 
   logs: { text: string, level: string }[] = null;
   logs_text: string = null;
@@ -58,6 +60,10 @@ export class LogsViewerComponent implements OnInit {
             level: level
           })
         });
+        // A log is read from the bottom: the newest line is the one being looked for, and the
+        // box is taller than it is worth scrolling by hand. Waits a tick for the lines to be
+        // in the DOM, since the box itself is only there once there are any.
+        setTimeout(() => this.scrollToLatest());
       } else {
         this.postsService.openSnackBar($localize`Failed to retrieve logs!`);
       }
@@ -66,6 +72,11 @@ export class LogsViewerComponent implements OnInit {
       console.error(err);
       this.postsService.openSnackBar($localize`Failed to retrieve logs!`);
     });
+  }
+
+  scrollToLatest(): void {
+    const box = this.logsOutput?.nativeElement;
+    if (box) box.scrollTop = box.scrollHeight;
   }
 
   linesChanged(lines: number): void {

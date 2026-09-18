@@ -36,9 +36,11 @@
     outline: none !important;
 }
 
+/* Wide enough for a title and a row of actions beside it, and no wider: the rows inside are
+   one line each now rather than cards, so a share of the window is the wrong measure. */
 ::ng-deep .notifications-menu {
-    width: 30vw !important;
-    max-width: 100% !important;
+    width: 380px !important;
+    max-width: calc(100vw - 16px) !important;
     min-width: 280px !important;
 }
 

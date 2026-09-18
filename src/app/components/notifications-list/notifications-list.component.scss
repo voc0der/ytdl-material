@@ -1,56 +1,108 @@
-.notification-divider {
-    margin-bottom: 10px;
-    margin-top: 10px;
+// One notification per row: what happened on the left, what can be done about it on the
+// right. Every row is NOTIFICATION_ROW_HEIGHT tall, which is what lets the list virtualize.
+.viewport {
+    height: 100%;
+    overflow-x: hidden;
+}
+
+/* The wrapper the CDK puts the rows in is only min-width:100%, so a row wide enough to hold a
+   long title on one line makes it wider than the viewport and carries the actions out of
+   sight. Pinning it to the viewport is what lets the text truncate instead. */
+:host ::ng-deep .cdk-virtual-scroll-content-wrapper {
+    width: 100%;
+}
+
+.notification-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    box-sizing: border-box;
+    height: 88px;
+    padding: 12px 4px;
+    border-top: 1px solid var(--kit-divider);
+}
+
+.notification-row:first-child {
+    border-top: 0;
+}
+
+.notification-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    background: var(--kit-surface);
+    color: var(--kit-on-surface-variant);
+}
+
+.notification-symbol .mat-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+// A failure is the one kind worth picking out of a list at a glance.
+.notification-symbol[data-type='download_error'] {
+    background: var(--kit-danger-tonal);
+    color: var(--kit-on-danger-tonal);
 }
 
 .notification-text {
-    margin-left: 10px;
-    margin-right: 10px;
-    display: inline-block;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 2px;
+    min-width: 0;
+    // Keeps the three lines inside the row's fixed height whatever the text is.
+    overflow: hidden;
+}
+
+.notification-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.notification-title {
+    overflow: hidden;
+    color: var(--kit-on-surface);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.notification-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--kit-accent);
+}
+
+.notification-detail {
+    overflow: hidden;
+    color: var(--kit-on-surface-variant);
+    font-size: 13px;
+    line-height: 18px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .notification-timestamp {
-    font-size: 14px;
-}
-
-.notification-card-parent {
-    margin: 5px;
-}
-
-.notification-card {
-    margin-top: 5px;
-    color: var(--mat-sidenav-container-text-color, inherit);
-}
-
-.notification-card .mat-mdc-card-title,
-.notification-card .mat-mdc-card-subtitle,
-.notification-card .mat-mdc-card-content,
-.notification-card .mat-mdc-card-actions,
-.notification-card .mat-icon,
-.notification-card .mat-mdc-icon-button {
-    color: inherit !important;
+    color: var(--kit-on-surface-variant);
+    font-size: 12px;
+    line-height: 16px;
 }
 
 .notification-actions {
-    margin-top: auto;
-}
-
-.card-radius {
-    border-radius: 12px;
-    height: 166px;
-}
-
-.dot {
-    height: 8px;
-    width: 8px;
-    background-color: red;
-    border-radius: 50%;
-    display: inline-block;
-    position: absolute;
-    right: 8px;
-    top: 8px;
-}
-
-.viewport {
-    height: 100%;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 2px;
 }

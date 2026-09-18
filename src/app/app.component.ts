@@ -312,6 +312,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // The bell says how many are waiting without growing to fit them, and says it out loud for
+  // anyone who cannot see the badge at all.
+  get notificationBadge(): string {
+    return this.notification_count > 99 ? '99+' : `${this.notification_count}`;
+  }
+
+  get notificationsLabel(): string {
+    return this.notification_count > 0
+      ? $localize`:Toolbar notifications button, with the number waiting:Notifications, ${this.notification_count}:count: unread`
+      : $localize`:Toolbar notifications button:Notifications`;
+  }
+
   notificationCountUpdate(new_count: number): void {
     this.notification_count = new_count;
   }
