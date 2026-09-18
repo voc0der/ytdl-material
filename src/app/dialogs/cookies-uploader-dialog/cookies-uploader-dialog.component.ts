@@ -3,12 +3,8 @@ import { NgxFileDropEntry, FileSystemFileEntry, FileSystemDirectoryEntry, NgxFil
 import { PostsService } from 'app/posts.services';
 import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatButton, MatMiniFabButton } from '@angular/material/button';
-import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { MatDivider } from '@angular/material/list';
-import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 
 type CookiesTestResponse = {
@@ -21,7 +17,8 @@ type CookiesTestResponse = {
     templateUrl: './cookies-uploader-dialog.component.html',
     styleUrls: ['./cookies-uploader-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, NgxFileDropModule, MatButton, MatMiniFabButton, MatTooltip, MatIcon, MatProgressSpinner, MatDivider, MatFormField, MatLabel, MatInput, FormsModule, MatDialogActions, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, NgxFileDropModule, MatIcon, MatProgressSpinner, FormsModule, MatDialogActions, MatDialogClose]
 })
 export class CookiesUploaderDialogComponent implements OnInit {
   public files: NgxFileDropEntry[] = [];
@@ -33,6 +30,8 @@ export class CookiesUploaderDialogComponent implements OnInit {
   cookiesTestSuccess: boolean = null;
   cookiesTestUrl = '';
   cookiesTestLogs: string[] = [];
+
+  readonly testUrlLabel = $localize`Test URL`;
 
   constructor(private postsService: PostsService) { }
 

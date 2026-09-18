@@ -1,20 +1,19 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
-import { User } from 'api-types';
+import { User, UserPermission, YesNo } from 'api-types';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatButton } from '@angular/material/button';
-import { MatListItemTitle, MatListItemLine } from '@angular/material/list';
-import { MatRadioGroup, MatRadioButton } from '@angular/material/radio';
+import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-manage-user',
     templateUrl: './manage-user.component.html',
     styleUrls: ['./manage-user.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatButton, MatListItemTitle, MatListItemLine, MatRadioGroup, MatRadioButton, MatDialogActions, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, FormsModule, MatProgressSpinner, MatDialogActions, MatDialogClose]
 })
 export class ManageUserComponent implements OnInit {
 
@@ -34,6 +33,13 @@ export class ManageUserComponent implements OnInit {
   }
 
   settingNewPassword = false;
+
+  readonly newPasswordLabel = $localize`New password`;
+  readonly permissionChoices: { value: YesNo | 'default', label: string }[] = [
+    { value: 'default', label: $localize`Use role default` },
+    { value: YesNo.YES, label: $localize`Yes` },
+    { value: YesNo.NO, label: $localize`No` }
+  ];
 
   constructor(public postsService: PostsService, @Inject(MAT_DIALOG_DATA) public data: {user: User}) {
     if (this.data) {
@@ -62,8 +68,15 @@ export class ManageUserComponent implements OnInit {
     }
   }
 
-  changeUserPermissions(change, permission) {
-    this.postsService.setUserPermission(this.user.uid, permission, change.value).subscribe(() => {
+  /** Settings access is what this dialog is opened through, so it cannot be taken away here. */
+  permissionLocked(permission: string): boolean {
+    return permission === 'settings' && this.postsService.user?.uid === this.user?.uid;
+  }
+
+  setPermission(permission: UserPermission, value: YesNo | 'default') {
+    if (this.permissionLocked(permission) || this.permissions[permission] === value) return;
+    this.permissions[permission] = value;
+    this.postsService.setUserPermission(this.user.uid, permission, value).subscribe(() => {
       // console.log(res);
     });
   }

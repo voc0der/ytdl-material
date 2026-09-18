@@ -8,15 +8,12 @@ import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 import { MatAutocompleteTrigger, MatAutocomplete } from '@angular/material/autocomplete';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatCard, MatCardContent } from '@angular/material/card';
 import { MatChipGrid, MatChipRow, MatChipRemove, MatChipInput } from '@angular/material/chips';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
-import { MatFormField, MatInput, MatLabel } from '@angular/material/input';
 import { MatOption } from '@angular/material/select';
-import { MatIconButton, MatButton } from '@angular/material/button';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
-import { MatCheckbox } from '@angular/material/checkbox';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { AsyncPipe, KeyValuePipe } from '@angular/common';
 
 @Pipe({ name: 'highlight' })
@@ -39,7 +36,8 @@ export class HighlightPipe implements PipeTransform {
     providers: [HighlightPipe],
     styleUrls: ['./arg-modifier-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatCard, MatCardContent, MatChipGrid, CdkDropList, MatChipRow, CdkDrag, MatTooltip, MatIcon, MatChipRemove, MatFormField, MatInput, FormsModule, MatAutocompleteTrigger, MatChipInput, ReactiveFormsModule, MatAutocomplete, MatOption, MatIconButton, MatLabel, MatMenu, MatMenuItem, MatMenuTrigger, MatButton, MatCheckbox, MatDialogActions, MatDialogClose, AsyncPipe, KeyValuePipe, HighlightPipe]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatChipGrid, CdkDropList, MatChipRow, CdkDrag, MatTooltip, MatIcon, MatChipRemove, FormsModule, MatAutocompleteTrigger, MatChipInput, ReactiveFormsModule, MatAutocomplete, MatOption, MatMenu, MatMenuItem, MatMenuTrigger, MatSlideToggle, MatDialogActions, MatDialogClose, AsyncPipe, KeyValuePipe, HighlightPipe]
 })
 export class ArgModifierDialogComponent implements OnInit, AfterViewInit {
   myGroup = new UntypedFormControl();
@@ -64,6 +62,8 @@ export class ArgModifierDialogComponent implements OnInit, AfterViewInit {
   addOnBlur = false;
   args_array = null;
   readonly separatorKeysCodes: number[] = [ENTER, COMMA];
+  readonly argLabel = $localize`Arg`;
+  readonly argsChipLabel = $localize`Add an arg`;
 
   @ViewChild( 'chipper', {read: MatAutocompleteTrigger})  autoTrigger: MatAutocompleteTrigger;
 

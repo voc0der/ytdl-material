@@ -2,22 +2,20 @@ import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/cor
 import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatFormField, MatLabel, MatInput, MatHint } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatCheckbox } from '@angular/material/checkbox';
-import { MatDivider, MatList, MatListItem } from '@angular/material/list';
-import { MatSelect, MatOption } from '@angular/material/select';
-import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 @Component({
     selector: 'app-edit-category-dialog',
     templateUrl: './edit-category-dialog.component.html',
     styleUrls: ['./edit-category-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatCheckbox, MatDivider, MatList, MatListItem, MatSelect, MatOption, MatIconButton, MatIcon, MatTooltip, MatHint, MatDialogActions, MatButton, MatDialogClose, MatProgressSpinner]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, FormsModule, MatSlideToggle, MatIcon, MatTooltip, MatDialogActions, MatDialogClose, MatProgressSpinner, PickerComponent]
 })
 export class EditCategoryDialogComponent implements OnInit {
 
@@ -25,7 +23,17 @@ export class EditCategoryDialogComponent implements OnInit {
   original_category = null;
   category = null;
 
-  propertyOptions = [
+  readonly operatorLabel = $localize`Operator`;
+  readonly propertyLabel = $localize`Property`;
+  readonly comparatorLabel = $localize`Comparator`;
+  readonly valueLabel = $localize`Value`;
+
+  readonly operatorOptions: PickerOption[] = [
+    { value: 'or', label: 'OR' },
+    { value: 'and', label: 'AND' }
+  ];
+
+  propertyOptions: PickerOption[] = [
     {
       value: 'fulltitle',
       label: 'Title'
@@ -60,7 +68,7 @@ export class EditCategoryDialogComponent implements OnInit {
     }
   ];
 
-  comparatorOptions = [
+  comparatorOptions: PickerOption[] = [
     {
       value: 'includes',
       label: 'includes'

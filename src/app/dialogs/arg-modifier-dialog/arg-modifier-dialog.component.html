@@ -1,104 +1,109 @@
-<h4 i18n="Modify args title" mat-dialog-title>Modify youtube-dl args</h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>terminal</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Modify args title">Modify youtube-dl args</h2>
+    <p class="dialog-subtitle" i18n="Modify args subtitle">What gets passed to the downloader on top of its own options.</p>
+  </div>
+</header>
 
-<mat-dialog-content>
-  <div class="container">
-    <div class="row">
-      <div class="col-12">
-        <mat-card class="mat-elevation-z6">
-          <mat-card-content>
-            <h6 i18n="Simulated args title">Simulated new args</h6>
-            <mat-chip-grid class="example-chip" #chipList aria-label="Args array" cdkDropList cdkDropListDisabled
-              cdkDropListOrientation="horizontal"
-              (cdkDropListDropped)="drop($event)">
-              @for (arg of args_array; track arg; let i = $index) {
-                <mat-chip-row [matTooltip]="argsByKey[arg] ? argsByKey[arg]['description'] : null" [removable]="removable" (removed)="remove(i)" cdkDrag>
-                  {{arg}}
-                  @if (removable) {
-                    <mat-icon matChipRemove>cancel</mat-icon>
-                  }
-                </mat-chip-row>
-              }
-            </mat-chip-grid>
-            <mat-form-field style="width: 100%" color="accent">
+<mat-dialog-content class="dialog-content">
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>list</mat-icon><ng-container i18n="Simulated args title">Simulated new args</ng-container></h3>
+    <div class="dialog-surface">
+      <mat-chip-grid class="args-chips" #chipList aria-label="Args array" i18n-aria-label="Args array label"
+        cdkDropList cdkDropListDisabled cdkDropListOrientation="horizontal" (cdkDropListDropped)="drop($event)">
+        @for (arg of args_array; track $index) {
+          <mat-chip-row [matTooltip]="argsByKey[arg] ? argsByKey[arg]['description'] : null" [removable]="removable" (removed)="remove($index)" cdkDrag>
+            {{arg}}
+            @if (removable) {
+              <mat-icon matChipRemove>cancel</mat-icon>
+            }
+          </mat-chip-row>
+        }
+      </mat-chip-grid>
+      <span class="kit-field args-input">
+        <input #chipper [formControl]="chipCtrl" [matAutocomplete]="autochip" [matChipInputFor]="chipList"
+          [matChipInputSeparatorKeyCodes]="separatorKeysCodes" [matChipInputAddOnBlur]="addOnBlur"
+          (matChipInputTokenEnd)="add($event)" placeholder="Add an arg and press enter" i18n-placeholder="Args chip input placeholder"
+          [attr.aria-label]="argsChipLabel">
+      </span>
+      <mat-autocomplete #autochip="matAutocomplete" class="kit-autocomplete">
+        @for (arg of filteredChipOptions | async; track arg.key) {
+          <mat-option [value]="arg.key">
+            <span [innerHTML]="arg.key | highlight : chipCtrl.value"></span>
+            <span class="kit-menu-detail">{{arg.description}}</span>
+          </mat-option>
+        }
+      </mat-autocomplete>
+    </div>
+  </section>
 
-              <input #chipper style="width: 100%;" [formControl]="chipCtrl" matInput [matAutocomplete]="autochip" [matChipInputFor]="chipList"
-                [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
-                [matChipInputAddOnBlur]="addOnBlur"
-                (matChipInputTokenEnd)="add($event)">
-            </mat-form-field>
-            <mat-autocomplete #autochip="matAutocomplete">
-              @for (arg of filteredChipOptions | async; track arg) {
-                <mat-option [value]="arg.key">
-                  <span [innerHTML]="arg.key | highlight : chipCtrl.value"></span>
-                  <button class="info-autocomplete-icon" [matTooltip]="arg.description" mat-icon-button><mat-icon>info</mat-icon></button>
-                </mat-option>
-              }
-            </mat-autocomplete>
-          </mat-card-content>
-        </mat-card>
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>add</mat-icon><ng-container i18n="Add arg card title">Add an arg</ng-container></h3>
+    <div class="dialog-surface">
+      <label class="dialog-field dialog-field-wide">
+        <span class="dialog-field-label" i18n="Arg">Arg</span>
+        <span class="kit-field">
+          <input [matAutocomplete]="auto" [formControl]="stateCtrl" [attr.aria-label]="argLabel">
+        </span>
+      </label>
+      <mat-autocomplete #auto="matAutocomplete" class="kit-autocomplete">
+        @for (arg of filteredOptions | async; track arg.key) {
+          <mat-option [value]="arg.key">
+            <span [innerHTML]="arg.key | highlight : stateCtrl.value"></span>
+            <span class="kit-menu-detail">{{arg.description}}</span>
+          </mat-option>
+        }
+      </mat-autocomplete>
+
+      <div class="kit-rail kit-rail-wrap args-actions">
+        <button type="button" class="kit-chip" [matMenuTriggerFor]="argsByCategoryMenu">
+          <mat-icon>category</mat-icon><span i18n="Search args by category button">Search by category</span>
+        </button>
       </div>
-      <div class="col-12">
-        <mat-card class="mat-elevation-z6 my-2">
-          <mat-card-content>
-            <h6 i18n="Add arg card title">Add an arg</h6>
-            <form >
-              <div>
-                <mat-form-field style="width: 75%" color="accent">
-                  <mat-label i18n="Arg">Arg</mat-label>
-                  <input matInput [matAutocomplete]="auto" [formControl]="stateCtrl">
-                </mat-form-field>
-                <mat-autocomplete #auto="matAutocomplete">
-                  @for (arg of filteredOptions | async; track arg) {
-                    <mat-option [value]="arg.key">
-                      <span [innerHTML]="arg.key | highlight : stateCtrl.value"></span>
-                      <button class="info-autocomplete-icon" [matTooltip]="arg.description" mat-icon-button><mat-icon>info</mat-icon></button>
-                    </mat-option>
-                  }
-                </mat-autocomplete>
 
-                <div>
-                  <mat-menu #argsByCategoryMenu="matMenu">
-                    @for (argsInCategory of argsByCategory | keyvalue; track argsInCategory) {
-                      <button mat-menu-item [matMenuTriggerFor]="subMenu">{{argsInfo[argsInCategory.key].label}}</button>
-                      <mat-menu #subMenu="matMenu">
-                        @for (arg of argsInCategory.value; track arg) {
-                          <button mat-menu-item (click)="setFirstArg(arg.key)"><div style="display: inline-block;">{{arg.key}}</div>&nbsp;&nbsp;<div class="info-menu-icon"><mat-icon [matTooltip]="arg.description">info</mat-icon></div></button>
-                        }
-                      </mat-menu>
-                    }
+      <div class="settings-rows">
+        <div class="settings-row">
+          <span class="settings-row-text">
+            <span class="settings-row-title" id="args-use-value" i18n="Use arg value checkbox">Use arg value</span>
+          </span>
+          <mat-slide-toggle [ngModelOptions]="{standalone: true}" [(ngModel)]="secondArgEnabled" aria-labelledby="args-use-value"></mat-slide-toggle>
+        </div>
+        @if (secondArgEnabled) {
+          <label class="settings-row settings-field-row">
+            <span class="settings-row-text">
+              <span class="settings-row-title" i18n="Arg value">Arg value</span>
+            </span>
+            <span class="kit-field">
+              <input [ngModelOptions]="{standalone: true}" [(ngModel)]="secondArg">
+            </span>
+          </label>
+        }
+      </div>
 
-                  </mat-menu>
-
-
-
-                  <button style="margin-bottom: 15px" mat-stroked-button [matMenuTriggerFor]="argsByCategoryMenu"><ng-container i18n="Search args by category button">Search by category</ng-container></button>
-                </div>
-              </div>
-              <div>
-                <mat-checkbox color="accent" [ngModelOptions]="{standalone: true}" [(ngModel)]="secondArgEnabled"><ng-container i18n="Use arg value checkbox">Use arg value</ng-container></mat-checkbox>
-              </div>
-              @if (secondArgEnabled) {
-                <div>
-                  <mat-form-field style="width: 75%" color="accent">
-                    <mat-label i18n="Arg value">Arg value</mat-label>
-                    <input [ngModelOptions]="{standalone: true}" matInput [disabled]="!secondArgEnabled" [(ngModel)]="secondArg">
-                  </mat-form-field>
-                </div>
-              }
-            </form>
-            <div>
-              <button (click)="addArg()" [disabled]="!canAddArg()" mat-stroked-button color="accent"><ng-container i18n="Search args by category button">Add arg</ng-container></button>
-            </div>
-          </mat-card-content>
-        </mat-card>
+      <div class="kit-rail kit-rail-wrap args-actions">
+        <button type="button" class="kit-chip kit-primary" (click)="addArg()" [disabled]="!canAddArg()">
+          <mat-icon>add</mat-icon><span i18n="Add arg button">Add arg</span>
+        </button>
       </div>
     </div>
-  </div>
+  </section>
 
-
+  <mat-menu #argsByCategoryMenu="matMenu" class="kit-menu">
+    @for (argsInCategory of argsByCategory | keyvalue; track argsInCategory.key) {
+      <button mat-menu-item [matMenuTriggerFor]="subMenu">{{argsInfo[argsInCategory.key].label}}</button>
+      <mat-menu #subMenu="matMenu" class="kit-menu">
+        @for (arg of argsInCategory.value; track arg.key) {
+          <button mat-menu-item (click)="setFirstArg(arg.key)" [matTooltip]="arg.description">{{arg.key}}</button>
+        }
+      </mat-menu>
+    }
+  </mat-menu>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-button [mat-dialog-close]="null"><ng-container i18n="Arg modifier cancel button">Cancel</ng-container></button>
-  <button mat-button color="accent" [mat-dialog-close]="modified_args"><ng-container i18n="Arg modifier modify button">Modify</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip dialog-actions-end" [mat-dialog-close]="null" i18n="Arg modifier cancel button">Cancel</button>
+  <button type="button" class="kit-chip kit-primary" [mat-dialog-close]="modified_args">
+    <mat-icon>done</mat-icon><span i18n="Arg modifier modify button">Modify</span>
+  </button>
 </mat-dialog-actions>

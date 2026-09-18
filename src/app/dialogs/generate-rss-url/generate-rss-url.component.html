@@ -1,81 +1,100 @@
-<h4 mat-dialog-title><ng-container i18n="Generate RSS URL">Generate RSS URL</ng-container></h4>
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>rss_feed</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Generate RSS URL">Generate RSS URL</h2>
+    <p class="dialog-subtitle" i18n="Generate RSS URL subtitle">Pick what the feed carries, then copy its link.</p>
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
-<mat-dialog-content>
-  <div class="container-fluid">
-    <div class="row justify-content-center">
-      <div class="col-12 col-md-6 mt-2">
-        <mat-form-field class="filter-field">
-          <mat-label i18n="Title filter">Title filter</mat-label>
-          <input [(ngModel)]="titleFilter" matInput (input)="rebuildURL()">
-          <mat-hint i18n="Supports regex">Supports regex</mat-hint>
-        </mat-form-field>
+<mat-dialog-content class="dialog-content">
+  <section class="dialog-section">
+    <div class="settings-rows">
+      <label class="settings-row settings-field-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Title filter">Title filter</span>
+          <span class="settings-row-hint" i18n="Supports regex">Supports regex</span>
+        </span>
+        <span class="kit-field"><input [(ngModel)]="titleFilter" (input)="rebuildURL()"></span>
+      </label>
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="File type">File type</span>
+        </span>
+        <app-picker [title]="fileTypeLabel" [options]="fileTypeOptions" [value]="fileTypeFilter"
+          (valueChange)="fileTypeChanged($any($event))"></app-picker>
       </div>
-      <div class="col-12 col-md-6 mt-2">
-        <mat-form-field class="filter-field">
-          <mat-label><ng-container i18n="File type">File type</ng-container></mat-label>
-          <mat-select color="accent" [(ngModel)]="fileTypeFilter" (selectionChange)="rebuildURL()">
-            <mat-option value="both"><ng-container i18n="Both">Both</ng-container></mat-option>
-            <mat-option value="video_only"><ng-container i18n="Video only">Video only</ng-container></mat-option>
-            <mat-option value="audio_only"><ng-container i18n="Audio only">Audio only</ng-container></mat-option>
-          </mat-select>
-        </mat-form-field>
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Subscription">Subscription</span>
+        </span>
+        <app-picker [title]="subscriptionLabel" [options]="subscriptionOptions" [value]="subscriptionFilter"
+          (valueChange)="subscriptionChanged($any($event))"></app-picker>
       </div>
-      <div class="col-12 col-md-6 mt-2">
-        <mat-form-field class="filter-field">
-          <mat-label><ng-container i18n="Subscription">Subscription</ng-container></mat-label>
-          <mat-select color="accent" [(ngModel)]="subscriptionFilter" (selectionChange)="rebuildURL()">
-            <mat-option [value]="''"><ng-container i18n="None">None</ng-container></mat-option>
-            @for (sub of postsService.subscriptions; track sub) {
-              <mat-option [value]="sub.id"><ng-container>{{sub.name}}</ng-container></mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      </div>
-      <div class="col-12 col-md-6 mt-2">
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Sort">Sort</span>
+        </span>
         <app-sort-property (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
       </div>
-      <div class="col-12 col-md-6 mt-2">
-        <mat-form-field class="filter-field">
-          <mat-label i18n="Item limit">Item limit</mat-label>
-          <input type="number" [(ngModel)]="itemLimit" (input)="rebuildURL()" matInput>
-        </mat-form-field>
-      </div>
-      <div class="col-12 mb-4">
-        <mat-checkbox (change)="rebuildURL()" [(ngModel)]="favoriteFilter"><ng-container i18n="Favorited">Favorited</ng-container></mat-checkbox>
+      <label class="settings-row settings-field-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n="Item limit">Item limit</span>
+        </span>
+        <span class="kit-field limit-field"><input type="number" [(ngModel)]="itemLimit" (input)="rebuildURL()"></span>
+      </label>
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" id="rss-favorited" i18n="Favorited">Favorited</span>
+        </span>
+        <mat-slide-toggle [(ngModel)]="favoriteFilter" (change)="rebuildURL()" aria-labelledby="rss-favorited"></mat-slide-toggle>
       </div>
     </div>
-  </div>
+  </section>
 
   @if (multiUserMode && !apiToken) {
-    <p i18n="RSS token explanation">The feed is private. Generate a revocable token for your feed reader.</p>
-    <button mat-stroked-button color="accent" (click)="generateFeedToken()" [disabled]="tokenLoading">
-      <ng-container i18n="Generate RSS feed token">Generate feed token</ng-container>
-    </button>
-    @if (tokenError) {
-      <p class="text-danger">{{tokenError}}</p>
-    }
+    <section class="dialog-section">
+      <p class="dialog-hint" i18n="RSS token explanation">The feed is private. Generate a revocable token for your feed reader.</p>
+      <button type="button" class="kit-chip" (click)="generateFeedToken()" [disabled]="tokenLoading">
+        @if (tokenLoading) {
+          <mat-spinner [diameter]="16"></mat-spinner>
+        } @else {
+          <mat-icon>vpn_key</mat-icon>
+        }
+        <span i18n="Generate RSS feed token">Generate feed token</span>
+      </button>
+      @if (tokenError) {
+        <p class="settings-note is-warning" role="alert"><mat-icon>error_outline</mat-icon><span>{{tokenError}}</span></p>
+      }
+    </section>
   }
 
   @if (multiUserMode && apiToken) {
-    <p i18n="RSS header explanation">Configure your feed reader to send this value as an Authorization Bearer token. It is shown only once.</p>
-    <mat-form-field style="width: 100%;">
-      <mat-label i18n="RSS token">RSS token</mat-label>
-      <input readonly [(ngModel)]="apiToken" matInput>
-      <button mat-icon-button matSuffix (click)="copyFeedToken()">
-        <mat-icon>content_copy</mat-icon>
-      </button>
-    </mat-form-field>
+    <section class="dialog-section">
+      <h3 class="dialog-section-title"><mat-icon>vpn_key</mat-icon><ng-container i18n="RSS token">RSS token</ng-container></h3>
+      <p class="dialog-hint" i18n="RSS header explanation">Configure your feed reader to send this value as an Authorization Bearer token. It is shown only once.</p>
+      <span class="kit-field">
+        <input readonly [value]="apiToken" [attr.aria-label]="tokenLabel">
+        <button type="button" class="kit-icon-button" (click)="copyFeedToken()"
+          matTooltip="Copy token" i18n-matTooltip="Copy RSS token button" aria-label="Copy token" i18n-aria-label="Copy RSS token button">
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </span>
+    </section>
   }
 
-  <mat-form-field style="width: 100%;">
-    <mat-label i18n="URL">URL</mat-label>
-    <input readonly [(ngModel)]="url" matInput>
-    <button mat-icon-button matSuffix (click)="copyURL()" [disabled]="multiUserMode && !apiToken">
-      <mat-icon>content_copy</mat-icon>
-    </button>
-  </mat-form-field>
+  <section class="dialog-section">
+    <h3 class="dialog-section-title"><mat-icon>link</mat-icon><ng-container i18n="URL">URL</ng-container></h3>
+    <span class="kit-field">
+      <input readonly [value]="url" [attr.aria-label]="urlLabel">
+      <button type="button" class="kit-icon-button" (click)="copyURL()" [disabled]="multiUserMode && !apiToken"
+        matTooltip="Copy URL" i18n-matTooltip="Copy RSS URL button" aria-label="Copy URL" i18n-aria-label="Copy RSS URL button">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </span>
+  </section>
 </mat-dialog-content>
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close><ng-container i18n="Close">Close</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close">Close</button>
 </mat-dialog-actions>

@@ -3,27 +3,33 @@ import { PostsService } from '../../posts.services';
 import { MatDialog } from '@angular/material/dialog';
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { NgStyle } from '@angular/common';
-import { MatMiniFabButton, MatButton } from '@angular/material/button';
 import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
 import { MatIcon } from '@angular/material/icon';
-import { MatFormField } from '@angular/material/input';
-import { MatSelect, MatOption } from '@angular/material/select';
-import { FormsModule } from '@angular/forms';
+import { MatTooltip } from '@angular/material/tooltip';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 @Component({
     selector: 'app-logs-viewer',
     templateUrl: './logs-viewer.component.html',
     styleUrls: ['./logs-viewer.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatProgressSpinner, NgStyle, MatMiniFabButton, CdkCopyToClipboard, MatIcon, MatFormField, MatSelect, FormsModule, MatOption, MatButton]
+    imports: [MatProgressSpinner, CdkCopyToClipboard, MatIcon, MatTooltip, PickerComponent]
 })
 export class LogsViewerComponent implements OnInit {
 
-  logs: any = null;
+  logs: { text: string, level: string }[] = null;
   logs_text: string = null;
   requested_lines = 50;
   logs_loading = false;
+
+  readonly linesLabel = $localize`Lines`;
+  readonly lineOptions: PickerOption[] = [
+    { value: 10, label: '10' },
+    { value: 25, label: '25' },
+    { value: 50, label: '50' },
+    { value: 100, label: '100' },
+    { value: 0, label: $localize`All` }
+  ];
   constructor(private postsService: PostsService, private dialog: MatDialog) { }
 
   ngOnInit(): void {
@@ -39,17 +45,17 @@ export class LogsViewerComponent implements OnInit {
         this.logs = [];
         const logs_arr = res['logs'].split('\n');
         logs_arr.forEach(log_line => {
-          let color = 'inherit'
+          let level = 'info';
           if (log_line.includes('ERROR')) {
-            color = 'red';
+            level = 'error';
           } else if (log_line.includes('WARN')) {
-            color = 'yellow';
+            level = 'warn';
           } else if (log_line.includes('VERBOSE')) {
-            color = 'gray';
+            level = 'verbose';
           }
           this.logs.push({
             text: log_line,
-            color: color
+            level: level
           })
         });
       } else {
@@ -60,6 +66,11 @@ export class LogsViewerComponent implements OnInit {
       console.error(err);
       this.postsService.openSnackBar($localize`Failed to retrieve logs!`);
     });
+  }
+
+  linesChanged(lines: number): void {
+    this.requested_lines = lines;
+    this.getLogs();
   }
 
   copiedLogsToClipboard() {

@@ -1,23 +1,36 @@
-@if (role) {
-  <h4 mat-dialog-title><ng-container i18n="Manage role dialog title">Manage role</ng-container>&nbsp;-&nbsp;{{role.key}}</h4>
-}
+<header class="dialog-header">
+  <span class="dialog-symbol" aria-hidden="true"><mat-icon>badge</mat-icon></span>
+  <div class="dialog-heading">
+    <h2 mat-dialog-title class="dialog-title" i18n="Manage role dialog title">Manage role</h2>
+    @if (role) {
+      <p class="dialog-subtitle">{{role.key}}</p>
+    }
+  </div>
+  <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
+</header>
 
 @if (role) {
-  <mat-dialog-content>
-    @for (permission of available_permissions; track permission) {
-      <div>
-        <div matListItemTitle>{{permissionToLabel[permission] ? permissionToLabel[permission] : permission}}</div>
-        <div matListItemLine>
-          <mat-radio-group [disabled]="permission === 'settings' && role.key === 'admin'" (change)="changeRolePermissions($event, permission)" [(ngModel)]="permissions[permission]" [attr.aria-label]="'Give role permission for ' + permission">
-            <mat-radio-button value="yes"><ng-container i18n="Yes">Yes</ng-container></mat-radio-button>
-            <mat-radio-button value="no"><ng-container i18n="No">No</ng-container></mat-radio-button>
-          </mat-radio-group>
+  <mat-dialog-content class="dialog-content">
+    <p class="dialog-hint" i18n="Manage role hint">What everyone with this role can do, unless their own account says otherwise.</p>
+    <div class="settings-rows">
+      @for (permission of available_permissions; track permission) {
+        <div class="settings-row">
+          <span class="settings-row-text">
+            <span class="settings-row-title">{{permissionToLabel[permission] ? permissionToLabel[permission] : permission}}</span>
+          </span>
+          <div class="kit-segmented" role="radiogroup" [attr.aria-label]="'Give role permission for ' + permission"
+            [attr.aria-disabled]="permissionLocked(permission) || null">
+            @for (choice of permissionChoices; track choice.value) {
+              <button type="button" role="radio" [attr.aria-checked]="permissions[permission] === choice.value"
+                [disabled]="permissionLocked(permission)" (click)="setPermission(permission, choice.value)">{{choice.label}}</button>
+            }
+          </div>
         </div>
-      </div>
-    }
+      }
+    </div>
   </mat-dialog-content>
 }
 
-<mat-dialog-actions>
-  <button mat-button mat-dialog-close><ng-container i18n="Close">Close</ng-container></button>
+<mat-dialog-actions class="dialog-actions">
+  <button type="button" class="kit-chip kit-primary dialog-actions-end" mat-dialog-close i18n="Close">Close</button>
 </mat-dialog-actions>

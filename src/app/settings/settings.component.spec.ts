@@ -219,3 +219,122 @@ describe('SettingsComponent downloader + yt-dlp channel selection', () => {
     expect(component.getDownloaderLabel('youtube-dl')).toBe('youtube-dl');
   });
 });
+
+describe('SettingsComponent tabs', () => {
+  let component: SettingsComponent;
+  let router_mock: any;
+  let posts_service_mock: any;
+  let tab_params: any;
+
+  beforeEach(() => {
+    tab_params = { get: (_key: string) => null };
+    router_mock = { navigate: vi.fn().mockName('navigate') };
+    posts_service_mock = {
+      initialized: false,
+      service_initialized: of(false),
+      config: { Advanced: { multi_user_mode: false } },
+      getVersionInfo: vi.fn().mockName('getVersionInfo').mockReturnValue(of({})),
+      getDBInfo: vi.fn().mockName('getDBInfo').mockReturnValue(of({})),
+      getLatestGithubRelease: vi.fn().mockName('getLatestGithubRelease').mockReturnValue(of({}))
+    };
+
+    const route_mock: any = { paramMap: of(tab_params) };
+    component = new SettingsComponent(posts_service_mock, { open: () => {} } as any,
+      { bypassSecurityTrustUrl: (url: string) => url } as any, {} as any, router_mock, route_mock);
+  });
+
+  it('opens on the tab the route names', () => {
+    tab_params.get = (key: string) => key === 'tab' ? 'database' : null;
+
+    component.ngOnInit();
+
+    expect(component.tab).toBe('database');
+  });
+
+  it('falls back to the first tab when the route names one that does not exist', () => {
+    tab_params.get = () => 'not-a-tab';
+
+    component.ngOnInit();
+
+    expect(component.tab).toBe('main');
+  });
+
+  it('puts the tab it is switched to in the URL', () => {
+    component.selectTab('advanced');
+
+    expect(component.tab).toBe('advanced');
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/settings', { tab: 'advanced' }]);
+  });
+
+  it('does not navigate to the tab that is already open', () => {
+    component.selectTab('main');
+
+    expect(router_mock.navigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps users out until multi-user mode is on', () => {
+    expect(component.tabDisabled('users')).toBe(true);
+
+    component.selectTab('users');
+
+    expect(component.tab).toBe('main');
+    expect(router_mock.navigate).not.toHaveBeenCalled();
+
+    posts_service_mock.config.Advanced.multi_user_mode = true;
+
+    expect(component.tabDisabled('users')).toBe(false);
+  });
+});
+
+describe('SettingsComponent notification types', () => {
+  let component: SettingsComponent;
+
+  beforeEach(() => {
+    const posts_service_mock: any = { initialized: false, service_initialized: of(false), config: null };
+    component = new SettingsComponent(posts_service_mock, {} as any, {} as any, {} as any,
+      { navigate: () => {} } as any, { paramMap: of({ get: () => null }) } as any);
+    component.new_config = { Extra: { enable_notifications: true, enable_all_notifications: false, allowed_notification_types: [] } };
+  });
+
+  it('turns a kind on and off again', () => {
+    expect(component.notificationTypeEnabled('download_error')).toBe(false);
+
+    component.toggleNotificationType('download_error');
+
+    expect(component.new_config['Extra']['allowed_notification_types']).toEqual(['download_error']);
+    expect(component.notificationTypeEnabled('download_error')).toBe(true);
+
+    component.toggleNotificationType('download_error');
+
+    expect(component.new_config['Extra']['allowed_notification_types']).toEqual([]);
+  });
+
+  it('leaves the kinds that were already picked alone', () => {
+    component.new_config['Extra']['allowed_notification_types'] = ['task_finished'];
+
+    component.toggleNotificationType('download_complete');
+
+    expect(component.new_config['Extra']['allowed_notification_types']).toEqual(['task_finished', 'download_complete']);
+  });
+
+  it('has nothing to pick when notifications are off, or when every kind is sent', () => {
+    expect(component.notificationTypesLocked).toBe(false);
+
+    component.new_config['Extra']['enable_all_notifications'] = true;
+    expect(component.notificationTypesLocked).toBe(true);
+
+    component.new_config['Extra']['enable_all_notifications'] = false;
+    component.new_config['Extra']['enable_notifications'] = false;
+    expect(component.notificationTypesLocked).toBe(true);
+  });
+
+  it('copes with a config that has no list yet', () => {
+    component.new_config['Extra']['allowed_notification_types'] = undefined;
+
+    expect(component.notificationTypeEnabled('download_error')).toBe(false);
+
+    component.toggleNotificationType('download_error');
+
+    expect(component.new_config['Extra']['allowed_notification_types']).toEqual(['download_error']);
+  });
+});

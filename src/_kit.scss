@@ -68,6 +68,12 @@
   box-shadow: inset 0 0 0 2px var(--kit-accent);
 }
 
+// A field waiting on a setting that is off, such as a path only multi-user mode uses.
+.kit-field:has(> input:disabled),
+.kit-field:has(> textarea:disabled) {
+  opacity: 0.5;
+}
+
 .kit-field > input,
 .kit-field > textarea {
   flex: 1 1 auto;
@@ -124,7 +130,8 @@
   background: var(--kit-surface-hover);
 }
 
-.kit-chip[aria-pressed='true'] {
+.kit-chip[aria-pressed='true'],
+.kit-chip[aria-selected='true'] {
   background: var(--kit-tonal);
   color: var(--kit-on-tonal);
   font-weight: 500;
@@ -452,6 +459,44 @@
   opacity: 0.7;
 }
 
+// A page of settings: sections, each a heading and one panel of rows.
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.settings-section-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--kit-on-surface-variant);
+}
+
+.settings-section-hint a {
+  color: var(--kit-on-tonal);
+}
+
+// A heading for part of a panel, under the section's own.
+.settings-subheading {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 // One setting: what it is and what it does on the left, the control that changes it on the
 // right, with a rule between each.
 .settings-rows {
@@ -496,6 +541,88 @@
   color: var(--kit-on-tonal);
 }
 
+// What a row reports rather than lets you change.
+.settings-row-value {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+// A row whose control needs the whole width: a connection string, a set of chips, a log.
+.settings-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.settings-row-stacked > .kit-field {
+  width: 100%;
+}
+
+// A row that is only a button, so it lines up with the controls above it rather than the text.
+.settings-row-actions {
+  justify-content: flex-end;
+}
+
+// Something the page has to say about a setting: a warning, or how a test went.
+.settings-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--kit-on-surface-variant);
+  border-top: 1px solid var(--kit-divider);
+}
+
+.settings-note > .mat-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.settings-note.is-warning {
+  color: var(--kit-on-danger-tonal);
+}
+
+.settings-note.is-good {
+  color: var(--kit-on-tonal);
+}
+
+// A fact about a setting, such as that a custom template is in use.
+.settings-badge {
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+  font-size: 12px;
+}
+
+.settings-empty {
+  margin: 0;
+  padding: 16px 0;
+  color: var(--kit-on-surface-variant);
+  font-size: 14px;
+}
+
+// Server output, kept as it came.
+.log-box {
+  max-height: 260px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--kit-surface);
+  color: var(--kit-on-surface);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 // A text field sits beside its label on a wide screen and under it on a narrow one.
 .settings-field-row > .kit-field {
   flex: 0 0 min(50%, 360px);
@@ -534,6 +661,51 @@
   align-items: center;
   gap: 4px;
   color: var(--kit-on-surface-variant);
+}
+
+// A small set of choices shown side by side, for a value with two or three of them.
+.kit-segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 20px;
+  background: var(--kit-surface);
+}
+
+.kit-segmented > button {
+  margin: 0;
+  padding: 0 12px;
+  height: 32px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--kit-on-surface-variant);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease;
+}
+
+.kit-segmented > button[aria-checked='true'] {
+  background: var(--kit-tonal);
+  color: var(--kit-on-tonal);
+  font-weight: 500;
+}
+
+.kit-segmented > button:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: -2px;
+}
+
+.kit-segmented[aria-disabled='true'] {
+  opacity: 0.45;
+}
+
+.kit-segmented[aria-disabled='true'] > button {
+  cursor: default;
 }
 
 // Text that has to stay on one line, ending in an ellipsis when it cannot.

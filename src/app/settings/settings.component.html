@@ -1,804 +1,1080 @@
-<h4 class="settings-title" i18n="Settings title">Settings</h4>
-<mat-tab-group style="height: 76vh" mat-align-tabs="center" [selectedIndex]="tabIndex" (selectedTabChange)="tabChanged($event)">
-  <!-- Server -->
-  <mat-tab label="Main" i18n-label="Main settings label">
-    <ng-template matTabContent style="padding: 15px;">
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="URL">URL</mat-label>
-                <input [(ngModel)]="new_config['Host']['url']" matInput required>
-                <mat-hint><ng-container i18n="URL setting input hint">URL this app will be accessed from, without the port.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-4 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Port">Port</mat-label>
-                <input [(ngModel)]="new_config['Host']['port']" matInput required>
-                <mat-hint><ng-container i18n="Port setting input hint">The desired port. Default is 17442.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Advanced']['multi_user_mode']"><ng-container i18n="Multi user mode setting">Multi-user mode</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-3 mb-4">
-              <mat-form-field class="text-field">
-                <mat-label i18n="Users base path">Users base path</mat-label>
-                <input [disabled]="!new_config['Advanced']['multi_user_mode']" [(ngModel)]="new_config['Users']['base_path']" matInput required>
-                <mat-hint><ng-container i18n="Users base path hint">Base path for users and their downloaded videos.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Subscriptions']['allow_subscriptions']"><ng-container i18n="Allow subscriptions setting">Allow subscriptions</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2 mb-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Subscriptions base path">Subscriptions base path</mat-label>
-                <input [disabled]="!new_config['Subscriptions']['allow_subscriptions']" [(ngModel)]="new_config['Subscriptions']['subscriptions_base_path']" matInput>
-                <mat-hint><ng-container i18n="Subscriptions base path setting input hint">Base path for videos from your subscribed channels and playlists. It is relative to YTDL-Material's root folder.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3 mb-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Subscriptions']['redownload_fresh_uploads']" matTooltip="Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day." i18n-matTooltip="Redownload fresh uploads tooltip"><ng-container i18n="Redownload fresh uploads">Redownload fresh uploads</ng-container></mat-checkbox>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-form-field>
-                <mat-label><ng-container i18n="Theme select label">Theme</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Themes']['default_theme']">
-                  <mat-option value="default"><ng-container i18n="Default theme label">Default</ng-container></mat-option>
-                  <mat-option value="dark"><ng-container i18n="Dark theme label">Dark</ng-container></mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Themes']['allow_theme_change']"><ng-container i18n="Allow theme change setting">Allow theme change</ng-container></mat-checkbox>
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <!-- Downloader -->
-  <mat-tab label="Downloader" i18n-label="Downloader settings label">
-    <ng-template matTabContent>
-      <!-- Downloader -->
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Audio folder path">Audio folder path</mat-label>
-                <input matInput [(ngModel)]="new_config['Downloader']['path-audio']" required>
-                <mat-hint><ng-container i18n="Aduio path setting input hint">Path for audio only downloads. It is relative to YTDL-Material's root folder.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Video folder path">Video folder path</mat-label>
-                <input matInput [(ngModel)]="new_config['Downloader']['path-video']" required>
-                <mat-hint><ng-container i18n="Video path setting input hint">Path for video downloads. It is relative to YTDL-Material's root folder.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3 mb-1">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Default file output">Default file output</mat-label>
-                <input matInput [(ngModel)]="new_config['Downloader']['default_file_output']" matInput>
-                <mat-hint><a target="_blank" href="https://github.com/yt-dlp/yt-dlp#output-template">
-                  <ng-container i18n="Youtube-dl output template documentation link">Documentation</ng-container></a>.
-                  <ng-container i18n="Custom Output input hint">Path is relative to the above download paths. Don't include extension.</ng-container>
-                </mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['replace_invalid_filename_chars']">
-                <ng-container i18n="Replace invalid filename characters setting">Replace invalid filename characters</ng-container>
-              </mat-checkbox>
-            </div>
-            <div class="col-12 mt-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Invalid filename characters">Invalid filename characters</mat-label>
-                <input matInput [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_chars']">
-                <mat-hint><ng-container i18n="Invalid filename characters input hint">Characters to replace before writing filenames. Default: \/:*?"&lt;&gt;|</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2 mb-1">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Filename replacement character">Filename replacement character</mat-label>
-                <input matInput [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_replacement']">
-                <mat-hint><ng-container i18n="Filename replacement character input hint">Replacement text used for each invalid character (yt-dlp only).</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-4 mb-5">
-              <mat-form-field class="text-field" style="margin-right: 12px;" color="accent">
-                <mat-label i18n="Global custom args">Global custom args</mat-label>
-                <textarea matInput [(ngModel)]="new_config['Downloader']['custom_args']"></textarea>
-                <mat-hint><ng-container i18n="Custom args setting input hint">Global custom args for home page and subscription downloads. Args are delimited using two commas like so: ,,</ng-container></mat-hint>
-                <button class="args-edit-button" (click)="openArgsModifierDialog()" mat-icon-button><mat-icon>edit</mat-icon></button>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2 mb-4">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Hardware acceleration setting label">Hardware acceleration</mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Downloader']['transcoding']">
-                  <mat-option [value]="false"><ng-container i18n="Hardware acceleration none option">None</ng-container></mat-option>
-                  <mat-option value="amf">AMD AMF</mat-option>
-                  <mat-option value="nvenc">Nvidia NVENC</mat-option>
-                  <mat-option value="qsv">Intel Quicksync (QSV)</mat-option>
-                  <mat-option value="vaapi">Video Acceleration API (VAAPI)</mat-option>
-                </mat-select>
-                <mat-hint><ng-container i18n="Hardware acceleration setting hint">Uses your GPU to speed up video processing such as cropping. The GPU must be passed through to the container.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            @if (transcodingWarning) {
-              <div class="col-12 mt-2 mb-2 transcoding-warning">
-                <mat-icon class="transcoding-warning-icon">warning</mat-icon>
-                <span>{{transcodingWarning}}</span>
+<div class="container kit-page settings-page">
+  <header class="page-header">
+    <h1 class="page-title" i18n="Settings title">Settings</h1>
+    <p class="page-intro" i18n="Settings page introduction">How this server downloads, stores and shows your media.</p>
+  </header>
+
+  <!-- aria-disabled rather than disabled, so the tab that needs multi-user mode can still say so. -->
+  <nav class="kit-rail settings-tabs" role="tablist" aria-label="Settings sections" i18n-aria-label="Settings sections label">
+    @for (section of tabs; track section.key) {
+      <button type="button" class="kit-chip" role="tab" [id]="'settings-tab-' + section.key"
+        [attr.aria-selected]="tab === section.key" [attr.aria-controls]="'settings-panel-' + section.key"
+        [attr.aria-disabled]="tabDisabled(section.key) || null" [class.is-unavailable]="tabDisabled(section.key)"
+        [matTooltip]="tabDisabled(section.key) ? usersTabDisabledTooltip : null" (click)="selectTab(section.key)">
+        <mat-icon>{{section.icon}}</mat-icon>
+        <span>{{section.label}}</span>
+      </button>
+    }
+  </nav>
+
+  <div class="settings-panel" role="tabpanel" [id]="'settings-panel-' + tab" [attr.aria-labelledby]="'settings-tab-' + tab">
+    @if (!new_config) {
+      <div class="list-loading" aria-busy="true">
+        <mat-spinner [diameter]="32"></mat-spinner>
+      </div>
+    } @else {
+
+      <!-- ------------------------------------------------------------------ Main -->
+      @if (tab === 'main') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings server section">Server</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="URL">URL</span>
+                    <span class="settings-row-hint" i18n="URL setting input hint">URL this app will be accessed from, without the port.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Host']['url']" required></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Port">Port</span>
+                    <span class="settings-row-hint" i18n="Port setting input hint">The desired port. Default is 17442.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Host']['port']" required></span>
+                </label>
               </div>
-            }
-            @if (transcodingTestPending) {
-              <div class="col-12 mt-2 mb-2 transcoding-pending">
-                <mat-icon class="transcoding-pending-icon">hourglass_empty</mat-icon>
-                <span i18n="Hardware acceleration test pending message">The hardware acceleration flight test is still running. Refresh this page shortly to see the result.</span>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings users section">Users</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-multi-user" i18n="Multi user mode setting">Multi-user mode</span>
+                    <span class="settings-row-hint" i18n="Multi user mode hint">Everyone signs in and gets their own library.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Advanced']['multi_user_mode']" aria-labelledby="settings-multi-user"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Users base path">Users base path</span>
+                    <span class="settings-row-hint" i18n="Users base path hint">Base path for users and their downloaded videos.</span>
+                  </span>
+                  <span class="kit-field">
+                    <input [disabled]="!new_config['Advanced']['multi_user_mode']" [(ngModel)]="new_config['Users']['base_path']" required>
+                  </span>
+                </label>
               </div>
-            }
-          </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings subscriptions section">Subscriptions</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-allow-subs" i18n="Allow subscriptions setting">Allow subscriptions</span>
+                    <span class="settings-row-hint" i18n="Allow subscriptions hint">Off hides the Subscriptions page entirely.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Subscriptions']['allow_subscriptions']" aria-labelledby="settings-allow-subs"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Subscriptions base path">Subscriptions base path</span>
+                    <span class="settings-row-hint" i18n="Subscriptions base path setting input hint">Base path for videos from your subscribed channels and playlists. It is relative to YTDL-Material's root folder.</span>
+                  </span>
+                  <span class="kit-field">
+                    <input [disabled]="!new_config['Subscriptions']['allow_subscriptions']" [(ngModel)]="new_config['Subscriptions']['subscriptions_base_path']">
+                  </span>
+                </label>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-redownload-fresh" i18n="Redownload fresh uploads">Redownload fresh uploads</span>
+                    <span class="settings-row-hint" i18n="Redownload fresh uploads tooltip">Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Subscriptions']['redownload_fresh_uploads']" aria-labelledby="settings-redownload-fresh"></mat-slide-toggle>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings appearance section">Appearance</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Theme select label">Theme</span>
+                    <span class="settings-row-hint" i18n="Theme setting hint">What everyone sees before they change it themselves.</span>
+                  </span>
+                  <app-picker [title]="themeLabel" [options]="themeOptions" [value]="new_config['Themes']['default_theme']"
+                    (valueChange)="new_config['Themes']['default_theme'] = $any($event)"></app-picker>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-allow-theme" i18n="Allow theme change setting">Allow theme change</span>
+                    <span class="settings-row-hint" i18n="Allow theme change hint">Lets anyone switch between light and dark from the menu.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Themes']['allow_theme_change']" aria-labelledby="settings-allow-theme"></mat-slide-toggle>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <h6 i18n="Categories">Categories</h6>
+
+      <!-- ------------------------------------------------------------ Downloader -->
+      @if (tab === 'downloader') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings paths section">Paths and filenames</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Audio folder path">Audio folder path</span>
+                    <span class="settings-row-hint" i18n="Aduio path setting input hint">Path for audio only downloads. It is relative to YTDL-Material's root folder.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['path-audio']" required></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Video folder path">Video folder path</span>
+                    <span class="settings-row-hint" i18n="Video path setting input hint">Path for video downloads. It is relative to YTDL-Material's root folder.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['path-video']" required></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Default file output">Default file output</span>
+                    <span class="settings-row-hint">
+                      <ng-container i18n="Custom Output input hint">Path is relative to the above download paths. Don't include extension.</ng-container>
+                      <a target="_blank" rel="noopener" href="https://github.com/yt-dlp/yt-dlp#output-template" i18n="Youtube-dl output template documentation link">Documentation</a>
+                    </span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['default_file_output']"></span>
+                </label>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-replace-chars" i18n="Replace invalid filename characters setting">Replace invalid filename characters</span>
+                    <span class="settings-row-hint" i18n="Replace invalid filename characters hint">Rewrites characters a filesystem will not take.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Downloader']['replace_invalid_filename_chars']" aria-labelledby="settings-replace-chars"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Invalid filename characters">Invalid filename characters</span>
+                    <span class="settings-row-hint" i18n="Invalid filename characters input hint">Characters to replace before writing filenames. Default: \/:*?"&lt;&gt;|</span>
+                  </span>
+                  <span class="kit-field">
+                    <input [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_chars']">
+                  </span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Filename replacement character">Filename replacement character</span>
+                    <span class="settings-row-hint" i18n="Filename replacement character input hint">Replacement text used for each invalid character (yt-dlp only).</span>
+                  </span>
+                  <span class="kit-field">
+                    <input [disabled]="!new_config['Downloader']['replace_invalid_filename_chars']" [(ngModel)]="new_config['Downloader']['invalid_filename_replacement']">
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings how it downloads section">How it downloads</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Global custom args">Global custom args</span>
+                    <span class="settings-row-hint" i18n="Custom args setting input hint">Global custom args for home page and subscription downloads. Args are delimited using two commas like so: ,,</span>
+                  </span>
+                  <div class="args-row">
+                    <span class="kit-field args-field">
+                      <textarea rows="2" [(ngModel)]="new_config['Downloader']['custom_args']" [attr.aria-label]="argsLabel"></textarea>
+                    </span>
+                    <button type="button" class="kit-icon-button" (click)="openArgsModifierDialog()"
+                      matTooltip="Edit args" i18n-matTooltip="Edit args button" aria-label="Edit args" i18n-aria-label="Edit args button">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Hardware acceleration setting label">Hardware acceleration</span>
+                    <span class="settings-row-hint" i18n="Hardware acceleration setting hint">Uses your GPU to speed up video processing such as cropping. The GPU must be passed through to the container.</span>
+                  </span>
+                  <app-picker [title]="transcodingLabel" [options]="transcodingOptions" [value]="new_config['Downloader']['transcoding']"
+                    (valueChange)="new_config['Downloader']['transcoding'] = $any($event)"></app-picker>
+                </div>
+                @if (transcodingWarning) {
+                  <p class="settings-note is-warning" role="alert">
+                    <mat-icon>warning</mat-icon>
+                    <span>{{transcodingWarning}}</span>
+                  </p>
+                }
+                @if (transcodingTestPending) {
+                  <p class="settings-note">
+                    <mat-icon>hourglass_empty</mat-icon>
+                    <span i18n="Hardware acceleration test pending message">The hardware acceleration flight test is still running. Refresh this page shortly to see the result.</span>
+                  </p>
+                }
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-use-archive" i18n="Use youtubedl archive setting">Use youtube-dl archive</span>
+                    <span class="settings-row-hint" i18n="Use youtubedl archive hint">Keeps an archive of what was downloaded, so nothing is fetched twice.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Downloader']['use_youtubedl_archive']" aria-labelledby="settings-use-archive"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-include-thumbnail" i18n="Include thumbnail setting">Include thumbnail</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Downloader']['include_thumbnail']" aria-labelledby="settings-include-thumbnail"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-include-metadata" i18n="Include metadata setting">Include metadata</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Downloader']['include_metadata']" aria-labelledby="settings-include-metadata"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-skip-join-only" i18n="Skip join-only videos setting">Skip join-only videos</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Downloader']['skip_join_only_videos']" aria-labelledby="settings-skip-join-only"></mat-slide-toggle>
+                </div>
+                @if (postsService.ytdlpImpersonationAvailable) {
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" id="settings-impersonation" i18n="Use yt-dlp browser impersonation setting">Use yt-dlp browser impersonation</span>
+                    </span>
+                    <mat-slide-toggle [(ngModel)]="new_config['Downloader']['use_ytdlp_impersonation']" aria-labelledby="settings-impersonation"></mat-slide-toggle>
+                  </div>
+                }
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="JavaScript runtimes">JavaScript runtimes</span>
+                    <span class="settings-row-hint" i18n="JavaScript runtimes setting input hint">Optional. Pins the runtime yt-dlp uses to solve YouTube's JS challenge (--js-runtimes). Leave empty to auto-detect, which is recommended. Pinning a runtime that is not installed causes downloads to fail with HTTP 403.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['js_runtimes']" placeholder="deno"></span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Categories">Categories</h2>
+            <p class="settings-section-hint" i18n="Categories section hint">Downloads that match a category are filed under it. Drag to reorder: the first match wins.</p>
+            <div class="kit-panel">
               @if (postsService.categories && postsService.categories.length > 0) {
                 <div cdkDropList class="category-list" (cdkDropListDropped)="dropCategory($event)">
                   @for (category of postsService.categories; track category) {
-                    <div class="category-box" cdkDrag>
-                      <div class="category-custom-placeholder" *cdkDragPlaceholder></div>
-                      <span class="category-name">
-                        {{category['name']}}
-                      </span>
-                      <span style="float: right">
-                        @if (category['show_as_filter']) {
-                          <button mat-icon-button disabled matTooltip="Shown as library filter" i18n-matTooltip="Shown as library filter tooltip"><mat-icon>home</mat-icon></button>
-                        }
-                        <button mat-icon-button (click)="openEditCategoryDialog(category)"><mat-icon>edit</mat-icon></button>
-                        <button mat-icon-button (click)="deleteCategory(category)"><mat-icon>cancel</mat-icon></button>
-                      </span>
+                    <div class="category-row" cdkDrag>
+                      <div class="category-placeholder" *cdkDragPlaceholder></div>
+                      <mat-icon class="category-handle" cdkDragHandle>drag_indicator</mat-icon>
+                      <span class="category-name kit-one-line">{{category['name']}}</span>
+                      @if (category['show_as_filter']) {
+                        <mat-icon class="category-badge" matTooltip="Shown as library filter" i18n-matTooltip="Shown as library filter tooltip">home</mat-icon>
+                      }
+                      <button type="button" class="kit-icon-button" (click)="openEditCategoryDialog(category)"
+                        aria-label="Edit category" i18n-aria-label="Edit category button label"><mat-icon>edit</mat-icon></button>
+                      <button type="button" class="kit-icon-button" (click)="deleteCategory(category)"
+                        aria-label="Delete category" i18n-aria-label="Delete category button label"><mat-icon>delete_outline</mat-icon></button>
                     </div>
                   }
                 </div>
+              } @else {
+                <p class="settings-empty" i18n="No categories text">No categories yet.</p>
               }
-              <button style="margin-top: 10px;" mat-mini-fab (click)="openAddCategoryDialog()" aria-label="Add category" i18n-aria-label="Add category button label"><mat-icon>add</mat-icon></button>
-              @if (postsService.categories && postsService.categories.length === 0) {
-                <button style="margin-top: 10px; margin-left: 8px;" mat-button color="accent" [disabled]="addingDefaultCategories" (click)="addDefaultCategories()" i18n="Add default category set button">(Add default set)</button>
-              }
-            </div>
-            <div class="col-12 mt-2 mb-2">
-              <mat-checkbox [(ngModel)]="new_config['Extra']['allow_playlist_categorization']" matTooltip="With this setting enabled, if a single video matches a category, the entire playlist will receive that category." i18n-matTooltip="Allow playlist categorization setting tooltip"><ng-container i18n="Allow playlist categorization setting label">Allow playlist categorization</ng-container></mat-checkbox>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_youtubedl_archive']"><ng-container i18n="Use youtubedl archive setting">Use youtube-dl archive</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['include_thumbnail']"><ng-container i18n="Include thumbnail setting">Include thumbnail</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['include_metadata']"><ng-container i18n="Include metadata setting">Include metadata</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['skip_join_only_videos']"><ng-container i18n="Skip join-only videos setting">Skip join-only videos</ng-container></mat-checkbox>
-            </div>
-            @if (postsService.ytdlpImpersonationAvailable) {
-            <div class="col-12 mt-2 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Downloader']['use_ytdlp_impersonation']"><ng-container i18n="Use yt-dlp browser impersonation setting">Use yt-dlp browser impersonation</ng-container></mat-checkbox>
-            </div>
-            }
-            <div class="col-12 mt-3 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="JavaScript runtimes">JavaScript runtimes</mat-label>
-                <input matInput [(ngModel)]="new_config['Downloader']['js_runtimes']" placeholder="deno">
-                <mat-hint><ng-container i18n="JavaScript runtimes setting input hint">Optional. Pins the runtime yt-dlp uses to solve YouTube's JS challenge (--js-runtimes). Leave empty to auto-detect, which is recommended. Pinning a runtime that is not installed causes downloads to fail with HTTP 403.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3 mb-4">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Max concurrent downloads">Max concurrent downloads</mat-label>
-                <input type="number" [(ngModel)]="new_config['Downloader']['max_concurrent_downloads']" matInput>
-                <mat-hint><ng-container i18n="Max concurrent downloads input hint">Limits the amount of downloads that can be simultaneously downloaded. Use -1 for no limit.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2 mb-4">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Minimum sleep between downloads">Minimum sleep between downloads (seconds)</mat-label>
-                <input type="number" min="0" [(ngModel)]="new_config['Downloader']['min_sleep_between_downloads']" matInput>
-                <mat-hint><ng-container i18n="Minimum sleep between downloads input hint">Waits before starting the next queued download step. Use 0 to disable.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2 mb-4">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Playlist chunk size">Playlist chunk size</mat-label>
-                <input type="number" [(ngModel)]="new_config['Downloader']['playlist_chunk_size']" matInput>
-                <mat-hint><ng-container i18n="Playlist chunk size input hint">Number of playlist items queued per batch when downloading large playlists. Smaller values start faster.</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-2 mb-4">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Download rate limit">Download rate limit</mat-label>
-                <input [(ngModel)]="new_config['Downloader']['download_rate_limit']" matInput>
-                <mat-hint><ng-container i18n="Download rate limit input hint">Rate limits your downloads to the specified amount. Ex: 200K</ng-container></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <button (click)="killAllDownloads()" mat-stroked-button color="warn"><ng-container i18n="Kill all downloads button">Kill all downloads</ng-container></button>
-              <button class="ms-2" (click)="deleteOrphanFiles()" mat-stroked-button color="warn"><ng-container i18n="Delete orphan videos button">Delete orphan videos</ng-container></button>
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <!-- Extra -->
-  <mat-tab label="Extra" i18n-label="Extra settings label">
-    <ng-template matTabContent>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Top title">Top title</mat-label>
-                <input [(ngModel)]="new_config['Extra']['title_top']" matInput required>
-                <mat-hint></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['file_manager_enabled']"><ng-container i18n="File manager enabled setting">File manager enabled</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['enable_downloads_manager']"><ng-container i18n="Downloads manager enabled setting">Downloads manager enabled</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['allow_quality_select']"><ng-container i18n="Allow quality seelct setting">Allow quality select</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['warn_on_duplicate']"><ng-container i18n="Warn on duplicate setting">Warn on duplicate</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['download_only_mode']"><ng-container i18n="Download only mode setting">Download only mode</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['force_autoplay']"><ng-container i18n="Force autoplay setting">Force autoplay</ng-container></mat-checkbox>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['enable_documentation_api']"><ng-container i18n="Enable API documentation setting">Enable API documentation</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-3">
-              <div class="api-docs-hint">
-                @if (new_config['API']['enable_documentation_api']) {
-                  <a target="_blank" href="/docs"><ng-container i18n="View API docs setting hint">View documentation</ng-container></a>
-                } @else {
-                  <span i18n="API documentation restart hint">Restart after enabling to make documentation available.</span>
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_youtube_API']"><ng-container i18n="Use YouTube API setting">Use YouTube API</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Youtube API Key">Youtube API Key</mat-label>
-                <input [disabled]="!new_config['API']['use_youtube_API']" [(ngModel)]="new_config['API']['youtube_API_key']" matInput required>
-                <mat-hint><a target="_blank" href="https://developers.google.com/youtube/v3/getting-started"><ng-container i18n="Youtube API Key setting hint">Generating a key is easy!</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-1">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['twitch_auto_download_chat']"><ng-container i18n="Auto download Twitch Chat setting">Auto-download Twitch Chat</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['use_sponsorblock_API']" matTooltip="Removes sponsor segments from yt-dlp downloads and enables a per-download opt-out." i18n-matTooltip="SponsorBlock downloads tooltip"><ng-container i18n="Use SponsorBlock during downloads setting">Use SponsorBlock During Downloads</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-2 mb-3">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['API']['generate_NFO_files']" matTooltip="Generates NFO files with every download, primarily used by Kodi." i18n-matTooltip="Generate NFO files tooltip"><ng-container i18n="Generate NFO files setting">Generate NFO files</ng-container></mat-checkbox>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <h6>RSS Feed</h6>
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['enable_rss_feed']" ><ng-container i18n="Enable RSS Feed setting">Enable RSS Feed</ng-container></mat-checkbox>
-              <p><ng-container i18n="RSS Feed prefix">Be careful enabling this with multi-user mode! User data may be exposed.</ng-container></p>
-              <button mat-stroked-button (click)="openGenerateRSSURLDialog()" [disabled]="!new_config['Extra']['enable_rss_feed']" i18n="Generate RSS URL">Generate RSS URL</button>
-              <p style="margin-top: 12px;"><a target="_blank" href="https://github.com/voc0der/ytdl-material/wiki/RSS-Feed"><ng-container i18n="RSS feed documentation">See documentation here.</ng-container></a></p>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <h6>Chrome</h6>
-              <p><a href="https://github.com/voc0der/ytdl-material/blob/main/chrome-extension/ytdl-material-chrome-extension.zip?raw=true"><ng-container i18n="Chrome ext click here">Click here</ng-container></a>&nbsp;<ng-container i18n="Chrome click here suffix">to download the official ytdl-material Chrome extension manually.</ng-container></p>
-              <p><ng-container i18n="Chrome setup suffix">You must manually load the extension and modify the extension's settings to set the frontend URL.</ng-container></p>
-              <mat-divider class="ext-divider"></mat-divider>
-            </div>
-            <div class="col-12">
-              <h6>Firefox</h6>
-              <p><a href="https://addons.mozilla.org/en-US/firefox/search/?q=ytdl-material" target="_blank"><ng-container i18n="Firefox ext click here">Click here</ng-container></a>&nbsp;<ng-container i18n="Firefox click here suffix">to install the official ytdl-material Firefox extension right off the Firefox extensions page.</ng-container></p>
-              <p><a href="https://github.com/voc0der/ytdl-material/wiki/Firefox-Extension" target="_blank"><ng-container i18n="Firefox setup prefix link">Detailed setup instructions.</ng-container></a>&nbsp;<ng-container i18n="Firefox setup suffix">Not much is required other than changing the extension's settings to set the frontend URL.</ng-container></p>
-              <mat-divider class="ext-divider"></mat-divider>
-            </div>
-            <div class="col-12">
-              <h6>Bookmarklet</h6>
-              <p><ng-container i18n="Bookmarklet instructions">Drag the link below to your bookmarks, and you're good to go! Just navigate to the YouTube video you'd like to download, and click the bookmark.</ng-container></p>
-              <mat-checkbox (change)="bookmarkletAudioOnlyChanged($event)"><ng-container i18n="Generate audio only bookmarklet checkbox">Generate 'audio only' bookmarklet</ng-container></mat-checkbox>
-              <!--<button style="margin-bottom: 5px;" mat-stroked-button color="accent" (click)="generateBookmarklet()">Generate bookmarklet</button>-->
-              <p><a [href]="generated_bookmarklet_code" target="_blank">YTDL-Bookmarklet</a></p>
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <!-- Database -->
-  <mat-tab label="Database" i18n-label="Database settings label">
-    <ng-template matTabContent>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              @if (db_info) {
-                <div>
-                  <p><ng-container i18n="Database location label">Database location:</ng-container>&nbsp;<strong>{{db_info['current_db_label'] || (db_info['using_local_db'] ? 'Local' : 'MongoDB')}}</strong></p>
-                  <h6 i18n="Records per table label">Records per table</h6>
-                  <mat-list style="padding-top: 0px">
-                    @for (table_stats of db_info['stats_by_table'] | keyvalue; track table_stats) {
-                      <mat-list-item style="height: 28px">
-                        {{table_stats.key}}: {{table_stats.value.records_count}}
-                      </mat-list-item>
-                    }
-                  </mat-list>
-                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="Remote Database Type">Remote Database Type</mat-label>
-                    <mat-select [(ngModel)]="new_config['Database']['remote_db_type']">
-                      <mat-option value="" i18n="Automatic remote database type option">Automatic</mat-option>
-                      <mat-option value="postgres">PostgreSQL</mat-option>
-                      <mat-option value="mongo">MongoDB</mat-option>
-                    </mat-select>
-                    <mat-hint i18n="Remote DB type hint">Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</mat-hint>
-                  </mat-form-field>
-                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="PostgreSQL Connection String">PostgreSQL Connection String</mat-label>
-                    <input [(ngModel)]="new_config['Database']['postgresdb_connection_string']" matInput>
-                    <mat-hint><ng-container i18n="PostgreSQL Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;postgresql://ytdl-material:ytdl-material@127.0.0.1:5432/ytdl-material<br>Docker: postgresql://&lt;container name&gt;:5432/ytdl-material</mat-hint>
-                  </mat-form-field>
-                  <div class="test-connection-div">
-                    <button (click)="testConnectionString(new_config['Database']['postgresdb_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test PostgreSQL connection string button">Test PostgreSQL connection string</ng-container></button>
-                    @if (testing_connection_string) {
-                      <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
-                    }
-                  </div>
-                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="MongoDB Connection String">MongoDB Connection String</mat-label>
-                    <input [(ngModel)]="new_config['Database']['mongodb_connection_string']" matInput>
-                    <mat-hint><ng-container i18n="MongoDB Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;mongodb://127.0.0.1:27017/?compressors=zlib<br>Docker: mongodb://&lt;container name&gt;:27017/?compressors=zlib</mat-hint>
-                  </mat-form-field>
-                  <div class="test-connection-div">
-                    <button (click)="testConnectionString(new_config['Database']['mongodb_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test MongoDB connection string button">Test MongoDB connection string</ng-container></button>
-                    @if (testing_connection_string) {
-                      <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
-                    }
-                  </div>
-                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="DB migration mode">DB migration mode</mat-label>
-                    <mat-select [(ngModel)]="new_config['Database']['db_migrate']">
-                      <mat-option value="" i18n="DB migration off option">Disabled</mat-option>
-                      <mat-option value="postgres">MongoDB to PostgreSQL on startup</mat-option>
-                      <mat-option value="mongo">PostgreSQL to MongoDB on startup</mat-option>
-                    </mat-select>
-                    <mat-hint i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Successful migrations clear the saved setting automatically, but remove the env var so it is not re-applied on the next boot.</mat-hint>
-                  </mat-form-field>
-                  <mat-form-field style="width: 100%; margin-top: 15px; margin-bottom: 10px" color="accent">
-                    <mat-label i18n="Redis Connection String">Redis Connection String</mat-label>
-                    <input [(ngModel)]="new_config['Database']['redis_connection_string']" matInput>
-                    <mat-hint><ng-container i18n="Redis Connection String setting hint AKA preamble">Optional shared rate-limit store. Restart required after changing this setting. Example:</ng-container>&nbsp;redis://127.0.0.1:6379/0<br>Docker: redis://ytdl-redis:6379/0</mat-hint>
-                  </mat-form-field>
-                  <div class="test-connection-div">
-                    <button (click)="testConnectionString(new_config['Database']['redis_connection_string'])" [disabled]="testing_connection_string" mat-flat-button color="accent"><ng-container i18n="Test Redis connection string button">Test Redis connection string</ng-container></button>
-                    @if (testing_connection_string) {
-                      <mat-spinner class="test-connection-spinner" style="margin-left: 10px" [diameter]="25"></mat-spinner>
-                    }
-                  </div>
-                  <div class="transfer-db-div">
-                    <button [disabled]="db_transferring" color="accent" (click)="transferDB()" mat-raised-button><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? (db_info['configured_remote_db_label'] || 'Remote DB') : 'Local'}}</button>
-                  </div>
-                </div>
-              }
-              @if (!db_info) {
-                <div>
-                  <ng-container i18n="Database info not retrieved error message">Database information could not be retrieved. Check the server logs for more information.</ng-container>
-                </div>
-              }
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <!-- Notifications -->
-  <mat-tab label="Notifications" i18n-label="Notifications settings label">
-    <ng-template matTabContent>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <div><a target="_blank" href="https://github.com/voc0der/ytdl-material/wiki/Notifications"><ng-container i18n="Documentation">Documentation</ng-container></a></div>
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['enable_notifications']"><ng-container i18n="Enable notifications setting">Enable notifications</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-1">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Extra']['enable_all_notifications']"><ng-container i18n="Enable all notifications setting">Enable all notifications</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mt-1">
-              <mat-form-field class="text-field">
-                <mat-label><ng-container i18n="Allowed notification types">Allowed notification types</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Extra']['allowed_notification_types']" [disabled]="!new_config['Extra']['enable_notifications'] || new_config['Extra']['enable_all_notifications']" multiple>
-                  <mat-option value="download_complete" i18n="Download complete">Download complete</mat-option>
-                  <mat-option value="download_error" i18n="Download error">Download error</mat-option>
-                  <mat-option value="task_finished" i18n="Task finished">Task finished</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2 mt-2 webhook-url-row">
-              <mat-form-field class="text-field webhook-url-field" color="accent">
-                <mat-label i18n="webhook URL">Webhook URL</mat-label>
-                <input placeholder="https://example.com/endpoint/12345" [(ngModel)]="new_config['API']['webhook_URL']" matInput>
-                <mat-hint>Place endpoint URL here to integrate with services like Zapier, Automatisch, and Apprise (/notify/&lt;key&gt; or apprise(s)://host/&lt;key&gt;?tags=...).</mat-hint>
-              </mat-form-field>
-              <div class="webhook-template-actions">
-                <button class="webhook-template-button" mat-stroked-button (click)="openWebhookTemplateDialog()"><ng-container i18n="Set webhook template button">Set Template</ng-container></button>
-                @if (new_config['API']['use_custom_webhook_template']) {
-                  <span class="webhook-template-enabled" i18n="Webhook template enabled status">Custom webhook template enabled</span>
-                }
-              </div>
-            </div>
-            <div class="col-12 mb-2 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Discord Webhook URL">Discord Webhook URL</mat-label>
-                <input placeholder="https://discord.com/api/webhooks/<webhook_id>/<webhook_token>" [(ngModel)]="new_config['API']['discord_webhook_URL']" matInput>
-                <mat-hint><a target="_blank" href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"><ng-container i18n="Discord API setting hint">See docs here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2 mt-3">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Slack Webhook URL">Slack Webhook URL</mat-label>
-                <input placeholder="https://example.invalid/slack-webhook" [(ngModel)]="new_config['API']['slack_webhook_URL']" matInput>
-                <mat-hint><a target="_blank" href="https://api.slack.com/messaging/webhooks"><ng-container i18n="Slack API setting hint">See docs here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_ntfy_API']"><ng-container i18n="Use ntfy API setting">Use ntfy API</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="ntfy topic URL">ntfy topic URL</mat-label>
-                <input placeholder="https://ntfy.sh/mytopic" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_ntfy_API']" [(ngModel)]="new_config['API']['ntfy_topic_URL']" matInput required>
-                <mat-hint><a target="_blank" href="https://docs.ntfy.sh/"><ng-container i18n="ntfy API setting hint">See docs here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_gotify_API']"><ng-container i18n="Use gotify API setting">Use gotify API</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Gotify server URL">Gotify server URL</mat-label>
-                <input placeholder="http://gotify.example.com" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_gotify_API']" [(ngModel)]="new_config['API']['gotify_server_URL']" matInput required>
-                <mat-hint><a target="_blank" href="https://gotify.net/docs/"><ng-container i18n="Gotify API setting hint">See docs here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Gotify app token">Gotify app token</mat-label>
-                <input placeholder="yourAppToken" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_gotify_API']" [(ngModel)]="new_config['API']['gotify_app_token']" matInput required>
-                <mat-hint><a target="_blank" href="https://gotify.net/docs/"><ng-container i18n="Gotify API setting hint">See docs here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-3">
-              <mat-checkbox color="accent" [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_telegram_API']"><ng-container i18n="Use Telegram API setting">Use Telegram API</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Telegram bot token">Telegram bot token</mat-label>
-                <input placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']" [(ngModel)]="new_config['API']['telegram_bot_token']" matInput required>
-                <mat-hint><a target="_blank" href="https://telegram.me/botfather"><ng-container i18n="Telegram bot create link">Create bot here.</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Telegram chat ID">Telegram chat ID</mat-label>
-                <input placeholder="-210987654" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']" [(ngModel)]="new_config['API']['telegram_chat_id']" matInput required>
-                <mat-hint><a target="_blank" href="https://stackoverflow.com/a/37396871/8088021"><ng-container i18n="Telegram chat ID help">How do I get the chat ID?</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mb-2">
-              <mat-form-field class="text-field" color="accent">
-                <mat-label i18n="Telegram webhook proxy">Telegram webhook proxy</mat-label>
-                <input placeholder="https://smee.io/XXXXX" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']" [(ngModel)]="new_config['API']['telegram_webhook_proxy']" matInput>
-                <mat-hint><a target="_blank" href="https://smee.io/"><ng-container i18n="Telegram webhook proxy help">Example service</ng-container></a></mat-hint>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <!-- Advanced -->
-  <mat-tab label="Advanced" i18n-label="Host settings label">
-    <ng-template matTabContent>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-3">
-              <mat-form-field>
-                <mat-label><ng-container i18n="Default downloader select label">Select a downloader</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="selectedDownloader">
-                  <mat-option value="youtube-dl">{{ getDownloaderLabel('youtube-dl') }}</mat-option>
-                  <mat-option value="yt-dlp">{{ getDownloaderLabel('yt-dlp', 'stable') }}</mat-option>
-                  <mat-option value="yt-dlp@nightly">{{ getDownloaderLabel('yt-dlp', 'nightly') }}</mat-option>
-                  <mat-option value="yt-dlp@master">{{ getDownloaderLabel('yt-dlp', 'master') }}</mat-option>
-                </mat-select>
-                <mat-hint i18n="Restart required hint">Restart required.</mat-hint>
-              </mat-form-field>
-            </div>
-            <div class="col-12 mt-1">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Advanced']['use_default_downloading_agent']"><ng-container i18n="Use default downloading agent setting">Use default downloading agent</ng-container></mat-checkbox>
-            </div>
-            <div class="col-12">
-              <mat-form-field>
-                <mat-label><ng-container i18n="Custom downloader select label">Select a download agent</ng-container></mat-label>
-                <mat-select [disabled]="new_config['Advanced']['use_default_downloading_agent']" color="accent" [(ngModel)]="new_config['Advanced']['custom_downloading_agent']">
-                  <mat-option value="aria2c">aria2c</mat-option>
-                  <mat-option value="avconv">avconv</mat-option>
-                  <mat-option value="axel">axel</mat-option>
-                  <mat-option value="curl">curl</mat-option>
-                  <mat-option value="ffmpeg">ffmpeg</mat-option>
-                  <mat-option value="httpie">httpie</mat-option>
-                  <mat-option value="wget">wget</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-            <div class="col-12">
-              <mat-form-field>
-                <mat-label><ng-container i18n="Log Level label">Log Level</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Advanced']['logger_level']">
-                  <mat-option value="debug">Debug</mat-option>
-                  <mat-option value="verbose">Verbose</mat-option>
-                  <mat-option value="info">Info</mat-option>
-                  <mat-option value="warn">Warn</mat-option>
-                  <mat-option value="error">Error</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-            <div class="col-12">
-              <mat-form-field>
-                <mat-label><ng-container i18n="Login expiration select label">Login expiration</ng-container></mat-label>
-                <mat-select color="accent" [(ngModel)]="new_config['Advanced']['jwt_expiration']">
-                  <mat-option [value]="3600">1 Hour</mat-option>
-                  <mat-option [value]="86400">1 Day</mat-option>
-                  <mat-option [value]="604800">1 Week</mat-option>
-                  <mat-option [value]="2592000">1 Month</mat-option>
-                  <mat-option [value]="31536000">1 Year</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-2 mb-2">
-              <mat-checkbox color="accent" [(ngModel)]="new_config['Advanced']['use_cookies']"><ng-container i18n="Use cookies setting">Use Cookies</ng-container></mat-checkbox>
-              <button class="checkbox-button" mat-stroked-button (click)="openCookiesUploaderDialog()"><ng-container i18n="Set cookies button">Set Cookies</ng-container></button>
-            </div>
-            <div class="col-12 mb-2 cookie-test-inline">
-              <h5 i18n="Advanced cookies test title">Test current cookies</h5>
-              <p i18n="Advanced cookies test description">Run a metadata-only check against the cookies currently stored on the server.</p>
-              <mat-form-field class="cookie-test-url-field">
-                <mat-label i18n="Advanced cookies test URL label">Test URL</mat-label>
-                <input matInput [(ngModel)]="cookiesTestUrl" placeholder="https://www.youtube.com/watch?v=..." i18n-placeholder="Advanced cookies test URL placeholder">
-              </mat-form-field>
-              <div class="cookie-test-actions">
-                <button mat-flat-button color="accent" (click)="runCookiesTest()" [disabled]="testingCookies || !cookiesTestUrl || !cookiesTestUrl.trim()">
-                  <ng-container i18n="Advanced run cookie test button">Run Cookie Test</ng-container>
+              <div class="kit-rail kit-rail-wrap category-actions">
+                <button type="button" class="kit-chip" (click)="openAddCategoryDialog()">
+                  <mat-icon>add</mat-icon><span i18n="Add category button label">Add category</span>
                 </button>
-                @if (testingCookies) {
-                  <mat-spinner class="cookie-test-spinner" [diameter]="22"></mat-spinner>
+                @if (postsService.categories && postsService.categories.length === 0) {
+                  <button type="button" class="kit-chip" [disabled]="addingDefaultCategories" (click)="addDefaultCategories()"
+                    i18n="Add default category set button">(Add default set)</button>
                 }
               </div>
-              @if (cookiesTestComplete && cookiesTestSuccess !== null) {
-                <div class="cookie-test-status">
-                  @if (cookiesTestSuccess) {
-                    <span class="cookie-test-success" i18n="Advanced cookies test success message">Cookies test passed.</span>
-                  }
-                  @if (cookiesTestSuccess === false) {
-                    <span class="cookie-test-failed" i18n="Advanced cookies test failure message">Cookies test failed.</span>
-                  }
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-playlist-cat" i18n="Allow playlist categorization setting label">Allow playlist categorization</span>
+                    <span class="settings-row-hint" i18n="Allow playlist categorization setting tooltip">With this setting enabled, if a single video matches a category, the entire playlist will receive that category.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['allow_playlist_categorization']" aria-labelledby="settings-playlist-cat"></mat-slide-toggle>
                 </div>
-              }
-              @if (cookiesTestLogs.length > 0) {
-                <div>
-                  <div class="cookie-test-log-label" i18n="Advanced cookies test logs label">Test logs</div>
-                  <pre class="cookie-test-log-box">{{ cookiesTestLogs.join('\n') }}</pre>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings limits section">Limits</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Max concurrent downloads">Max concurrent downloads</span>
+                    <span class="settings-row-hint" i18n="Max concurrent downloads input hint">Limits the amount of downloads that can be simultaneously downloaded. Use -1 for no limit.</span>
+                  </span>
+                  <span class="kit-field number-field"><input type="number" [(ngModel)]="new_config['Downloader']['max_concurrent_downloads']"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Minimum sleep between downloads">Minimum sleep between downloads (seconds)</span>
+                    <span class="settings-row-hint" i18n="Minimum sleep between downloads input hint">Waits before starting the next queued download step. Use 0 to disable.</span>
+                  </span>
+                  <span class="kit-field number-field"><input type="number" min="0" [(ngModel)]="new_config['Downloader']['min_sleep_between_downloads']"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Playlist chunk size">Playlist chunk size</span>
+                    <span class="settings-row-hint" i18n="Playlist chunk size input hint">Number of playlist items queued per batch when downloading large playlists. Smaller values start faster.</span>
+                  </span>
+                  <span class="kit-field number-field"><input type="number" [(ngModel)]="new_config['Downloader']['playlist_chunk_size']"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Download rate limit">Download rate limit</span>
+                    <span class="settings-row-hint" i18n="Download rate limit input hint">Rate limits your downloads to the specified amount. Ex: 200K</span>
+                  </span>
+                  <span class="kit-field number-field"><input [(ngModel)]="new_config['Downloader']['download_rate_limit']"></span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings maintenance section">Maintenance</h2>
+            <p class="settings-section-hint" i18n="Settings maintenance hint">These act at once, and are not part of what Save writes.</p>
+            <div class="kit-panel">
+              <div class="kit-rail kit-rail-wrap settings-actions-rail">
+                <button type="button" class="kit-chip kit-danger" (click)="killAllDownloads()">
+                  <mat-icon>stop_circle</mat-icon><span i18n="Kill all downloads button">Kill all downloads</span>
+                </button>
+                <button type="button" class="kit-chip kit-danger" (click)="deleteOrphanFiles()">
+                  <mat-icon>delete_sweep</mat-icon><span i18n="Delete orphan videos button">Delete orphan videos</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      }
+
+      <!-- ----------------------------------------------------------------- Extra -->
+      @if (tab === 'extra') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings interface section">Interface</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Top title">Top title</span>
+                    <span class="settings-row-hint" i18n="Top title hint">What the toolbar says.</span>
+                  </span>
+                  <span class="kit-field"><input [(ngModel)]="new_config['Extra']['title_top']" required></span>
+                </label>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-file-manager" i18n="File manager enabled setting">File manager enabled</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['file_manager_enabled']" aria-labelledby="settings-file-manager"></mat-slide-toggle>
                 </div>
-              }
-            </div>
-          </div>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid mt-3">
-          <app-updater></app-updater>
-        </div>
-      }
-      <mat-divider></mat-divider>
-      @if (new_config) {
-        <div class="container-fluid">
-          <div class="row">
-            <div class="col-12 mt-4">
-              <button (click)="restartServer()" mat-stroked-button color="warn"><ng-container i18n="Restart server button">Restart server</ng-container></button>
-            </div>
-          </div>
-        </div>
-      }
-    </ng-template>
-  </mat-tab>
-  <mat-tab [disabled]="!postsService.config?.Advanced.multi_user_mode">
-    <ng-template mat-tab-label>
-      <div [matTooltip]="!postsService.config?.Advanced.multi_user_mode ? usersTabDisabledTooltip : null">
-        <ng-container i18n="Users settings label">Users</ng-container>
-      </div>
-    </ng-template>
-    @if (postsService.config?.Advanced.multi_user_mode) {
-      @if (new_config) {
-        <div style="margin-top: 24px; margin-bottom: -25px;">
-          <div>
-            <mat-checkbox color="accent" [(ngModel)]="new_config['Users']['allow_registration']"><ng-container i18n="Allow registration setting">Allow user registration</ng-container></mat-checkbox>
-          </div>
-          <mat-divider></mat-divider>
-          <mat-form-field style="margin-top: 15px;">
-            <mat-label i18n="Auth method">Auth method</mat-label>
-            <mat-select [(ngModel)]="new_config['Users']['auth_method']">
-              <mat-option value="internal">
-                <ng-container i18n="Internal auth method">Internal</ng-container>
-              </mat-option>
-              <mat-option value="ldap">
-                <ng-container i18n="LDAP auth method">LDAP</ng-container>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-          @if (new_config['Users']['auth_method'] === 'ldap') {
-            <div>
-              <div>
-                <mat-form-field>
-                  <mat-label i18n="LDAP URL">LDAP URL</mat-label>
-                  <input matInput [(ngModel)]="new_config['Users']['ldap_config']['url']">
-                </mat-form-field>
-              </div>
-              <div>
-                <mat-form-field>
-                  <mat-label i18n="Bind DN">Bind DN</mat-label>
-                  <input matInput [(ngModel)]="new_config['Users']['ldap_config']['bindDN']">
-                </mat-form-field>
-              </div>
-              <div>
-                <mat-form-field>
-                  <mat-label i18n="Bind Credentials">Bind Credentials</mat-label>
-                  <input matInput [(ngModel)]="new_config['Users']['ldap_config']['bindCredentials']">
-                </mat-form-field>
-              </div>
-              <div>
-                <mat-form-field>
-                  <mat-label i18n="Search Base">Search Base</mat-label>
-                  <input matInput [(ngModel)]="new_config['Users']['ldap_config']['searchBase']">
-                </mat-form-field>
-              </div>
-              <div>
-                <mat-form-field>
-                  <mat-label i18n="Search Filter">Search Filter</mat-label>
-                  <input matInput [(ngModel)]="new_config['Users']['ldap_config']['searchFilter']">
-                </mat-form-field>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-downloads-manager" i18n="Downloads manager enabled setting">Downloads manager enabled</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['enable_downloads_manager']" aria-labelledby="settings-downloads-manager"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-quality-select" i18n="Allow quality seelct setting">Allow quality select</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['allow_quality_select']" aria-labelledby="settings-quality-select"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-warn-duplicate" i18n="Warn on duplicate setting">Warn on duplicate</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['warn_on_duplicate']" aria-labelledby="settings-warn-duplicate"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-download-only" i18n="Download only mode setting">Download only mode</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['download_only_mode']" aria-labelledby="settings-download-only"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-force-autoplay" i18n="Force autoplay setting">Force autoplay</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['force_autoplay']" aria-labelledby="settings-force-autoplay"></mat-slide-toggle>
+                </div>
               </div>
             </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings API section">API</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-api-docs" i18n="Enable API documentation setting">Enable API documentation</span>
+                    <span class="settings-row-hint">
+                      @if (new_config['API']['enable_documentation_api']) {
+                        <a target="_blank" rel="noopener" href="/docs" i18n="View API docs setting hint">View documentation</a>
+                      } @else {
+                        <ng-container i18n="API documentation restart hint">Restart after enabling to make documentation available.</ng-container>
+                      }
+                    </span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['API']['enable_documentation_api']" aria-labelledby="settings-api-docs"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-use-youtube-api" i18n="Use YouTube API setting">Use YouTube API</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['API']['use_youtube_API']" aria-labelledby="settings-use-youtube-api"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Youtube API Key">Youtube API Key</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://developers.google.com/youtube/v3/getting-started" i18n="Youtube API Key setting hint">Generating a key is easy!</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input [disabled]="!new_config['API']['use_youtube_API']" [(ngModel)]="new_config['API']['youtube_API_key']" required>
+                  </span>
+                </label>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-twitch-chat" i18n="Auto download Twitch Chat setting">Auto-download Twitch Chat</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['API']['twitch_auto_download_chat']" aria-labelledby="settings-twitch-chat"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-sponsorblock" i18n="Use SponsorBlock during downloads setting">Use SponsorBlock During Downloads</span>
+                    <span class="settings-row-hint" i18n="SponsorBlock downloads tooltip">Removes sponsor segments from yt-dlp downloads and enables a per-download opt-out.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['API']['use_sponsorblock_API']" aria-labelledby="settings-sponsorblock"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-nfo" i18n="Generate NFO files setting">Generate NFO files</span>
+                    <span class="settings-row-hint" i18n="Generate NFO files tooltip">Generates NFO files with every download, primarily used by Kodi.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['API']['generate_NFO_files']" aria-labelledby="settings-nfo"></mat-slide-toggle>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title">RSS Feed</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-rss" i18n="Enable RSS Feed setting">Enable RSS Feed</span>
+                    <span class="settings-row-hint">
+                      <ng-container i18n="RSS Feed prefix">Be careful enabling this with multi-user mode! User data may be exposed.</ng-container>
+                      <a target="_blank" rel="noopener" href="https://github.com/voc0der/ytdl-material/wiki/RSS-Feed" i18n="RSS feed documentation">See documentation here.</a>
+                    </span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['enable_rss_feed']" aria-labelledby="settings-rss"></mat-slide-toggle>
+                </div>
+                <div class="settings-row settings-row-actions">
+                  <button type="button" class="kit-chip" [disabled]="!new_config['Extra']['enable_rss_feed']" (click)="openGenerateRSSURLDialog()">
+                    <mat-icon>rss_feed</mat-icon><span i18n="Generate RSS URL">Generate RSS URL</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings browser extensions section">Browser extensions</h2>
+            <div class="kit-panel settings-prose">
+              <h3>Chrome</h3>
+              <p>
+                <a href="https://github.com/voc0der/ytdl-material/blob/main/chrome-extension/ytdl-material-chrome-extension.zip?raw=true" i18n="Chrome ext click here">Click here</a>&nbsp;<ng-container i18n="Chrome click here suffix">to download the official ytdl-material Chrome extension manually.</ng-container>
+              </p>
+              <p i18n="Chrome setup suffix">You must manually load the extension and modify the extension's settings to set the frontend URL.</p>
+
+              <h3>Firefox</h3>
+              <p>
+                <a href="https://addons.mozilla.org/en-US/firefox/search/?q=ytdl-material" target="_blank" rel="noopener" i18n="Firefox ext click here">Click here</a>&nbsp;<ng-container i18n="Firefox click here suffix">to install the official ytdl-material Firefox extension right off the Firefox extensions page.</ng-container>
+              </p>
+              <p>
+                <a href="https://github.com/voc0der/ytdl-material/wiki/Firefox-Extension" target="_blank" rel="noopener" i18n="Firefox setup prefix link">Detailed setup instructions.</a>&nbsp;<ng-container i18n="Firefox setup suffix">Not much is required other than changing the extension's settings to set the frontend URL.</ng-container>
+              </p>
+
+              <h3>Bookmarklet</h3>
+              <p i18n="Bookmarklet instructions">Drag the link below to your bookmarks, and you're good to go! Just navigate to the YouTube video you'd like to download, and click the bookmark.</p>
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-bookmarklet-audio" i18n="Generate audio only bookmarklet checkbox">Generate 'audio only' bookmarklet</span>
+                  </span>
+                  <mat-slide-toggle [ngModel]="bookmarkletAudioOnly" (ngModelChange)="bookmarkletAudioOnlyChanged($event)"
+                    aria-labelledby="settings-bookmarklet-audio"></mat-slide-toggle>
+                </div>
+              </div>
+              <p><a class="kit-chip" [href]="generated_bookmarklet_code" target="_blank"><mat-icon>bookmark_border</mat-icon><span>YTDL-Bookmarklet</span></a></p>
+            </div>
+          </section>
+        </div>
+      }
+
+      <!-- -------------------------------------------------------------- Database -->
+      @if (tab === 'database') {
+        <div class="settings-sections">
+          @if (!db_info) {
+            <section class="empty-state">
+              <span class="empty-state-icon"><mat-icon>storage</mat-icon></span>
+              <h2 i18n="Database info not retrieved title">No database information</h2>
+              <p i18n="Database info not retrieved error message">Database information could not be retrieved. Check the server logs for more information.</p>
+            </section>
+          } @else {
+            <section class="settings-section">
+              <h2 class="settings-section-title" i18n="Settings database in use section">In use</h2>
+              <div class="kit-panel">
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="Database location label">Database location</span>
+                    </span>
+                    <span class="settings-row-value">{{db_info['current_db_label'] || (db_info['using_local_db'] ? 'Local' : 'MongoDB')}}</span>
+                  </div>
+                </div>
+                <h3 class="settings-subheading" i18n="Records per table label">Records per table</h3>
+                <dl class="db-stats">
+                  @for (table_stats of db_info['stats_by_table'] | keyvalue; track table_stats.key) {
+                    <div><dt>{{table_stats.key}}</dt><dd>{{table_stats.value.records_count}}</dd></div>
+                  }
+                </dl>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h2 class="settings-section-title" i18n="Settings connections section">Connections</h2>
+              <div class="kit-panel">
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="Remote Database Type">Remote Database Type</span>
+                      <span class="settings-row-hint" i18n="Remote DB type hint">Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</span>
+                    </span>
+                    <app-picker [title]="remoteDbTypeLabel" [options]="remoteDbTypeOptions" [value]="new_config['Database']['remote_db_type']"
+                      (valueChange)="new_config['Database']['remote_db_type'] = $any($event)"></app-picker>
+                  </div>
+
+                  <div class="settings-row settings-row-stacked">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="PostgreSQL Connection String">PostgreSQL Connection String</span>
+                      <span class="settings-row-hint">
+                        <ng-container i18n="PostgreSQL Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;postgresql://ytdl-material:ytdl-material&#64;127.0.0.1:5432/ytdl-material<br>Docker: postgresql://&lt;container name&gt;:5432/ytdl-material
+                      </span>
+                    </span>
+                    <span class="kit-field">
+                      <input [(ngModel)]="new_config['Database']['postgresdb_connection_string']" [attr.aria-label]="postgresLabel">
+                      <button type="button" class="kit-chip" [disabled]="testing_connection_string"
+                        (click)="testConnectionString(new_config['Database']['postgresdb_connection_string'])">
+                        @if (testing_connection_string) {
+                          <mat-spinner [diameter]="16"></mat-spinner>
+                        }
+                        <span i18n="Test connection string button">Test</span>
+                      </button>
+                    </span>
+                  </div>
+
+                  <div class="settings-row settings-row-stacked">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="MongoDB Connection String">MongoDB Connection String</span>
+                      <span class="settings-row-hint">
+                        <ng-container i18n="MongoDB Connection String setting hint AKA preamble">Example:</ng-container>&nbsp;mongodb://127.0.0.1:27017/?compressors=zlib<br>Docker: mongodb://&lt;container name&gt;:27017/?compressors=zlib
+                      </span>
+                    </span>
+                    <span class="kit-field">
+                      <input [(ngModel)]="new_config['Database']['mongodb_connection_string']" [attr.aria-label]="mongoLabel">
+                      <button type="button" class="kit-chip" [disabled]="testing_connection_string"
+                        (click)="testConnectionString(new_config['Database']['mongodb_connection_string'])">
+                        @if (testing_connection_string) {
+                          <mat-spinner [diameter]="16"></mat-spinner>
+                        }
+                        <span i18n="Test connection string button">Test</span>
+                      </button>
+                    </span>
+                  </div>
+
+                  <div class="settings-row settings-row-stacked">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="Redis Connection String">Redis Connection String</span>
+                      <span class="settings-row-hint">
+                        <ng-container i18n="Redis Connection String setting hint AKA preamble">Optional shared rate-limit store. Restart required after changing this setting. Example:</ng-container>&nbsp;redis://127.0.0.1:6379/0<br>Docker: redis://ytdl-redis:6379/0
+                      </span>
+                    </span>
+                    <span class="kit-field">
+                      <input [(ngModel)]="new_config['Database']['redis_connection_string']" [attr.aria-label]="redisLabel">
+                      <button type="button" class="kit-chip" [disabled]="testing_connection_string"
+                        (click)="testConnectionString(new_config['Database']['redis_connection_string'])">
+                        @if (testing_connection_string) {
+                          <mat-spinner [diameter]="16"></mat-spinner>
+                        }
+                        <span i18n="Test connection string button">Test</span>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-section">
+              <h2 class="settings-section-title" i18n="Settings moving the database section">Moving the database</h2>
+              <div class="kit-panel">
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="DB migration mode">DB migration mode</span>
+                      <span class="settings-row-hint" i18n="DB migration mode hint">Requires `ytdl_use_local_db=false` plus valid MongoDB and PostgreSQL connection strings. Successful migrations clear the saved setting automatically, but remove the env var so it is not re-applied on the next boot.</span>
+                    </span>
+                    <app-picker [title]="dbMigrateLabel" [options]="dbMigrateOptions" [value]="new_config['Database']['db_migrate']"
+                      (valueChange)="new_config['Database']['db_migrate'] = $any($event)"></app-picker>
+                  </div>
+                  <div class="settings-row settings-row-actions">
+                    <button type="button" class="kit-chip kit-primary" [disabled]="db_transferring" (click)="transferDB()">
+                      @if (db_transferring) {
+                        <mat-spinner [diameter]="16"></mat-spinner>
+                      } @else {
+                        <mat-icon>swap_horiz</mat-icon>
+                      }
+                      <span><ng-container i18n="Transfer DB button">Transfer DB to </ng-container>{{db_info['using_local_db'] ? (db_info['configured_remote_db_label'] || 'Remote DB') : 'Local'}}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
           }
-          <mat-divider></mat-divider>
         </div>
       }
-      @if (new_config) {
-        <app-modify-users></app-modify-users>
+
+      <!-- --------------------------------------------------------- Notifications -->
+      @if (tab === 'notifications') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings notifications section">Notifications</h2>
+            <p class="settings-section-hint">
+              <a target="_blank" rel="noopener" href="https://github.com/voc0der/ytdl-material/wiki/Notifications" i18n="Documentation">Documentation</a>
+            </p>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-notifications" i18n="Enable notifications setting">Enable notifications</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['enable_notifications']" aria-labelledby="settings-notifications"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-all-notifications" i18n="Enable all notifications setting">Enable all notifications</span>
+                    <span class="settings-row-hint" i18n="Enable all notifications hint">Sends every kind, whatever is picked below.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Extra']['enable_all_notifications']" aria-labelledby="settings-all-notifications"></mat-slide-toggle>
+                </div>
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Allowed notification types">Allowed notification types</span>
+                  </span>
+                  <div class="kit-rail kit-rail-wrap" role="group" [attr.aria-label]="notificationTypesLabel">
+                    @for (type of notificationTypes; track type.key) {
+                      <button type="button" class="kit-chip" [attr.aria-pressed]="notificationTypeEnabled(type.key)"
+                        [disabled]="notificationTypesLocked" (click)="toggleNotificationType(type.key)">{{type.label}}</button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings webhooks section">Webhooks</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="webhook URL">Webhook URL</span>
+                    <span class="settings-row-hint">Place endpoint URL here to integrate with services like Zapier, Automatisch, and Apprise (/notify/&lt;key&gt; or apprise(s)://host/&lt;key&gt;?tags=...).</span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="https://example.com/endpoint/12345" [(ngModel)]="new_config['API']['webhook_URL']" [attr.aria-label]="webhookLabel">
+                  </span>
+                  <div class="kit-rail kit-rail-wrap webhook-actions">
+                    <button type="button" class="kit-chip" (click)="openWebhookTemplateDialog()">
+                      <mat-icon>edit_note</mat-icon><span i18n="Set webhook template button">Set Template</span>
+                    </button>
+                    @if (new_config['API']['use_custom_webhook_template']) {
+                      <span class="settings-badge" i18n="Webhook template enabled status">Custom webhook template enabled</span>
+                    }
+                  </div>
+                </div>
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Discord Webhook URL">Discord Webhook URL</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" i18n="Discord API setting hint">See docs here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="https://discord.com/api/webhooks/<webhook_id>/<webhook_token>" [(ngModel)]="new_config['API']['discord_webhook_URL']" [attr.aria-label]="discordLabel">
+                  </span>
+                </div>
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Slack Webhook URL">Slack Webhook URL</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://api.slack.com/messaging/webhooks" i18n="Slack API setting hint">See docs here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="https://example.invalid/slack-webhook" [(ngModel)]="new_config['API']['slack_webhook_URL']" [attr.aria-label]="slackLabel">
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title">ntfy</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-ntfy" i18n="Use ntfy API setting">Use ntfy API</span>
+                  </span>
+                  <mat-slide-toggle [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_ntfy_API']"
+                    aria-labelledby="settings-ntfy"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="ntfy topic URL">ntfy topic URL</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://docs.ntfy.sh/" i18n="ntfy API setting hint">See docs here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="https://ntfy.sh/mytopic" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_ntfy_API']"
+                      [(ngModel)]="new_config['API']['ntfy_topic_URL']" required>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title">Gotify</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-gotify" i18n="Use gotify API setting">Use gotify API</span>
+                  </span>
+                  <mat-slide-toggle [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_gotify_API']"
+                    aria-labelledby="settings-gotify"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Gotify server URL">Gotify server URL</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://gotify.net/docs/" i18n="Gotify API setting hint">See docs here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="http://gotify.example.com" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_gotify_API']"
+                      [(ngModel)]="new_config['API']['gotify_server_URL']" required>
+                  </span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Gotify app token">Gotify app token</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://gotify.net/docs/" i18n="Gotify API setting hint">See docs here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="yourAppToken" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_gotify_API']"
+                      [(ngModel)]="new_config['API']['gotify_app_token']" required>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title">Telegram</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-telegram" i18n="Use Telegram API setting">Use Telegram API</span>
+                  </span>
+                  <mat-slide-toggle [disabled]="!new_config['Extra']['enable_notifications']" [(ngModel)]="new_config['API']['use_telegram_API']"
+                    aria-labelledby="settings-telegram"></mat-slide-toggle>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Telegram bot token">Telegram bot token</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://telegram.me/botfather" i18n="Telegram bot create link">Create bot here.</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                      [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']"
+                      [(ngModel)]="new_config['API']['telegram_bot_token']" required>
+                  </span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Telegram chat ID">Telegram chat ID</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://stackoverflow.com/a/37396871/8088021" i18n="Telegram chat ID help">How do I get the chat ID?</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="-210987654" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']"
+                      [(ngModel)]="new_config['API']['telegram_chat_id']" required>
+                  </span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Telegram webhook proxy">Telegram webhook proxy</span>
+                    <span class="settings-row-hint">
+                      <a target="_blank" rel="noopener" href="https://smee.io/" i18n="Telegram webhook proxy help">Example service</a>
+                    </span>
+                  </span>
+                  <span class="kit-field">
+                    <input placeholder="https://smee.io/XXXXX" [disabled]="!new_config['Extra']['enable_notifications'] || !new_config['API']['use_telegram_API']"
+                      [(ngModel)]="new_config['API']['telegram_webhook_proxy']">
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
+      }
+
+      <!-- -------------------------------------------------------------- Advanced -->
+      @if (tab === 'advanced') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings downloader section">Downloader</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Default downloader select label">Select a downloader</span>
+                    <span class="settings-row-hint" i18n="Restart required hint">Restart required.</span>
+                  </span>
+                  <app-picker [title]="downloaderLabel" [options]="downloaderOptions" [value]="selectedDownloader"
+                    (valueChange)="selectedDownloader = $any($event)"></app-picker>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-default-agent" i18n="Use default downloading agent setting">Use default downloading agent</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Advanced']['use_default_downloading_agent']" aria-labelledby="settings-default-agent"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Custom downloader select label">Select a download agent</span>
+                  </span>
+                  <app-picker [title]="downloadingAgentLabel" [options]="downloadingAgentOptions"
+                    [value]="new_config['Advanced']['custom_downloading_agent']" [disabled]="new_config['Advanced']['use_default_downloading_agent']"
+                    (valueChange)="new_config['Advanced']['custom_downloading_agent'] = $any($event)"></app-picker>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings logging and sessions section">Logging and sessions</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Log Level label">Log Level</span>
+                  </span>
+                  <app-picker [title]="loggerLevelLabel" [options]="loggerLevelOptions" [value]="new_config['Advanced']['logger_level']"
+                    (valueChange)="new_config['Advanced']['logger_level'] = $any($event)"></app-picker>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Login expiration select label">Login expiration</span>
+                  </span>
+                  <app-picker [title]="jwtExpirationLabel" [options]="jwtExpirationOptions" [value]="new_config['Advanced']['jwt_expiration']"
+                    (valueChange)="new_config['Advanced']['jwt_expiration'] = $any($event)"></app-picker>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings cookies section">Cookies</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-use-cookies" i18n="Use cookies setting">Use Cookies</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Advanced']['use_cookies']" aria-labelledby="settings-use-cookies"></mat-slide-toggle>
+                </div>
+                <div class="settings-row settings-row-actions">
+                  <button type="button" class="kit-chip" (click)="openCookiesUploaderDialog()">
+                    <mat-icon>cookie</mat-icon><span i18n="Set cookies button">Set Cookies</span>
+                  </button>
+                </div>
+                <div class="settings-row settings-row-stacked">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Advanced cookies test title">Test current cookies</span>
+                    <span class="settings-row-hint" i18n="Advanced cookies test description">Run a metadata-only check against the cookies currently stored on the server.</span>
+                  </span>
+                  <span class="kit-field">
+                    <input [(ngModel)]="cookiesTestUrl" placeholder="https://www.youtube.com/watch?v=..." i18n-placeholder="Advanced cookies test URL placeholder"
+                      [attr.aria-label]="cookiesTestUrlLabel">
+                    <button type="button" class="kit-chip kit-primary" (click)="runCookiesTest()"
+                      [disabled]="testingCookies || !cookiesTestUrl || !cookiesTestUrl.trim()">
+                      @if (testingCookies) {
+                        <mat-spinner [diameter]="16"></mat-spinner>
+                      }
+                      <span i18n="Advanced run cookie test button">Run Cookie Test</span>
+                    </button>
+                  </span>
+                  @if (cookiesTestComplete && cookiesTestSuccess !== null) {
+                    <p class="settings-note" [class.is-warning]="!cookiesTestSuccess" [class.is-good]="cookiesTestSuccess" role="status">
+                      <mat-icon>{{cookiesTestSuccess ? 'check_circle' : 'error_outline'}}</mat-icon>
+                      @if (cookiesTestSuccess) {
+                        <span i18n="Advanced cookies test success message">Cookies test passed.</span>
+                      } @else {
+                        <span i18n="Advanced cookies test failure message">Cookies test failed.</span>
+                      }
+                    </p>
+                  }
+                  @if (cookiesTestLogs.length > 0) {
+                    <div class="log-block">
+                      <h3 class="settings-subheading" i18n="Advanced cookies test logs label">Test logs</h3>
+                      <pre class="log-box">{{ cookiesTestLogs.join('\n') }}</pre>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings version section">Version</h2>
+            <div class="kit-panel">
+              <app-updater></app-updater>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings server section">Server</h2>
+            <div class="kit-panel">
+              <div class="kit-rail kit-rail-wrap settings-actions-rail">
+                <button type="button" class="kit-chip kit-danger" (click)="restartServer()">
+                  <mat-icon>restart_alt</mat-icon><span i18n="Restart server button">Restart server</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      }
+
+      <!-- ----------------------------------------------------------------- Users -->
+      @if (tab === 'users' && postsService.config?.Advanced.multi_user_mode) {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings signing in section">Signing in</h2>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-allow-registration" i18n="Allow registration setting">Allow user registration</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config['Users']['allow_registration']" aria-labelledby="settings-allow-registration"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Auth method">Auth method</span>
+                  </span>
+                  <app-picker [title]="authMethodLabel" [options]="authMethodOptions" [value]="new_config['Users']['auth_method']"
+                    (valueChange)="new_config['Users']['auth_method'] = $any($event)"></app-picker>
+                </div>
+                @if (new_config['Users']['auth_method'] === 'ldap') {
+                  <label class="settings-row settings-field-row">
+                    <span class="settings-row-text"><span class="settings-row-title" i18n="LDAP URL">LDAP URL</span></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['url']"></span>
+                  </label>
+                  <label class="settings-row settings-field-row">
+                    <span class="settings-row-text"><span class="settings-row-title" i18n="Bind DN">Bind DN</span></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindDN']"></span>
+                  </label>
+                  <label class="settings-row settings-field-row">
+                    <span class="settings-row-text"><span class="settings-row-title" i18n="Bind Credentials">Bind Credentials</span></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindCredentials']"></span>
+                  </label>
+                  <label class="settings-row settings-field-row">
+                    <span class="settings-row-text"><span class="settings-row-title" i18n="Search Base">Search Base</span></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchBase']"></span>
+                  </label>
+                  <label class="settings-row settings-field-row">
+                    <span class="settings-row-text"><span class="settings-row-title" i18n="Search Filter">Search Filter</span></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchFilter']"></span>
+                  </label>
+                }
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings who can sign in section">Who can sign in</h2>
+            <app-modify-users></app-modify-users>
+          </section>
+        </div>
+      }
+
+      <!-- ------------------------------------------------------------------ Logs -->
+      @if (tab === 'logs') {
+        <div class="settings-sections">
+          <section class="settings-section">
+            <app-logs-viewer></app-logs-viewer>
+          </section>
+        </div>
       }
     }
-  </mat-tab>
-  @if (postsService.config) {
-    <mat-tab label="Logs" i18n-label="Logs settings label">
-      <ng-template matTabContent>
-        <div style="margin-top: 15px; height: 84%;">
-          <app-logs-viewer></app-logs-viewer>
-        </div>
-      </ng-template>
-    </mat-tab>
-  }
-</mat-tab-group>
+  </div>
 
-<div class="action-buttons">
-  <button style="margin-left: 10px; height: 37.3px" color="accent" (click)="saveSettings()" [disabled]="settingsSame()" mat-raised-button><mat-icon>done</mat-icon>&nbsp;&nbsp;
-  <ng-container i18n="Settings save button">Save</ng-container>
-</button>
-<button style="margin-left: 10px;" mat-flat-button (click)="cancelSettings()" [disabled]="settingsSame()"><mat-icon>cancel</mat-icon>&nbsp;&nbsp;
-<span i18n="Settings cancel button">Cancel</span>
-</button>
+  <!-- Only there when there is something to do with it. -->
+  @if (new_config && !settingsSame()) {
+    <div class="settings-savebar" role="status">
+      <span class="settings-savebar-text" i18n="Unsaved settings message">You have unsaved changes.</span>
+      <button type="button" class="kit-text-button" (click)="cancelSettings()" i18n="Settings cancel button">Cancel</button>
+      <button type="button" class="kit-chip kit-primary" (click)="saveSettings()">
+        <mat-icon>done</mat-icon><span i18n="Settings save button">Save</span>
+      </button>
+    </div>
+  }
 </div>

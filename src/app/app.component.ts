@@ -8,7 +8,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, NavigationStart, NavigationEnd, RouterLink, RouterOutlet } from '@angular/router';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { THEMES_CONFIG } from '../themes';
-import { SettingsComponent } from './settings/settings.component';
 import { AboutDialogComponent } from './dialogs/about-dialog/about-dialog.component';
 import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-profile-dialog.component';
 import { SetDefaultAdminDialogComponent } from './dialogs/set-default-admin-dialog/set-default-admin-dialog.component';
@@ -281,12 +280,6 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.router.navigateByUrl(this.navigator);
     }
-  }
-
-  openSettingsDialog(): void {
-    this.dialog.open(SettingsComponent, {
-      width: '80vw'
-    });
   }
 
   openAboutDialog(): void {

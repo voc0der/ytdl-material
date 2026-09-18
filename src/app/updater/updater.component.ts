@@ -3,11 +3,9 @@ import { PostsService } from 'app/posts.services';
 import { CURRENT_VERSION } from 'app/consts';
 import { MatDialog } from '@angular/material/dialog';
 import { UpdateProgressDialogComponent } from 'app/dialogs/update-progress-dialog/update-progress-dialog.component';
-import { MatFormField } from '@angular/material/input';
-import { MatSelect, MatOption } from '@angular/material/select';
-import { FormsModule } from '@angular/forms';
-import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 type ParsedReleaseVersion = {
   major: number;
@@ -21,7 +19,7 @@ type ParsedReleaseVersion = {
     templateUrl: './updater.component.html',
     styleUrls: ['./updater.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatFormField, MatSelect, FormsModule, MatOption, MatButton, MatIcon]
+    imports: [MatIcon, MatProgressSpinner, PickerComponent]
 })
 export class UpdaterComponent implements OnInit {
 
@@ -33,6 +31,8 @@ export class UpdaterComponent implements OnInit {
   latestStableRelease = null;
   selectedVersion = null;
   CURRENT_VERSION = CURRENT_VERSION;
+
+  readonly versionLabel = $localize`Version`;
 
   constructor(private postsService: PostsService, private dialog: MatDialog) { }
 
@@ -46,6 +46,24 @@ export class UpdaterComponent implements OnInit {
         this.openUpdateProgressDialog();
       }
     });
+  }
+
+  /** The versions that can be picked: what is installed now, and what is available. */
+  get versionOptions(): PickerOption[] {
+    const options: PickerOption[] = [];
+    if (this.showCurrentVersionOption) {
+      options.push({ value: this.currentVersionOptionValue, label: this.currentVersionOptionLabel });
+    }
+    if (this.hasStableVersions) {
+      for (const version of this.availableVersionsFiltered) {
+        const tag = version['tag_name'];
+        const detail = version === this.latestStableRelease
+          ? $localize`Latest stable`
+          : (this.isCurrentVersion(tag) ? $localize`Current version` : null);
+        options.push({ value: tag, label: tag, detail: detail });
+      }
+    }
+    return options;
   }
 
   get hasStableVersions(): boolean {

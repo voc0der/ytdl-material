@@ -1,7 +1,4 @@
-import { Component, OnInit, Input, ViewChild, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
-import { MatPaginator, PageEvent } from '@angular/material/paginator';
-import { MatSort, MatSortHeader } from '@angular/material/sort';
-import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table';
+import { Component, OnInit, Input, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -9,44 +6,43 @@ import { AddUserDialogComponent } from 'app/dialogs/add-user-dialog/add-user-dia
 import { ManageUserComponent } from '../manage-user/manage-user.component';
 import { ManageRoleComponent } from '../manage-role/manage-role.component';
 import { User } from 'api-types';
-import { MatFormField, MatLabel, MatInput } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatSelect, MatOption } from '@angular/material/select';
-import { MatIconButton, MatButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 @Component({
     selector: 'app-modify-users',
     templateUrl: './modify-users.component.html',
     styleUrls: ['./modify-users.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatFormField, MatLabel, MatInput, MatTable, MatSort, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatSortHeader, MatCellDef, MatCell, FormsModule, MatSelect, MatOption, MatIconButton, MatTooltip, MatIcon, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow, MatPaginator, MatButton, MatMenuTrigger, MatMenu, MatMenuItem, MatProgressSpinner]
+    imports: [FormsModule, MatTooltip, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, MatProgressSpinner, PickerComponent]
 })
-export class ModifyUsersComponent implements OnInit, AfterViewInit {
-
-  displayedColumns = ['name', 'role', 'actions'];
-  dataSource = new MatTableDataSource();
+export class ModifyUsersComponent implements OnInit {
 
   deleteDialogContentSubstring = 'Are you sure you want delete user ';
 
-  @ViewChild(MatPaginator) paginator: MatPaginator;
-  @ViewChild(MatSort) sort: MatSort;
-
-  // MatPaginator Inputs
-  length = 100;
   @Input() pageSize = 5;
-  pageSizeOptions: number[] = [5, 10, 25, 100];
-
-  // MatPaginator Output
-  pageEvent: PageEvent;
   users: User[];
   editObject = null;
   constructedObject = {};
   roles = null;
 
+  filter = '';
+  pageIndex = 0;
+
+  readonly searchLabel = $localize`Search`;
+  readonly userNameLabel = $localize`User name`;
+  readonly roleLabel = $localize`Role`;
+  readonly previousPageLabel = $localize`Previous page`;
+  readonly nextPageLabel = $localize`Next page`;
+
+  readonly roleOptions: PickerOption[] = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'user', label: 'User' }
+  ];
 
   constructor(public postsService: PostsService, public snackBar: MatSnackBar, public dialog: MatDialog,
     private dialogRef: MatDialogRef<ModifyUsersComponent>) { }
@@ -56,35 +52,45 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
     this.getRoles();
   }
 
-  ngAfterViewInit() {
-    this.dataSource.paginator = this.paginator;
-    this.dataSource.sort = this.sort;
+  /** The users the search leaves, which is what the pages are over. */
+  get visibleUsers(): User[] {
+    const text = this.filter.trim().toLowerCase();
+    const users = this.users ?? [];
+    if (!text) return users;
+    return users.filter(user => [user.name, user.role]
+      .some(field => typeof field === 'string' && field.toLowerCase().includes(text)));
   }
 
-  /**
-   * Set the paginator and sort after the view init since this component will
-   * be able to query its view for the initialized paginator and sort.
-   */
-  afterGetData() {
-    this.dataSource.sort = this.sort;
+  get pageUsers(): User[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.visibleUsers.slice(start, start + this.pageSize);
   }
 
-  setPageSizeOptions(setPageSizeOptionsInput: string) {
-    this.pageSizeOptions = setPageSizeOptionsInput.split(',').map(str => +str);
+  get pageCount(): number {
+    return Math.max(1, Math.ceil(this.visibleUsers.length / this.pageSize));
   }
 
-  applyFilter(event: KeyboardEvent) {
-    let filterValue = (event.target as HTMLInputElement).value; // event.target is only typed as EventTarget
-    filterValue = filterValue.trim(); // Remove whitespace
-    filterValue = filterValue.toLowerCase(); // Datasource defaults to lowercase matches
-    this.dataSource.filter = filterValue;
+  get rangeStart(): number {
+    return this.visibleUsers.length === 0 ? 0 : this.pageIndex * this.pageSize + 1;
+  }
+
+  get rangeEnd(): number {
+    return Math.min(this.visibleUsers.length, (this.pageIndex + 1) * this.pageSize);
+  }
+
+  filterChanged(text: string): void {
+    this.filter = text;
+    this.pageIndex = 0;
+  }
+
+  goToPage(page_index: number): void {
+    this.pageIndex = Math.min(Math.max(0, page_index), this.pageCount - 1);
   }
 
   private getArray() {
     this.postsService.getUsers().subscribe(res => {
       this.users = res['users'];
       this.createAndSortData();
-      this.afterGetData();
     });
   }
 
@@ -171,7 +177,11 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
       data: {
         user: user_obj
       },
-      width: '65vw'
+      panelClass: 'kit-dialog-panel',
+      width: '520px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
   }
 
@@ -184,23 +194,21 @@ export class ModifyUsersComponent implements OnInit, AfterViewInit {
   }
 
   createAndSortData() {
-    // Sorts the data by last finished
     this.users.sort((a, b) => a.name.localeCompare(b.name));
-
-    const filteredData = [];
-    for (let i = 0; i < this.users.length; i++) {
-      filteredData.push(JSON.parse(JSON.stringify(this.users[i])));
-    }
-
-    // Assign the data to the data source for the table to render
-    this.dataSource.data = filteredData;
+    // A page that no longer exists after a change would otherwise show nothing at all.
+    this.pageIndex = Math.min(this.pageIndex, this.pageCount - 1);
   }
 
   openModifyRole(role) {
     const dialogRef = this.dialog.open(ManageRoleComponent, {
       data: {
         role: role
-      }
+      },
+      panelClass: 'kit-dialog-panel',
+      width: '480px',
+      maxWidth: 'calc(100vw - 32px)',
+      maxHeight: 'calc(100dvh - 32px)',
+      autoFocus: 'dialog'
     });
 
     dialogRef.afterClosed().subscribe(() => {

@@ -1,18 +1,17 @@
 import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
+import { UserPermission, YesNo } from 'api-types';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatListItemTitle, MatListItemLine } from '@angular/material/list';
-import { MatRadioGroup, MatRadioButton } from '@angular/material/radio';
-import { FormsModule } from '@angular/forms';
-import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
 
 @Component({
     selector: 'app-manage-role',
     templateUrl: './manage-role.component.html',
     styleUrls: ['./manage-role.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatListItemTitle, MatListItemLine, MatRadioGroup, FormsModule, MatRadioButton, MatDialogActions, MatButton, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatDialogActions, MatDialogClose]
 })
 export class ManageRoleComponent implements OnInit {
 
@@ -29,6 +28,11 @@ export class ManageRoleComponent implements OnInit {
     'downloads_manager': $localize`Use downloads manager`,
     'tasks_manager': $localize`Use tasks manager`,
   }
+
+  readonly permissionChoices: { value: YesNo, label: string }[] = [
+    { value: YesNo.YES, label: $localize`Yes` },
+    { value: YesNo.NO, label: $localize`No` }
+  ];
 
   constructor(public postsService: PostsService, private dialogRef: MatDialogRef<ManageRoleComponent>,
               @Inject(MAT_DIALOG_DATA) public data: {role: string}) {
@@ -54,13 +58,21 @@ export class ManageRoleComponent implements OnInit {
     }
   }
 
-  changeRolePermissions(change, permission) {
-    this.postsService.setRolePermission(this.role.key, permission, change.value).subscribe(res => {
+  /** The admin role is what settings access exists for, so it cannot be taken away here. */
+  permissionLocked(permission: string): boolean {
+    return permission === 'settings' && this.role?.key === 'admin';
+  }
+
+  setPermission(permission: UserPermission, value: YesNo) {
+    if (this.permissionLocked(permission) || this.permissions[permission] === value) return;
+    const previous = this.permissions[permission];
+    this.permissions[permission] = value;
+    this.postsService.setRolePermission(this.role.key, permission, value).subscribe(res => {
       if (!res['success']) {
-        this.permissions[permission] = this.permissions[permission] === 'yes' ? 'no' : 'yes';
+        this.permissions[permission] = previous;
       }
     }, err => {
-      this.permissions[permission] = this.permissions[permission] === 'yes' ? 'no' : 'yes';
+      this.permissions[permission] = previous;
     });
   }
 

@@ -1,3 +1,8 @@
-.filter-field {
-    width: 80%;
+.dialog-content .kit-field > input {
+  font-size: 14px;
+}
+
+.settings-field-row > .kit-field.limit-field {
+  flex: 0 0 min(40%, 160px);
+  padding-right: 16px;
 }

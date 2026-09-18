@@ -5,20 +5,21 @@ import { PostsService } from 'app/posts.services';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { MatFormField, MatLabel, MatInput, MatHint, MatSuffix } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
-import { MatSelect, MatOption } from '@angular/material/select';
 import { SortPropertyComponent } from '../../components/sort-property/sort-property.component';
-import { MatCheckbox } from '@angular/material/checkbox';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
+import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
 
 @Component({
     selector: 'app-generate-rss-url',
     templateUrl: './generate-rss-url.component.html',
     styleUrls: ['./generate-rss-url.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatFormField, MatLabel, MatInput, FormsModule, MatHint, MatSelect, MatOption, SortPropertyComponent, MatCheckbox, MatButton, MatIconButton, MatSuffix, MatIcon, MatDialogActions, MatDialogClose]
+    host: { class: 'kit-dialog' },
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, FormsModule, SortPropertyComponent, MatSlideToggle, MatTooltip, MatIcon, MatProgressSpinner, PickerComponent, MatDialogActions, MatDialogClose]
 })
 export class GenerateRssUrlComponent {
   titleFilter = '';
@@ -34,6 +35,24 @@ export class GenerateRssUrlComponent {
   tokenLoading = false;
   tokenError = null;
   multiUserMode = !!this.postsService.config?.Advanced?.multi_user_mode;
+
+  readonly fileTypeLabel = $localize`File type`;
+  readonly subscriptionLabel = $localize`Subscription`;
+  readonly tokenLabel = $localize`RSS token`;
+  readonly urlLabel = $localize`URL`;
+
+  readonly fileTypeOptions: PickerOption[] = [
+    { value: 'both', label: $localize`Both` },
+    { value: 'video_only', label: $localize`Video only` },
+    { value: 'audio_only', label: $localize`Audio only` }
+  ];
+
+  get subscriptionOptions(): PickerOption[] {
+    return [
+      { value: '', label: $localize`None` },
+      ...(this.postsService.subscriptions ?? []).map(sub => ({ value: sub.id, label: sub.name }))
+    ];
+  }
   constructor(public postsService: PostsService, private router: Router, private serializer: UrlSerializer, private clipboard: Clipboard) {
     this.url = this.baseURL;
     this.rebuildURL();
@@ -53,6 +72,16 @@ export class GenerateRssUrlComponent {
       this.tokenLoading = false;
       this.tokenError = err?.error?.error || err || $localize`Could not generate an RSS token.`;
     });
+  }
+
+  fileTypeChanged(file_type: string) {
+    this.fileTypeFilter = file_type;
+    this.rebuildURL();
+  }
+
+  subscriptionChanged(sub_id: string) {
+    this.subscriptionFilter = sub_id;
+    this.rebuildURL();
   }
 
   sortOptionChanged(sort: Sort) {
