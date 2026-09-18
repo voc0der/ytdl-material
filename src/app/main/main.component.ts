@@ -18,7 +18,7 @@ import { catchError, debounceTime, filter, map, switchMap, take, takeUntil } fro
 import { MatCard } from '@angular/material/card';
 import { MatFormField, MatInput, MatLabel, MatHint } from '@angular/material/input';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { MatIcon } from '@angular/material/icon';
@@ -32,7 +32,7 @@ import { PickerComponent, type PickerOption } from '../components/picker/picker.
     templateUrl: './main.component.html',
     styleUrls: ['./main.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatCard, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatButton, MatTooltip, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1, YoutubeSearchResultsComponent, PickerComponent]
+    imports: [MatCard, FormsModule, MatFormField, CdkTextareaAutosize, MatInput, MatTooltip, MatMenuTrigger, MatIcon, MatMenu, MatMenuItem, MatDivider, MatIconButton, MatCheckbox, MatLabel, MatHint, MediaLibraryComponent_1, YoutubeSearchResultsComponent, PickerComponent]
 })
 export class MainComponent implements OnInit {
   youtubeAuthDisabledOverride = false;
@@ -84,6 +84,7 @@ export class MainComponent implements OnInit {
   readonly toggleLabels = { url: $localize`:Switch input to search:Switch to Search`, search: $localize`:Switch input to URL:Switch to URL` };
   readonly downloadLabel = $localize`:Main download button:Download`;
   readonly moreDownloadOptionsLabel = $localize`:More download options button label:More download options`;
+  readonly createPlaylistLabel = $localize`:Create playlist button:New playlist`;
   readonly qualityLabel = $localize`:Quality select label:Quality`;
   readonly audioLanguageLabel = $localize`:Audio language select label:Language`;
   readonly subtitleLanguageLabel = $localize`:Subtitle select label:Subtitles`;

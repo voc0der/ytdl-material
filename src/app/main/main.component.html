@@ -53,6 +53,15 @@
           <mat-icon>more_horiz</mat-icon>
         </button>
       }
+      <!-- Creating a playlist belongs to the library below, so it rides along at the end of this
+           row: the row is there on both tabs, and switching tabs must not move anything. -->
+      @if (showCreatePlaylistShortcut) {
+        <button type="button" class="kit-chip playlist-shortcut-action" (click)="openCreatePlaylistDialog()"
+          [attr.aria-label]="createPlaylistLabel" [matTooltip]="createPlaylistLabel">
+          <mat-icon>playlist_add</mat-icon>
+          <span i18n="Create playlist button, short form for a row of chips">New</span>
+        </button>
+      }
     </div>
     <mat-menu #downloadMenu="matMenu" class="kit-menu">
       @if (!forceAutoplay) {
@@ -89,12 +98,6 @@
         </button>
       }
     </mat-menu>
-    @if (showCreatePlaylistShortcut) {
-      <button type="button" class="playlist-shortcut-action" mat-button (click)="openCreatePlaylistDialog()">
-        <mat-icon>playlist_add</mat-icon>
-        <span i18n="Create playlist button">New playlist</span>
-      </button>
-    }
   }
 </div>
 @if (inputMode === 'url' && isAdvancedModeActive()) {
