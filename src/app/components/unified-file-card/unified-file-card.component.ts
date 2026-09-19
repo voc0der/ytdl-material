@@ -115,12 +115,18 @@ export class UnifiedFileCardComponent implements OnInit {
     return !this.is_playlist && (this.file_obj?.type === 'audio' || !!this.file_obj?.isAudio);
   }
 
-  get isUploadDateGrid(): boolean {
-    return !this.isListLayout && !this.is_playlist && this.displayDateProperty === 'upload_date';
+  /** A file in the grid: its details sit under the thumbnail, whatever the library is sorted by. */
+  get isFileGrid(): boolean {
+    return !this.isListLayout && !this.is_playlist;
   }
 
+  /**
+   * How long ago the video went up, which only reads right while the library is sorted by it.
+   * Under any other sort the card shows the download date as a date: "2 weeks ago" beside a
+   * sort by name or size would read as the upload age.
+   */
   get relativeUploadDate(): string | null {
-    return this.hasDisplayableUploadDate()
+    return this.displayDateProperty === 'upload_date' && this.hasDisplayableUploadDate()
       ? formatRelativeDate(Date.parse(this.file_obj.upload_date), Date.now(), this.displayedDateLocale)
       : null;
   }

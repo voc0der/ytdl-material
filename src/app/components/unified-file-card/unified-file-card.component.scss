@@ -212,26 +212,26 @@
   bottom: 1px;
 }
 
-// Upload-date cards use the space above the thumbnail for details below it instead.
+// A file in the grid has its details below the thumbnail rather than in a header above it.
 // Keep the existing card heights: the virtualized library sizes its rows from them.
-.upload-date-layout {
-  --upload-thumbnail-height: 112.5px;
+.file-grid-layout {
+  --file-thumbnail-height: 112.5px;
 
   &[data-card-size='small'] {
-    --upload-thumbnail-height: 84.5px;
+    --file-thumbnail-height: 84.5px;
   }
 
   &[data-card-size='large'] {
-    --upload-thumbnail-height: 167.5px;
+    --file-thumbnail-height: 167.5px;
   }
 
   .img-div {
     margin-top: -5px;
     max-height: none;
-    height: var(--upload-thumbnail-height);
+    height: var(--file-thumbnail-height);
   }
 
-  .upload-thumbnail-fallback {
+  .thumbnail-fallback {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -239,7 +239,7 @@
     color: var(--kit-on-surface-variant);
   }
 
-  .upload-details {
+  .file-details {
     padding: 8px 3px 0;
   }
 
@@ -264,12 +264,12 @@
   }
 
   .menuButton {
-    top: calc(var(--upload-thumbnail-height) + 2px);
+    top: calc(var(--file-thumbnail-height) + 2px);
     right: 2px;
   }
 }
 
-.upload-metadata {
+.file-metadata {
   display: flex;
   align-items: center;
   gap: 6px;
