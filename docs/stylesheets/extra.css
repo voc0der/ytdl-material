@@ -18,6 +18,11 @@
   --md-typeset-a-color: #6cc2d1;
 }
 
+/* A secondary button is drawn in the primary color, which on slate is darker than the page. */
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(.md-button--primary) {
+  --md-primary-fg-color: var(--md-typeset-a-color);
+}
+
 .md-typeset .docs-intro {
   font-size: 1.2em;
   max-width: 42em;
