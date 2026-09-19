@@ -115,11 +115,6 @@ export class UnifiedFileCardComponent implements OnInit {
     return !this.is_playlist && (this.file_obj?.type === 'audio' || !!this.file_obj?.isAudio);
   }
 
-  /** A file in the grid: its details sit under the thumbnail, whatever the library is sorted by. */
-  get isFileGrid(): boolean {
-    return !this.isListLayout && !this.is_playlist;
-  }
-
   /**
    * How long ago the video went up, which only reads right while the library is sorted by it.
    * Under any other sort the card shows the download date as a date: "2 weeks ago" beside a
@@ -180,15 +175,6 @@ export class UnifiedFileCardComponent implements OnInit {
     return item_count === 1
       ? $localize`:Playlist card single item count:1 item`
       : $localize`:Playlist card item count:${item_count}:count: items`;
-  }
-
-  /**
-   * The count needs a line of its own beneath the title, and a small card has no room for
-   * one -- its text block would run up into the thumbnail above it. Where the count does
-   * show, the title gives up its second line to it, so the block stays as tall as before.
-   */
-  get showPlaylistItemCount(): boolean {
-    return this.card_size !== 'small' && this.playlistItemCountLabel !== null;
   }
 
   /**
