@@ -5,6 +5,7 @@ Download video and audio, follow channels and playlists, and play what you save 
 
 [Get started](getting-started/quick-start.md){ .md-button .md-button--primary }
 [Explore the features](features.md){ .md-button }
+[Gallery](gallery.md){ .md-button }
 
 ![The ytdl-material library, with video thumbnails and upload-date sorting](images/readme-home.png){ .library-preview }
 

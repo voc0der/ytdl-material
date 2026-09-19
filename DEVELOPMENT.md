@@ -513,3 +513,43 @@ The media files themselves are empty placeholders. The home page never opens one
   even though the image it then shows is loaded from `thumbnailPath` through the API.
 - **The shipped `appdata/default.json` is copied in.** The backend cannot create it on a
   first boot: modules read config as they are required, before anything gets the chance.
+
+# Regenerating the gallery
+
+The screenshots on the documentation's [Gallery](./docs/gallery.md) page, in
+`docs/images/gallery`, are generated the same way as the README's. `dev/screenshots/gallery.sh`
+stages the README library with more on top, boots the backend against it, and captures each
+page at a desktop size and a phone size:
+
+```bash
+dev/screenshots/gallery.sh               # build, boot, capture, stop
+dev/screenshots/gallery.sh --skip-build  # reuse the last frontend build
+dev/screenshots/gallery.sh --keep        # leave the backend running on :17458 afterwards
+```
+
+It downloads nothing, and it needs ffmpeg. After the build a run takes about half a minute, and
+like the README capture its output is byte-identical between runs, so an image that changes is
+a page that changed. It replaces every PNG in `docs/images/gallery`, so a shot added to or
+dropped from the run has to be added to or dropped from `docs/gallery.md` as well. Commit the
+images in the same PR as the UI change that moved them.
+
+## What it stages
+
+`dev/screenshots/fixtures/gallery.json` adds to `library.json`: the library's download dates
+spread over a month, three subscriptions that claim some of its videos, a download queue in the
+middle of a subscription check, and notifications. Each file is a clip of its own thumbnail as
+long as the video it stands for, so the player shows the right frame and the right length.
+
+## Things worth knowing
+
+- **Nothing in the queue ever starts.** `max_concurrent_downloads` is held at 0, and the
+  download shown in progress is recorded mid-step, which the queue never picks up on its own.
+- **The Tasks page is captured on the real clock.** When a task runs next is the backend's to
+  say, counted from its own clock, so those shots cannot use the held one. The harness
+  schedules each task a whole number of hours or days from the moment it runs, and counts the
+  last runs back from then, so the cards read the same whenever it runs.
+- **No task is scheduled when the backend boots.** A scheduled subscription check runs at
+  startup and would try to reach the seeded subscriptions. The schedules are set through the
+  API once the backend is up, the way the Tasks page sets them.
+- **The phone player is not in it.** The player gives the video 75vh whatever the width, so on
+  a phone the frame is a band across a tall black box.

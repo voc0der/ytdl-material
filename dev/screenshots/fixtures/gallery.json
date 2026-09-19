@@ -1,0 +1,41 @@
+{
+  "$comment": "What gallery.mjs stages on top of library.json for the documentation gallery. Times are hours before the library's `downloaded` date, which the page clock is held at. `downloaded_hours_ago` spreads the library over a month, one entry per video in library.json's order. Subscriptions claim videos from the library by id; the downloads are what a subscription check in progress would have queued, and none of them ever starts. Titles of videos that are not in the library are only ever shown as text.",
+  "downloaded_hours_ago": [3, 27, 50, 98, 170, 340, 510, 720],
+  "subscriptions": [
+    {
+      "id": "nasa",
+      "name": "NASA",
+      "isPlaylist": false,
+      "checked_hours_ago": 1,
+      "videos": ["perseverance-descent-and-touchdown", "jupiter-great-red-spot", "crew-dragon-tour"]
+    },
+    {
+      "id": "apollo",
+      "name": "Apollo at 50",
+      "isPlaylist": true,
+      "checked_hours_ago": 5,
+      "videos": ["apollo-11-moonwalk", "apollo-13-houston"]
+    },
+    {
+      "id": "station",
+      "name": "Life on the Space Station",
+      "isPlaylist": true,
+      "checked_hours_ago": 5,
+      "videos": ["station-commander-tour", "zero-g-daily-life"]
+    }
+  ],
+  "downloads": [
+    { "state": "running", "title": "James Webb Space Telescope: First Full-Color Images", "subscription": "nasa", "percent": 62, "hours_ago": 0.1 },
+    { "state": "queued", "title": "Artemis I Launch to the Moon", "subscription": "nasa", "hours_ago": 0.1 },
+    { "state": "queued", "title": "Hubble Ultra Deep Field in 3D", "subscription": "nasa", "hours_ago": 0.1 },
+    { "state": "paused", "title": "Earthrise: The 45th Anniversary", "percent": 35, "hours_ago": 2 },
+    { "state": "finished", "video": "perseverance-descent-and-touchdown", "subscription": "nasa" },
+    { "state": "finished", "video": "sts-129-launch" },
+    { "state": "finished", "video": "apollo-11-moonwalk", "subscription": "apollo" }
+  ],
+  "notifications": [
+    { "type": "download_complete", "video": "perseverance-descent-and-touchdown", "read": false },
+    { "type": "download_complete", "video": "sts-129-launch", "read": false },
+    { "type": "task_finished", "task_key": "backup_local_db", "task_title": "Backup DB", "hours_ago": 20, "read": true }
+  ]
+}

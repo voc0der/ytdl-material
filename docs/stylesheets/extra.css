@@ -18,6 +18,11 @@
   --md-typeset-a-color: #6cc2d1;
 }
 
+/* A secondary button is drawn in the primary color, which on slate is darker than the page. */
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(.md-button--primary) {
+  --md-primary-fg-color: var(--md-typeset-a-color);
+}
+
 .md-typeset .docs-intro {
   font-size: 1.2em;
   max-width: 42em;
@@ -36,4 +41,186 @@
 .md-header__button.md-logo img {
   height: 1.5rem;
   width: 1.5rem;
+}
+
+/* The Gallery page: screenshots in a grid, each a link to the full-size image, which
+   javascripts/gallery.js opens in a dialog over the page. */
+.md-typeset .gallery {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 1em 0 2em;
+}
+
+.md-typeset .gallery[data-shape="phone"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset .gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-typeset .gallery[data-shape="phone"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.md-typeset .gallery figure {
+  display: block;
+  margin: 0;
+  width: auto;
+}
+
+.md-typeset .gallery figure > a {
+  cursor: zoom-in;
+  display: block;
+}
+
+.md-typeset .gallery img {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .4rem;
+  box-shadow: 0 .2rem .8rem #00000012;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.md-typeset .gallery[data-shape="phone"] img {
+  border-radius: .8rem;
+}
+
+.md-typeset .gallery figure > a:hover img,
+.md-typeset .gallery figure > a:focus-visible img {
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .gallery figcaption {
+  color: var(--md-default-fg-color--light);
+  font-style: normal;
+  margin: .6em 0 0;
+  max-width: none;
+}
+
+html:has(.gallery-viewer[open]) {
+  overflow: hidden;
+}
+
+.gallery-viewer {
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  color: #fff;
+  height: 100%;
+  inset: 0;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  padding: 3.5rem 4.5rem 1.5rem;
+  width: 100%;
+}
+
+.gallery-viewer[open] {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.gallery-viewer::backdrop {
+  background: #000000f2;
+}
+
+.gallery-viewer figure {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.gallery-viewer img {
+  border-radius: .4rem;
+  max-height: calc(100vh - 8rem);
+  max-width: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.gallery-viewer[data-shape="phone"] img {
+  border-radius: .8rem;
+}
+
+.gallery-viewer figcaption {
+  font-size: .75rem;
+  margin-top: .8rem;
+  text-align: center;
+}
+
+.gallery-viewer__count {
+  opacity: .7;
+  white-space: nowrap;
+}
+
+.gallery-viewer__button {
+  align-items: center;
+  background: #ffffff26;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: 1.6rem/1 system-ui, sans-serif;
+  height: 2.4rem;
+  justify-content: center;
+  padding: 0 0 .15rem;
+  position: absolute;
+  width: 2.4rem;
+}
+
+.gallery-viewer__button:hover,
+.gallery-viewer__button:focus-visible {
+  background: #ffffff4d;
+}
+
+.gallery-viewer__button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.gallery-viewer__close {
+  right: 1rem;
+  top: .8rem;
+}
+
+.gallery-viewer__previous,
+.gallery-viewer__next {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.gallery-viewer__previous {
+  left: 1rem;
+}
+
+.gallery-viewer__next {
+  right: 1rem;
+}
+
+/* On a phone the image needs the full width, so moving between them happens below it. */
+@media screen and (max-width: 44.984375em) {
+  .gallery-viewer {
+    padding: 3.5rem .8rem 4.5rem;
+  }
+
+  .gallery-viewer img {
+    max-height: calc(100vh - 11rem);
+  }
+
+  .gallery-viewer__previous,
+  .gallery-viewer__next {
+    bottom: 1rem;
+    top: auto;
+    transform: none;
+  }
 }

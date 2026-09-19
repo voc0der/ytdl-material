@@ -48,6 +48,17 @@ Manual workflow runs also deploy only when run on `main`. Pull requests have rea
 
 Build output (`site/`), caches, and the local Python environment are ignored. Commit sources and configuration, not the generated HTML.
 
+## Screenshots
+
+The image on the home page and the screenshots in the [gallery](../gallery.md) are generated from the running app against a staged library, not taken by hand. After a UI change that moves them, regenerate them and commit the images with the change:
+
+```bash
+dev/screenshots/capture.sh   # docs/images/readme-home.png
+dev/screenshots/gallery.sh   # docs/images/gallery/
+```
+
+Both need the frontend and backend dependencies installed; the gallery also needs ffmpeg. The [development guide](https://github.com/voc0der/ytdl-material/blob/main/DEVELOPMENT.md#regenerating-the-gallery) describes what each one stages.
+
 ## Keep guidance current
 
 Document observable behavior and the actual UI labels. Check backend behavior when a setting's label or an older guide is ambiguous. Add new pages to navigation, use relative Markdown links for other guides, and give code examples realistic placeholders.

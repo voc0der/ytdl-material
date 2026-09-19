@@ -43,6 +43,9 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/gallery.js
+
 plugins:
   - search
 
@@ -71,6 +74,7 @@ validation:
 nav:
   - Home: index.md
   - Features: features.md
+  - Gallery: gallery.md
   - Getting started:
       - Quick start: getting-started/quick-start.md
       - Configuration: getting-started/configuration.md
