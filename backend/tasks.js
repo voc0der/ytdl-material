@@ -3,6 +3,7 @@ const notifications_api = require('./notifications');
 const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
+const thumbnails_api = require('./thumbnails');
 const subscriptions_api = require('./subscriptions');
 const categories_api = require('./categories');
 const config_api = require('./config');
@@ -36,6 +37,10 @@ const TASKS = {
     missing_db_records: {
         run: files_api.importUnregisteredFiles,
         title: 'Import missing DB records'
+    },
+    generate_missing_thumbnails: {
+        run: thumbnails_api.generateMissingThumbnails,
+        title: 'Generate missing cover art'
     },
     duplicate_files_check: {
         run: checkForDuplicateFiles,

@@ -340,6 +340,30 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/generateThumbnail:
+    post:
+      tags:
+        - files
+      summary: Generates cover art for a file
+      description: >-
+        Gives a file cover art, using the thumbnail published by its source where the record
+        has a URL and a frame from the file itself otherwise. Replaces any existing cover art.
+      operationId: post-generateThumbnail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateThumbnailRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/enableSharing:
     post:
       tags:
@@ -2359,6 +2383,21 @@ components:
         change_obj:
           type: object
           description: Object with fields to update as keys and their new values
+    GenerateThumbnailRequest:
+      required:
+        - uid
+      type: object
+      properties:
+        uid:
+          type: string
+          description: Video UID
+        timestamp_seconds:
+          type: number
+          nullable: true
+          description: >-
+            Seconds into the video to take the frame from when the source's own cover art
+            cannot be fetched. Omit or send null to use the default, and to avoid the first
+            frame, which is often black. Clamped to the video's own length.
     SharingToggle:
       required:
         - uid
@@ -3263,6 +3302,7 @@ components:
       - backup_local_db
       - missing_files_check
       - missing_db_records
+      - generate_missing_thumbnails
       - duplicate_files_check
       - youtubedl_update_check
       - delete_old_files

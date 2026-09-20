@@ -122,6 +122,23 @@
       <mat-icon>content_cut</mat-icon><ng-container i18n="Snip video button">Snip</ng-container>
     </button>
   }
+  @if (canGenerateThumbnail() && !editing) {
+    <span class="kit-field cover-art-timestamp">
+      <input type="number" min="0" step="1" [(ngModel)]="thumbnail_timestamp" [disabled]="generating_thumbnail"
+        placeholder="30" aria-label="Seconds into the video to take the cover art from"
+        i18n-aria-label="Cover art timestamp label">
+    </span>
+    <button type="button" class="kit-chip" [disabled]="generating_thumbnail || retrieving_file" (click)="generateThumbnail()"
+      matTooltip="Uses the source's own cover art when it can, otherwise a frame from this many seconds in"
+      i18n-matTooltip="Generate cover art tooltip">
+      <mat-icon>image</mat-icon>
+      @if (hasThumbnail()) {
+        <ng-container i18n="Regenerate cover art button">Regenerate cover art</ng-container>
+      } @else {
+        <ng-container i18n="Generate cover art button">Generate cover art</ng-container>
+      }
+    </button>
+  }
   @if (editing) {
     <button type="button" class="kit-chip dialog-actions-end" [disabled]="retrieving_file" (click)="cancelEditing()" i18n="Cancel">Cancel</button>
     <button type="button" class="kit-chip kit-primary" [disabled]="!metadataChanged() || retrieving_file || !write_access" (click)="saveChanges()"><mat-icon>check</mat-icon><ng-container i18n="Save video info button">Save</ng-container></button>

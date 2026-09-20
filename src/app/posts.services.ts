@@ -521,6 +521,10 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'updateFile', body, this.httpOptions);
     }
 
+    generateThumbnail(uid: string, timestamp_seconds: number) {
+        return this.http.post<SuccessObject>(this.path + 'generateThumbnail', {uid: uid, timestamp_seconds: timestamp_seconds}, this.httpOptions);
+    }
+
     snipFile(uid: string, start: number, end: number) {
         const body: SnipFileRequest = {uid: uid, start: start, end: end};
         return this.http.post<SnipFileResponse>(this.path + 'snipFile', body, this.httpOptions);

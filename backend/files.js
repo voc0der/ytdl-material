@@ -1156,7 +1156,7 @@ exports.findExistingDuplicateByInfo = async (info_obj = null, type = 'video', us
 
 exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null, allow_missing_metadata = false) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
-    if (!file_object && allow_missing_metadata) file_object = generateFallbackFileObject(file_path, type);
+    if (!file_object && allow_missing_metadata) file_object = await generateFallbackFileObject(file_path, type);
     if (!file_object) {
         logger.error(`Could not find associated JSON file for ${type} file ${file_path}`);
         return false;
@@ -1427,7 +1427,78 @@ function generateFileObject(file_path, type) {
     return file_obj;
 }
 
-function generateFallbackFileObject(file_path, type) {
+/*************************************************
+ * The URL a download was made from, as written
+ * into the container by yt-dlp's --add-metadata.
+ *
+ * mp4 stores it as 'purl', mkv and webm as 'PURL'
+ * -- probeMedia lower-cases the keys, so only the
+ * spelling differs here. 'comment' is the fallback
+ * because yt-dlp writes the URL there too, and it
+ * survives an mp4 muxed without use_metadata_tags,
+ * where 'purl' is dropped.
+ ************************************************/
+function extractUrlFromContainerTags(tags = {}) {
+    for (const tag_name of ['purl', 'comment', 'www']) {
+        const value = tags[tag_name];
+        if (typeof value !== 'string') continue;
+        const trimmed = value.trim();
+        // A comment is free text, so it only counts when the whole tag is one URL.
+        if (/^https?:\/\/\S+$/i.test(trimmed)) return trimmed;
+    }
+    return '';
+}
+exports.extractUrlFromContainerTags = extractUrlFromContainerTags;
+
+/*************************************************
+ * yt-dlp writes the upload date as YYYYMMDD, but
+ * a file that came from somewhere else can carry
+ * anything, and ISO timestamps are common.
+ ************************************************/
+function normalizeContainerDate(raw_date = '') {
+    const trimmed = typeof raw_date === 'string' ? raw_date.trim() : '';
+    if (!trimmed) return null;
+
+    if (/^\d{8}$/.test(trimmed)) return utils.formatDateString(trimmed);
+    const iso_match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso_match) return `${iso_match[1]}-${iso_match[2]}-${iso_match[3]}`;
+    return null;
+}
+exports.normalizeContainerDate = normalizeContainerDate;
+
+/*************************************************
+ * What the file itself can tell us when no
+ * .info.json sits beside it.
+ *
+ * ffprobe covers duration and height for free,
+ * and anything this app downloaded also carries
+ * its own source URL, title and uploader, because
+ * downloads run with --add-metadata.
+ ************************************************/
+async function recoverMetadataFromMedia(true_file_path, type) {
+    const probed = await transcoding_api.probeMedia(true_file_path);
+    if (!probed) return null;
+
+    const tags = probed.tags || {};
+    const video_stream = probed.streams.find(stream => stream.codec_type === 'video') || null;
+    const duration = Number(probed.format && probed.format.duration);
+    const height = video_stream && Number(video_stream.height);
+
+    const url = extractUrlFromContainerTags(tags);
+    return {
+        url,
+        title: typeof tags.title === 'string' && tags.title.trim() ? tags.title.trim() : '',
+        uploader: typeof tags.artist === 'string' && tags.artist.trim() ? tags.artist.trim() : '',
+        description: typeof tags.description === 'string' ? tags.description : '',
+        upload_date: normalizeContainerDate(tags.date),
+        duration: Number.isFinite(duration) && duration > 0 ? duration : 0,
+        // An audio file has no meaningful height, and a video one reports it per stream.
+        height: type === 'audio' || !Number.isFinite(height) || height <= 0 ? null : height,
+        source_metadata: url ? extractSourceMetadataFromUrl(url, type) : null
+    };
+}
+
+async function generateFallbackFileObject(file_path, type) {
     const true_file_path = getExistingMediaPath(file_path, type);
     let stats;
     try {
@@ -1439,10 +1510,50 @@ function generateFallbackFileObject(file_path, type) {
 
     const file_id = utils.removeFileExtension(path.basename(true_file_path));
     const isaudio = type === 'audio';
-    const file_obj = new utils.File(file_id, file_id, '', isaudio, 0, '', '', stats.size, true_file_path, 'N/A', '', 0, null, null);
+
+    // ffprobe is only worth spawning for a file we are allowed to read in the first place.
+    const recovered = utils.isServableMediaFile(true_file_path)
+        ? await recoverMetadataFromMedia(true_file_path, type)
+        : null;
+
+    // Without a real upload date, the file's own mtime is the closest thing to when the
+    // video is from. `registered` keeps meaning when it entered the library.
+    const upload_date = (recovered && recovered.upload_date)
+        || utils.formatDateString(formatMtimeAsDateString(stats.mtime));
+
+    const source_metadata = recovered && recovered.source_metadata;
+    const file_obj = new utils.File(
+        file_id,
+        (recovered && recovered.title) || file_id,
+        '',
+        isaudio,
+        (recovered && recovered.duration) || 0,
+        (recovered && recovered.url) || '',
+        (recovered && recovered.uploader) || '',
+        stats.size,
+        true_file_path,
+        upload_date,
+        (recovered && recovered.description) || '',
+        0,
+        (recovered && recovered.height) || null,
+        null,
+        source_metadata && source_metadata.source_id,
+        source_metadata && source_metadata.source_extractor,
+        source_metadata && source_metadata.duplicate_key
+    );
     file_obj.source_metadata_checked = true;
-    file_obj.imported_without_metadata = true;
+    // Still the handle the repair task filters on, so it only stays true when the file told
+    // us nothing usable either.
+    file_obj.imported_without_metadata = !(recovered && (recovered.url || recovered.title || recovered.duration));
     return file_obj;
+}
+
+function formatMtimeAsDateString(mtime) {
+    const date = mtime instanceof Date ? mtime : new Date(mtime);
+    if (Number.isNaN(date.getTime())) return '';
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}${month}${day}`;
 }
 
 exports.importUnregisteredFiles = async () => {
