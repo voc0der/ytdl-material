@@ -70,12 +70,15 @@ RUN npm ci --omit=dev && \
 
 # Final image
 FROM base
+# curl_cffi is what gives yt-dlp an impersonation target. The downloaded yt-dlp binary is a
+# zipapp that runs on this system Python, so without curl_cffi installed here sites that
+# fingerprint TLS answer 403 and yt-dlp only warns that no impersonate target is available.
 RUN command -v setpriv >/dev/null && \
     npm install -g pm2 && \
     npm cache clean --force && \
     apt update && \
     apt install -y --no-install-recommends gosu python3-minimal python-is-python3 python3-pip atomicparsley build-essential unzip && \
-    pip install --no-cache-dir --break-system-packages pycryptodomex && \
+    pip install --no-cache-dir --break-system-packages pycryptodomex curl_cffi && \
     apt remove -y --purge build-essential && \
     apt autoremove -y --purge && \
     apt clean && \
