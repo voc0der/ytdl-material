@@ -62,6 +62,7 @@ JSON section: <code>YtdlMaterial.Extra</code>
 | <code>ytdl_enable_all_notifications</code> | <code>enable_all_notifications</code> | <code>true</code> |
 | <code>ytdl_allowed_notification_types</code> | <code>allowed_notification_types</code> | <code>[]</code> |
 | <code>ytdl_enable_rss_feed</code> | <code>enable_rss_feed</code> | <code>false</code> |
+| <code>ytdl_date_format</code> | <code>date_format</code> | Not set |
 
 ## API
 
