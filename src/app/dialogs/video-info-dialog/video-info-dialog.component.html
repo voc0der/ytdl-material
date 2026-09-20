@@ -116,6 +116,26 @@
   </section>
 </mat-dialog-content>
 
+@if (used_frame && !editing) {
+  <!-- Only shown once the cover art actually came from a frame. Until then the number
+       would be a control with nothing to act on. -->
+  <div class="cover-art-retry" role="status">
+    <span i18n="Cover art taken from a frame">
+      This came from the video itself, {{frame_seconds_used}} seconds in.
+    </span>
+    <label class="cover-art-retry-field">
+      <span i18n="Cover art retry label">Try</span>
+      <span class="kit-field cover-art-timestamp">
+        <input type="number" min="0" step="1" [(ngModel)]="thumbnail_timestamp" [disabled]="generating_thumbnail">
+      </span>
+      <span i18n="Cover art retry seconds suffix">seconds in instead</span>
+    </label>
+    <button type="button" class="kit-chip" [disabled]="generating_thumbnail || retrieving_file" (click)="generateThumbnail()">
+      <mat-icon>refresh</mat-icon><ng-container i18n="Cover art retry button">Try again</ng-container>
+    </button>
+  </div>
+}
+
 <mat-dialog-actions class="dialog-actions">
   @if (canSnip()) {
     <button type="button" class="kit-chip" mat-dialog-close (click)="requestSnip()" matTooltip="Select a range of this video to save as a new file" i18n-matTooltip="Snip button tooltip">
@@ -123,13 +143,8 @@
     </button>
   }
   @if (canGenerateThumbnail() && !editing) {
-    <span class="kit-field cover-art-timestamp">
-      <input type="number" min="0" step="1" [(ngModel)]="thumbnail_timestamp" [disabled]="generating_thumbnail"
-        placeholder="30" aria-label="Seconds into the video to take the cover art from"
-        i18n-aria-label="Cover art timestamp label">
-    </span>
     <button type="button" class="kit-chip" [disabled]="generating_thumbnail || retrieving_file" (click)="generateThumbnail()"
-      matTooltip="Uses the source's own cover art when it can, otherwise a frame from this many seconds in"
+      matTooltip="Uses the cover art published with the original where it can, and a frame from the video otherwise"
       i18n-matTooltip="Generate cover art tooltip">
       <mat-icon>image</mat-icon>
       @if (hasThumbnail()) {
@@ -149,3 +164,4 @@
     }
   }
 </mat-dialog-actions>
+

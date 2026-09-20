@@ -1559,13 +1559,20 @@ app.post('/api/generateThumbnail', optionalJwt, requirePermission('filemanager')
         return;
     }
 
-    const thumbnail_path = await thumbnails_api.generateThumbnailForFile(file_obj, {timestamp_seconds: timestamp_seconds});
-    if (!thumbnail_path) {
+    const generated = await thumbnails_api.generateThumbnailForFile(file_obj, {timestamp_seconds: timestamp_seconds});
+    if (!generated) {
         res.send({success: false, error: 'Could not generate cover art for this file'});
         return;
     }
 
-    res.send({success: true, thumbnailPath: thumbnail_path});
+    // method tells the caller whether the timestamp had any say in the result, so the UI can
+    // offer to pick a different frame only when a frame is what it got.
+    res.send({
+        success: true,
+        thumbnailPath: generated.thumbnail_path,
+        method: generated.method,
+        seek_seconds: generated.seek_seconds
+    });
 });
 
 app.post('/api/checkConcurrentStream', async (req, res) => {

@@ -64,9 +64,27 @@
   }
 }
 
-// Narrow enough to read as "a number of seconds" beside the button it feeds, rather than
-// as another metadata field.
+// The retry row sits under the actions rather than in them: it only appears after a run
+// that fell back to a frame, and the action row is already full at narrow widths.
+.cover-art-retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.cover-art-retry-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+// Wide enough for three digits and no wider: it reads as a number of seconds in a
+// sentence, not as another metadata field.
 .cover-art-timestamp {
-  width: 4.5rem;
+  width: 4rem;
   flex: 0 0 auto;
 }

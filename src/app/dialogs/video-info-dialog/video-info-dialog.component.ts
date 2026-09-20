@@ -36,7 +36,18 @@ export class VideoInfoDialogComponent implements OnInit {
   allow_snip = false;
   snip_requested = false;
   generating_thumbnail = false;
-  // Blank means the backend's own default rather than second zero, which is often black.
+  /*************************************************
+   * The timestamp only has a say when the cover art
+   * came from a video frame: when the source's own
+   * art can be fetched, it is ignored entirely.
+   *
+   * So the control for it stays hidden until a run
+   * actually falls back to a frame, rather than
+   * sitting in the action row as a bare number that
+   * usually does nothing.
+   ************************************************/
+  used_frame = false;
+  frame_seconds_used: number | null = null;
   thumbnail_timestamp: number | null = null;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, public postsService: PostsService, private datePipe: DatePipe) { }
@@ -152,10 +163,8 @@ export class VideoInfoDialogComponent implements OnInit {
   }
 
   generateThumbnail(): void {
-    // Seconds into the video to grab a frame from, only used when the source's own
-    // thumbnail cannot be fetched. A blank box means "use the default": Number(null) and
-    // Number('') are both 0, so an empty box would otherwise ask for the very first frame,
-    // which is usually black.
+    // A blank box means "use the default": Number(null) and Number('') are both 0, so an
+    // empty box would otherwise ask for the very first frame, which is usually black.
     const raw = this.thumbnail_timestamp;
     const provided = raw !== null && raw !== undefined && String(raw) !== '';
     const timestamp = provided ? Number(raw) : NaN;
@@ -166,7 +175,19 @@ export class VideoInfoDialogComponent implements OnInit {
         this.postsService.openSnackBar($localize`Could not generate cover art for this file.`);
         return;
       }
-      this.postsService.openSnackBar($localize`Cover art generated.`);
+
+      this.used_frame = res['method'] === 'frame';
+      if (this.used_frame) {
+        // Seed the box with what was actually used, so changing it is an adjustment rather
+        // than a guess from nothing.
+        this.frame_seconds_used = res['seek_seconds'] ?? null;
+        if (this.thumbnail_timestamp === null) this.thumbnail_timestamp = this.frame_seconds_used;
+        this.postsService.openSnackBar($localize`Cover art taken from the video.`);
+      } else {
+        this.frame_seconds_used = null;
+        this.postsService.openSnackBar($localize`Cover art fetched from the original.`);
+      }
+
       // The card behind the dialog reads its image off the record, so pull the new one.
       this.getFile();
     }, err => {

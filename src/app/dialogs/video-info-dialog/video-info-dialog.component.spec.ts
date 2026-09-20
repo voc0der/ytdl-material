@@ -45,7 +45,7 @@ describe('VideoInfoDialogComponent', () => {
       // The dialog's action row asks what the caller may do. canSnip() only got away
       // without this because allow_snip short-circuits ahead of it.
       hasPermission: vi.fn().mockName('hasPermission').mockReturnValue(true),
-      generateThumbnail: vi.fn().mockName('generateThumbnail').mockReturnValue(of({success: true})),
+      generateThumbnail: vi.fn().mockName('generateThumbnail').mockReturnValue(of({success: true, method: 'source'})),
       openSnackBar: vi.fn()
     };
 
@@ -206,6 +206,37 @@ describe('VideoInfoDialogComponent', () => {
     expect(component.generating_thumbnail).toBe(false);
     expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  it('hides the frame control when the original cover art was fetched', () => {
+    // The timestamp has no say in that result, so offering it would be offering a control
+    // that does nothing.
+    postsServiceStub.generateThumbnail.mockReturnValue(of({success: true, method: 'source'}));
+
+    component.generateThumbnail();
+
+    expect(component.used_frame).toBe(false);
+    expect(component.frame_seconds_used).toBeNull();
+  });
+
+  it('reveals the frame control, seeded with what was used, after falling back to a frame', () => {
+    postsServiceStub.generateThumbnail.mockReturnValue(of({success: true, method: 'frame', seek_seconds: 12}));
+
+    component.generateThumbnail();
+
+    expect(component.used_frame).toBe(true);
+    expect(component.frame_seconds_used).toBe(12);
+    // Seeded so changing it is an adjustment rather than a guess from nothing.
+    expect(component.thumbnail_timestamp).toBe(12);
+  });
+
+  it('keeps a timestamp the user already typed rather than overwriting it', () => {
+    component.thumbnail_timestamp = 45;
+    postsServiceStub.generateThumbnail.mockReturnValue(of({success: true, method: 'frame', seek_seconds: 45}));
+
+    component.generateThumbnail();
+
+    expect(component.thumbnail_timestamp).toBe(45);
   });
 
   it('offers to replace art only when the file already has some', () => {
