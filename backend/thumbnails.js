@@ -74,9 +74,9 @@ async function writeThumbnailFromFrame(file_path, output_path, timestamp_seconds
 
     if (!success) {
         logger.warn(`Could not generate a thumbnail frame for '${file_path}': ${error}`);
-        return false;
+        return null;
     }
-    return true;
+    return {seek_seconds: seek_seconds};
 }
 
 async function writeThumbnailFromUrl(thumbnail_url, output_path) {
@@ -118,7 +118,11 @@ async function resolveSourceThumbnailUrl(file_obj) {
 
 /**
  * Give a file cover art, preferring the real thumbnail from its source and falling back to a
- * frame from the file itself. Returns the stored relative path, or null when nothing worked.
+ * frame from the file itself.
+ *
+ * Resolves {thumbnail_path, method, seek_seconds}, or null when nothing worked. `method` is
+ * 'source' or 'frame': the caller needs it because the timestamp only means anything when a
+ * frame is what was used, and offering it otherwise is offering a control that does nothing.
  *
  * @param {object} file_obj a files record
  * @param {{timestamp_seconds?: number, allow_source_fetch?: boolean}} options
@@ -143,14 +147,21 @@ exports.generateThumbnailForFile = async (file_obj, {timestamp_seconds = DEFAULT
         return null;
     }
 
-    let written = false;
+    let method = null;
+    let seek_seconds = null;
     if (allow_source_fetch) {
         const source_thumbnail_url = await resolveSourceThumbnailUrl(file_obj);
-        if (source_thumbnail_url) written = await writeThumbnailFromUrl(source_thumbnail_url, output_path);
+        if (source_thumbnail_url && await writeThumbnailFromUrl(source_thumbnail_url, output_path)) method = 'source';
     }
-    if (!written) written = await writeThumbnailFromFrame(file_path, output_path, timestamp_seconds);
+    if (!method) {
+        const frame = await writeThumbnailFromFrame(file_path, output_path, timestamp_seconds);
+        if (frame) {
+            method = 'frame';
+            seek_seconds = frame.seek_seconds;
+        }
+    }
 
-    if (!written) {
+    if (!method) {
         try {
             await fs.remove(output_path);
         } catch {
@@ -171,7 +182,7 @@ exports.generateThumbnailForFile = async (file_obj, {timestamp_seconds = DEFAULT
         thumbnailURL: file_obj.thumbnailURL || 'local'
     });
 
-    return stored_thumbnail_path;
+    return {thumbnail_path: stored_thumbnail_path, method: method, seek_seconds: seek_seconds};
 };
 
 /**
@@ -200,7 +211,7 @@ exports.generateMissingThumbnails = async (concurrency = 2) => {
             const file_obj = files[next_index++];
             try {
                 const generated = await exports.generateThumbnailForFile(file_obj);
-                if (generated) results.generated++;
+                if (generated && generated.thumbnail_path) results.generated++;
                 else results.failed++;
             } catch (err) {
                 logger.error(`Failed to generate a thumbnail for ${file_obj && file_obj.uid}: ${err.message}`);
