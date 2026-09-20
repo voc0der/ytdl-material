@@ -501,6 +501,14 @@
                     <mat-icon>rss_feed</mat-icon><span i18n="Generate RSS URL">Generate RSS URL</span>
                   </button>
                 </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Date format setting label">Date format</span>
+                    <span class="settings-row-hint" i18n="Date format setting hint">How dates are written throughout the app. Your language's own format is used unless you pick one here.</span>
+                  </span>
+                  <app-picker [title]="dateFormatLabel" [options]="dateFormatOptions" [value]="new_config['Extra']['date_format']"
+                    (valueChange)="new_config['Extra']['date_format'] = $any($event)"></app-picker>
+                </div>
               </div>
             </div>
           </section>

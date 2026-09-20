@@ -3,7 +3,6 @@ import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 import { filter, take, takeUntil } from 'rxjs/operators';
-import { DatePipe } from '@angular/common';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
@@ -13,6 +12,7 @@ import { DuplicateGroup, DuplicateRemovalMode, PostsService } from 'app/posts.se
 import { PickerComponent, type PickerOption } from '../picker/picker.component';
 import { fileThumbnailURL, formatDuration } from 'app/utils/file-display';
 import { formatRelativeTime } from 'app/utils/relative-time';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 type DuplicateOrder = 'latest' | 'copies' | 'title';
 
@@ -21,7 +21,7 @@ type DuplicateOrder = 'latest' | 'copies' | 'title';
     templateUrl: './duplicates.component.html',
     styleUrls: ['./duplicates.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [DatePipe, MatTooltip, MatProgressSpinner, MatIcon, PickerComponent]
+    imports: [MatTooltip, MatProgressSpinner, MatIcon, PickerComponent, AppDatePipe]
 })
 export class DuplicatesComponent implements OnInit, OnDestroy {
   static readonly PAGE_SIZE = 20;

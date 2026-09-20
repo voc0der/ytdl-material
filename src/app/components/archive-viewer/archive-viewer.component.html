@@ -72,7 +72,7 @@
               <span class="archive-text">
                 <span class="archive-title kit-one-line" [matTooltip]="archive.title || null">{{archive.title || untitledLabel}}</span>
                 <span class="archive-meta">
-                  <span>{{archive.timestamp * 1000 | date: 'short'}}</span>
+                  <span>{{archive.timestamp * 1000 | appDate: 'short'}}</span>
                   <span aria-hidden="true">·</span>
                   <span class="kit-one-line">{{archive.extractor}}</span>
                   <span aria-hidden="true">·</span>

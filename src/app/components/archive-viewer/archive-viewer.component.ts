@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
@@ -12,6 +11,7 @@ import { PickerComponent, PickerOption } from 'app/components/picker/picker.comp
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { PostsService } from 'app/posts.services';
 import { saveBlob } from '../../utils/save-blob';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 type ArchiveOrder = 'newest' | 'oldest' | 'title' | 'source';
 
@@ -30,7 +30,7 @@ const NO_SUBSCRIPTION = 'none';
     styleUrls: ['./archive-viewer.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     host: { class: 'kit-dialog' },
-    imports: [MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatIcon, MatTooltip, MatProgressSpinner, FormsModule, NgxFileDropModule, PickerComponent, DatePipe]
+    imports: [MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose, MatIcon, MatTooltip, MatProgressSpinner, FormsModule, NgxFileDropModule, PickerComponent, AppDatePipe]
 })
 export class ArchiveViewerComponent implements OnInit {
   archives: Archive[] = null;

@@ -43,7 +43,7 @@
           <div class="task-meta">
             <span class="task-status">{{statusText(task)}}</span>
             <span aria-hidden="true">·</span>
-            <span [matTooltip]="nextRunAt(task) ? (nextRunAt(task) | date: 'medium') : ''">{{nextRunText(task)}}</span>
+            <span [matTooltip]="nextRunAt(task) ? (nextRunAt(task) | appDate: 'medium') : ''">{{nextRunText(task)}}</span>
             @if (isRepeating(task)) {
               <mat-icon class="task-repeat" aria-hidden="true">repeat</mat-icon>
             }

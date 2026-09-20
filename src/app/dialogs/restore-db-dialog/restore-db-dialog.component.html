@@ -14,7 +14,7 @@
           [matTooltip]="db_backup.name" (click)="select(db_backup)">
           <mat-icon [class.kit-invisible]="!isSelected(db_backup)">check</mat-icon>
           <span class="dialog-choice-label backup-label">
-            <strong>{{db_backup.timestamp * 1000 | date: 'medium'}}</strong>
+            <strong>{{db_backup.timestamp * 1000 | appDate: 'medium'}}</strong>
             <small>{{(db_backup.size / 1000).toFixed(2)}} kB · <span class="backup-source">{{db_backup.source}}</span></small>
           </span>
         </button>

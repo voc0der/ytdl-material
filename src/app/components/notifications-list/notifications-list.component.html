@@ -13,7 +13,7 @@
       @if (NOTIFICATION_SUFFIX_KEY[notification.type]) {
         <span class="notification-detail">{{notification['data'][NOTIFICATION_SUFFIX_KEY[notification.type]]}}</span>
       }
-      <span class="notification-timestamp">{{notification.timestamp * 1000 | date:'short'}}</span>
+      <span class="notification-timestamp">{{notification.timestamp * 1000 | appDate:'short'}}</span>
     </div>
     <div class="notification-actions">
       @for (action of notification.actions; track action) {

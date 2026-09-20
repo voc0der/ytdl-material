@@ -16,6 +16,7 @@ These apply to many Docker setups regardless of which database or login method y
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
+* `ytdl_date_format`: how dates are written throughout the app. One of `'mm/dd/yyyy'`, `'dd/mm/yyyy'` or `'yyyy-mm-dd'`. Leave unset (the default) to follow each user's chosen language, which already gives `dd/mm/yyyy` for British English and `mm/dd/yyyy` for American English. Also selectable in Settings under the Extra tab
 * `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install an up-to-date `curl_cffi` into `appdata`, show the Downloader impersonation option, and enable it for new configs. This is only needed to force impersonation on every download, or to get a newer `curl_cffi` than the image ships; extractors that ask for impersonation themselves already get it out of the box
 
 You can use Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
