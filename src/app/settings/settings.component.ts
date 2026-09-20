@@ -107,6 +107,15 @@ export class SettingsComponent implements OnInit {
     { value: 'vaapi', label: 'Video Acceleration API (VAAPI)' }
   ];
 
+  // Labels show a real date rather than the pattern: "09/20/2026" is unambiguous where
+  // "mm/dd/yyyy" still has to be decoded by the person reading it.
+  readonly dateFormatOptions: PickerOption[] = [
+    { value: '', label: $localize`Match my language` },
+    { value: 'mm/dd/yyyy', label: '09/20/2026' },
+    { value: 'dd/mm/yyyy', label: '20/09/2026' },
+    { value: 'yyyy-mm-dd', label: '2026-09-20' }
+  ];
+
   readonly remoteDbTypeOptions: PickerOption[] = [
     { value: '', label: $localize`Automatic` },
     { value: 'postgres', label: 'PostgreSQL' },
@@ -152,6 +161,7 @@ export class SettingsComponent implements OnInit {
 
   readonly themeLabel = $localize`Theme`;
   readonly transcodingLabel = $localize`Hardware acceleration`;
+  readonly dateFormatLabel = $localize`Date format`;
   readonly remoteDbTypeLabel = $localize`Remote database`;
   readonly dbMigrateLabel = $localize`Migration`;
   readonly downloaderLabel = $localize`Downloader`;

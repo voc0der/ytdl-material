@@ -5,7 +5,7 @@ import { NotificationType } from 'api-types/models/NotificationType';
 import { CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf } from '@angular/cdk/scrolling';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatIcon } from '@angular/material/icon';
-import { DatePipe } from '@angular/common';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 // Every row is this tall, because a virtualized list has to know before it renders one.
 // Kept beside the styles that produce it -- and the panel sizes itself from it too.
@@ -16,7 +16,7 @@ export const NOTIFICATION_ROW_HEIGHT = 88;
     templateUrl: './notifications-list.component.html',
     styleUrls: ['./notifications-list.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf, MatTooltip, MatIcon, DatePipe]
+    imports: [CdkVirtualScrollViewport, CdkFixedSizeVirtualScroll, CdkVirtualForOf, MatTooltip, MatIcon, AppDatePipe]
 })
 export class NotificationsListComponent {
   @Input() notifications = null;

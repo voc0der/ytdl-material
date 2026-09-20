@@ -52,7 +52,7 @@
                 <span>{{getGroupTypeLabel(group)}}</span>
                 @if (lastDownloadedText(group)) {
                   <span aria-hidden="true">·</span>
-                  <span [matTooltip]="group.newest_registered | date: 'medium'" i18n="Duplicate last downloaded">last downloaded {{lastDownloadedText(group)}}</span>
+                  <span [matTooltip]="group.newest_registered | appDate: 'medium'" i18n="Duplicate last downloaded">last downloaded {{lastDownloadedText(group)}}</span>
                 }
               </span>
               <span class="duplicate-source">
@@ -84,7 +84,7 @@
             <ol class="copy-list">
               @for (copy of copies(group); track copy.uid; let first = $first; let last = $last) {
                 <li class="copy-row">
-                  <span class="copy-when">{{copy.registered | date: 'medium'}}</span>
+                  <span class="copy-when">{{copy.registered | appDate: 'medium'}}</span>
                   <span class="copy-path kit-one-line" [matTooltip]="copy.path" matTooltipShowDelay="600">{{copy.path}}</span>
                   @if (first) {
                     <span class="copy-badge" i18n="First download of a duplicate">First download</span>

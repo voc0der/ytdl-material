@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, Inject, OnInit, QueryLi
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDragPlaceholder, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CdkScrollable } from '@angular/cdk/scrolling';
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
@@ -11,6 +11,7 @@ import { DatabaseFile, FileTypeFilter, Playlist, Subscription } from 'api-types'
 import { PostsService } from 'app/posts.services';
 import { PickerComponent, type PickerOption } from 'app/components/picker/picker.component';
 import { durationSeconds, fileThumbnailURL, formatDuration } from 'app/utils/file-display';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 export interface PlaylistDialogData {
   create_mode?: boolean;
@@ -54,7 +55,7 @@ export function openPlaylistDialog(dialog: MatDialog, data: PlaylistDialogData):
     changeDetection: ChangeDetectionStrategy.Eager,
     host: { class: 'kit-dialog' },
     imports: [MatDialogTitle, MatDialogClose, CdkScrollable, MatDialogContent, MatDialogActions, FormsModule, MatIcon,
-      MatProgressSpinner, MatTooltip, PickerComponent, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder, DatePipe, NgTemplateOutlet]
+      MatProgressSpinner, MatTooltip, PickerComponent, CdkDropList, CdkDrag, CdkDragHandle, CdkDragPlaceholder, NgTemplateOutlet, AppDatePipe]
 })
 export class CreatePlaylistComponent implements OnInit {
   // A library can hold thousands of files. Rows are cheap, but not that cheap, so the list

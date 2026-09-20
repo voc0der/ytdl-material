@@ -144,6 +144,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_enable_rss_feed',
         'path': 'YtdlMaterial.Extra.enable_rss_feed'
     },
+    'ytdl_date_format': {
+        'key': 'ytdl_date_format',
+        'path': 'YtdlMaterial.Extra.date_format'
+    },
 
     // API
     'ytdl_enable_documentation_api': {

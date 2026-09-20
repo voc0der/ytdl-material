@@ -11,9 +11,9 @@ import { filter, take } from 'rxjs/operators';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
-import { DatePipe } from '@angular/common';
 import { formatRelativeTime } from 'app/utils/relative-time';
 import { TaskState, confirmLabel, hasPendingWork, pendingCount, taskDescription, taskIcon, taskState } from './task-info';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 // Tasks sit still most of the time; only a run is worth watching closely.
 const BUSY_POLL_INTERVAL_MS = 1500;
@@ -24,7 +24,7 @@ const IDLE_POLL_INTERVAL_MS = 15000;
     templateUrl: './tasks.component.html',
     styleUrls: ['./tasks.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatProgressSpinner, MatIcon, MatTooltip, DatePipe, TaskSettingsComponent]
+    imports: [MatProgressSpinner, MatIcon, MatTooltip, TaskSettingsComponent, AppDatePipe]
 })
 export class TasksComponent implements OnInit, OnDestroy {
 

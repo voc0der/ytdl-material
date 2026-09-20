@@ -60,7 +60,7 @@
               <span class="download-status">{{statusText(download)}}</span>
               @if (startedText(download)) {
                 <span aria-hidden="true">·</span>
-                <span [matTooltip]="download.timestamp_start | date: 'medium'">{{startedText(download)}}</span>
+                <span [matTooltip]="download.timestamp_start | appDate: 'medium'">{{startedText(download)}}</span>
               }
               @if (download.sub_name) {
                 <span aria-hidden="true">·</span>

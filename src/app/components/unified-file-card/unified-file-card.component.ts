@@ -2,7 +2,7 @@ import { Component, OnInit, Input, Output, EventEmitter, ViewChild, ChangeDetect
 import { MatDialog } from '@angular/material/dialog';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
-import { registerLocaleData, NgClass, DatePipe } from '@angular/common';
+import { registerLocaleData, NgClass } from '@angular/common';
 import localeGB from '@angular/common/locales/en-GB';
 import localeFR from '@angular/common/locales/fr';
 import localeES from '@angular/common/locales/es';
@@ -18,6 +18,7 @@ import { MatCard } from '@angular/material/card';
 import { MatRipple } from '@angular/material/core';
 import { MatTooltip } from '@angular/material/tooltip';
 import { formatRelativeDate } from 'app/utils/relative-time';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 registerLocaleData(localeGB);
 registerLocaleData(localeFR);
@@ -45,7 +46,7 @@ export function getListCardHeight(card_width: number): number {
     templateUrl: './unified-file-card.component.html',
     styleUrls: ['./unified-file-card.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatIcon, ContentLoaderModule, MatMenuTrigger, MatIconButton, MatMenu, MatMenuItem, MatDivider, MatCard, MatRipple, MatTooltip, NgClass, DatePipe]
+    imports: [MatIcon, ContentLoaderModule, MatMenuTrigger, MatIconButton, MatMenu, MatMenuItem, MatDivider, MatCard, MatRipple, MatTooltip, NgClass, AppDatePipe]
 })
 export class UnifiedFileCardComponent implements OnInit {
 

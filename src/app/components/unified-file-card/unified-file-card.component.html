@@ -94,7 +94,7 @@
             @if (file_obj.auto) {
               <ng-container i18n="Auto-generated label">Auto-generated</ng-container>
             } @else {
-              {{displayedDateValue | date:'shortDate' : displayedDateTimezone : displayedDateLocale}}
+              {{displayedDateValue | appDate:'shortDate' : displayedDateTimezone : displayedDateLocale}}
             }
           </span>
         }
@@ -155,8 +155,8 @@
               @if (file_obj.auto) {
                 <span i18n="Auto-generated label">Auto-generated</span>
               } @else {
-                <span [matTooltip]="displayedDateValue | date:'longDate' : displayedDateTimezone : displayedDateLocale">
-                  {{relativeUploadDate ?? (displayedDateValue | date:'shortDate' : displayedDateTimezone : displayedDateLocale)}}
+                <span [matTooltip]="displayedDateValue | appDate:'longDate' : displayedDateTimezone : displayedDateLocale">
+                  {{relativeUploadDate ?? (displayedDateValue | appDate:'shortDate' : displayedDateTimezone : displayedDateLocale)}}
                 </span>
               }
             </div>

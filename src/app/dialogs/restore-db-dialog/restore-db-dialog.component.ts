@@ -5,7 +5,7 @@ import { CdkScrollable } from '@angular/cdk/scrolling';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { DatePipe } from '@angular/common';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 @Component({
     selector: 'app-restore-db-dialog',
@@ -13,7 +13,7 @@ import { DatePipe } from '@angular/common';
     styleUrls: ['./restore-db-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     host: { class: 'kit-dialog' },
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatTooltip, MatDialogActions, MatDialogClose, MatProgressSpinner, DatePipe]
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatIcon, MatTooltip, MatDialogActions, MatDialogClose, MatProgressSpinner, AppDatePipe]
 })
 export class RestoreDbDialogComponent implements OnInit {
 

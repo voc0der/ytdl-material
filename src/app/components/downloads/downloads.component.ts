@@ -9,13 +9,13 @@ import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
-import { DatePipe } from '@angular/common';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
 import { PickerComponent, type PickerOption } from 'app/components/picker/picker.component';
 import { formatRelativeTime } from 'app/utils/relative-time';
+import { AppDatePipe } from 'app/pipes/app-date.pipe';
 
 /** Where a download has got to, which is what its row is coloured and worded by. */
 export type DownloadState = 'failed' | 'cancelled' | 'finished' | 'paused' | 'running' | 'queued';
@@ -25,7 +25,7 @@ export type DownloadState = 'failed' | 'cancelled' | 'finished' | 'paused' | 'ru
     templateUrl: './downloads.component.html',
     styleUrls: ['./downloads.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [RouterLink, DatePipe, MatTooltip, MatProgressSpinner, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, PickerComponent]
+    imports: [RouterLink, MatTooltip, MatProgressSpinner, MatIcon, MatMenuTrigger, MatMenu, MatMenuItem, PickerComponent, AppDatePipe]
 })
 export class DownloadsComponent implements OnInit, OnDestroy {
 
