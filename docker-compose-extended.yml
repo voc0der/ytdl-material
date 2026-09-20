@@ -17,7 +17,7 @@ services:
 
       # Optional: force yt-dlp browser impersonation on every download.
       # Extractors that request impersonation already get it without this; curl_cffi is
-      # in the image. Set true to install the pip yt-dlp runtime and show the setting.
+      # in the image. Set true to install a newer curl_cffi and show the setting.
       # ytdl_enable_ytdlp_impersonation_dependencies: 'true'
 
       # Option 1: Let the container start as root, fix permissions, then drop privileges.

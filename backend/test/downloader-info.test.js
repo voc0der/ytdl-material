@@ -83,7 +83,7 @@ describe('downloader info', function() {
         assert.strictEqual(details.loaded, false);
     });
 
-    it('uses the Python yt-dlp runtime only when impersonation env and setting are enabled', function() {
+    it('runs the downloaded binary whether or not impersonation is enabled', function() {
         const original_impersonation = config_api.getConfigItem('ytdl_use_ytdlp_impersonation');
         const original_dependency_env = process.env.ytdl_enable_ytdlp_impersonation_dependencies;
         const original_upper_dependency_env = process.env.YTDL_ENABLE_YTDLP_IMPERSONATION_DEPENDENCIES;
@@ -98,8 +98,10 @@ describe('downloader info', function() {
             config_api.setConfigItem('ytdl_use_ytdlp_impersonation', true);
             assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), binary_path);
 
+            // Impersonation used to swap the runtime to `python3 -m yt_dlp` out of the pip
+            // target. It now only puts curl_cffi on PYTHONPATH, so the binary still runs.
             process.env.ytdl_enable_ytdlp_impersonation_dependencies = 'true';
-            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), process.platform === 'win32' ? 'python' : 'python3');
+            assert.strictEqual(youtubedl_api.getYoutubeDLRuntimePath(fork), binary_path);
             assert.strictEqual(
                 youtubedl_api.getYoutubeDLRuntimePath('youtube-dl'),
                 path.join('appdata', 'bin', 'youtube-dl' + (process.platform === 'win32' ? '.exe' : ''))

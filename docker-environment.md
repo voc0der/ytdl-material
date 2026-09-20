@@ -16,7 +16,7 @@ These apply to many Docker setups regardless of which database or login method y
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
-* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install a pip yt-dlp alongside the downloaded binary, show the Downloader impersonation option, and enable it for new configs. This is only needed to force impersonation on every download; extractors that ask for it themselves already get it, because `curl_cffi` ships in the image
+* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install an up-to-date `curl_cffi` into `appdata`, show the Downloader impersonation option, and enable it for new configs. This is only needed to force impersonation on every download, or to get a newer `curl_cffi` than the image ships; extractors that ask for impersonation themselves already get it out of the box
 
 You can use Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
 
@@ -104,7 +104,7 @@ When using env-managed Docker setups with `write_ytdl_config='true'`, you can cl
 
 Anything you set there takes precedence and is never overwritten. See [HTTP 403 while downloading](https://voc0der.github.io/ytdl-material/reference/troubleshooting/#http-403-while-downloading) before pinning a client.
 * `ytdl_js_runtimes`: pin the JavaScript runtime yt-dlp uses to solve YouTube's JS challenge, passed through as `--js-runtimes` (for example `deno` or `node`). Leave empty to let yt-dlp auto-detect an installed runtime, which is the default and is recommended. Pinning a runtime that is not installed causes downloads to fail with `unable to download video data: HTTP Error 403: Forbidden`; run `yt-dlp -v` and check the `JS Challenge Providers` line to see which runtimes are actually available (default empty)
-* `ytdl_ytdlp_update_channel`: which yt-dlp release channel to download and auto-update from. One of `'stable'` (default), `'nightly'`, or `'master'`. Also selectable in Settings under the Advanced tab. Only affects the `yt-dlp` downloader. This is separate from the ytdl-material image tag: `voc0der/ytdl-material:latest` still downloads stable yt-dlp unless this is set. An unrecognized value is rejected and the update is skipped, leaving the existing binary in place. Restart the container after changing it. With `ytdl_use_ytdlp_impersonation` enabled the entrypoint installs the matching channel from PyPI instead (`--pre` for nightly; PyPI has no `master`, so that falls back to nightly)
+* `ytdl_ytdlp_update_channel`: which yt-dlp release channel to download and auto-update from. One of `'stable'` (default), `'nightly'`, or `'master'`. Also selectable in Settings under the Advanced tab. Only affects the `yt-dlp` downloader. This is separate from the ytdl-material image tag: `voc0der/ytdl-material:latest` still downloads stable yt-dlp unless this is set. An unrecognized value is rejected and the update is skipped, leaving the existing binary in place. Restart the container after changing it.
 
 ## Hardware Acceleration (Transcoding)
 

@@ -1100,7 +1100,10 @@ describe('The yt-dlp command line', function() {
      ************************************************/
     it('puts the URL last, after a -- terminator, in both launchers', function() {
         const launcher_source = fs.readFileSync(path.join(__dirname, '..', 'youtube-dl.js'), 'utf8');
-        const spawn_calls = launcher_source.match(/\[\.\.\.base_args[^\]]*\]/g) || [];
+        // Anchored on the launch calls rather than on how the array is assembled, so this
+        // keeps checking the argument order when that changes.
+        const spawn_calls = [...launcher_source.matchAll(/(?:spawn|execa)\([^,]+,\s*(\[[^\]]*\])/g)]
+            .map(match => match[1]);
 
         assert.strictEqual(spawn_calls.length, 2, `expected two launcher argument lists, found ${spawn_calls.length}`);
         for (const call of spawn_calls) {
