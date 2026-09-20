@@ -24,8 +24,8 @@ function trackYoutubeDLProcess(child_process) {
     return child_process;
 }
 
-// Snapshot the children this instance owns, including subscription discovery and Python
-// impersonation runtimes. Process names cannot identify either reliably.
+// Snapshot the children this instance owns, including subscription discovery. Process names
+// cannot identify them reliably.
 exports.killAllDownloads = async () => {
     const results = await Promise.allSettled(
         [...active_processes].map(async child_process => exports.killYoutubeDLProcess(child_process))
@@ -146,12 +146,6 @@ function useYtDlpImpersonationRuntime(youtubedl_fork = config_api.getConfigItem(
     return youtubedl_fork === 'yt-dlp' && isYtDlpImpersonationEnabled();
 }
 
-function getYoutubeDLRuntimeBaseArgs(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
-    return useYtDlpImpersonationRuntime(youtubedl_fork)
-        ? ['-m', 'yt_dlp']
-        : [];
-}
-
 function getYoutubeDLRuntimeEnv(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
     const env = getYoutubeDLEnv();
     if (useYtDlpImpersonationRuntime(youtubedl_fork)) {
@@ -162,10 +156,6 @@ function getYoutubeDLRuntimeEnv(youtubedl_fork = config_api.getConfigItem('ytdl_
 }
 
 function getYoutubeDLRuntimePath(youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) {
-    if (useYtDlpImpersonationRuntime(youtubedl_fork)) {
-        return is_windows ? 'python' : 'python3';
-    }
-
     return getYoutubeDLPath(youtubedl_fork);
 }
 exports.getYoutubeDLRuntimePath = getYoutubeDLRuntimePath;
@@ -224,7 +214,7 @@ function createLineStreamHandler(stream = null, line_handler = null) {
 exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLRuntimePath(selected_fork);
-    if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
+    if (!fs.existsSync(output_file_path)) {
         await exports.checkForYoutubeDLUpdate(selected_fork);
     }
     let callback;
@@ -241,17 +231,16 @@ exports.runYoutubeDL = async (url, args, customDownloadHandler = null, youtubedl
 exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl_fork = null) => {
     const selected_fork = youtubedl_fork || config_api.getConfigItem('ytdl_default_downloader');
     const output_file_path = getYoutubeDLRuntimePath(selected_fork);
-    if (!useYtDlpImpersonationRuntime(selected_fork) && !fs.existsSync(output_file_path)) {
+    if (!fs.existsSync(output_file_path)) {
         await exports.checkForYoutubeDLUpdate(selected_fork);
     }
 
     const runtime_args = ensureJavascriptRuntimeArgs(args, selected_fork);
-    const base_args = getYoutubeDLRuntimeBaseArgs(selected_fork);
     logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
     logger.debug(`${selected_fork} streaming args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     // '--' first, URL last: yt-dlp parses an option wherever it appears, so a URL of
     // '--update-to=owner/repo@tag' would otherwise ask it to replace its own binary.
-    const child_process = trackYoutubeDLProcess(spawn(getYoutubeDLRuntimePath(selected_fork), [...base_args, ...runtime_args, '--', url], {
+    const child_process = trackYoutubeDLProcess(spawn(getYoutubeDLRuntimePath(selected_fork), [...runtime_args, '--', url], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getYoutubeDLRuntimeEnv(selected_fork)
     }));
@@ -323,18 +312,17 @@ const runYoutubeDLCustom = async (url, args, customDownloadHandler) => {
 // Run youtube-dl in a subprocess (cancellable)
 const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getConfigItem('ytdl_default_downloader')) => {
     const youtubedl_path = getYoutubeDLRuntimePath(youtubedl_fork);
-    const binary_exists = useYtDlpImpersonationRuntime(youtubedl_fork) || fs.existsSync(youtubedl_path);
+    const binary_exists = fs.existsSync(youtubedl_path);
     if (!binary_exists) {
         const err = `Could not find path for ${youtubedl_fork} at ${youtubedl_path}`;
         logger.error(err);
         return;
     }
     const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
-    const base_args = getYoutubeDLRuntimeBaseArgs(youtubedl_fork);
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
     logger.debug(`${youtubedl_fork} args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     // See the streaming launcher: options first, then '--', then the URL.
-    const subprocess = execa(youtubedl_path, [...base_args, ...runtime_args, '--', url], {
+    const subprocess = execa(youtubedl_path, [...runtime_args, '--', url], {
         maxBuffer: Infinity,
         stdin: 'ignore',
         buffer: true,

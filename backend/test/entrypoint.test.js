@@ -27,8 +27,7 @@ function runEntrypointDetailed({
     runtimeGid,
     impersonation = false,
     updateChannel,
-    impersonationAlreadyPresent = false,
-    installedChannelMarker
+    impersonationAlreadyPresent = false
 } = {}) {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-entrypoint-'));
     const binDir = path.join(tempDir, 'bin');
@@ -110,12 +109,6 @@ function runEntrypointDetailed({
     if (impersonation) env.ytdl_enable_ytdlp_impersonation_dependencies = 'true';
     if (updateChannel !== undefined) env.ytdl_ytdlp_update_channel = updateChannel;
 
-    const impersonationTarget = path.join(tempDir, 'appdata', 'ytdlp-impersonation', 'python');
-    if (installedChannelMarker !== undefined) {
-        fs.mkdirSync(impersonationTarget, { recursive: true });
-        fs.writeFileSync(path.join(impersonationTarget, '.ytdl-material-channel'), installedChannelMarker);
-    }
-
     const result = spawnSync('bash', [entrypointPath, 'npm', 'start'], {
         encoding: 'utf8',
         env,
@@ -123,13 +116,10 @@ function runEntrypointDetailed({
     });
 
     const calls = fs.existsSync(callsPath) ? fs.readFileSync(callsPath, 'utf8') : '';
-    const storedChannel = fs.existsSync(path.join(impersonationTarget, '.ytdl-material-channel'))
-        ? fs.readFileSync(path.join(impersonationTarget, '.ytdl-material-channel'), 'utf8')
-        : null;
     const stdout = result.stdout || '';
     fs.rmSync(tempDir, { recursive: true, force: true });
     assert.strictEqual(result.status, 0, result.stderr || result.stdout);
-    return { calls, stdout, storedChannel };
+    return { calls, stdout };
 }
 
 function runEntrypoint(options) {
@@ -343,71 +333,19 @@ describe('Docker entrypoint', function() {
     });
 });
 
-describe('Docker entrypoint yt-dlp impersonation channel', function() {
-    it('installs the stable release when no channel is configured', function() {
-        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true });
+describe('Docker entrypoint yt-dlp impersonation dependencies', function() {
+    it('installs curl_cffi and nothing else when the feature is enabled', function() {
+        const { calls } = runEntrypointDetailed({ impersonation: true });
 
         assert(calls.includes('pip -m pip install'), calls);
-        assert(!calls.includes('--pre'), calls);
-        assert.strictEqual(storedChannel, 'stable');
+        assert(calls.includes('curl_cffi'), calls);
+        // A second yt-dlp in the target would shadow the downloaded binary, which is the
+        // one whose version the UI reports.
+        assert(!/yt-dlp|yt_dlp/.test(calls), calls);
     });
 
-    it('installs the nightly pre-release when the channel is nightly', function() {
-        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightly' });
-
-        assert(calls.includes('--pre'), calls);
-        assert.strictEqual(storedChannel, 'nightly');
-    });
-
-    it('normalizes case and whitespace in the channel environment value', function() {
-        const { calls, storedChannel } = runEntrypointDetailed({ impersonation: true, updateChannel: '  NIGHTLY  ' });
-
-        assert(calls.includes('--pre'), calls);
-        assert.strictEqual(storedChannel, 'nightly');
-    });
-
-    it('reads the channel from persisted settings when no environment value is set', function() {
-        const { calls, storedChannel } = runEntrypointDetailed({
-            impersonation: true,
-            storedConfig: { YtdlMaterial: { Downloader: { transcoding: false }, Advanced: { ytdlp_update_channel: 'nightly' } } }
-        });
-
-        assert(calls.includes('--pre'), calls);
-        assert.strictEqual(storedChannel, 'nightly');
-    });
-
-    it('warns and falls back to nightly for master, which PyPI does not publish', function() {
-        const { calls, stdout } = runEntrypointDetailed({ impersonation: true, updateChannel: 'master' });
-
-        assert(stdout.includes("PyPI has no 'master' channel"), stdout);
-        assert(calls.includes('--pre'), calls);
-    });
-
-    it('skips the install entirely for an unrecognized channel', function() {
-        const { calls, stdout } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightlyy' });
-
-        assert(stdout.includes("unknown ytdl_ytdlp_update_channel 'nightlyy'"), stdout);
-        assert(!calls.includes('pip -m pip install'), calls);
-    });
-
-    it('reinstalls when the configured channel differs from the installed one', function() {
-        const { calls } = runEntrypointDetailed({
-            impersonation: true,
-            updateChannel: 'nightly',
-            impersonationAlreadyPresent: true,
-            installedChannelMarker: 'stable'
-        });
-
-        assert(calls.includes('--pre'), calls);
-    });
-
-    it('does not reinstall when the installed channel already matches', function() {
-        const { calls } = runEntrypointDetailed({
-            impersonation: true,
-            updateChannel: 'nightly',
-            impersonationAlreadyPresent: true,
-            installedChannelMarker: 'nightly'
-        });
+    it('does not reinstall when curl_cffi is already in the target', function() {
+        const { calls } = runEntrypointDetailed({ impersonation: true, impersonationAlreadyPresent: true });
 
         assert(!calls.includes('pip -m pip install'), calls);
     });
@@ -416,5 +354,21 @@ describe('Docker entrypoint yt-dlp impersonation channel', function() {
         const { calls } = runEntrypointDetailed({ updateChannel: 'nightly' });
 
         assert(!calls.includes('pip'), calls);
+    });
+
+    // curl_cffi has no release channels. The yt-dlp update channel used to decide --pre here
+    // and force reinstalls on a switch; it no longer reaches this install at all.
+    it('ignores the yt-dlp update channel', function() {
+        const { calls } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightly' });
+
+        assert(calls.includes('pip -m pip install'), calls);
+        assert(!calls.includes('--pre'), calls);
+    });
+
+    it('still installs when the configured channel is unrecognized', function() {
+        const { calls } = runEntrypointDetailed({ impersonation: true, updateChannel: 'nightlyy' });
+
+        assert(calls.includes('pip -m pip install'), calls);
+        assert(calls.includes('gosu 1000:1000 npm start'), calls);
     });
 });
