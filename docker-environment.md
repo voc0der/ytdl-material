@@ -16,7 +16,7 @@ These apply to many Docker setups regardless of which database or login method y
 * `ytdl_uid` / `ytdl_gid`: app user/group IDs used inside the container
 * `ytdl_log_level`: backend log level (`error`, `warn`, `info`, `verbose`, `debug`), default `info`
 * `ytdl_umask`: set the process umask before startup (for example `'022'`)
-* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install support, show the Downloader impersonation option, and enable it for new configs
+* `ytdl_enable_ytdlp_impersonation_dependencies`: set to `'true'` to install a pip yt-dlp alongside the downloaded binary, show the Downloader impersonation option, and enable it for new configs. This is only needed to force impersonation on every download; extractors that ask for it themselves already get it, because `curl_cffi` ships in the image
 
 You can use Docker's `user: "<uid>:<gid>"` directly in your compose file together with `ytdl_uid` and `ytdl_gid` for clearer container isolation and ownership behavior.
 
