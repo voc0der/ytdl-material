@@ -321,21 +321,19 @@ function runFfmpeg(args, {on_progress_seconds = null} = {}) {
 exports.runFfmpeg = runFfmpeg;
 
 /**
- * Read stream metadata for a file with ffprobe. Resolves null when the file cannot be
- * probed, so callers can treat "no usable metadata" and "probe failed" the same way.
- * @returns {Promise<object[]|null>} the `streams` array, or null
+ * Run ffprobe and resolve its parsed JSON, or null when it cannot be run, exits non-zero,
+ * or prints something that is not JSON. Callers treat all three the same way.
  */
-function probeStreams(file_path) {
+function runFfprobeJson(args) {
     return new Promise(resolve => {
         const ffprobe_binary = process.env.FFPROBE_PATH || 'ffprobe';
-        const args = ['-v', 'quiet', '-print_format', 'json', '-show_streams', file_path];
         let stdout = '';
         let finished = false;
 
-        const finish = (streams) => {
+        const finish = (parsed) => {
             if (finished) return;
             finished = true;
-            resolve(streams);
+            resolve(parsed);
         };
 
         let ffprobe_process;
@@ -351,15 +349,56 @@ function probeStreams(file_path) {
         ffprobe_process.on('close', code => {
             if (code !== 0) return finish(null);
             try {
-                const parsed = JSON.parse(stdout);
-                finish(Array.isArray(parsed.streams) ? parsed.streams : null);
+                finish(JSON.parse(stdout));
             } catch {
                 finish(null);
             }
         });
     });
 }
+
+/**
+ * Read stream metadata for a file with ffprobe. Resolves null when the file cannot be
+ * probed, so callers can treat "no usable metadata" and "probe failed" the same way.
+ * @returns {Promise<object[]|null>} the `streams` array, or null
+ */
+async function probeStreams(file_path) {
+    const parsed = await runFfprobeJson(['-v', 'quiet', '-print_format', 'json', '-show_streams', file_path]);
+    if (!parsed) return null;
+    return Array.isArray(parsed.streams) ? parsed.streams : null;
+}
 exports.probeStreams = probeStreams;
+
+/**
+ * Streams and container tags in one probe, for callers that want both and should not pay
+ * for two ffprobe spawns to get them.
+ *
+ * Tag names are not portable: a URL written by `--add-metadata` comes back as lowercase
+ * `purl` from mp4 and uppercase `PURL` from mkv and webm, so the tags are returned
+ * lower-cased to spare every caller the same normalization.
+ *
+ * @returns {Promise<{streams: object[], format: object, tags: object}|null>}
+ */
+async function probeMedia(file_path) {
+    const parsed = await runFfprobeJson([
+        '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', file_path
+    ]);
+    if (!parsed) return null;
+
+    const format = parsed.format && typeof parsed.format === 'object' ? parsed.format : {};
+    const raw_tags = format.tags && typeof format.tags === 'object' ? format.tags : {};
+    const tags = {};
+    for (const [key, value] of Object.entries(raw_tags)) {
+        tags[String(key).toLowerCase()] = value;
+    }
+
+    return {
+        streams: Array.isArray(parsed.streams) ? parsed.streams : [],
+        format,
+        tags
+    };
+}
+exports.probeMedia = probeMedia;
 
 function runFfmpegFlightTest(args) {
     return new Promise(resolve => {

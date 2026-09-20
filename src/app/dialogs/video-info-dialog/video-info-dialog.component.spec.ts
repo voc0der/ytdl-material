@@ -42,6 +42,10 @@ describe('VideoInfoDialogComponent', () => {
         }
       })),
       updateFile: vi.fn().mockName('updateFile').mockReturnValue(of({})),
+      // The dialog's action row asks what the caller may do. canSnip() only got away
+      // without this because allow_snip short-circuits ahead of it.
+      hasPermission: vi.fn().mockName('hasPermission').mockReturnValue(true),
+      generateThumbnail: vi.fn().mockName('generateThumbnail').mockReturnValue(of({success: true})),
       openSnackBar: vi.fn()
     };
 
@@ -156,5 +160,59 @@ describe('VideoInfoDialogComponent', () => {
     expect(component.new_file.title).toBe('Updated title');
     expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+
+  it('sends no timestamp when the box is left blank, so the backend picks its own', () => {
+    // Number(null) is 0, and seeking to the first frame usually yields a black image.
+    component.thumbnail_timestamp = null;
+
+    component.generateThumbnail();
+
+    expect(postsServiceStub.generateThumbnail).toHaveBeenCalledWith('uid-1', null);
+    expect(component.generating_thumbnail).toBe(false);
+  });
+
+  it('sends the timestamp when one was typed', () => {
+    component.thumbnail_timestamp = 12;
+
+    component.generateThumbnail();
+
+    expect(postsServiceStub.generateThumbnail).toHaveBeenCalledWith('uid-1', 12);
+  });
+
+  it('rejects a negative timestamp rather than passing it through', () => {
+    component.thumbnail_timestamp = -4;
+
+    component.generateThumbnail();
+
+    expect(postsServiceStub.generateThumbnail).toHaveBeenCalledWith('uid-1', null);
+  });
+
+  it('reports a backend refusal instead of claiming success', () => {
+    postsServiceStub.generateThumbnail.mockReturnValue(of({success: false}));
+
+    component.generateThumbnail();
+
+    expect(component.generating_thumbnail).toBe(false);
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
+  });
+
+  it('clears the pending flag when the request fails outright', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    postsServiceStub.generateThumbnail.mockReturnValue(throwError(() => new Error('offline')));
+
+    component.generateThumbnail();
+
+    expect(component.generating_thumbnail).toBe(false);
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('offers to replace art only when the file already has some', () => {
+    component.file.thumbnailPath = null;
+    expect(component.hasThumbnail()).toBe(false);
+
+    component.file.thumbnailPath = 'users/vocoder/video/Mac Miller - Self Care.webp';
+    expect(component.hasThumbnail()).toBe(true);
   });
 });

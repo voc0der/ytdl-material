@@ -39,6 +39,7 @@ const archive_api = require('./archive');
 const files_api = require('./files');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
+const thumbnails_api = require('./thumbnails');
 
 const app = express();
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
@@ -1541,6 +1542,30 @@ app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async
             success: true
         });
     }
+});
+
+app.post('/api/generateThumbnail', optionalJwt, requirePermission('filemanager'), async function (req, res) {
+    const uid = req.body.uid;
+    const timestamp_seconds = req.body.timestamp_seconds;
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+
+    // Scoped to the caller in multi-user mode, so one user cannot rewrite another's art.
+    const file_filter = {uid: uid};
+    if (config_api.getConfigItem('ytdl_multi_user_mode') && user_uid) file_filter['user_uid'] = user_uid;
+
+    const file_obj = await db_api.getRecord('files', file_filter);
+    if (!file_obj) {
+        res.send({success: false, error: 'File could not be found'});
+        return;
+    }
+
+    const thumbnail_path = await thumbnails_api.generateThumbnailForFile(file_obj, {timestamp_seconds: timestamp_seconds});
+    if (!thumbnail_path) {
+        res.send({success: false, error: 'Could not generate cover art for this file'});
+        return;
+    }
+
+    res.send({success: true, thumbnailPath: thumbnail_path});
 });
 
 app.post('/api/checkConcurrentStream', async (req, res) => {

@@ -35,6 +35,9 @@ export class VideoInfoDialogComponent implements OnInit {
   // from one. The player reads snip_requested back off this instance once the dialog closes.
   allow_snip = false;
   snip_requested = false;
+  generating_thumbnail = false;
+  // Blank means the backend's own default rather than second zero, which is often black.
+  thumbnail_timestamp: number | null = null;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, public postsService: PostsService, private datePipe: DatePipe) { }
 
@@ -138,6 +141,39 @@ export class VideoInfoDialogComponent implements OnInit {
 
   requestSnip(): void {
     this.snip_requested = true;
+  }
+
+  canGenerateThumbnail(): boolean {
+    return this.initialized && this.write_access && this.postsService.hasPermission('filemanager');
+  }
+
+  hasThumbnail(): boolean {
+    return !!this.file?.thumbnailPath;
+  }
+
+  generateThumbnail(): void {
+    // Seconds into the video to grab a frame from, only used when the source's own
+    // thumbnail cannot be fetched. A blank box means "use the default": Number(null) and
+    // Number('') are both 0, so an empty box would otherwise ask for the very first frame,
+    // which is usually black.
+    const raw = this.thumbnail_timestamp;
+    const provided = raw !== null && raw !== undefined && String(raw) !== '';
+    const timestamp = provided ? Number(raw) : NaN;
+    this.generating_thumbnail = true;
+    this.postsService.generateThumbnail(this.file.uid, Number.isFinite(timestamp) && timestamp >= 0 ? timestamp : null).subscribe(res => {
+      this.generating_thumbnail = false;
+      if (!res?.['success']) {
+        this.postsService.openSnackBar($localize`Could not generate cover art for this file.`);
+        return;
+      }
+      this.postsService.openSnackBar($localize`Cover art generated.`);
+      // The card behind the dialog reads its image off the record, so pull the new one.
+      this.getFile();
+    }, err => {
+      this.generating_thumbnail = false;
+      console.error(err);
+      this.postsService.openSnackBar($localize`Could not generate cover art for this file.`);
+    });
   }
 
   toggleFavorite(): void {
