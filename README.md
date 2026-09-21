@@ -21,9 +21,9 @@ ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-
 
 <img src="./docs/images/readme-home.png" width="1000" alt="ytdl-material interface">
 
-## Docker
+## Setup
 
-### Setup
+### Docker
 
 1. Download [docker-compose.yml](https://github.com/voc0der/ytdl-material/blob/main/docker-compose.yml):
 
