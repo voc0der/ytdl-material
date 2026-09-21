@@ -20,6 +20,12 @@ If you use uv, the same pinned requirements can run without managing a virtual e
 uv run --with-requirements requirements-docs.txt zensical serve
 ```
 
+## Appearance
+
+The docs follow the app's default and dark palettes: ghost-white or charcoal surfaces with blue actions and rounded controls. The initial appearance follows the system preference; the header toggle lets readers choose light or dark mode.
+
+The palette selection is configured in `mkdocs.yml`, and the colors and component styling live in `docs/stylesheets/extra.css`. Keep them aligned with `src/themes.ts`, `src/styles.scss`, and `src/_kit.scss` when the app's appearance changes. Check both modes, including the search dialog and mobile navigation, when updating these styles.
+
 ## Verify before submitting
 
 ```bash
