@@ -37,6 +37,7 @@ const twitch_api = require('./twitch');
 const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
+const playback_links = require('./playback-links');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 const thumbnails_api = require('./thumbnails');
@@ -2778,13 +2779,15 @@ app.post('/api/updateServer', optionalJwt, requireAdmin, async (req, res) => {
 
 // Streaming API calls
 
-app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
+app.post('/api/createPlaybackLink', optionalJwt, requirePermission('sharing'), playback_links.create);
+
+app.get('/api/stream', playback_links.authorizeStream(optionalJwt, requireAuthenticatedOrShared), async (req, res) => {
     const type = req.query.type;
-    const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
+    const uuid = req.playback ? req.playback.owner : (req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null));
     const sub_id = req.query.sub_id;
     let head;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
-    const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
+    const uid = req.playback ? req.playback.uid : (requestedUID ? decodeURIComponent(requestedUID) : '');
 
     if (!uid) {
         res.status(400).type('text/plain').send('Missing media uid');
@@ -2795,7 +2798,7 @@ app.get('/api/stream', optionalJwt, requireAuthenticatedOrShared, async (req, re
     let file_obj = null;
 
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
-    if (!multiUserMode || req.isAuthenticated() || req.can_watch) {
+    if (!multiUserMode || req.isAuthenticated() || req.can_watch || req.playback) {
         file_obj = await files_api.getVideo(uid, uuid, sub_id);
         if (file_obj) file_path = file_obj['path'];
         else file_path = null;

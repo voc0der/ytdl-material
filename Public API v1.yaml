@@ -195,6 +195,70 @@ paths:
         - JWT token parameter: []
         - API bearer token: []
         - {}
+  /api/createPlaybackLink:
+    post:
+      tags:
+        - files
+      summary: Create an expiring playback link for one downloaded video
+      description: >-
+        Requires the caller's JWT or API bearer token and the sharing permission
+        in multi-user mode. Single-user mode needs no credentials. Select an owned
+        video by library uid or exact upstream source ID, never by title or
+        filename. Returns a relative stream URL with an opaque, six-hour,
+        per-file credential for external players. The link
+        permits only GET/HEAD on /api/stream for that uid, including byte ranges;
+        it cannot log in or access other API routes. Restarting the server revokes
+        all links. Use a single backend process, or sticky routing to that process.
+      operationId: create-playback-link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uid:
+                  type: string
+                  minLength: 1
+                youtube_id:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{11}$'
+              oneOf:
+                - required: [uid]
+                - required: [youtube_id]
+      responses:
+        '200':
+          description: A link for an owned downloaded video, with Cache-Control no-store.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [uid, stream_path, expires_at]
+                properties:
+                  uid:
+                    type: string
+                  stream_path:
+                    type: string
+                    description: Relative /api/stream URL; keep its playback_token private.
+                  expires_at:
+                    type: integer
+                    format: int64
+                    description: Expiration in milliseconds since Unix epoch.
+        '400':
+          description: Supply exactly one nonempty uid or valid youtube_id.
+        '401':
+          description: Authentication required.
+        '403':
+          description: Missing sharing permission.
+        '404':
+          description: No matching owned, servable video.
+        '500':
+          description: The link could not be created.
+        '503':
+          description: The active playback-link limit has been reached.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/stream:
     get:
       tags:
@@ -205,6 +269,13 @@ paths:
         so a client can probe the container and seek without fetching all of it.
       operationId: get-stream
       parameters:
+        - name: playback_token
+          in: query
+          schema:
+            type: string
+          description: >-
+            Per-file credential from createPlaybackLink. Use the returned uid and
+            omit uuid, sub_id, jwt and playlist_id when using this credential.
         - name: uid
           in: query
           required: true
@@ -266,6 +337,8 @@ paths:
           description: No uid was given.
         '401':
           description: User is not authorized to view the file.
+        '403':
+          description: Playback link used for a different file or conflicting parameters.
         '404':
           description: No such file, not the caller's, or its stored path is not servable.
         '416':
@@ -282,6 +355,7 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+        - Playback file link: []
         - {}
   /api/thumbnail/{uid}:
     get:
@@ -3799,6 +3873,11 @@ components:
           items:
             $ref: '#/components/schemas/Notification'
   securitySchemes:
+    Playback file link:
+      type: apiKey
+      in: query
+      name: playback_token
+      description: Expiring credential for one file on /api/stream only.
     JWT token parameter:
       name: jwt
       type: apiKey
