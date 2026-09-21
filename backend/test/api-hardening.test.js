@@ -1395,15 +1395,18 @@ describe('The published API specification', function() {
             'the spec still exposes the retired shared key response schema');
     });
 
-    it('defines and uses the supported user-token schemes', function() {
+    it('defines and uses the supported user and playback credential schemes', function() {
         const yaml = require('js-yaml');
         const spec = yaml.load(fs.readFileSync(spec_path, 'utf8'));
 
         assert.deepStrictEqual(Object.keys(spec.components.securitySchemes), [
-            'JWT token parameter', 'API bearer token'
+            'Playback file link', 'JWT token parameter', 'API bearer token'
         ]);
         assert.strictEqual(spec.components.securitySchemes['API bearer token'].type, 'http');
         assert.strictEqual(spec.components.securitySchemes['API bearer token'].scheme, 'bearer');
+        assert.strictEqual(spec.components.securitySchemes['Playback file link'].type, 'apiKey');
+        assert.strictEqual(spec.components.securitySchemes['Playback file link'].in, 'query');
+        assert.strictEqual(spec.components.securitySchemes['Playback file link'].name, 'playback_token');
 
         const referenced = new Set();
         for (const operations of Object.values(spec.paths)) {
@@ -1415,7 +1418,26 @@ describe('The published API specification', function() {
         }
 
         assert.deepStrictEqual([...referenced], [
-            'JWT token parameter', 'API bearer token'
+            'JWT token parameter', 'API bearer token', 'Playback file link'
+        ]);
+    });
+
+    it('accepts playback credentials only for streaming an existing file', function() {
+        const yaml = require('js-yaml');
+        const spec = yaml.load(fs.readFileSync(spec_path, 'utf8'));
+        const playback_operations = [];
+
+        for (const [route, operations] of Object.entries(spec.paths)) {
+            for (const [method, operation] of Object.entries(operations)) {
+                if ((operation.security || []).some(requirement => 'Playback file link' in requirement)) {
+                    playback_operations.push(`${method.toUpperCase()} ${route}`);
+                }
+            }
+        }
+
+        assert.deepStrictEqual(playback_operations, ['GET /api/stream']);
+        assert.deepStrictEqual(spec.paths['/api/createPlaybackLink'].post.security, [
+            {'JWT token parameter': []}, {'API bearer token': []}
         ]);
     });
 });
