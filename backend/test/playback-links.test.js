@@ -182,7 +182,7 @@ describe('Playback links', function() {
             req.body = chunks.length ? JSON.parse(Buffer.concat(chunks)) : {};
             const handlers = routes.get((req.method === 'HEAD' ? 'GET' : req.method) + req.path);
             let i = 0; const next = () => handlers[i++](req, res, next);
-            try { await next(); } catch (error) {res.statusCode = 500; res.end(String(error));}
+            try { await next(); } catch {res.statusCode = 500; res.end('Internal server error');}
         });
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
         cleanup.push(async () => {
