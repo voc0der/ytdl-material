@@ -89,10 +89,12 @@
     justify-content: center;
 }
 
-.video-library-empty-state {
-    display: flex;
-    justify-content: center;
-    padding: 8px 0 18px;
+// The library is wider than the pages that share this card, and the download box above it is
+// centred, so the card is too.
+.library-empty-state {
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 16px;
 }
 
 .auto-load-anchor {
@@ -225,19 +227,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--kit-on-tonal);
-}
-
-.playlist-empty-state {
-    width: min(100%, 420px);
-    margin-top: 18px;
-    padding: 28px 24px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 18px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    text-align: center;
 }
 
 @media (max-width: 576px) {

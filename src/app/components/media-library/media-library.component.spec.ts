@@ -399,6 +399,80 @@ describe('MediaLibraryComponent', () => {
     expect(component.getPaginationRangeLabel()).toBe('0 of 0');
   });
 
+  describe('empty states', () => {
+    const element = (): HTMLElement => fixture.nativeElement;
+    const emptyTitle = (): string => element().querySelector('.library-empty-state h2')?.textContent.trim();
+
+    for (const narrow of [false, true]) {
+      it(`should greet an empty library instead of offering tools for it on a ${narrow ? 'narrow' : 'wide'} screen`, () => {
+        component.narrowScreen = narrow;
+        fixture.detectChanges();
+        fixture.detectChanges();
+
+        expect(component.libraryIsEmpty).toBe(true);
+        expect(emptyTitle()).toBe('Your library is empty');
+        expect(element().querySelector('.library-switcher')).not.toBeNull();
+        expect(element().querySelector('.library-search')).toBeNull();
+        expect(element().querySelector('app-sort-property')).toBeNull();
+        expect(element().querySelector('.library-filters')).toBeNull();
+        expect(element().querySelector('.library-pagination')).toBeNull();
+      });
+    }
+
+    it('should say a subscription has downloaded nothing yet', () => {
+      component.sub_id = 'sub-1';
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(emptyTitle()).toBe('Nothing downloaded yet');
+      expect(element().querySelector('.library-switcher')).toBeNull();
+    });
+
+    it('should keep the tools when a search or filter matches nothing', () => {
+      component.narrowScreen = false;
+      fixture.detectChanges();
+      component.search_text = 'nothing like it';
+      component.search_mode = true;
+      component.getAllFiles();
+      fixture.detectChanges();
+
+      expect(component.libraryIsEmpty).toBe(false);
+      expect(emptyTitle()).toBe('No files found');
+      expect(element().querySelector('.library-empty-state p').textContent).toContain('Try another search');
+      expect(element().querySelector('.library-search')).not.toBeNull();
+      expect(element().querySelector('.library-pagination')).not.toBeNull();
+
+      component.search_text = '';
+      component.search_mode = false;
+      component.selectedFilters = ['favorited'];
+      component.getAllFiles();
+      fixture.detectChanges();
+
+      expect(emptyTitle()).toBe('No files found');
+      expect(element().querySelector('.library-filters')).not.toBeNull();
+    });
+
+    it('should offer to create the first playlist, and not while a search hides the rest', () => {
+      component.activeLibraryTab = 1;
+      fixture.detectChanges();
+      fixture.detectChanges();
+      const create_playlist = vi.spyOn(component, 'openCreatePlaylistDialog').mockReturnValue(undefined);
+
+      expect(emptyTitle()).toBe('No playlists yet');
+      expect(element().querySelector('.library-search')).toBeNull();
+      (element().querySelector('.library-empty-state .kit-chip') as HTMLButtonElement).click();
+      expect(create_playlist).toHaveBeenCalled();
+
+      component.playlistLibraryItems = [{ id: 'playlist-1', name: 'Road trip' } as any];
+      component.playlistSearchText = 'nothing like it';
+      fixture.detectChanges();
+
+      expect(emptyTitle()).toBe('No playlists found');
+      expect(element().querySelector('.library-empty-state .kit-chip')).toBeNull();
+      expect(element().querySelector('.library-search')).not.toBeNull();
+    });
+  });
+
   it('should calculate an auto batch size that fills full rows', () => {
     postsServiceStub.card_size = 'medium';
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
