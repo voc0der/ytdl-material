@@ -14,4 +14,5 @@ export enum TaskType {
     REBUILD_DATABASE = 'rebuild_database',
     APPLY_CATEGORIES = 'apply_categories',
     SUBSCRIPTIONS_CHECK = 'subscriptions_check',
+    DELETE_OLD_TRANSCODES = 'delete_old_transcodes',
 }

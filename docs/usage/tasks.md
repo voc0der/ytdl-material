@@ -16,6 +16,7 @@ Open **Tasks** for maintenance and recurring work. Each task shows its current s
 | Rebuild database | Backs up the database and rebuilds file records from stored media and metadata |
 | Apply categories to existing files | Re-evaluates category membership using current rules |
 | Check subscriptions | Checks active subscriptions and queues eligible missing items |
+| Delete old playback transcodes | Deletes copies made for transcoding playback links once they are over six hours old and no unexpired link, queued or running transcode uses them |
 
 ## Run and review
 
@@ -27,7 +28,7 @@ The **Auto confirm** option applies a task's findings without manual review. Lea
 
 Open the task's schedule dialog and select a one-time or recurring schedule. The UI saves the browser's timezone; recurring tasks use that timezone when calculating their next run. Old schedules without a timezone use server time. If a timezone is invalid, the server logs a warning and falls back to its local timezone; resave the schedule to correct it.
 
-The default **Check subscriptions** schedule runs daily at midnight in server time. An unset recurring field means every value of that field: leaving the minute unspecified can run a task every minute during the selected hour. Select both hour and minute for a once-daily schedule.
+The default **Check subscriptions** and **Delete old playback transcodes** schedules run daily at midnight in server time. An unset recurring field means every value of that field: leaving the minute unspecified can run a task every minute during the selected hour. Select both hour and minute for a once-daily schedule.
 
 A task that is already running or waiting for confirmation is skipped at its next scheduled invocation. Complete or dismiss pending work if the schedule appears to stop running.
 

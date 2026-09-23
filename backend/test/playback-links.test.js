@@ -51,10 +51,15 @@ describe('Playback links', function() {
             },
             pipeMediaFileToResponse: (stream, res) => stream.pipe(res)
         };
+        const transcode = {requested: [], reaped: [], ready: false, copy: {status: 'missing'},
+            request(file) {this.requested.push(file.uid); return this.ready;},
+            getCopy() {return this.copy;},
+            reap(max_age, in_use) {this.reaped.push({max_age, in_use}); return {removed: 0, kept: 0};}};
         const exports = {};
         vm.runInNewContext(fs.readFileSync(path.join(root, 'playback-links.js'), 'utf8'), {
             exports, URLSearchParams, Date: {now: () => state.now},
-            require: name => ({'./db': db, './files': files, './config': config, './utils': utils}[name] || require(name))
+            require: name => ({'./db': db, './files': files, './config': config, './utils': utils,
+                './playback-transcode': transcode}[name] || require(name))
         });
         function request(owner = 'alice', body = {youtube_id: ID}) {
             return {user: owner ? {uid: owner} : undefined, isAuthenticated: () => !!owner, body};
@@ -72,7 +77,7 @@ describe('Playback links', function() {
             await exports.authorizeStream((_req, r) => r.sendStatus(401), () => assert.fail('guard skipped'))(req, res, () => {passed = true;});
             return {req, res, passed};
         }
-        return {state, config, files, utils, exports, request, response, create, stream};
+        return {state, config, files, utils, transcode, exports, request, response, create, stream};
     }
 
     it('exact source lookup is owner-scoped and returns only one-file credentials', async () => {
@@ -120,6 +125,37 @@ describe('Playback links', function() {
         assert.equal((await f.create('bob', {uid: 'file-1', uuid: 'alice'})).statusCode, 404);
     });
 
+    it('transcoding is opt-in, boolean only, and carried by the link', async () => {
+        const f = fixture();
+        for (const transcode of ['yes', 1, null, {}]) {
+            assert.equal((await f.create('alice', {youtube_id: ID, transcode})).statusCode, 400);
+        }
+        const plain = await f.create('alice', {youtube_id: ID, transcode: false});
+        assert.deepEqual(Object.keys(plain.body).sort(), ['expires_at', 'stream_path', 'uid']);
+        assert.equal((await f.stream(plain.body.stream_path)).req.playback.transcode, false);
+        assert.deepEqual(f.transcode.requested, []);
+
+        const res = await f.create('alice', {uid: 'file-1', transcode: true});
+        assert.equal(res.body.transcode, true); assert.equal(res.body.ready, false);
+        assert.deepEqual(f.transcode.requested, ['file-1']);
+        assert.equal((await f.stream(res.body.stream_path)).req.playback.transcode, true);
+        f.transcode.ready = true;
+        assert.equal((await f.create('alice', {uid: 'file-1', transcode: true})).body.ready, true);
+    });
+
+    it('reaping keeps copies unexpired transcoding links use, and waits as long as a link lives', async () => {
+        const f = fixture();
+        f.state.records.push({...f.state.records[0], uid: 'file-2', source_id: 'OtherID_123', url: undefined});
+        const res = await f.create('alice', {uid: 'file-1', transcode: true});
+        await f.create('alice', {uid: 'file-2'});
+        await f.exports.reapTranscodes();
+        const [{max_age, in_use}] = f.transcode.reaped;
+        assert.equal(max_age, res.body.expires_at - f.state.now);
+        assert.deepEqual(Array.from(in_use()), ['file-1']);
+        f.state.now = res.body.expires_at;
+        assert.deepEqual(Array.from(in_use()), []);
+    });
+
     it('ticket cannot select a different file, owner, route, method or auth scheme', async () => {
         const f = fixture(); const link = (await f.create('alice')).body.stream_path;
         for (const suffix of ['&uuid=bob', '&sub_id=x', '&jwt=x', '&playlist_id=x']) {
@@ -156,7 +192,7 @@ describe('Playback links', function() {
         assert.equal((await f.stream(link)).res.statusCode, 403);
     });
 
-    it('real HTTP route serves HEAD and byte ranges; sharing permission gates creation', async () => {
+    it('real HTTP route serves HEAD and byte ranges, transcoding links their copy; sharing permission gates creation', async () => {
         const f = fixture(); const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-playback-'));
         cleanup.push(() => fs.rmSync(dir, {recursive: true, force: true}));
         const file = path.join(dir, 'video.mp4'); fs.writeFileSync(file, '0123456789');
@@ -169,7 +205,7 @@ describe('Playback links', function() {
         };
         const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
         const block = source.slice(source.indexOf("app.post('/api/createPlaybackLink'"), source.indexOf("app.get('/api/streamSubtitle'"));
-        vm.runInNewContext(block, {app, playback_links: f.exports, optionalJwt,
+        vm.runInNewContext(block, {app, playback_links: f.exports, playback_transcode: f.transcode, optionalJwt,
             requirePermission: permission => {assert.equal(permission, 'sharing'); return (req, res, next) => req.headers['x-no-sharing'] ? res.sendStatus(403) : next();},
             requireAuthenticatedOrShared: (_req, _res, next) => next(),
             config_api: f.config, files_api: f.files, utils: f.utils, fs,
@@ -205,5 +241,23 @@ describe('Playback links', function() {
         assert.equal(range.status, 206); assert.equal(range.headers.get('content-range'), 'bytes 2-5/10'); assert.equal(await range.text(), '2345');
         assert.equal((await fetch(base + link.replace('file-1', 'other'))).status, 403);
         assert.equal((await fetch(base + '/api/createPlaybackLink?' + link.split('?')[1], {method: 'POST'})).status, 401);
+
+        const copy = path.join(dir, 'copy.mp4'); fs.writeFileSync(copy, 'abcdefghijkl');
+        const transcoded = await fetch(base + '/api/createPlaybackLink', {...options, body: JSON.stringify({uid: 'file-1', transcode: true})});
+        const transcode_link = (await transcoded.json()).stream_path;
+        f.transcode.copy = {status: 'pending'};
+        const pending = await fetch(base + transcode_link, {method: 'HEAD'});
+        assert.equal(pending.status, 503); assert.equal(pending.headers.get('retry-after'), '10');
+        f.transcode.copy = {status: 'failed'};
+        assert.equal((await fetch(base + transcode_link)).status, 500);
+        f.transcode.copy = {status: 'missing'};
+        assert.equal((await fetch(base + transcode_link)).status, 404);
+        f.transcode.copy = {status: 'ready', path: copy};
+        const copy_head = await fetch(base + transcode_link, {method: 'HEAD'});
+        assert.equal(copy_head.status, 200); assert.equal(copy_head.headers.get('content-length'), '12');
+        const copy_range = await fetch(base + transcode_link, {headers: {Range: 'bytes=2-5'}});
+        assert.equal(copy_range.status, 206); assert.equal(await copy_range.text(), 'cdef');
+        // the plain link still gets the original
+        assert.equal(await (await fetch(base + link, {headers: {Range: 'bytes=2-5'}})).text(), '2345');
     });
 });

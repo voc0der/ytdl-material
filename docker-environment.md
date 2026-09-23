@@ -109,7 +109,7 @@ Anything you set there takes precedence and is never overwritten. See [HTTP 403 
 
 ## Hardware Acceleration (Transcoding)
 
-* `ytdl_transcoding`: hardware acceleration mode used for ffmpeg video processing such as cropping. One of `'false'` (default, software only), `'amf'` (AMD AMF), `'nvenc'` (Nvidia NVENC), `'qsv'` (Intel Quicksync), or `'vaapi'` (Video Acceleration API). Also configurable in Settings under the Downloader tab.
+* `ytdl_transcoding`: hardware acceleration mode used for ffmpeg video processing such as cropping and transcoded playback links. One of `'false'` (default, software only), `'amf'` (AMD AMF), `'nvenc'` (Nvidia NVENC), `'qsv'` (Intel Quicksync), or `'vaapi'` (Video Acceleration API). Also configurable in Settings under the Downloader tab.
 
 On startup the backend runs two non-blocking flight tests:
 

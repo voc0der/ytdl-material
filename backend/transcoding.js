@@ -23,34 +23,42 @@ const HW_ELIGIBLE_EXTS = ['.mp4', '.m4v', '.mkv', '.mov', '.ts'];
 // source needs a filter that has no hardware equivalent.
 //
 // AMF has no decode counterpart on the platforms this image targets, so it stays encode-only.
+//
+// `quality_options` give whole-file encodes a constant quality target. Without one NVENC
+// encodes everything at its 2 Mbit/s default whatever the resolution, and QSV and AMF leave
+// the rate to the driver. VAAPI already defaults to constant QP, so it needs nothing.
 const TRANSCODING_MODES = {
     amf: {
         label: 'AMD AMF',
         video_encoder: 'h264_amf',
         input_options: [],
         decode_input_options: [],
-        video_filters: []
+        video_filters: [],
+        quality_options: ['-rc', 'cqp', '-qp_i', '23', '-qp_p', '23']
     },
     nvenc: {
         label: 'Nvidia NVENC',
         video_encoder: 'h264_nvenc',
         input_options: [],
         decode_input_options: ['-hwaccel', 'cuda'],
-        video_filters: []
+        video_filters: [],
+        quality_options: ['-rc', 'vbr', '-cq', '23', '-b:v', '0']
     },
     qsv: {
         label: 'Intel Quicksync (QSV)',
         video_encoder: 'h264_qsv',
         input_options: [],
         decode_input_options: ['-hwaccel', 'qsv'],
-        video_filters: []
+        video_filters: [],
+        quality_options: ['-q:v', '23']
     },
     vaapi: {
         label: 'VAAPI',
         video_encoder: 'h264_vaapi',
         input_options: ['-vaapi_device', DEFAULT_VAAPI_DEVICE],
         decode_input_options: ['-hwaccel', 'vaapi'],
-        video_filters: ['format=nv12', 'hwupload']
+        video_filters: ['format=nv12', 'hwupload'],
+        quality_options: []
     }
 };
 
@@ -138,8 +146,31 @@ exports.getHardwareFfmpegSettings = (ext, {allow_hardware_decode = true} = {}) =
         input_options: [...mode_info.input_options, ...(use_hardware_decode ? mode_info.decode_input_options : [])],
         video_filters: [...mode_info.video_filters],
         video_encoder: mode_info.video_encoder,
+        quality_options: [...mode_info.quality_options],
         hardware_decode: use_hardware_decode
     };
+}
+
+// Degrade one step at a time rather than straight to software. A GPU that cannot decode
+// a particular source can usually still encode it, so a failed hardware decode should
+// cost the hardware encode too only if that fails as well. The trailing null is software.
+exports.getFfmpegAttempts = (ext) => {
+    const attempts = [];
+    const full_settings = exports.getHardwareFfmpegSettings(ext);
+    if (full_settings) {
+        attempts.push(full_settings);
+        if (full_settings.hardware_decode) {
+            attempts.push(exports.getHardwareFfmpegSettings(ext, {allow_hardware_decode: false}));
+        }
+    }
+    attempts.push(null);
+    return attempts;
+}
+
+exports.describeFfmpegSettings = (hardware_settings) => {
+    if (!hardware_settings) return 'software encoding';
+    const decode_label = hardware_settings.hardware_decode ? 'hardware decoding' : 'software decoding';
+    return `${hardware_settings.label} (${hardware_settings.video_encoder}) with ${decode_label}`;
 }
 
 exports.getStatus = () => {

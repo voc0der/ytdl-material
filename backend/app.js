@@ -38,6 +38,7 @@ const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
 const playback_links = require('./playback-links');
+const playback_transcode = require('./playback-transcode');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 const thumbnails_api = require('./thumbnails');
@@ -625,7 +626,8 @@ async function backupServerLite() {
         const files_to_ignore = [path.join(config_api.getConfigItem('ytdl_subscriptions_base_path'), '**'),
                                 path.join(config_api.getConfigItem('ytdl_audio_folder_path'), '**'),
                                 path.join(config_api.getConfigItem('ytdl_video_folder_path'), '**'),
-                                'appdata/backups/backup-*.zip'];
+                                'appdata/backups/backup-*.zip',
+                                'appdata/transcodes/**'];
 
         archive.glob('**/*', {
             ignore: files_to_ignore
@@ -2820,6 +2822,25 @@ app.get('/api/stream', playback_links.authorizeStream(optionalJwt, requireAuthen
         logger.error(`File ${file_path} could not be found! UID: ${uid}, ID: ${file_obj && file_obj.id}`);
         res.status(404).type('text/plain').send('Media file not found');
         return;
+    }
+    // A transcoding link is only ever served its copy. Nothing is started here: creating
+    // the link queued the work, and the player waits it out on the Retry-After.
+    if (req.playback && req.playback.transcode) {
+        const copy = playback_transcode.getCopy(file_obj.uid);
+        if (copy.status === 'pending') {
+            res.set('Retry-After', '10');
+            res.status(503).type('text/plain').send('Transcoding in progress');
+            return;
+        }
+        if (copy.status === 'failed') {
+            res.status(500).type('text/plain').send('Transcoding failed');
+            return;
+        }
+        if (copy.status !== 'ready') {
+            res.status(404).type('text/plain').send('Transcoded copy not found');
+            return;
+        }
+        file_path = copy.path;
     }
     const mimetype = mime.lookup(file_path) || (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
     const stat = fs.statSync(file_path);

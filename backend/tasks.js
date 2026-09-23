@@ -8,6 +8,7 @@ const subscriptions_api = require('./subscriptions');
 const categories_api = require('./categories');
 const config_api = require('./config');
 const auth_api = require('./authentication/auth');
+const playback_links = require('./playback-links');
 const utils = require('./utils');
 const logger = require('./logger');
 const CONSTS = require('./consts');
@@ -16,7 +17,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const { Cron } = require('croner');
 
-const DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE = {
+const DEFAULT_DAILY_SCHEDULE = {
     type: 'recurring',
     data: {
         hour: 0,
@@ -73,7 +74,13 @@ const TASKS = {
         run: checkSubscriptions,
         title: 'Check subscriptions',
         notifyOnFinish: false,
-        defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_SUBSCRIPTIONS_CHECK_SCHEDULE))
+        defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_DAILY_SCHEDULE))
+    },
+    delete_old_transcodes: {
+        run: playback_links.reapTranscodes,
+        title: 'Delete old playback transcodes',
+        notifyOnFinish: false,
+        defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_DAILY_SCHEDULE))
     }
 }
 const TASK_JOBS = new Map();

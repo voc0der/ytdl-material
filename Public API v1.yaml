@@ -209,6 +209,12 @@ paths:
         permits only GET/HEAD on /api/stream for that uid, including byte ranges;
         it cannot log in or access other API routes. Restarting the server revokes
         all links. Use a single backend process, or sticky routing to that process.
+        Set transcode to true for players that cannot decode the downloaded codecs
+        (AV1, for example). The link then streams an H.264/AAC MP4 copy instead,
+        made once on the GPU when hardware transcoding is configured and on the CPU
+        otherwise, and reused by later links for the same file. Until the copy is
+        ready, /api/stream answers 503 with Retry-After; poll the stream_path with
+        HEAD before handing it to a player.
       operationId: create-playback-link
       requestBody:
         required: true
@@ -223,6 +229,10 @@ paths:
                 youtube_id:
                   type: string
                   pattern: '^[A-Za-z0-9_-]{11}$'
+                transcode:
+                  type: boolean
+                  default: false
+                  description: Stream an H.264/AAC copy instead of the original file.
               oneOf:
                 - required: [uid]
                 - required: [youtube_id]
@@ -244,8 +254,18 @@ paths:
                     type: integer
                     format: int64
                     description: Expiration in milliseconds since Unix epoch.
+                  transcode:
+                    type: boolean
+                    description: Present, and true, only when transcode was requested.
+                  ready:
+                    type: boolean
+                    description: >-
+                      Present only when transcode was requested. False while the copy
+                      is queued or being made.
         '400':
-          description: Supply exactly one nonempty uid or valid youtube_id.
+          description: >-
+            Supply exactly one nonempty uid or valid youtube_id, and transcode only
+            as a boolean.
         '401':
           description: Authentication required.
         '403':
@@ -340,7 +360,9 @@ paths:
         '403':
           description: Playback link used for a different file or conflicting parameters.
         '404':
-          description: No such file, not the caller's, or its stored path is not servable.
+          description: >-
+            No such file, not the caller's, or its stored path is not servable. For a
+            transcoding playback link, also when its copy has been deleted.
         '416':
           description: >-
             The range cannot be satisfied - it starts at or past the end of the
@@ -350,6 +372,15 @@ paths:
               schema:
                 type: string
               description: 'bytes */<size>, so the client can learn the real size.'
+        '500':
+          description: The copy for a transcoding playback link could not be made.
+        '503':
+          description: The copy for a transcoding playback link is not ready yet.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before asking again.
       # A token identifies the caller when one is supplied; the route also answers
       # anonymous callers (a share link, or single-user mode, which has no accounts).
       security:
@@ -3384,6 +3415,7 @@ components:
       - rebuild_database
       - apply_categories
       - subscriptions_check
+      - delete_old_transcodes
     Schedule:
       required:
         - type

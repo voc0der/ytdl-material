@@ -83,6 +83,7 @@ describe('Transcoding', function() {
             assert(Array.isArray(mode_info.input_options), `${mode} is missing input_options`);
             assert(Array.isArray(mode_info.decode_input_options), `${mode} is missing decode_input_options`);
             assert(Array.isArray(mode_info.video_filters), `${mode} is missing video_filters`);
+            assert(Array.isArray(mode_info.quality_options), `${mode} is missing quality_options`);
             assert(typeof mode_info.video_encoder === 'string' && mode_info.video_encoder);
 
             // decode acceleration must be requested through -hwaccel, and must not pin frames
@@ -92,6 +93,21 @@ describe('Transcoding', function() {
                 assert(!mode_info.decode_input_options.includes('-hwaccel_output_format'),
                     `${mode} must not pin decoded frames to GPU memory`);
             }
+        }
+    });
+
+    it('getFfmpegAttempts always ends in software', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            config_api.setConfigItem('ytdl_transcoding', false);
+            assert.deepStrictEqual(transcoding_api.getFfmpegAttempts('.mp4'), [null]);
+
+            config_api.setConfigItem('ytdl_transcoding', 'nvenc');
+            const attempts = transcoding_api.getFfmpegAttempts('.mp4');
+            assert.strictEqual(attempts[attempts.length - 1], null);
+            assert.strictEqual(transcoding_api.describeFfmpegSettings(null), 'software encoding');
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
         }
     });
 
