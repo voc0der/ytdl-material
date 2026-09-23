@@ -1,5 +1,5 @@
 import { NO_ERRORS_SCHEMA, NgZone } from '@angular/core';
-import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, waitForAsync } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, flushMicrotasks, tick, waitForAsync } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
@@ -471,6 +471,123 @@ describe('MediaLibraryComponent', () => {
       expect(element().querySelector('.library-empty-state .kit-chip')).toBeNull();
       expect(element().querySelector('.library-search')).not.toBeNull();
     });
+  });
+
+  describe('paging while the search and filters change', () => {
+    // Twelve files: the first three are about the Moon, and the first two are favorites.
+    const files = Array.from({ length: 12 }, (_, index) => ({
+      uid: `file-${index}`, title: `${index < 3 ? 'Moon' : 'Mars'} ${index}`, duration: 12, favorite: index < 2
+    }));
+    const lastRange = (): number[] => postsServiceStub.getAllFiles.mock.lastCall[1];
+    const shownUids = (): string[] => component.paged_data.map(file => file.uid);
+
+    beforeEach(() => {
+      postsServiceStub.getAllFiles.mockImplementation((_sort, range, search, _type, favorites_only) => {
+        const matching = files.filter(file => (!search || file.title.includes(search)) && (!favorites_only || file.favorite));
+        return of({ files: matching.slice(range[0], range[1]), file_count: matching.length });
+      });
+    });
+
+    function searchFor(text: string): void {
+      component.search_text = text;
+      component.onSearchInputChanged(text);
+      tick(500);
+      fixture.detectChanges();
+    }
+
+    it('should go back to the first page when the search changes', fakeAsync(() => {
+      fixture.detectChanges();
+      component.changePage(1);
+      expect(lastRange()).toEqual([10, 20]);
+
+      searchFor('Moon');
+
+      expect(component.manualPageIndex).toBe(0);
+      expect(lastRange()).toEqual([0, 10]);
+      expect(shownUids()).toEqual(['file-0', 'file-1', 'file-2']);
+      expect(fixture.nativeElement.querySelector('.library-empty-state')).toBeNull();
+      flush();
+    }));
+
+    it('should go back to the first page when a filter changes', fakeAsync(() => {
+      fixture.detectChanges();
+      component.changePage(1);
+
+      component.toggleFilter('favorited');
+      tick(150);
+      fixture.detectChanges();
+
+      expect(component.manualPageIndex).toBe(0);
+      expect(lastRange()).toEqual([0, 10]);
+      expect(shownUids()).toEqual(['file-0', 'file-1']);
+      expect(fixture.nativeElement.querySelector('.library-empty-state')).toBeNull();
+      flush();
+    }));
+
+    it('should stay on its page when the files change underneath it', fakeAsync(() => {
+      fixture.detectChanges();
+      component.changePage(1);
+
+      postsServiceStub.files_changed.next(true);
+      flush();
+
+      expect(component.manualPageIndex).toBe(1);
+      expect(lastRange()).toEqual([10, 20]);
+    }));
+
+    it('should keep the page of a search it returns to from the player', fakeAsync(() => {
+      navigationStateService.savePendingRestoreState({
+        snapshot: {
+          routeKey: '/home',
+          activeLibraryTab: 0,
+          sortProperty: 'registered',
+          descendingMode: true,
+          selectedFilters: [],
+          searchText: 'Mars',
+          playlistSearchText: '',
+          autoPaginationEnabled: false,
+          pageSize: 5,
+          manualPageIndex: 1,
+          subId: null,
+          fileCount: 9,
+          loadedCount: 4,
+          anchorUid: 'file-8',
+          anchorOffset: 0,
+          scrollTop: 0
+        },
+        files: files.slice(8) as any,
+        playlistLibraryItems: [],
+        playlistLibraryReceived: false
+      });
+      // Files changed while the player was open, so the page is fetched again rather than restored.
+      postsServiceStub.files_changed.next(true);
+      postsServiceStub.getAllFiles.mockClear();
+
+      fixture.detectChanges();
+      flush();
+
+      expect(component.manualPageIndex).toBe(1);
+      expect(lastRange()).toEqual([5, 10]);
+      expect(postsServiceStub.getAllFiles.mock.lastCall[2]).toBe('Mars');
+      expect(shownUids()).toEqual(['file-8', 'file-9', 'file-10', 'file-11']);
+    }));
+
+    it('should still load the first batch afresh on a search with Auto paging', fakeAsync(() => {
+      vi.spyOn(component, 'getAutoPageBatchSize').mockReturnValue(4);
+      vi.spyOn(component, 'getAutoPageColumns').mockReturnValue(2);
+      component.autoPaginationEnabled = true;
+      fixture.detectChanges();
+      component.loadMoreAutoFiles();
+      expect(shownUids().length).toBe(8);
+
+      searchFor('Moon');
+
+      expect(component.manualPageIndex).toBe(0);
+      expect(lastRange()).toEqual([0, 4]);
+      expect(shownUids()).toEqual(['file-0', 'file-1', 'file-2']);
+      expect(component.getPaginationRangeLabel()).toBe('1 – 3 of 3');
+      flush();
+    }));
   });
 
   it('should calculate an auto batch size that fills full rows', () => {

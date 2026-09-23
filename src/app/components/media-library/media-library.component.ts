@@ -300,6 +300,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         } else {
           this.search_mode = false;
         }
+        // A new search has its own pages; the page it was typed on may be past the last of them.
+        this.manualPageIndex = 0;
         if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
           this.getAllFiles();
         }
@@ -734,8 +736,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   filterChanged(value: string): void {
     localStorage.setItem('file_filter', value);
-    // wait a bit for the animation to finish
-    setTimeout(() => this.getAllFiles(), 150);
+    // wait a bit for the animation to finish, then start from the first page, as a new search does
+    setTimeout(() => {
+      this.manualPageIndex = 0;
+      this.getAllFiles();
+    }, 150);
   }
 
   toggleFilter(filter_key: string): void {
