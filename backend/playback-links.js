@@ -5,6 +5,7 @@ const db = require('./db');
 const files = require('./files');
 const config = require('./config');
 const utils = require('./utils');
+const playback_transcode = require('./playback-transcode');
 
 const links = new Map();
 const TTL_MS = 6 * 60 * 60 * 1000;
@@ -76,6 +77,11 @@ exports.create = async (req, res) => {
 
         if (!byUID && !byYouTube) return res.sendStatus(400);
 
+        // Opt-in only: the stream never inspects codecs to decide for itself.
+        const hasTranscode = Object.prototype.hasOwnProperty.call(body, 'transcode');
+        if (hasTranscode && typeof body.transcode !== 'boolean') return res.sendStatus(400);
+        const transcode = body.transcode === true;
+
         const file = await findFile(body, owner);
 
         if (!file || (multiUser && file.user_uid !== owner)
@@ -99,8 +105,12 @@ exports.create = async (req, res) => {
             uid: file.uid,
             owner: file.user_uid ?? null,
             multiUser,
-            expires
+            expires,
+            transcode
         });
+
+        // Requested after the link is stored, so the reaper already counts the copy as in use.
+        const ready = transcode ? playback_transcode.request(file) : null;
 
         return res.json({
             uid: file.uid,
@@ -108,7 +118,8 @@ exports.create = async (req, res) => {
             stream_path: '/api/stream?' + new URLSearchParams({
                 uid: file.uid,
                 playback_token: token
-            })
+            }),
+            ...(transcode && {transcode, ready})
         });
     } catch (err) {
         console.error('createPlaybackLink failed:', err);
@@ -161,3 +172,12 @@ exports.authorizeStream = (optionalJwt, requireAuthenticatedOrShared) =>
             return res.sendStatus(500);
         }
     };
+
+// A copy stays while an unexpired link can still stream it, and is only reaped once it is
+// older than a link lives.
+exports.reapTranscodes = () => playback_transcode.reap(TTL_MS, () => {
+    const now = Date.now();
+    return [...links.values()]
+        .filter(grant => grant.transcode && grant.expires > now)
+        .map(grant => grant.uid);
+});

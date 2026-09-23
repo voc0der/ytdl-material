@@ -16,7 +16,8 @@ export const TASK_ICONS: { [key in TaskType]?: string } = {
   [TaskType.IMPORT_LEGACY_ARCHIVES]: 'unarchive',
   [TaskType.REBUILD_DATABASE]: 'construction',
   [TaskType.APPLY_CATEGORIES]: 'label',
-  [TaskType.SUBSCRIPTIONS_CHECK]: 'subscriptions'
+  [TaskType.SUBSCRIPTIONS_CHECK]: 'subscriptions',
+  [TaskType.DELETE_OLD_TRANSCODES]: 'cleaning_services'
 };
 
 const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
@@ -30,7 +31,8 @@ const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
   [TaskType.IMPORT_LEGACY_ARCHIVES]: $localize`Imports archive files written before 4.3 into the database.`,
   [TaskType.REBUILD_DATABASE]: $localize`Reimports every user, subscription and file it can find. Backs the database up first.`,
   [TaskType.APPLY_CATEGORIES]: $localize`Sorts files that were downloaded before your category rules existed.`,
-  [TaskType.SUBSCRIPTIONS_CHECK]: $localize`Checks every subscription for new uploads and queues whatever it finds.`
+  [TaskType.SUBSCRIPTIONS_CHECK]: $localize`Checks every subscription for new uploads and queues whatever it finds.`,
+  [TaskType.DELETE_OLD_TRANSCODES]: $localize`Deletes playback copies made for players that cannot decode the original, once they are over six hours old and no link still uses them.`
 };
 
 export function taskIcon(task: Task): string {

@@ -1,6 +1,6 @@
 # Hardware acceleration
 
-Hardware acceleration applies to ffmpeg video processing, such as cropping. It does not accelerate fetching bytes from a source or make unsupported browser codecs playable.
+Hardware acceleration applies to ffmpeg video processing, such as cropping and [playback copies](#playback-copies). It does not accelerate fetching bytes from a source or make unsupported browser codecs playable.
 
 Choose a mode in **Settings → Downloader** or set `ytdl_transcoding` to `vaapi`, `qsv`, `nvenc`, or `amf`. The default `false` uses software processing.
 
@@ -43,6 +43,12 @@ deploy:
 
 For AMD AMF, set `amf` and provide a compatible host runtime. AMF is encode-only in this implementation; it does not attempt hardware decoding.
 
+## Playback copies
+
+External players that cannot decode AV1 can ask `POST /api/createPlaybackLink` for `"transcode": true`. The link then streams an H.264/AAC MP4 copy, made once through the same GPU-then-CPU fallback as cropping and stored in `appdata/transcodes`. The copy is always MP4, so it can use the GPU whatever the source container. Copies are made one at a time. Until a copy is ready, its stream answers `503` with `Retry-After`. Later links for the same file reuse the copy unless the file has changed since.
+
+The **Delete old playback transcodes** task runs daily by default. It deletes copies that are over six hours old and not used by an unexpired link, queued or in progress. Lite server backups skip `appdata/transcodes`.
+
 ## Verify what runs
 
 At startup the app checks hardware encoding, then decoding. If encoding fails, processing falls back to software. If only decoding fails, it can still encode on the GPU.
@@ -52,7 +58,7 @@ Runtime processing also falls back in stages: hardware decode and encode, softwa
 Inspect **Settings → Downloader** for the check result, or filter the server log:
 
 ```bash
-docker logs ytdl-material 2>&1 | grep -E 'flight test|Cropping|software encoding'
+docker logs ytdl-material 2>&1 | grep -E 'flight test|Cropping|Transcod|software encoding'
 ```
 
 At debug log level, the resolved ffmpeg command shows the actual encoder and decoding options. A configured mode alone does not prove the GPU was usable.

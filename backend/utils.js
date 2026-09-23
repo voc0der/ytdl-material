@@ -545,28 +545,6 @@ exports.createEdgeNGrams = (str) => {
 
 // ffmpeg helper functions
 
-function describeCropProcessing(hardware_settings) {
-    if (!hardware_settings) return 'software encoding';
-    const decode_label = hardware_settings.hardware_decode ? 'hardware decoding' : 'software decoding';
-    return `${hardware_settings.label} (${hardware_settings.video_encoder}) with ${decode_label}`;
-}
-
-// Degrade one step at a time rather than straight to software. A GPU that cannot decode
-// a particular source can usually still encode it, so a failed hardware decode should
-// cost the hardware encode too only if that fails as well.
-function buildCropAttempts(ext) {
-    const attempts = [];
-    const full_settings = transcoding_api.getHardwareFfmpegSettings(ext);
-    if (full_settings) {
-        attempts.push(full_settings);
-        if (full_settings.hardware_decode) {
-            attempts.push(transcoding_api.getHardwareFfmpegSettings(ext, {allow_hardware_decode: false}));
-        }
-    }
-    attempts.push(null);
-    return attempts;
-}
-
 /**
  * Trim source_path down to [start, end) and write the result to output_path, walking the
  * hardware->software ladder. The source is never modified; callers that want an in-place
@@ -574,21 +552,21 @@ function buildCropAttempts(ext) {
  */
 async function runCropLadder(source_path, output_path, start, end, ext, verb, on_progress = null) {
     const start_time = Date.now();
-    const attempts = buildCropAttempts(ext);
+    const attempts = transcoding_api.getFfmpegAttempts(ext);
 
     // Cropping re-encodes and can run for minutes with no other output, so announce it up
     // front. Without this a long crop is indistinguishable from a hung download.
-    logger.info(`${verb} '${source_path}' using ${describeCropProcessing(attempts[0])}. This can take a while for large files.`);
+    logger.info(`${verb} '${source_path}' using ${transcoding_api.describeFfmpegSettings(attempts[0])}. This can take a while for large files.`);
 
     let crop_success = false;
     for (let i = 0; i < attempts.length; i++) {
         crop_success = await cropFileAttempt(source_path, output_path, start, end, attempts[i], on_progress);
         if (crop_success) {
-            if (i > 0) logger.info(`${verb} for '${source_path}' succeeded using ${describeCropProcessing(attempts[i])}.`);
+            if (i > 0) logger.info(`${verb} for '${source_path}' succeeded using ${transcoding_api.describeFfmpegSettings(attempts[i])}.`);
             break;
         }
         if (i + 1 < attempts.length) {
-            logger.warn(`${verb} using ${describeCropProcessing(attempts[i])} failed for '${source_path}'. Retrying with ${describeCropProcessing(attempts[i + 1])}.`);
+            logger.warn(`${verb} using ${transcoding_api.describeFfmpegSettings(attempts[i])} failed for '${source_path}'. Retrying with ${transcoding_api.describeFfmpegSettings(attempts[i + 1])}.`);
         }
     }
 

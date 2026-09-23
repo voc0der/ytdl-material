@@ -37,6 +37,19 @@ describe('Tasks', function() {
         assert(!!tasks_api.TASKS['subscriptions_check']['job']);
     });
 
+    it('Creates the playback transcode cleanup task with a quiet daily default schedule', async function() {
+        const task = await db_api.getRecord('tasks', {key: 'delete_old_transcodes'});
+
+        assert(task);
+        assert.strictEqual(task['title'], 'Delete old playback transcodes');
+        assert.strictEqual(task['schedule']['type'], 'recurring');
+        assert.strictEqual(task['schedule']['data']['hour'], 0);
+        assert.strictEqual(task['schedule']['data']['minute'], 0);
+        assert(!!tasks_api.TASKS['delete_old_transcodes']['job']);
+        // it runs every day, so a notification each time would only be noise
+        assert.strictEqual(tasks_api.TASKS['delete_old_transcodes']['notifyOnFinish'], false);
+    });
+
     it('Creates the apply categories task without a default schedule', async function() {
         const task = await db_api.getRecord('tasks', {key: 'apply_categories'});
 
