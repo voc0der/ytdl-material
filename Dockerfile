@@ -40,7 +40,7 @@ ENV NVM_DIR=/usr/local/nvm
 # install.sh already installs NODE_VERSION because it is set. nvm keeps the downloaded
 # tarball in its cache, and Node ships C++ headers that are only needed to compile native
 # addons (nothing here does), so both are removed in this same layer or they stay in the image.
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash && \
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
