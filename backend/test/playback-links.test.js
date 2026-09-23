@@ -32,9 +32,14 @@ describe('Playback links', function() {
         const db = {getRecords: async (table, filter) => {
             assert.equal(table, 'files');
             assert.equal(filter.isAudio, false);
-            assert.deepEqual(JSON.parse(JSON.stringify(filter.$or)), [{source_id: ID}, {url: {$regex: ID}}]);
+            assert.equal('user_uid' in filter, state.multiUser);
+            // PostgreSQL rejects Mongo operators, so every term must be plain equality.
+            for (const [key, value] of Object.entries(filter)) {
+                assert.ok(!key.startsWith('$') && (typeof value !== 'object' || value === null),
+                    'non-portable filter term: ' + key);
+            }
             state.filter = filter;
-            return state.records.filter(f => !state.multiUser || f.user_uid === filter.user_uid);
+            return state.records.filter(f => Object.entries(filter).every(([k, v]) => f[k] === v));
         }};
         const utils = {
             isServableMediaFile: p => p !== 'missing.mp4',
