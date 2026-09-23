@@ -11,10 +11,10 @@
 
 set -euo pipefail
 
-OPENLDAP_VERSION="${OPENLDAP_VERSION:-2.6.14}"
+OPENLDAP_VERSION="${OPENLDAP_VERSION:-2.7.1}"
 # Published alongside the tarball as openldap-<version>.sha3-512. Pinned here rather
 # than fetched so a swapped tarball fails the build instead of bringing its own digest.
-OPENLDAP_SHA3_512="${OPENLDAP_SHA3_512:-ac6a9de179d89ae498b74da4127699ea0963cd98e750c9cf81e11d71610c5dd07fee3b42c6b82ed23561797294b33f475189bbb86f0aa865453cc4158104b024}"
+OPENLDAP_SHA3_512="${OPENLDAP_SHA3_512:-655e4d22eb4f6626b706cbd36b2dec15a936da859d0d0c1c249958bfbe77229226c79223e44cc8ad3394ef4c1fc030001c78d33c8c69a66018f92f16b6bf2be4}"
 OPENLDAP_URL="https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-${OPENLDAP_VERSION}.tgz"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
