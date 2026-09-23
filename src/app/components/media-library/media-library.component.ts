@@ -24,7 +24,6 @@ import { FileCardLayout, getListCardHeight, UnifiedFileCardComponent } from '../
 import { PickerComponent, type PickerOption } from '../picker/picker.component';
 import { openPickerSheet } from '../picker/picker-sheet.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { MatButton } from '@angular/material/button';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 
 
@@ -46,7 +45,7 @@ interface MediaLibraryFilter {
     templateUrl: './media-library.component.html',
     styleUrls: ['./media-library.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgTemplateOutlet, SortPropertyComponent, NgClass, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, MatButton, PickerComponent]
+    imports: [NgTemplateOutlet, SortPropertyComponent, NgClass, FormsModule, MatIcon, UnifiedFileCardComponent, MatProgressSpinner, PickerComponent]
 })
 export class MediaLibraryComponent implements OnInit, OnDestroy {
   readonly pageSizeStorageKey = 'media_library_page_size';
@@ -301,6 +300,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         } else {
           this.search_mode = false;
         }
+        // A new search has its own pages; the page it was typed on may be past the last of them.
+        this.manualPageIndex = 0;
         if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
           this.getAllFiles();
         }
@@ -628,6 +629,19 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return !this.sub_id;
   }
 
+  // Nothing downloaded yet, as opposed to a search or filters that matched nothing. There is
+  // nothing to search, sort, filter or page through then, so only the empty state is shown.
+  get libraryIsEmpty(): boolean {
+    return this.normal_files_received
+      && this.file_count === 0
+      && !this.search_text?.trim()
+      && this.selectedFilters.length === 0;
+  }
+
+  get playlistLibraryIsEmpty(): boolean {
+    return this.playlistLibraryReceived && this.playlistLibraryItems.length === 0;
+  }
+
   get pageSizeSelectorValue(): PageSizeOption {
     return this.autoPaginationEnabled ? this.autoPageSizeOption : this.pageSize;
   }
@@ -722,8 +736,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   filterChanged(value: string): void {
     localStorage.setItem('file_filter', value);
-    // wait a bit for the animation to finish
-    setTimeout(() => this.getAllFiles(), 150);
+    // wait a bit for the animation to finish, then start from the first page, as a new search does
+    setTimeout(() => {
+      this.manualPageIndex = 0;
+      this.getAllFiles();
+    }, 150);
   }
 
   toggleFilter(filter_key: string): void {

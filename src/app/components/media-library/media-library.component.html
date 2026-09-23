@@ -60,13 +60,13 @@
           <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
         }
       </div>
-      @if (!narrowScreen) {
+      @if (!narrowScreen && !playlistLibraryIsEmpty) {
         <div class="library-header-tools">
           <ng-container [ngTemplateOutlet]="playlistSearchTools"></ng-container>
         </div>
       }
     </div>
-    @if (narrowScreen) {
+    @if (narrowScreen && !playlistLibraryIsEmpty) {
       <ng-container [ngTemplateOutlet]="playlistSearchTools"></ng-container>
     }
   </div>
@@ -82,14 +82,6 @@
             }
           </div>
         }
-        @if (visiblePlaylists.length === 0) {
-          <div class="playlist-empty-state">
-            <div i18n="No playlists found message">No playlists found.</div>
-            <button (click)="openCreatePlaylistDialog()" mat-flat-button color="accent" i18n="Create first playlist button">
-              Create playlist
-            </button>
-          </div>
-        }
       }
 
       @if (!playlistLibraryReceived) {
@@ -100,6 +92,23 @@
         }
       }
     </div>
+
+    @if (playlistLibraryReceived && visiblePlaylists.length === 0) {
+      <section class="empty-state library-empty-state">
+        @if (playlistLibraryIsEmpty) {
+          <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
+          <h2 i18n="No playlists title">No playlists yet</h2>
+          <p i18n="No playlists text">Put files from your library in order to play them back to back.</p>
+          <button type="button" class="kit-chip" (click)="openCreatePlaylistDialog()">
+            <mat-icon>add</mat-icon><span i18n="Create first playlist button">Create playlist</span>
+          </button>
+        } @else {
+          <span class="empty-state-icon"><mat-icon>search_off</mat-icon></span>
+          <h2 i18n="No matching playlists title">No playlists found</h2>
+          <p i18n="No matching playlists text">No playlist matches that search.</p>
+        }
+      </section>
+    }
   </div>
 </ng-template>
 
@@ -113,31 +122,34 @@
           <h4 class="my-videos-title" i18n="My files title">My files</h4>
         }
       </div>
-      @if (!narrowScreen) {
+      @if (!narrowScreen && !libraryIsEmpty) {
         <div class="library-header-tools">
           <ng-container [ngTemplateOutlet]="videoSearchTools"></ng-container>
         </div>
       }
     </div>
-    @if (narrowScreen) {
-      <ng-container [ngTemplateOutlet]="videoSearchTools"></ng-container>
-      @if (activeFilterLabels.length) {
-        <div class="library-filter-summary">
-          <span class="library-filter-summary-text">{{activeFilterLabels.join(' · ')}}</span>
-          <button type="button" class="kit-text-button" (click)="clearFilters()" i18n="Clear library filters button">Clear</button>
+    <!-- An empty library has nothing to search, sort or filter, so none of it is offered. -->
+    @if (!libraryIsEmpty) {
+      @if (narrowScreen) {
+        <ng-container [ngTemplateOutlet]="videoSearchTools"></ng-container>
+        @if (activeFilterLabels.length) {
+          <div class="library-filter-summary">
+            <span class="library-filter-summary-text">{{activeFilterLabels.join(' · ')}}</span>
+            <button type="button" class="kit-text-button" (click)="clearFilters()" i18n="Clear library filters button">Clear</button>
+          </div>
+        }
+      } @else if (getVisibleFilters().length) {
+        <div class="kit-rail kit-rail-wrap library-filters" role="group" aria-label="Filters" i18n-aria-label="Library filters label">
+          @for (filter of getVisibleFilters(); track filter.key) {
+            <button type="button" class="kit-chip" [attr.aria-pressed]="selectedFilters.includes(filter.key)" (click)="toggleFilter(filter.key)">
+              @if (selectedFilters.includes(filter.key)) {
+                <mat-icon>check</mat-icon>
+              }
+              {{filter.label}}
+            </button>
+          }
         </div>
       }
-    } @else if (getVisibleFilters().length) {
-      <div class="kit-rail kit-rail-wrap library-filters" role="group" aria-label="Filters" i18n-aria-label="Library filters label">
-        @for (filter of getVisibleFilters(); track filter.key) {
-          <button type="button" class="kit-chip" [attr.aria-pressed]="selectedFilters.includes(filter.key)" (click)="toggleFilter(filter.key)">
-            @if (selectedFilters.includes(filter.key)) {
-              <mat-icon>check</mat-icon>
-            }
-            {{filter.label}}
-          </button>
-        }
-      </div>
     }
   </div>
 
@@ -185,9 +197,23 @@
     }
 
     @if (normal_files_received && paged_data && paged_data.length === 0) {
-      <div class="video-library-empty-state">
-        <ng-container i18n="No files found">No files found.</ng-container>
-      </div>
+      <section class="empty-state library-empty-state">
+        @if (libraryIsEmpty && sub_id) {
+          <span class="empty-state-icon"><mat-icon>video_library</mat-icon></span>
+          <h2 i18n="Empty subscription library title">Nothing downloaded yet</h2>
+          <p i18n="Empty subscription library text">Files show up here as this subscription downloads them.</p>
+        } @else if (libraryIsEmpty) {
+          <span class="empty-state-icon"><mat-icon>video_library</mat-icon></span>
+          <h2 i18n="Empty library title">Your library is empty</h2>
+          <p i18n="Empty library text">Paste a link above to get started. Everything you and your subscriptions download ends up here.</p>
+        } @else {
+          <span class="empty-state-icon"><mat-icon>search_off</mat-icon></span>
+          <h2 i18n="No files found">No files found</h2>
+          @if (search_text?.trim() || selectedFilters.length) {
+            <p i18n="No matching files text">Try another search, or turn a filter off.</p>
+          }
+        }
+      </section>
     }
   </div>
 
@@ -201,26 +227,28 @@
     </div>
   }
 
-  <nav class="library-pagination container" aria-label="Media pagination" i18n-aria-label="Media library pagination label">
-    <app-picker [title]="pageSizeTitle" [label]="narrowScreen ? null : pageSizeTitle"
-      [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue"
-      (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
-    <div class="pagination-status">
-      <span class="pagination-range" role="status" aria-live="polite" aria-atomic="true">{{getPaginationRangeLabel()}}</span>
-      @if (!autoPaginationEnabled) {
-        <div class="pagination-actions">
-          <button type="button" class="kit-icon-button" [disabled]="manualPageIndex <= 0"
-            [attr.aria-label]="paginatorIntl.previousPageLabel" [title]="paginatorIntl.previousPageLabel"
-            (click)="changePage(manualPageIndex - 1)">
-            <mat-icon class="pagination-arrow">chevron_left</mat-icon>
-          </button>
-          <button type="button" class="kit-icon-button" [disabled]="(manualPageIndex + 1) * pageSize >= file_count"
-            [attr.aria-label]="paginatorIntl.nextPageLabel" [title]="paginatorIntl.nextPageLabel"
-            (click)="changePage(manualPageIndex + 1)">
-            <mat-icon class="pagination-arrow">chevron_right</mat-icon>
-          </button>
-        </div>
-      }
-    </div>
-  </nav>
+  @if (!libraryIsEmpty) {
+    <nav class="library-pagination container" aria-label="Media pagination" i18n-aria-label="Media library pagination label">
+      <app-picker [title]="pageSizeTitle" [label]="narrowScreen ? null : pageSizeTitle"
+        [options]="pageSizePickerOptions" [value]="pageSizeSelectorValue"
+        (valueChange)="pageSizeOptionChanged($any($event))"></app-picker>
+      <div class="pagination-status">
+        <span class="pagination-range" role="status" aria-live="polite" aria-atomic="true">{{getPaginationRangeLabel()}}</span>
+        @if (!autoPaginationEnabled) {
+          <div class="pagination-actions">
+            <button type="button" class="kit-icon-button" [disabled]="manualPageIndex <= 0"
+              [attr.aria-label]="paginatorIntl.previousPageLabel" [title]="paginatorIntl.previousPageLabel"
+              (click)="changePage(manualPageIndex - 1)">
+              <mat-icon class="pagination-arrow">chevron_left</mat-icon>
+            </button>
+            <button type="button" class="kit-icon-button" [disabled]="(manualPageIndex + 1) * pageSize >= file_count"
+              [attr.aria-label]="paginatorIntl.nextPageLabel" [title]="paginatorIntl.nextPageLabel"
+              (click)="changePage(manualPageIndex + 1)">
+              <mat-icon class="pagination-arrow">chevron_right</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    </nav>
+  }
 </ng-template>
