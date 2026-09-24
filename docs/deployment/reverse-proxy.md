@@ -30,7 +30,7 @@ environment:
 
 Use the actual address your app sees. Docker gateways and proxy container addresses can differ from host LAN addresses. An incorrect whitelist can reject every request, including local health checks or direct LAN access.
 
-`ytdl_trust_proxy` gets the real visitor IP from behind a reverse proxy. Without it, every visitor looks like the proxy and shares one rate limit. Set `'1'` for one proxy in front, a higher number for a chain of proxies, or your proxy's IP (comma-separate several). Avoid `'true'`: it lets any visitor claim whatever IP they like.
+`ytdl_trust_proxy` gets the real visitor IP from behind a reverse proxy. Without it, every visitor looks like the proxy and shares one rate limit. Set `'1'` for one proxy in front, a higher number for a chain of proxies, or your proxy's IP or subnet (comma-separate several). Avoid `'true'`: it lets any visitor claim whatever IP they like.
 
 ## Public URLs and OIDC
 
