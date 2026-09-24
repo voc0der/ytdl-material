@@ -20,6 +20,8 @@ ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-
 <hr>
 
 <img src="./docs/images/readme-home.png" width="1000" alt="ytdl-material interface">
+<br>
+<sub>More screenshots in the <a href="https://voc0der.github.io/ytdl-material/gallery/">gallery</a>.</sub>
 
 ## Setup
 
