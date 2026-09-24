@@ -1517,6 +1517,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/GetTaskRequest'
+  /api/dismissTaskError:
+    post:
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
+      tags:
+        - tasks
+      summary: Clears the error left by a task's last run
+      operationId: post-api-dismiss-task-error
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetTaskRequest'
   /api/updateTaskSchedule:
     post:
       security:

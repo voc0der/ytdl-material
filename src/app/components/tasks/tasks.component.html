@@ -50,9 +50,15 @@
           </div>
 
           @if (task.error) {
-            <button type="button" class="task-error kit-one-line" (click)="showError(task)" [matTooltip]="errorSummary(task)">
-              {{errorSummary(task)}}
-            </button>
+            <div class="task-error-row">
+              <button type="button" class="task-error kit-one-line" (click)="showError(task)" [matTooltip]="errorSummary(task)">
+                {{errorSummary(task)}}
+              </button>
+              <button type="button" class="kit-icon-button task-error-dismiss" (click)="dismissError(task)"
+                [disabled]="task.running || task.confirming" [attr.aria-label]="dismissErrorLabel" [matTooltip]="dismissErrorLabel">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
           }
 
           @if (hasPendingWork(task)) {

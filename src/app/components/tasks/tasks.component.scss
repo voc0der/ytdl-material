@@ -108,7 +108,28 @@
   font-size: 16px;
 }
 
+.task-error-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-error-dismiss {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  color: var(--kit-on-surface-variant);
+}
+
+.task-error-dismiss .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
 .task-error {
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;

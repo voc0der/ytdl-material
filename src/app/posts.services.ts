@@ -843,6 +843,11 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'confirmTask', body, this.httpOptions);
     }
 
+    dismissTaskError(task_key: TaskType) {
+        const body: GetTaskRequest = {task_key: task_key};
+        return this.http.post<SuccessObject>(this.path + 'dismissTaskError', body, this.httpOptions);
+    }
+
     updateTaskSchedule(task_key: TaskType, schedule: Schedule) {
         const body: UpdateTaskScheduleRequest = {task_key: task_key, new_schedule: schedule};
         return this.http.post<SuccessObject>(this.path + 'updateTaskSchedule', body, this.httpOptions);

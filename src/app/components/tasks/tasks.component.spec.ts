@@ -36,6 +36,7 @@ describe('TasksComponent', () => {
       runTask: vi.fn().mockName('runTask').mockReturnValue(of({ success: true })),
       confirmTask: vi.fn().mockName('confirmTask').mockReturnValue(of({ success: true })),
       resetTasks: vi.fn().mockName('resetTasks').mockReturnValue(of({ success: true })),
+      dismissTaskError: vi.fn().mockName('dismissTaskError').mockReturnValue(of({ success: true })),
       openSnackBar: vi.fn().mockName('openSnackBar')
     };
     dialog = { open: vi.fn().mockName('open').mockReturnValue({ afterClosed: () => of(true) }) };
@@ -98,8 +99,34 @@ describe('TasksComponent', () => {
   it('puts what a task is doing ahead of when it last ran', () => {
     expect(component.statusText(task({ running: true, last_ran: 1 }))).toBe('Running…');
     expect(component.statusText(task({ confirming: true }))).toBe('Applying…');
-    expect(component.statusText(task({ error: 'boom', last_ran: 1 }))).toBe('Last run failed');
+    expect(component.statusText(task({ error: 'boom' }))).toBe('Last run failed');
     expect(component.statusText(task())).toBe('Never run');
+  });
+
+  it('says how long ago a failure was, since it stays until the next run', () => {
+    const failed = task({ error: 'boom', last_ran: (Date.now() - 60 * 86400_000) / 1000 });
+
+    expect(component.statusText(failed)).toMatch(/^Failed .*ago$/);
+  });
+
+  it('clears a dismissed error and reloads straight away', () => {
+    listReturns(task({ error: 'boom', last_ran: 1 }));
+    component.ngOnInit();
+    expect(postsService.getTasks).toHaveBeenCalledTimes(1);
+
+    component.dismissError(task({ error: 'boom', last_ran: 1 }));
+
+    expect(postsService.dismissTaskError).toHaveBeenCalledWith(TaskType.BACKUP_LOCAL_DB);
+    expect(postsService.getTasks).toHaveBeenCalledTimes(2);
+    expect(postsService.openSnackBar).not.toHaveBeenCalled();
+  });
+
+  it('says so when an error could not be dismissed', () => {
+    postsService.dismissTaskError.mockReturnValue(of({ success: false }));
+
+    component.dismissError(task({ error: 'boom' }));
+
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't dismiss the error.");
   });
 
   it('says a task without a schedule only runs by hand', () => {
