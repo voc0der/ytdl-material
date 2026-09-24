@@ -224,7 +224,7 @@ let redisRateLimitClient = null;
 let redisRateLimitReconnectTimer = null;
 let redisRateLimitConnectionString = '';
 
-if (debugMode) logger.info('YTDL-Material in debug mode!');
+if (debugMode) logger.info('ytdl-material in debug mode!');
 
 // check if just updated
 const just_updated = fs.existsSync('restart_update.json');

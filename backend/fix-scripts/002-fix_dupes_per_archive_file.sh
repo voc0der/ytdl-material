@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# INTERACTIVE ARCHIVE-DUPE-ENTRY FIX SCRIPT FOR YTDL-M
+# INTERACTIVE ARCHIVE-DUPE-ENTRY FIX SCRIPT FOR ytdl-material
 # Date: 2022-05-09
 
 # If you want to run this script on a bare-metal installation instead of within Docker
@@ -26,10 +26,10 @@ tput civis                                                          # hide the c
 clear -x
 printf "\n"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -             # horizontal line
-printf "Welcome to the INTERACTIVE ARCHIVE-DUPE-ENTRY FIX SCRIPT FOR YTDL-M."
+printf "Welcome to the INTERACTIVE ARCHIVE-DUPE-ENTRY FIX SCRIPT FOR ytdl-material."
 printf "\nThis script will cycle through the archive files in the folders mentioned"
 printf "\nbelow and remove within each archive the dupe entries. (compact them)"
-printf "\nDuring some older builds of YTDL-M the archives could receive dupe"
+printf "\nDuring some older builds of ytdl-material the archives could receive dupe"
 printf "\nentries and blow up in size, sometimes causing conflicts with download management."
 printf '\n%*s' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -             # horizontal line
 printf "\n"

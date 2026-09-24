@@ -508,7 +508,7 @@ export class SettingsComponent implements OnInit {
   }
 
   generateBookmarklet(): void {
-    this.bookmarksite('YTDL-Material', this.generated_bookmarklet_code);
+    this.bookmarksite('ytdl-material', this.generated_bookmarklet_code);
   }
 
   generateBookmarkletCode(): string {
