@@ -11,7 +11,7 @@ The [complete configuration mapping](configuration.md) is generated from the bac
 | `ytdl_uid`, `ytdl_gid` | App user and group; container defaults to `1000:1000` |
 | `ytdl_umask` | File creation mask; for example `'022'` or `'002'` |
 | `ytdl_log_level` | Logging override: `error`, `warn`, `info`, `verbose`, `debug`; overrides the saved log-level setting |
-| `ytdl_trust_proxy` | Express proxy trust override: boolean, hop count, or addresses |
+| `ytdl_trust_proxy` | Real visitor IP from behind a reverse proxy: number of proxies in front (usually `'1'`), or their IPs/subnets, comma-separated |
 | `ytdl_max_playlist_chunks` | Maximum automatic playlist chunks; default `20`, minimum `1` |
 | `ytdl_enable_ytdlp_impersonation_dependencies` | Installs optional impersonation support, exposes the setting, and enables it in newly created configs |
 | `ytdl_oidc_migrate_videos` | Startup ownership assignment for unowned files/playlists to an existing account; remove after use |
