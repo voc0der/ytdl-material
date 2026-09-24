@@ -253,6 +253,38 @@ export class SettingsComponent implements OnInit {
     return String(value ?? '').trim();
   }
 
+  /*************************************************
+   * Server settings that come from the environment
+   * rather than this page, shown so they can be
+   * checked. Each one only appears once it is set.
+   ************************************************/
+  get serverEnvironment(): { label: string, variable: string, value: string }[] {
+    const host = this.postsService.config?.['Host'] ?? {};
+    return [
+      { label: $localize`Trusted proxies`, variable: 'ytdl_trust_proxy', value: this.oidcText(this.postsService.serverRuntime?.trust_proxy) },
+      { label: $localize`Reverse proxy whitelist`, variable: 'ytdl_reverse_proxy_whitelist', value: this.oidcText(host['reverse_proxy_whitelist']) },
+      { label: $localize`SSL certificate`, variable: 'ytdl_ssl_cert_path', value: this.oidcText(host['ssl_cert_path']) },
+      { label: $localize`SSL key`, variable: 'ytdl_ssl_key_path', value: this.oidcText(host['ssl_key_path']) }
+    ].filter(row => row.value !== '');
+  }
+
+  /** Who the server runs as, and so who owns what it writes. Always shown, default or not. */
+  get runtimePermissions(): { label: string, variable: string, value: string }[] {
+    const runtime = this.postsService.serverRuntime;
+    const unknown = $localize`Unknown`;
+    const id = (value: number | null | undefined) => {
+      if (typeof value !== 'number') return unknown;
+      return value === 0 ? $localize`0 (root)` : String(value);
+    };
+    return [
+      { label: $localize`User ID`, variable: 'ytdl_uid', value: id(runtime?.uid) },
+      { label: $localize`Group ID`, variable: 'ytdl_gid', value: id(runtime?.gid) },
+      // Octal and four digits, the way the umask command prints it.
+      { label: $localize`File creation mask`, variable: 'ytdl_umask',
+        value: typeof runtime?.umask === 'number' ? runtime.umask.toString(8).padStart(4, '0') : unknown }
+    ];
+  }
+
   getOIDCStatus(): void {
     if (!this.oidcSettings) return;
     this.postsService.getOIDCStatus().subscribe(res => {

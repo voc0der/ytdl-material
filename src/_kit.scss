@@ -576,7 +576,8 @@
 }
 
 // Bootstrap colours a bare <code> pink, which is not what a hint reads like here.
-.settings-section-hint code {
+.settings-section-hint code,
+.settings-row-hint code {
   padding: 1px 5px;
   border-radius: 5px;
   background: var(--kit-surface);
@@ -634,6 +635,28 @@
 .settings-row-hint a {
   margin-left: 4px;
   color: var(--kit-on-tonal);
+}
+
+// A small link on a row, beside its control, to where the rest of it lives.
+.settings-row-link {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--kit-on-tonal);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-row-link:hover {
+  text-decoration: underline;
+}
+
+.settings-row-link:focus-visible {
+  outline: 2px solid var(--kit-accent);
+  outline-offset: 2px;
 }
 
 // What a row reports rather than lets you change.
