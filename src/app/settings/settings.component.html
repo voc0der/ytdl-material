@@ -87,7 +87,7 @@
                 <label class="settings-row settings-field-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Subscriptions base path">Subscriptions base path</span>
-                    <span class="settings-row-hint" i18n="Subscriptions base path setting input hint">Base path for videos from your subscribed channels and playlists. It is relative to YTDL-Material's root folder.</span>
+                    <span class="settings-row-hint" i18n="Subscriptions base path setting input hint">Base path for videos from your subscribed channels and playlists. It is relative to ytdl-material's root folder.</span>
                   </span>
                   <span class="kit-field">
                     <input [disabled]="!new_config['Subscriptions']['allow_subscriptions']" [(ngModel)]="new_config['Subscriptions']['subscriptions_base_path']">
@@ -139,14 +139,14 @@
                 <label class="settings-row settings-field-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Audio folder path">Audio folder path</span>
-                    <span class="settings-row-hint" i18n="Aduio path setting input hint">Path for audio only downloads. It is relative to YTDL-Material's root folder.</span>
+                    <span class="settings-row-hint" i18n="Aduio path setting input hint">Path for audio only downloads. It is relative to ytdl-material's root folder.</span>
                   </span>
                   <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['path-audio']" required></span>
                 </label>
                 <label class="settings-row settings-field-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Video folder path">Video folder path</span>
-                    <span class="settings-row-hint" i18n="Video path setting input hint">Path for video downloads. It is relative to YTDL-Material's root folder.</span>
+                    <span class="settings-row-hint" i18n="Video path setting input hint">Path for video downloads. It is relative to ytdl-material's root folder.</span>
                   </span>
                   <span class="kit-field"><input [(ngModel)]="new_config['Downloader']['path-video']" required></span>
                 </label>
@@ -531,7 +531,7 @@
               </p>
 
               <h3>Bookmarklet</h3>
-              <p i18n="Bookmarklet instructions">Drag the link below to your bookmarks, and you're good to go! Just navigate to the YouTube video you'd like to download, and click the bookmark.</p>
+              <p i18n="Bookmarklet instructions">Drag the link below to your bookmarks, and you're good to go! Just open the video you'd like to download, and click the bookmark.</p>
               <div class="settings-rows">
                 <div class="settings-row">
                   <span class="settings-row-text">
@@ -541,7 +541,7 @@
                     aria-labelledby="settings-bookmarklet-audio"></mat-slide-toggle>
                 </div>
               </div>
-              <p><a class="kit-chip" [href]="generated_bookmarklet_code" target="_blank"><mat-icon>bookmark_border</mat-icon><span>YTDL-Bookmarklet</span></a></p>
+              <p><a class="kit-chip" [href]="generated_bookmarklet_code" target="_blank"><mat-icon>bookmark_border</mat-icon><span>ytdl-material</span></a></p>
             </div>
           </section>
         </div>

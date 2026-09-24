@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# INTERACTIVE PERMISSIONS FIX SCRIPT FOR YTDL-M
+# INTERACTIVE PERMISSIONS FIX SCRIPT FOR ytdl-material
 # Date: 2022-05-03
 
 # If you want to run this script on a bare-metal installation instead of within Docker
@@ -16,8 +16,8 @@ PATH_VIDS=/app/video
 clear -x
 echo "\n"
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -             # horizontal line
-echo "Welcome to the INTERACTIVE PERMISSIONS FIX SCRIPT FOR YTDL-M."
-echo "This script will set YTDL-M's download paths' owner to ${USER} (${UID}:${GID})"
+echo "Welcome to the INTERACTIVE PERMISSIONS FIX SCRIPT FOR ytdl-material."
+echo "This script will set ytdl-material's download paths' owner to ${USER} (${UID}:${GID})"
 echo "and permissions to the default of 644."
 printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -             # horizontal line
 echo "\n"
