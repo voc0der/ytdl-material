@@ -87,6 +87,30 @@
     </div>
   }
 
+  @if (hasCodecOptions) {
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="task-convert-codec-title" i18n="Convert to preferred codec">Convert to the preferred codec</span>
+        <span class="settings-row-hint" i18n="Convert to preferred codec hint">Off: it only records codecs, even with a preferred codec set in Settings.</span>
+      </span>
+      <mat-slide-toggle name="convertToPreferred" [ngModel]="options['convert_to_preferred'] !== false"
+        (ngModelChange)="setOption('convert_to_preferred', $event)" [disabled]="saving"
+        aria-labelledby="task-convert-codec-title"></mat-slide-toggle>
+    </div>
+
+    <label class="settings-row settings-field-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n="Conversions per run">Conversions per run</span>
+        <span class="settings-row-hint" i18n="Conversions per run hint">Downloads and transcodes both count. 0 means no limit; the rest wait for the next run.</span>
+      </span>
+      <span class="kit-field threshold-field">
+        <input type="number" min="0" step="1" inputmode="numeric" name="maxConversions" [ngModel]="options['max_conversions'] || 0"
+          (ngModelChange)="setMaxConversions($event)" [disabled]="saving || options['convert_to_preferred'] === false">
+        <span class="field-suffix" i18n="Files suffix">files</span>
+      </span>
+    </label>
+  }
+
   <div class="settings-row">
     <span class="settings-row-text">
       <span class="settings-row-title" id="task-auto-confirm-title" i18n="Do not ask for confirmation">Act on findings on its own</span>

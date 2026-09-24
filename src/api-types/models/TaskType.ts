@@ -15,4 +15,5 @@ export enum TaskType {
     APPLY_CATEGORIES = 'apply_categories',
     SUBSCRIPTIONS_CHECK = 'subscriptions_check',
     DELETE_OLD_TRANSCODES = 'delete_old_transcodes',
+    CODEC_DISCOVERY = 'codec_discovery',
 }

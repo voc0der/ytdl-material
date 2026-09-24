@@ -39,6 +39,7 @@ const archive_api = require('./archive');
 const files_api = require('./files');
 const playback_links = require('./playback-links');
 const playback_transcode = require('./playback-transcode');
+const codec_discovery = require('./codec-discovery');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 const thumbnails_api = require('./thumbnails');
@@ -644,7 +645,8 @@ async function backupServerLite() {
                                 path.join(config_api.getConfigItem('ytdl_audio_folder_path'), '**'),
                                 path.join(config_api.getConfigItem('ytdl_video_folder_path'), '**'),
                                 'appdata/backups/backup-*.zip',
-                                'appdata/transcodes/**'];
+                                'appdata/transcodes/**',
+                                'appdata/codec-work/**'];
 
         archive.glob('**/*', {
             ignore: files_to_ignore
@@ -846,6 +848,14 @@ async function loadConfig() {
     // check migrations
     await checkMigrations();
     await migrateUnassignedVideosToConfiguredUser();
+
+    // A codec conversion the last shutdown cut off is undone before anything else can
+    // reach its files. The task itself stays idle until it is next run.
+    try {
+        await codec_discovery.recoverInterruptedWork();
+    } catch (err) {
+        logger.error(`Could not clean up an interrupted codec conversion: ${err.message}`);
+    }
 
     // now this is done here due to youtube-dl's repo takedown
     await startYoutubeDL();
@@ -3389,7 +3399,10 @@ app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async 
 
     let success = true;
     if (task['running'] || task['confirming']) success = false;
-    else await tasks_api.executeRun(task_key);
+    else if (tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['runInBackground']) {
+        // The tasks page polls, so it sees the run start and finish without waiting on this.
+        tasks_api.executeRun(task_key).catch(err => logger.error(`Task '${task_key}' failed: ${err.message}`));
+    } else await tasks_api.executeRun(task_key);
 
     res.send({success: success});
 });

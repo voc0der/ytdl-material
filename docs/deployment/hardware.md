@@ -1,6 +1,6 @@
 # Hardware acceleration
 
-Hardware acceleration applies to ffmpeg video processing, such as cropping and [playback copies](#playback-copies). It does not accelerate fetching bytes from a source or make unsupported browser codecs playable.
+Hardware acceleration applies to ffmpeg video processing, such as cropping, [playback copies](#playback-copies) and [codec conversions](#codec-conversions). It does not accelerate fetching bytes from a source or make unsupported browser codecs playable.
 
 Choose a mode in **Settings → Downloader** or set `ytdl_transcoding` to `vaapi`, `qsv`, `nvenc`, or `amf`. The default `false` uses software processing.
 
@@ -48,6 +48,10 @@ For AMD AMF, set `amf` and provide a compatible host runtime. AMF is encode-only
 External players that cannot decode AV1 can ask `POST /api/createPlaybackLink` for `"transcode": true`. The link then streams an H.264/AAC MP4 copy, made once through the same GPU-then-CPU fallback as cropping and stored in `appdata/transcodes`. The copy is always MP4, so it can use the GPU whatever the source container. Copies are made one at a time. Until a copy is ready, its stream answers `503` with `Retry-After`. Later links for the same file reuse the copy unless the file has changed since.
 
 The **Delete old playback transcodes** task runs daily by default. It deletes copies that are over six hours old and not used by an unexpired link, queued or in progress. Lite server backups skip `appdata/transcodes`.
+
+## Codec conversions
+
+The [Codec discovery](../usage/tasks.md#codec-discovery) task converts the library to `ytdl_preferred_codec`. It uses the GPU's own encoder for that codec: `hevc_nvenc`, `av1_qsv`, `vp9_vaapi` and so on. The startup check only proves the H.264 encoder, and a GPU that encodes H.264 may have no HEVC or AV1 encoder, so each codec's encoder gets its own check the first time a conversion needs it. If that fails, conversions to that codec use the CPU (libx265, SVT-AV1, libvpx-vp9 or libx264), which is much slower. NVENC and AMF have no VP9 encoder.
 
 ## Verify what runs
 

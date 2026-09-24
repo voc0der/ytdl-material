@@ -249,6 +249,14 @@
                 }
                 <div class="settings-row">
                   <span class="settings-row-text">
+                    <span class="settings-row-title" i18n="Preferred codec setting label">Preferred codec</span>
+                    <span class="settings-row-hint" i18n="Preferred codec setting hint">New downloads pick it when the source has it. The Codec discovery task converts the rest of the library to it, replacing the files.</span>
+                  </span>
+                  <app-picker [title]="preferredCodecLabel" [options]="preferredCodecOptions" [value]="new_config['Downloader']['preferred_codec'] || ''"
+                    (valueChange)="new_config['Downloader']['preferred_codec'] = $any($event)"></app-picker>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
                     <span class="settings-row-title" id="settings-use-archive" i18n="Use youtubedl archive setting">Use youtube-dl archive</span>
                     <span class="settings-row-hint" i18n="Use youtubedl archive hint">Keeps an archive of what was downloaded, so nothing is fetched twice.</span>
                   </span>

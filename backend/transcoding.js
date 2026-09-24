@@ -27,10 +27,14 @@ const HW_ELIGIBLE_EXTS = ['.mp4', '.m4v', '.mkv', '.mov', '.ts'];
 // `quality_options` give whole-file encodes a constant quality target. Without one NVENC
 // encodes everything at its 2 Mbit/s default whatever the resolution, and QSV and AMF leave
 // the rate to the driver. VAAPI already defaults to constant QP, so it needs nothing.
+//
+// `encoders` are what a codec conversion uses for each codec. `video_encoder` stays the h264
+// one, which is what cropping and playback copies ask for and what the base flight test proves.
 const TRANSCODING_MODES = {
     amf: {
         label: 'AMD AMF',
         video_encoder: 'h264_amf',
+        encoders: {h264: 'h264_amf', hevc: 'hevc_amf', av1: 'av1_amf'},
         input_options: [],
         decode_input_options: [],
         video_filters: [],
@@ -39,6 +43,7 @@ const TRANSCODING_MODES = {
     nvenc: {
         label: 'Nvidia NVENC',
         video_encoder: 'h264_nvenc',
+        encoders: {h264: 'h264_nvenc', hevc: 'hevc_nvenc', av1: 'av1_nvenc'},
         input_options: [],
         decode_input_options: ['-hwaccel', 'cuda'],
         video_filters: [],
@@ -47,6 +52,7 @@ const TRANSCODING_MODES = {
     qsv: {
         label: 'Intel Quicksync (QSV)',
         video_encoder: 'h264_qsv',
+        encoders: {h264: 'h264_qsv', hevc: 'hevc_qsv', av1: 'av1_qsv', vp9: 'vp9_qsv'},
         input_options: [],
         decode_input_options: ['-hwaccel', 'qsv'],
         video_filters: [],
@@ -55,11 +61,22 @@ const TRANSCODING_MODES = {
     vaapi: {
         label: 'VAAPI',
         video_encoder: 'h264_vaapi',
+        encoders: {h264: 'h264_vaapi', hevc: 'hevc_vaapi', av1: 'av1_vaapi', vp9: 'vp9_vaapi'},
         input_options: ['-vaapi_device', DEFAULT_VAAPI_DEVICE],
         decode_input_options: ['-hwaccel', 'vaapi'],
         video_filters: ['format=nv12', 'hwupload'],
         quality_options: []
     }
+};
+
+// What a codec conversion encodes with when no GPU encoder can. A conversion replaces the
+// library's copy for good, unlike a playback copy, so these favour quality over speed.
+// x265 otherwise prints its own banner to stderr, which would bury ffmpeg's error line.
+const SOFTWARE_ENCODERS = {
+    h264: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '20'],
+    hevc: ['-c:v', 'libx265', '-preset', 'medium', '-crf', '22', '-x265-params', 'log-level=error'],
+    av1: ['-c:v', 'libsvtav1', '-preset', '8', '-crf', '30'],
+    vp9: ['-c:v', 'libvpx-vp9', '-crf', '31', '-b:v', '0', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4']
 };
 
 const MODE_ALIASES = {
@@ -86,9 +103,15 @@ const flight_test_status = {
     last_checked: null
 };
 
+// `${mode}:${codec}` -> {available, error}. The base flight test only proves the h264
+// encoder, and a GPU that encodes h264 may have no HEVC or AV1 encoder at all, so each codec
+// is tested the first time a conversion asks for it. Cleared whenever the base test reruns.
+const codec_flight_tests = new Map();
+
 let config_change_subscription_active = false;
 
 exports.TRANSCODING_MODES = TRANSCODING_MODES;
+exports.SOFTWARE_ENCODERS = SOFTWARE_ENCODERS;
 
 exports.normalizeTranscodingMode = (raw_value) => {
     if (!raw_value || typeof raw_value !== 'string') return null;
@@ -167,6 +190,72 @@ exports.getFfmpegAttempts = (ext) => {
     return attempts;
 }
 
+/*************************************************
+ * Whether the configured GPU can encode a codec,
+ * tested once per mode and codec.
+ *
+ * h264 is what the base flight test already
+ * proved, so it answers from that. Anything else
+ * waits for the base test, since a GPU that cannot
+ * encode h264 here is not going to encode HEVC.
+ ************************************************/
+exports.testCodecEncoder = async (codec) => {
+    const mode = exports.getTranscodingMode();
+    if (!mode) return {available: false, error: 'hardware transcoding is disabled'};
+    const skip_reason = exports.describeHardwareSkipReason('.mp4');
+    if (skip_reason) return {available: false, error: skip_reason};
+
+    const encoder = TRANSCODING_MODES[mode].encoders[codec];
+    if (!encoder) return {available: false, error: `${TRANSCODING_MODES[mode].label} has no ${codec} encoder`};
+    if (encoder === TRANSCODING_MODES[mode].video_encoder) return {available: true, error: null};
+
+    const cache_key = `${mode}:${codec}`;
+    if (!codec_flight_tests.has(cache_key)) {
+        codec_flight_tests.set(cache_key, runCodecFlightTest(TRANSCODING_MODES[mode], encoder));
+    }
+    return await codec_flight_tests.get(cache_key);
+}
+
+async function runCodecFlightTest(mode_info, encoder) {
+    const args = [
+        '-hide_banner', '-v', 'error',
+        ...mode_info.input_options,
+        '-f', 'lavfi', '-i', 'color=black:size=320x240:rate=30:duration=0.25'
+    ];
+    if (mode_info.video_filters.length > 0) args.push('-vf', mode_info.video_filters.join(','));
+    args.push('-c:v', encoder, '-frames:v', '4', '-f', 'null', '-');
+
+    const result = await runFfmpegFlightTest(args);
+    if (result.success) {
+        logger.info(`Hardware flight test succeeded for ${encoder}. Codec conversions to it will use ${mode_info.label}.`);
+    } else {
+        logger.warn(`Hardware flight test failed for ${encoder}, so codec conversions to it will use the CPU. Error: ${result.error}`);
+    }
+    return {available: result.success, error: result.success ? null : result.error};
+}
+
+/**
+ * The hardware->software ladder for encoding to a codec, as getFfmpegAttempts gives it for
+ * h264. Each hardware rung carries that codec's encoder in `video_encoder`; the trailing
+ * null is software, which codec conversions take from SOFTWARE_ENCODERS.
+ *
+ * Eligibility is judged on MP4 because the caller has already picked a container that
+ * holds the codec, the same way playback copies are judged on the MP4 they write.
+ */
+exports.getCodecEncodeAttempts = async (codec) => {
+    const attempts = [];
+    const full_settings = exports.getHardwareFfmpegSettings('.mp4');
+    if (full_settings && (await exports.testCodecEncoder(codec)).available) {
+        const encoder = TRANSCODING_MODES[full_settings.mode].encoders[codec];
+        attempts.push({...full_settings, video_encoder: encoder});
+        if (full_settings.hardware_decode) {
+            attempts.push({...exports.getHardwareFfmpegSettings('.mp4', {allow_hardware_decode: false}), video_encoder: encoder});
+        }
+    }
+    attempts.push(null);
+    return attempts;
+}
+
 exports.describeFfmpegSettings = (hardware_settings) => {
     if (!hardware_settings) return 'software encoding';
     const decode_label = hardware_settings.hardware_decode ? 'hardware decoding' : 'software decoding';
@@ -188,6 +277,7 @@ exports.runFlightTest = async () => {
     flight_test_status.error = null;
     flight_test_status.decode_available = false;
     flight_test_status.decode_error = null;
+    codec_flight_tests.clear();
     if (!mode) {
         flight_test_status.in_progress = false;
         return null;

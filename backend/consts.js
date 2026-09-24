@@ -94,6 +94,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_transcoding',
         'path': 'YtdlMaterial.Downloader.transcoding'
     },
+    'ytdl_preferred_codec': {
+        'key': 'ytdl_preferred_codec',
+        'path': 'YtdlMaterial.Downloader.preferred_codec'
+    },
 
     // Extra
     'ytdl_title_top': {
