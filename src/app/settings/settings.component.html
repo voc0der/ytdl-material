@@ -274,7 +274,7 @@
 
           <section class="settings-section">
             <h2 class="settings-section-title" i18n="Categories">Categories</h2>
-            <p class="settings-section-hint" i18n="Categories section hint">Downloads that match a category are filed under it. Drag to reorder: the first match wins.</p>
+            <p class="settings-section-hint" i18n="Categories section hint">Downloads that match a category are filed under it. Drag to reorder: the first match wins. Edit a category and turn on Show as library filter to add it to the library's filters.</p>
             <div class="kit-panel">
               @if (postsService.categories && postsService.categories.length > 0) {
                 <div cdkDropList class="category-list" (cdkDropListDropped)="dropCategory($event)">
