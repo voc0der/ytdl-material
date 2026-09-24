@@ -84,9 +84,7 @@
                       <span class="settings-row-title" id="settings-oidc-enabled" i18n="Single sign-on setting">Single sign-on</span>
                       <span class="settings-row-hint" i18n="Single sign-on setting hint">Set with <code>ytdl_oidc_enabled</code>.</span>
                     </span>
-                    @if (!tabDisabled('users')) {
-                      <button type="button" class="settings-row-link" (click)="selectTab('users')" i18n="Single sign-on settings link">View settings</button>
-                    }
+                    <button type="button" class="settings-row-link" (click)="selectTab('users')" i18n="Single sign-on settings link">View settings</button>
                     <mat-slide-toggle [checked]="true" [disabled]="true" aria-labelledby="settings-oidc-enabled"></mat-slide-toggle>
                   </div>
                 }
