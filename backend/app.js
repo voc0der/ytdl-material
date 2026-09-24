@@ -3385,6 +3385,16 @@ app.post('/api/confirmTask', optionalJwt, requirePermission('tasks_manager'), as
     res.send({success: success});
 });
 
+// A failed run's error otherwise stays on the task until it next runs, which for an
+// unscheduled task can be never.
+app.post('/api/dismissTaskError', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
+    const task_key = req.body.task_key;
+
+    const success = await db_api.updateRecord('tasks', {key: task_key}, {error: null});
+
+    res.send({success: success});
+});
+
 app.post('/api/updateTaskSchedule', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const new_schedule = req.body.new_schedule;

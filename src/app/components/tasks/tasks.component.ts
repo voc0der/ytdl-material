@@ -32,6 +32,7 @@ export class TasksComponent implements OnInit, OnDestroy {
   tasks_retrieved = false;
   load_failed = false;
   open_settings_key: TaskType = null;
+  readonly dismissErrorLabel = $localize`Dismiss error`;
 
   private poll_timer: number = null;
   private tasks_request: Subscription = null;
@@ -159,6 +160,8 @@ export class TasksComponent implements OnInit, OnDestroy {
   statusText(task: Task): string {
     if (task.confirming) return $localize`Applying…`;
     if (task.running) return $localize`Running…`;
+    // An error stays until the task runs again, so say how old it is.
+    if (task.error && task.last_ran) return $localize`Failed ${formatRelativeTime(task.last_ran * 1000)}:relative time:`;
     if (task.error) return $localize`Last run failed`;
     if (task.last_ran) return $localize`Ran ${formatRelativeTime(task.last_ran * 1000)}:relative time:`;
     return $localize`Never run`;
@@ -269,6 +272,16 @@ export class TasksComponent implements OnInit, OnDestroy {
           console.error(err);
         });
       }
+    });
+  }
+
+  dismissError(task: Task): void {
+    this.postsService.dismissTaskError(task.key).subscribe(res => {
+      this.refreshNow();
+      if (!res['success']) this.postsService.openSnackBar($localize`Couldn't dismiss the error.`);
+    }, err => {
+      this.postsService.openSnackBar($localize`Couldn't dismiss the error.`);
+      console.error(err);
     });
   }
 
