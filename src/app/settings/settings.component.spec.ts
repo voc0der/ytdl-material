@@ -426,3 +426,35 @@ describe('SettingsComponent OIDC panel', () => {
     expect(component.oidcStatus).toBeNull();
   });
 });
+
+describe('SettingsComponent environment rows', () => {
+  const buildComponent = (config: any, server_runtime: any): SettingsComponent => {
+    const posts_service_mock: any = { initialized: false, service_initialized: of(false), config: config, serverRuntime: server_runtime };
+    return new SettingsComponent(posts_service_mock, {} as any, {} as any, {} as any,
+      { navigate: () => {} } as any, { paramMap: of({ get: () => null }) } as any);
+  };
+
+  it('shows only the server settings that are set', () => {
+    expect(buildComponent({ Host: { url: 'http://localhost', port: '17442' } }, null).serverEnvironment).toEqual([]);
+    expect(buildComponent({ Host: { reverse_proxy_whitelist: '  ', ssl_cert_path: '' } }, { trust_proxy: null }).serverEnvironment).toEqual([]);
+
+    const component = buildComponent(
+      { Host: { reverse_proxy_whitelist: '172.28.0.10/32', ssl_cert_path: '/certs/cert.pem', ssl_key_path: '/certs/key.pem' } },
+      { trust_proxy: '1', uid: 1000, gid: 1000, umask: 0o22 });
+
+    expect(component.serverEnvironment.map(row => [row.variable, row.value])).toEqual([
+      ['ytdl_trust_proxy', '1'],
+      ['ytdl_reverse_proxy_whitelist', '172.28.0.10/32'],
+      ['ytdl_ssl_cert_path', '/certs/cert.pem'],
+      ['ytdl_ssl_key_path', '/certs/key.pem']
+    ]);
+  });
+
+  it('shows what the server runs as, root and all', () => {
+    const values = (runtime: any) => buildComponent({}, runtime).runtimePermissions.map(row => [row.variable, row.value]);
+
+    expect(values({ uid: 1000, gid: 100, umask: 0o22 })).toEqual([['ytdl_uid', '1000'], ['ytdl_gid', '100'], ['ytdl_umask', '0022']]);
+    expect(values({ uid: 0, gid: 0, umask: 0o2 })).toEqual([['ytdl_uid', '0 (root)'], ['ytdl_gid', '0 (root)'], ['ytdl_umask', '0002']]);
+    expect(values(null)).toEqual([['ytdl_uid', 'Unknown'], ['ytdl_gid', 'Unknown'], ['ytdl_umask', 'Unknown']]);
+  });
+});

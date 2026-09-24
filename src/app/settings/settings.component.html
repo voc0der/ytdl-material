@@ -45,6 +45,15 @@
                   </span>
                   <span class="kit-field"><input [(ngModel)]="new_config['Host']['port']" required></span>
                 </label>
+                @for (row of serverEnvironment; track row.variable) {
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title">{{row.label}}</span>
+                      <span class="settings-row-hint" i18n="Setting set by an environment variable hint">Set with <code>{{row.variable}}</code>.</span>
+                    </span>
+                    <span class="settings-row-value settings-row-wrap">{{row.value}}</span>
+                  </div>
+                }
               </div>
             </div>
           </section>
@@ -69,6 +78,18 @@
                     <input [disabled]="!new_config['Advanced']['multi_user_mode']" [(ngModel)]="new_config['Users']['base_path']" required>
                   </span>
                 </label>
+                @if (oidcSettings) {
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" id="settings-oidc-enabled" i18n="Single sign-on setting">Single sign-on</span>
+                      <span class="settings-row-hint" i18n="Single sign-on setting hint">Set with <code>ytdl_oidc_enabled</code>.</span>
+                    </span>
+                    @if (!tabDisabled('users')) {
+                      <button type="button" class="settings-row-link" (click)="selectTab('users')" i18n="Single sign-on settings link">View settings</button>
+                    }
+                    <mat-slide-toggle [checked]="true" [disabled]="true" aria-labelledby="settings-oidc-enabled"></mat-slide-toggle>
+                  </div>
+                }
               </div>
             </div>
           </section>
@@ -542,6 +563,24 @@
                 </div>
               </div>
               <p><a class="kit-chip" [href]="generated_bookmarklet_code" target="_blank"><mat-icon>bookmark_border</mat-icon><span>ytdl-material</span></a></p>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h2 class="settings-section-title" i18n="Settings permissions section">Permissions</h2>
+            <p class="settings-section-hint" i18n="Settings permissions hint">Who the server runs as, and so who owns the files it writes. Set with environment variables; change them where you set them.</p>
+            <div class="kit-panel">
+              <div class="settings-rows">
+                @for (row of runtimePermissions; track row.variable) {
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title">{{row.label}}</span>
+                      <span class="settings-row-hint" i18n="Setting set by an environment variable hint">Set with <code>{{row.variable}}</code>.</span>
+                    </span>
+                    <span class="settings-row-value">{{row.value}}</span>
+                  </div>
+                }
+              </div>
             </div>
           </section>
         </div>

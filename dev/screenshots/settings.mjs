@@ -378,6 +378,36 @@ async function theLogsTab(page) {
     check('so the newest line is one of the ones in view', lastLineInView);
 }
 
+// The value a read-only row reports, found by the row's title.
+async function rowValue(page, title) {
+    const row = page.locator('.settings-row', { has: page.locator('.settings-row-title', { hasText: title }) }).first();
+    return (await row.locator('.settings-row-value').innerText()).trim();
+}
+
+// Settings reports what the server was started with but never edits it. Main > Server only
+// lists the ones that are set -- none, on this boot -- and Extra > Permissions always says
+// what the backend runs as, which is this process's user and umask, since it started it.
+async function theEnvironmentRows(page) {
+    say('Checking the settings that come from the environment');
+    await openSettings(page, 'main');
+    await page.getByText('Users base path').waitFor({ timeout: 20_000 });
+    const server = page.locator('.settings-section', { has: page.locator('.settings-section-title', { hasText: 'Server' }) }).first();
+    check('Main > Server lists nothing that was not set', !(await server.innerText()).includes('Set with'));
+
+    await page.getByRole('tab', { name: 'Extra', exact: true }).click();
+    const permissions = page.locator('.settings-section', { has: page.locator('.settings-section-title', { hasText: 'Permissions' }) });
+    await permissions.waitFor({ timeout: 20_000 });
+    const id = value => value === 0 ? '0 (root)' : String(value);
+    const uid = await rowValue(page, 'User ID');
+    const gid = await rowValue(page, 'Group ID');
+    const umask = await rowValue(page, 'File creation mask');
+    check('Extra > Permissions shows the user the server runs as', uid === id(process.getuid()), uid);
+    check('and its group', gid === id(process.getgid()), gid);
+    check('and its umask, in octal', umask === process.umask().toString(8).padStart(4, '0'), umask);
+    check('and none of it can be changed', await permissions.locator('input, textarea, mat-slide-toggle').count() === 0);
+    await shoot(page, 'settings-extra-permissions-desktop', permissions);
+}
+
 // The Users tab carries a read-only account of the single sign-on settings. OIDC cannot be on
 // when the backend boots without a real provider to discover -- it exits -- so this boots a
 // second time in multi-user mode and turns it on the way an admin editing the config would.
@@ -436,6 +466,23 @@ async function theOIDCPanel(browser, errors) {
 
     await shoot(page, 'settings-users-oidc-desktop');
 
+    // Main > Users says single sign-on is on, without letting it be turned off, and links to
+    // the rest of it. Main > Server shows the one proxy setting this boot was given.
+    await page.getByRole('tab', { name: 'Main', exact: true }).click();
+    const sso = page.locator('.settings-row', { has: page.locator('.settings-row-title', { hasText: 'Single sign-on' }) });
+    await sso.waitFor({ timeout: 20_000 });
+    const sso_switch = sso.getByRole('switch');
+    check('Main > Users says single sign-on is on', await sso_switch.getAttribute('aria-checked') === 'true');
+    check('but it cannot be switched off there', await sso_switch.isDisabled());
+    const trust_proxy = await rowValue(page, 'Trusted proxies');
+    check('Main > Server shows ytdl_trust_proxy as it was set', trust_proxy === '1', trust_proxy);
+    check('and nothing that was not set', await page.getByText('Reverse proxy whitelist').count() === 0
+        && await page.getByText('SSL certificate').count() === 0);
+    await shoot(page, 'settings-main-environment-desktop');
+    await sso.getByRole('button', { name: 'View settings' }).click();
+    check('its link opens the Users tab',
+        await page.getByRole('tab', { name: 'Users', exact: true }).getAttribute('aria-selected') === 'true');
+
     // Off again, and the tab goes back to what it was.
     const restored = await (await fetch(`${BASE}/api/config?jwt=${encodeURIComponent(token)}`)).json();
     restored['config_file']['YtdlMaterial']['Users']['oidc']['enabled'] = false;
@@ -446,6 +493,10 @@ async function theOIDCPanel(browser, errors) {
     await page.getByText('Who can sign in').waitFor({ timeout: 20_000 });
     check('and with OIDC off the panel is not there at all',
         await page.locator('.settings-section', { hasText: 'Single sign-on' }).count() === 0);
+    await page.getByRole('tab', { name: 'Main', exact: true }).click();
+    await page.getByText('Users base path').waitFor({ timeout: 20_000 });
+    check('nor is the single sign-on row on Main',
+        await page.locator('.settings-row-title', { hasText: 'Single sign-on' }).count() === 0);
 
     await page.context().close();
 }
@@ -476,6 +527,7 @@ async function main() {
     try {
         const page = await newPage(browser, 'desktop', errors);
         await everyTab(page);
+        await theEnvironmentRows(page);
         await theUsersTab(page);
         await savingAndCancelling(page);
         await notificationChips(page);
@@ -496,7 +548,7 @@ async function main() {
     let multi_user_backend = null;
     try {
         say('Rebooting in multi-user mode');
-        multi_user_backend = await startBackend(RUN_DIR, PORT, { ytdl_multi_user_mode: 'true' });
+        multi_user_backend = await startBackend(RUN_DIR, PORT, { ytdl_multi_user_mode: 'true', ytdl_trust_proxy: '1' });
         await theOIDCPanel(browser, errors);
 
         for (const error of errors) console.log(`    page console error: ${error.slice(0, 200)}`);

@@ -165,6 +165,14 @@ export interface TranscodingStatus {
     last_checked: number | null;
 }
 
+// How the server was started, from /api/config. Signed-in callers only, so null otherwise.
+export interface ServerRuntime {
+    trust_proxy: string | null;
+    uid: number | null;
+    gid: number | null;
+    umask: number | null;
+}
+
 // What /api/auth/oidc/status answers: the settings say what was asked for, this says what
 // the backend could make of it.
 export interface OIDCStatus {
@@ -220,6 +228,7 @@ export class PostsService {
     config = null;
     ytdlpImpersonationAvailable = false;
     transcodingStatus: TranscodingStatus = null;
+    serverRuntime: ServerRuntime = null;
     subscriptions: Subscription[] = null;
     categories: Category[] = null;
     sidenav = null;
@@ -252,6 +261,7 @@ export class PostsService {
             if (result) {
                 this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
                 this.transcodingStatus = !this.debugMode ? (res['transcoding_status'] || null) : null;
+                this.serverRuntime = !this.debugMode ? (res['server_runtime'] || null) : null;
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
@@ -353,6 +363,7 @@ export class PostsService {
             if (result) {
                 this.ytdlpImpersonationAvailable = !this.debugMode && !!res['ytdlp_impersonation_available'];
                 this.transcodingStatus = !this.debugMode ? (res['transcoding_status'] || null) : null;
+                this.serverRuntime = !this.debugMode ? (res['server_runtime'] || null) : null;
                 this.config = this.extractConfigRoot(result);
                 this.setPageTitle();
                 this.config_reloaded.next(true);

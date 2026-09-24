@@ -132,6 +132,23 @@ const {value: rawUmaskValue} = getFirstDefinedEnvValue(['ytdl_umask', 'YTDL_UMAS
 const umask = parseUmaskSetting(rawUmaskValue);
 if (umask !== undefined) process.umask(umask);
 
+// What the process ended up running as, for Settings to show. Read once, here: process.umask()
+// with no argument works by setting the mask and putting it back, which is only safe before
+// anything else is running.
+const runtime_permissions = {
+    uid: typeof process.getuid === 'function' ? process.getuid() : null,
+    gid: typeof process.getgid === 'function' ? process.getgid() : null,
+    umask: process.umask()
+};
+
+function getServerRuntime() {
+    const {value: trust_proxy} = getFirstDefinedEnvValue(['ytdl_trust_proxy', 'YTDL_TRUST_PROXY']);
+    return {
+        trust_proxy: typeof trust_proxy === 'string' && trust_proxy.trim() !== '' ? trust_proxy.trim() : null,
+        ...runtime_permissions
+    };
+}
+
 // check if debug mode
 let debugMode = process.env.YTDL_MODE === 'debug';
 
@@ -1149,6 +1166,9 @@ app.get('/api/config', async function(req, res) {
         config_file: config_file,
         ytdlp_impersonation_available: config_api.isYtDlpImpersonationDependencyEnvEnabled(),
         transcoding_status: transcoding_api.getStatus(),
+        // How the server was started, which Settings shows but the config file does not hold.
+        // Nobody who has not signed in needs it.
+        server_runtime: config_file && (!multi_user_mode || caller) ? getServerRuntime() : null,
         success: !!config_file
     });
 });

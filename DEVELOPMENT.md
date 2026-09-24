@@ -267,10 +267,15 @@ mode. Then the categories list: adding the default set, naming a new one, giving
 removing it through its confirmation. Finally the dialogs the page opens -- args, cookies, RSS
 and the webhook template -- including that an arg built in the args dialog lands in the field it
 was opened from. It checks the Logs tab opens scrolled to the newest line rather than the
-oldest one it fetched. Finally it stops the backend and boots it again in multi-user mode for
+oldest one it fetched, that Main > Server lists no environment setting that was not set, and
+that Extra > Permissions reports the user, group and umask the backend runs as, with nothing to
+change. Finally it stops the backend and boots it again in multi-user mode for
 the single sign-on panel, which only exists with accounts: that it reports whether the provider
 could be reached, says each secret is set without printing any of them, fills in the values the
-backend falls back to, offers nothing to type into, and is gone entirely when OIDC is off.
+backend falls back to, offers nothing to type into, and is gone entirely when OIDC is off. On
+Main, the single sign-on row shows it switched on but locked, its link opens the Users tab, and
+the row is gone with OIDC off too. That boot also sets `ytdl_trust_proxy`, which Main > Server
+shows.
 Screenshots of every tab, desktop and phone, light and dark, are left in the `shots` folder it
 prints.
 
