@@ -124,11 +124,16 @@
     padding-bottom: 8px;
 }
 
+// Between the phone layout and a container wide enough for the title, search and sort side by
+// side, the search and sort wrap onto a line of their own instead of running over the title.
+// space-between already spaces them apart on one line, so the column gap is only how close they
+// may come before they wrap.
 .library-header-top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px 8px;
     min-height: 44px;
 }
 
