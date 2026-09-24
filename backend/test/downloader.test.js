@@ -2292,6 +2292,54 @@ describe('Downloader', function() {
         }
     });
 
+    describe('with a preferred codec', function() {
+        let originals;
+
+        beforeEach(function() {
+            originals = {
+                downloader: config_api.getConfigItem('ytdl_default_downloader'),
+                preferred_codec: config_api.getConfigItem('ytdl_preferred_codec'),
+                custom_args: config_api.getConfigItem('ytdl_custom_args')
+            };
+            config_api.setConfigItem('ytdl_default_downloader', 'yt-dlp');
+            config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+        });
+
+        afterEach(function() {
+            config_api.setConfigItem('ytdl_default_downloader', originals.downloader);
+            config_api.setConfigItem('ytdl_preferred_codec', originals.preferred_codec === undefined ? '' : originals.preferred_codec);
+            config_api.setConfigItem('ytdl_custom_args', originals.custom_args);
+        });
+
+        function sortValues(args) {
+            return args.flatMap((arg, index) => arg === '-S' ? [args[index + 1]] : []);
+        }
+
+        it('sorts by resolution first and the codec second', async function() {
+            const args = await downloader_api.generateArgs(url, 'video', options);
+            assert.deepStrictEqual(sortValues(args), ['res,vcodec:h265']);
+            assert.strictEqual(args[args.indexOf('-f') + 1], 'bestvideo+bestaudio');
+        });
+
+        it('adds the codec after an audio language and a height limit', async function() {
+            const args = await downloader_api.generateArgs(url, 'video', {...options, selectedAudioLanguage: 'es', maxHeight: '720'});
+            assert.deepStrictEqual(sortValues(args), ['lang:es,res:720,vcodec:h265']);
+        });
+
+        it('leaves audio downloads, exact format ids and custom sorts alone', async function() {
+            assert.deepStrictEqual(sortValues(await downloader_api.generateArgs(url, 'audio', options)), []);
+            assert.deepStrictEqual(sortValues(await downloader_api.generateArgs(url, 'video', {...options, customQualityConfiguration: '137+140'})), []);
+
+            config_api.setConfigItem('ytdl_custom_args', '-S,,res:360');
+            assert.deepStrictEqual(sortValues(await downloader_api.generateArgs(url, 'video', options)), ['res:360']);
+        });
+
+        it('changes nothing once the preference is cleared', async function() {
+            config_api.setConfigItem('ytdl_preferred_codec', '');
+            assert.deepStrictEqual(sortValues(await downloader_api.generateArgs(url, 'video', options)), []);
+        });
+    });
+
     it('Generate args prefers the requested audio language for audio-only downloads', async function() {
         const args = await downloader_api.generateArgs(url, 'audio', {...options, selectedAudioLanguage: 'es'});
         const format_index = args.indexOf('-f');

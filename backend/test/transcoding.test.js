@@ -1,5 +1,6 @@
-const { assert, config_api } = require('./test-shared');
+const { assert, config_api, fs, os, path } = require('./test-shared');
 const transcoding_api = require('../transcoding');
+const codecs = require('../codecs');
 
 describe('Transcoding', function() {
     it('normalizeTranscodingMode', function() {
@@ -145,6 +146,82 @@ describe('Transcoding', function() {
         } finally {
             config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
         }
+    });
+
+    it('every mode encodes h264 with the encoder the base flight test proves', function() {
+        for (const [mode, mode_info] of Object.entries(transcoding_api.TRANSCODING_MODES)) {
+            assert.strictEqual(mode_info.encoders.h264, mode_info.video_encoder, mode);
+            for (const [codec, encoder] of Object.entries(mode_info.encoders)) {
+                assert(codecs.PREFERRED_CODECS.includes(codec), `${mode} names an unknown codec '${codec}'`);
+                assert(encoder.startsWith(`${codec}_`), `${mode} encodes ${codec} with ${encoder}`);
+            }
+        }
+        for (const codec of codecs.PREFERRED_CODECS) {
+            assert(transcoding_api.SOFTWARE_ENCODERS[codec], `no software encoder for ${codec}`);
+        }
+    });
+
+    it('getCodecEncodeAttempts is software only while hardware transcoding is off', async function() {
+        const original_value = config_api.getConfigItem('ytdl_transcoding');
+        try {
+            config_api.setConfigItem('ytdl_transcoding', false);
+            assert.deepStrictEqual(await transcoding_api.getCodecEncodeAttempts('hevc'), [null]);
+            assert.strictEqual((await transcoding_api.testCodecEncoder('hevc')).available, false);
+        } finally {
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+        }
+    });
+
+    describe('with a GPU that has no HEVC encoder', function() {
+        let dir;
+        let original_ffmpeg_path;
+        let original_value;
+
+        // Stands in for ffmpeg: every flight test passes except one asking for hevc_nvenc,
+        // and each call is logged so the test can see what was run.
+        beforeEach(async function() {
+            dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-fake-ffmpeg-'));
+            const fake = path.join(dir, 'ffmpeg');
+            fs.writeFileSync(fake, `#!/bin/sh\necho "$*" >> "${path.join(dir, 'calls')}"\ncase "$*" in *hevc_nvenc*) echo "No capable devices found" >&2; exit 1;; esac\nexit 0\n`);
+            fs.chmodSync(fake, 0o755);
+            original_ffmpeg_path = process.env.FFMPEG_PATH;
+            process.env.FFMPEG_PATH = fake;
+            original_value = config_api.getConfigItem('ytdl_transcoding');
+            config_api.setConfigItem('ytdl_transcoding', 'nvenc');
+            await transcoding_api.runFlightTest();
+        });
+
+        afterEach(async function() {
+            if (original_ffmpeg_path === undefined) delete process.env.FFMPEG_PATH;
+            else process.env.FFMPEG_PATH = original_ffmpeg_path;
+            config_api.setConfigItem('ytdl_transcoding', original_value === undefined ? false : original_value);
+            await transcoding_api.runFlightTest();
+            fs.removeSync(dir);
+        });
+
+        function calls() {
+            return fs.readFileSync(path.join(dir, 'calls'), 'utf8').trim().split('\n');
+        }
+
+        it('encodes to AV1 on the GPU, decoding there first', async function() {
+            const attempts = await transcoding_api.getCodecEncodeAttempts('av1');
+            assert.deepStrictEqual(attempts.map(attempt => attempt && attempt.video_encoder), ['av1_nvenc', 'av1_nvenc', null]);
+            assert.strictEqual(attempts[0].hardware_decode, true);
+            assert.strictEqual(attempts[1].hardware_decode, false);
+        });
+
+        it('falls back to the CPU for HEVC, and tests the encoder only once', async function() {
+            assert.deepStrictEqual(await transcoding_api.getCodecEncodeAttempts('hevc'), [null]);
+            assert.deepStrictEqual(await transcoding_api.getCodecEncodeAttempts('hevc'), [null]);
+            assert.strictEqual(calls().filter(call => call.includes('hevc_nvenc')).length, 1);
+        });
+
+        it('takes h264 from the base flight test and VP9 from no encoder at all', async function() {
+            const before = calls().length;
+            assert.strictEqual((await transcoding_api.getCodecEncodeAttempts('h264'))[0].video_encoder, 'h264_nvenc');
+            assert.deepStrictEqual(await transcoding_api.getCodecEncodeAttempts('vp9'), [null]);
+            assert.strictEqual(calls().length, before, 'neither needs a flight test of its own');
+        });
     });
 
     it('runFlightTest with transcoding disabled', async function() {

@@ -107,6 +107,15 @@ export class SettingsComponent implements OnInit {
     { value: 'vaapi', label: 'Video Acceleration API (VAAPI)' }
   ];
 
+  // Values are what the backend's codecs.js calls each codec.
+  readonly preferredCodecOptions: PickerOption[] = [
+    { value: '', label: $localize`No preference` },
+    { value: 'h264', label: 'H.264' },
+    { value: 'hevc', label: 'HEVC (H.265)' },
+    { value: 'av1', label: 'AV1' },
+    { value: 'vp9', label: 'VP9' }
+  ];
+
   // Labels show a real date rather than the pattern: "09/20/2026" is unambiguous where
   // "mm/dd/yyyy" still has to be decoded by the person reading it.
   readonly dateFormatOptions: PickerOption[] = [
@@ -161,6 +170,7 @@ export class SettingsComponent implements OnInit {
 
   readonly themeLabel = $localize`Theme`;
   readonly transcodingLabel = $localize`Hardware acceleration`;
+  readonly preferredCodecLabel = $localize`Preferred codec`;
   readonly dateFormatLabel = $localize`Date format`;
   readonly remoteDbTypeLabel = $localize`Remote database`;
   readonly dbMigrateLabel = $localize`Migration`;

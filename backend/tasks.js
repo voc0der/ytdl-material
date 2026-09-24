@@ -9,6 +9,7 @@ const categories_api = require('./categories');
 const config_api = require('./config');
 const auth_api = require('./authentication/auth');
 const playback_links = require('./playback-links');
+const codec_discovery = require('./codec-discovery');
 const utils = require('./utils');
 const logger = require('./logger');
 const CONSTS = require('./consts');
@@ -81,6 +82,12 @@ const TASKS = {
         title: 'Delete old playback transcodes',
         notifyOnFinish: false,
         defaultSchedule: () => JSON.parse(JSON.stringify(DEFAULT_DAILY_SCHEDULE))
+    },
+    codec_discovery: {
+        run: codec_discovery.run,
+        title: 'Codec discovery',
+        // Converting a library runs for hours, far longer than a request should be held open.
+        runInBackground: true
     }
 }
 const TASK_JOBS = new Map();
@@ -144,6 +151,11 @@ const defaultOptions = {
         blacklist_files: false,
         blacklist_subscription_files: false,
         threshold_days: ''
+    },
+    codec_discovery: {
+        convert_to_preferred: true,
+        // 0 means no limit
+        max_conversions: 0
     }
 }
 
@@ -349,7 +361,14 @@ exports.executeRun = async (task_key) => {
     await db_api.updateRecord('tasks', {key: task_key}, {error: null})
     // don't set running to true when backup up DB as it will be stick "running" if restored
     if (task_key !== 'backup_local_db') await db_api.updateRecord('tasks', {key: task_key}, {running: true});
-    const data = await TASKS[task_key].run();
+    let data = null;
+    try {
+        data = await TASKS[task_key].run();
+    } catch (err) {
+        // Left running, a task that threw would refuse every later run until a restart.
+        logger.error(`Task '${task_key}' failed: ${err && err.message ? err.message : err}`);
+        await db_api.updateRecord('tasks', {key: task_key}, {error: err && err.message ? err.message : String(err)});
+    }
     await db_api.updateRecord('tasks', {key: task_key}, {data: TASKS[task_key]['confirm'] ? data : null, last_ran: Date.now()/1000, running: false});
     logger.verbose(`Finished running task ${task_key}`);
     const task_obj = await db_api.getRecord('tasks', {key: task_key});

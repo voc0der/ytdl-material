@@ -331,7 +331,8 @@ const DEFAULT_CONFIG = {
         "skip_join_only_videos": false,
         "use_ytdlp_impersonation": false,
         "js_runtimes": "",
-        "transcoding": false
+        "transcoding": false,
+        "preferred_codec": ""
       },
       "Extra": {
         "title_top": "ytdl-material",

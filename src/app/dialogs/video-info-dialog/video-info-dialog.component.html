@@ -14,6 +14,7 @@
       @if (file.uploader) { <p>{{file.uploader}}</p> }
       <div class="media-badges">
         <span class="media-badge">{{file.isAudio ? audioLabel : videoLabel}}</span>
+        @if (codecBadge) { <span class="media-badge" i18n-matTooltip="Codec badge tooltip" matTooltip="The codec this file is in now">{{codecBadge}}</span> }
         @if (file.duration) { <span>{{formatDuration(file.duration)}}</span> }
         @if (file.category?.name) { <span>{{file.category.name}}</span> }
       </div>
@@ -102,6 +103,10 @@
       @if (!new_file.isAudio) {
         <div><dt i18n="Video resolution property">Resolution</dt><dd>{{new_file.height ? new_file.height + 'p' : 'N/A'}}</dd></div>
       }
+      @if (!new_file.isAudio) {
+        <div><dt i18n="Video codec property">Video codec</dt><dd>{{describeCodec(new_file.vcodec)}}</dd></div>
+      }
+      <div><dt i18n="Audio codec property">Audio codec</dt><dd>{{describeCodec(new_file.acodec)}}</dd></div>
       <div><dt i18n="Video audio bitrate property">Audio bitrate</dt><dd>{{new_file.abr ? new_file.abr + ' Kbps' : 'N/A'}}</dd></div>
       <div><dt i18n="Video file size property">File size</dt><dd>{{new_file.size ? filesize(new_file.size) : 'N/A'}}</dd></div>
       <div><dt i18n="Video subtitles property">Subtitles</dt><dd>{{getSubtitleSummary()}}</dd></div>

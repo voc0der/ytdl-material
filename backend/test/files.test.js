@@ -124,6 +124,34 @@ describe('Files', function() {
         }
     });
 
+    it('registerFileDB records the codecs of the file itself, and the sidecar\'s when it cannot be read', async function() {
+        const original_include_metadata = config_api.getConfigItem('ytdl_include_metadata');
+        const sidecar = {id: 'chapter-video', title: 'Chapter Video', duration: 1, webpage_url: 'https://example.com/v', upload_date: '20200101'};
+
+        try {
+            config_api.setConfigItem('ytdl_include_metadata', true);
+            await db_api.removeAllRecords('files', {path: fixture_file_path});
+            await fs.copy(path.join(__dirname, 'sample_mp4.mp4'), fixture_file_path);
+            // what yt-dlp fetched, before something re-encoded it
+            await fs.writeJSON(fixture_info_path, {...sidecar, vcodec: 'av01.0.08M.08', acodec: 'opus'});
+
+            const probed = await files_api.registerFileDB(fixture_file_path, 'video');
+            assert.strictEqual(probed.vcodec, 'h264');
+            assert.strictEqual(probed.acodec, null);
+
+            await db_api.removeAllRecords('files', {path: fixture_file_path});
+            await fs.writeFile(fixture_file_path, 'not media');
+            await fs.writeJSON(fixture_info_path, {...sidecar, vcodec: 'vp09.00.50.08', acodec: 'opus'});
+
+            const from_sidecar = await files_api.registerFileDB(fixture_file_path, 'video');
+            assert.strictEqual(from_sidecar.vcodec, 'vp9');
+            assert.strictEqual(from_sidecar.acodec, 'opus');
+        } finally {
+            config_api.setConfigItem('ytdl_include_metadata', original_include_metadata);
+            await db_api.removeAllRecords('files', {path: fixture_file_path});
+        }
+    });
+
     it('registerFileDB appends subscription downloads to their automatic playlist', async function() {
         const original_sync_subscription_playlist = files_api.syncSubscriptionPlaylist;
         const original_include_metadata = config_api.getConfigItem('ytdl_include_metadata');

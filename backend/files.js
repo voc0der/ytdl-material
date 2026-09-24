@@ -7,6 +7,7 @@ const db_api = require('./db');
 const archive_api = require('./archive');
 const utils = require('./utils')
 const transcoding_api = require('./transcoding');
+const codecs = require('./codecs');
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
 const FILE_LIST_MAX_RANGE_SIZE = 250;
@@ -1167,6 +1168,11 @@ exports.registerFileDB = async (file_path, type, user_uid = null, category = nul
         applySourceMetadataToFileObject(file_object, source_metadata, type);
     }
 
+    // The fallback import already probed the file, so only a sidecar import gets here.
+    if (file_object.vcodec === undefined && file_object.acodec === undefined) {
+        Object.assign(file_object, await exports.readFileCodecs(file_object.path || file_path, type));
+    }
+
     utils.fixVideoMetadataPerms(file_path, type);
 
     // add thumbnail path
@@ -1195,6 +1201,26 @@ exports.registerFileDB = async (file_path, type, user_uid = null, category = nul
     }
 
     return file_obj;
+}
+
+/*************************************************
+ * The codecs of a library file, for its record.
+ *
+ * Read from the file itself first: the sidecar
+ * only says what yt-dlp fetched, and a crop or a
+ * --recode-video in custom args can have changed
+ * it since. The sidecar is the fallback for when
+ * ffprobe cannot run at all.
+ *
+ * Resolves {} when neither can tell, so the record
+ * is left without codec fields and the Codec
+ * discovery task tries again later.
+ ************************************************/
+exports.readFileCodecs = async (file_path, type) => {
+    // ffprobe is only worth spawning for a file we are allowed to read in the first place.
+    const probed = file_path && utils.isServableMediaFile(file_path) ? await transcoding_api.probeMedia(file_path) : null;
+    if (probed && probed.streams.length > 0) return codecs.readCodecsFromProbe(probed);
+    return codecs.readCodecsFromInfo(file_path ? utils.getJSON(file_path, type) : null) || {};
 }
 
 // A snip shorter than this is almost certainly a mis-drag rather than an intentional
@@ -1494,7 +1520,8 @@ async function recoverMetadataFromMedia(true_file_path, type) {
         duration: Number.isFinite(duration) && duration > 0 ? duration : 0,
         // An audio file has no meaningful height, and a video one reports it per stream.
         height: type === 'audio' || !Number.isFinite(height) || height <= 0 ? null : height,
-        source_metadata: url ? extractSourceMetadataFromUrl(url, type) : null
+        source_metadata: url ? extractSourceMetadataFromUrl(url, type) : null,
+        codecs: codecs.readCodecsFromProbe(probed)
     };
 }
 
@@ -1545,6 +1572,7 @@ async function generateFallbackFileObject(file_path, type) {
     // Still the handle the repair task filters on, so it only stays true when the file told
     // us nothing usable either.
     file_obj.imported_without_metadata = !(recovered && (recovered.url || recovered.title || recovered.duration));
+    if (recovered) Object.assign(file_obj, recovered.codecs);
     return file_obj;
 }
 

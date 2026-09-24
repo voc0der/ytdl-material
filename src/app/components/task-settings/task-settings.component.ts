@@ -95,6 +95,16 @@ export class TaskSettingsComponent implements OnChanges {
     return this.task?.key === TaskType.DELETE_OLD_FILES;
   }
 
+  get hasCodecOptions(): boolean {
+    return this.task?.key === TaskType.CODEC_DISCOVERY;
+  }
+
+  /** Blank reads as no limit, the same as 0. */
+  setMaxConversions(value: unknown): void {
+    const parsed = Math.floor(Number(value));
+    this.setOption('max_conversions', Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+  }
+
   get changed(): boolean {
     return JSON.stringify(this.buildSchedule()) !== this.saved_schedule
       || JSON.stringify(this.options) !== this.saved_options;

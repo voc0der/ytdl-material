@@ -46,6 +46,14 @@ export type DatabaseFile = {
      * In Kbps
      */
     abr?: number;
+    /**
+     * Video codec of the file on disk, such as h264, hevc, av1 or vp9. Null for a file with no video. Absent until the file has been probed.
+     */
+    vcodec?: string | null;
+    /**
+     * Audio codec of the file on disk, such as aac, opus or mp3. Null for a file with no audio. Absent until the file has been probed.
+     */
+    acodec?: string | null;
     source_id?: string | null;
     source_extractor?: string | null;
     duplicate_key?: string | null;

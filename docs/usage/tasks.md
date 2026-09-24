@@ -17,6 +17,7 @@ Open **Tasks** for maintenance and recurring work. Each task shows its current s
 | Apply categories to existing files | Re-evaluates category membership using current rules |
 | Check subscriptions | Checks active subscriptions and queues eligible missing items |
 | Delete old playback transcodes | Deletes copies made for transcoding playback links once they are over six hours old and no unexpired link, queued or running transcode uses them |
+| Codec discovery | Records the video and audio codec of files that have none; with a preferred codec set, converts other videos to it. See [codec discovery](#codec-discovery) |
 
 ## Run and review
 
@@ -31,6 +32,28 @@ Open the task's schedule dialog and select a one-time or recurring schedule. The
 The default **Check subscriptions** and **Delete old playback transcodes** schedules run daily at midnight in server time. An unset recurring field means every value of that field: leaving the minute unspecified can run a task every minute during the selected hour. Select both hour and minute for a once-daily schedule.
 
 A task that is already running or waiting for confirmation is skipped at its next scheduled invocation. Complete or dismiss pending work if the schedule appears to stop running.
+
+## Codec discovery
+
+Every run probes library files whose records have no codec yet and stores it. New downloads record their codec as they finish, so this mostly catches up files from before the feature existed. The codec shows as a badge in the file's **Info** dialog, including from the player.
+
+With a **Preferred codec** set in **Settings → Downloader** (`ytdl_preferred_codec`: `h264`, `hevc`, `av1` or `vp9`), the run then converts every other video, one at a time:
+
+1. If the file has a source URL and the source offers the codec at the file's resolution or better, it is downloaded again in that format, with the same audio format as before when that is still offered.
+2. Otherwise it is transcoded, on the GPU when [hardware acceleration](../deployment/hardware.md) is set up and its encoder for that codec passes a flight test, on the CPU otherwise.
+
+A file is never downloaded again if it runs shorter than its source, since it was trimmed, snipped or had SponsorBlock segments cut after download; it is transcoded instead. HDR video is left as it is, because converting it without tone mapping would flatten it to SDR. A container that cannot hold the codec is replaced with MP4, for example a VP9 `.webm` converted to HEVC becomes `.mp4`. Every converted file is checked for codec, length and audio before it replaces the original. Transcoding from H.264 loses less than transcoding from AV1 or VP9, which also tend to come out larger.
+
+New downloads also prefer the codec when the source offers it at the best available resolution, so they rarely need converting later.
+
+Task options:
+
+- **Convert to the preferred codec**: turn off to only record codecs, even with a preferred codec set.
+- **Conversions per run**: stops after this many files, counting downloads and transcodes. `0`, the default, means no limit. The rest wait for the next run. Files that failed before go last, so they cannot use up a limited run.
+
+A run can take hours on a large library. It keeps going after the Tasks page is closed, and a second run started meanwhile does not start another conversion. A file that fails keeps its original, and the reason is in the log. Converted files replace the originals, so take a [backup](../deployment/backups.md) of media you cannot download again before the first run.
+
+If the container stops during a conversion, the next start discards the unfinished copy and keeps the original, or finishes deleting the original if the new file had already been saved. The task is left idle; nothing resumes on its own. Work files live beside each original as `*.codec-part` and under `appdata/codec-work`, which lite server backups skip.
 
 ## Retention
 

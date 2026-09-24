@@ -140,6 +140,25 @@ describe('TaskSettingsComponent', () => {
     expect(component.hasOwnOptions).toBe(true);
   });
 
+  it('offers the conversion options only to codec discovery, and saves a blank limit as none', () => {
+    expect(component.hasCodecOptions).toBe(false);
+
+    openOn(task({ key: TaskType.CODEC_DISCOVERY, options: { auto_confirm: false, convert_to_preferred: true, max_conversions: 0 } }));
+    expect(component.hasCodecOptions).toBe(true);
+    expect(component.hasOwnOptions).toBe(false);
+
+    component.setMaxConversions('');
+    expect(component.changed).toBe(false);
+
+    component.setMaxConversions('5');
+    component.setOption('convert_to_preferred', false);
+    component.save();
+
+    expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.CODEC_DISCOVERY, {
+      auto_confirm: false, convert_to_preferred: false, max_conversions: 5
+    });
+  });
+
   it('keeps what is being typed while the page polls', () => {
     component.chooseRepeat('daily');
     component.time = '09:15';

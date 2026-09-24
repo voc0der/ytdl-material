@@ -17,7 +17,8 @@ export const TASK_ICONS: { [key in TaskType]?: string } = {
   [TaskType.REBUILD_DATABASE]: 'construction',
   [TaskType.APPLY_CATEGORIES]: 'label',
   [TaskType.SUBSCRIPTIONS_CHECK]: 'subscriptions',
-  [TaskType.DELETE_OLD_TRANSCODES]: 'cleaning_services'
+  [TaskType.DELETE_OLD_TRANSCODES]: 'cleaning_services',
+  [TaskType.CODEC_DISCOVERY]: 'video_settings'
 };
 
 const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
@@ -32,7 +33,8 @@ const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
   [TaskType.REBUILD_DATABASE]: $localize`Reimports every user, subscription and file it can find. Backs the database up first.`,
   [TaskType.APPLY_CATEGORIES]: $localize`Sorts files that were downloaded before your category rules existed.`,
   [TaskType.SUBSCRIPTIONS_CHECK]: $localize`Checks every subscription for new uploads and queues whatever it finds.`,
-  [TaskType.DELETE_OLD_TRANSCODES]: $localize`Deletes playback copies made for players that cannot decode the original, once they are over six hours old and no link still uses them.`
+  [TaskType.DELETE_OLD_TRANSCODES]: $localize`Deletes playback copies made for players that cannot decode the original, once they are over six hours old and no link still uses them.`,
+  [TaskType.CODEC_DISCOVERY]: $localize`Records the codec of every file that has none. With a preferred codec set, also converts other videos to it: downloaded again when the source has it, transcoded when not.`
 };
 
 export function taskIcon(task: Task): string {

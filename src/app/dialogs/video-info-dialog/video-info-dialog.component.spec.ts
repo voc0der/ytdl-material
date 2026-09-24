@@ -93,6 +93,23 @@ describe('VideoInfoDialogComponent', () => {
     expect(component.new_file.subtitles?.length).toBe(1);
   });
 
+  it('badges a video with its video codec and an audio file with its audio codec', () => {
+    component.file = {...component.file, isAudio: false, vcodec: 'hevc', acodec: 'opus'};
+    expect(component.codecBadge).toBe('HEVC');
+
+    component.file = {...component.file, isAudio: true, vcodec: null, acodec: 'mp3'};
+    expect(component.codecBadge).toBe('MP3');
+
+    component.file = {...component.file, isAudio: false, vcodec: undefined};
+    expect(component.codecBadge).toBeNull();
+  });
+
+  it('tells a file with no audio apart from one nobody has checked', () => {
+    expect(component.describeCodec('av1')).toBe('AV1');
+    expect(component.describeCodec(null)).toBe('None');
+    expect(component.describeCodec(undefined)).toBe('Not checked yet');
+  });
+
   it('should summarize detected subtitles', () => {
     expect(component.getSubtitleSummary()).toBe('English (default)');
   });

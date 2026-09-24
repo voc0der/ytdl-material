@@ -59,6 +59,29 @@ describe('Tasks', function() {
         assert.strictEqual(tasks_api.TASKS['apply_categories']['job'], null);
     });
 
+    it('Creates the codec discovery task unscheduled, converting with no limit', async function() {
+        const task = await db_api.getRecord('tasks', {key: 'codec_discovery'});
+
+        assert(task);
+        assert.strictEqual(task['title'], 'Codec discovery');
+        assert.strictEqual(task['schedule'], null, 'it only runs when asked to until it is scheduled');
+        assert.strictEqual(task['options']['convert_to_preferred'], true);
+        assert.strictEqual(task['options']['max_conversions'], 0);
+        assert.strictEqual(tasks_api.TASKS['codec_discovery']['runInBackground'], true);
+    });
+
+    it('Leaves a task that threw idle, with its error, rather than running forever', async function() {
+        tasks_api.TASKS['dummy_task'].run = async () => { throw new Error('Task blew up!'); };
+        tasks_api.TASKS['dummy_task'].confirm = null;
+
+        await tasks_api.executeRun('dummy_task');
+
+        const task = await db_api.getRecord('tasks', {key: 'dummy_task'});
+        assert.strictEqual(task['running'], false);
+        assert.strictEqual(task['error'], 'Task blew up!');
+        assert(task['last_ran']);
+    });
+
     it('Refreshes a stored task title on startup', async function() {
         await db_api.updateRecord('tasks', {key: 'youtubedl_update_check'}, {title: 'Old title'});
         await tasks_api.setupTasks();

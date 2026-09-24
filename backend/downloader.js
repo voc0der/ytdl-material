@@ -11,6 +11,7 @@ const twitch_api = require('./twitch');
 const { create } = require('xmlbuilder2');
 const categories_api = require('./categories');
 const utils = require('./utils');
+const codecs = require('./codecs');
 const db_api = require('./db');
 const files_api = require('./files');
 const notifications_api = require('./notifications');
@@ -2280,6 +2281,38 @@ function buildFormatSortOrder(selected_audio_language = null, preferred_height =
     return sort_fields.join(',');
 }
 
+/*************************************************
+ * Steer a video download towards the preferred
+ * codec, when one is set.
+ *
+ * Resolution stays ahead of the codec in the sort,
+ * so this picks the codec at the best resolution
+ * on offer rather than a smaller video that
+ * happens to be in it. yt-dlp reads 'vcodec:h265'
+ * as "the best codec no better than h265", so a
+ * source without HEVC falls back to H.264 first,
+ * which converts to HEVC more cleanly than AV1.
+ *
+ * Only touches a -S this app is about to add; the
+ * caller still drops the whole -S when custom
+ * args already sort formats their own way.
+ ************************************************/
+function applyPreferredCodecSort(quality_args) {
+    const sort_codec = codecs.getFormatSortCodec(codecs.normalizePreferredCodec(config_api.getConfigItem('ytdl_preferred_codec')));
+    if (!sort_codec || !Array.isArray(quality_args)) return quality_args;
+
+    const sort_index = quality_args.indexOf('-S');
+    if (sort_index === -1) return [...quality_args, '-S', `res,vcodec:${sort_codec}`];
+
+    const fields = quality_args[sort_index + 1].split(',').filter(Boolean);
+    if (!fields.some(field => field === 'res' || field.startsWith('res:'))) fields.push('res');
+    fields.push(`vcodec:${sort_codec}`);
+    const updated_args = [...quality_args];
+    updated_args[sort_index + 1] = fields.join(',');
+    return updated_args;
+}
+exports.applyPreferredCodecSort = applyPreferredCodecSort;
+
 function buildPreferredVideoSelector(selected_audio_language, video_filter = '') {
     const bestvideo_selector = `bestvideo${video_filter}`;
     const best_selector = `best${video_filter}`;
@@ -2400,6 +2433,11 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
                 : ['--audio-quality', maxBitrate ? maxBitrate : '0']
         }
 
+        // An exact format id has nothing left to sort.
+        if (!is_audio && qualityPath && !customQualityConfiguration && default_downloader === 'yt-dlp') {
+            qualityPath = applyPreferredCodecSort(qualityPath);
+        }
+
         if (customOutput) {
             customOutput = options.noRelativePath ? customOutput : path.join(fileFolderPath, customOutput);
             downloadConfig = ['-o', `${customOutput}.%(ext)s`, '--write-info-json', '--print-json'];
@@ -2517,6 +2555,50 @@ exports.generateArgs = async (url, type, options, user_uid = null, simulated = f
         logger.debug(`${default_downloader} generated args: ${utils.redactCommandArgsForLogging(downloadConfig).join(' ')}`);
     }
     return downloadConfig;
+}
+
+/*************************************************
+ * Arguments for fetching a library file again in
+ * a chosen format, for the Codec discovery task.
+ *
+ * Deliberately not generateArgs: that one is built
+ * for a new download, and brings SponsorBlock
+ * cuts, sidecars, output templates and category
+ * rules that would all make the new copy differ
+ * from the file it replaces. Only what it takes to
+ * reach the source comes along -- cookies, the
+ * download agent, the rate limit, impersonation.
+ * Global custom args do not, because they can
+ * reshape the output as easily as they can carry a
+ * proxy; a source that needs them to be reached
+ * fails here, and the task transcodes instead.
+ *
+ * With no output template, these are the args for
+ * looking up the source's formats.
+ ************************************************/
+exports.generateReacquireArgs = async ({output_template = null, format_selector = null, merge_output_format = null} = {}) => {
+    let args = ['--no-playlist'];
+    if (output_template) {
+        // --embed-metadata writes the title, uploader and source URL into the container,
+        // which is what an import with no sidecar reads back.
+        args.push('-o', output_template, '--embed-metadata', '--no-progress');
+        if (format_selector) args.push('-f', format_selector);
+        if (merge_output_format) args.push('--merge-output-format', merge_output_format);
+    }
+
+    if (config_api.getConfigItem('ytdl_use_cookies') && await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
+        args.push('--cookies', path.join('appdata', 'cookies.txt'));
+    }
+
+    const customDownloadingAgent = config_api.getConfigItem('ytdl_custom_downloading_agent');
+    if (!config_api.getConfigItem('ytdl_use_default_downloading_agent') && customDownloadingAgent) {
+        args.push('--external-downloader', customDownloadingAgent);
+    }
+
+    const rate_limit = config_api.getConfigItem('ytdl_download_rate_limit');
+    if (rate_limit) args.push('-r', rate_limit);
+
+    return appendYtDlpImpersonationArgs(args, 'yt-dlp');
 }
 
 function filterInfoLookupArgs(args = []) {

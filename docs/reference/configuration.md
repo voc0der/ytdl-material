@@ -43,6 +43,7 @@ JSON section: <code>YtdlMaterial.Downloader</code>
 | <code>ytdl_use_ytdlp_impersonation</code> | <code>use_ytdlp_impersonation</code> | <code>false</code> |
 | <code>ytdl_js_runtimes</code> | <code>js_runtimes</code> | <code>""</code> |
 | <code>ytdl_transcoding</code> | <code>transcoding</code> | <code>false</code> |
+| <code>ytdl_preferred_codec</code> | <code>preferred_codec</code> | <code>""</code> |
 
 ## Extra
 

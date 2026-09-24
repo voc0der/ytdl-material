@@ -52,6 +52,7 @@ See [databases](../deployment/databases.md) and [migration](../deployment/migrat
 | `ytdl_use_ytdlp_impersonation` | `false` | Uses optional impersonation support when installed |
 | `ytdl_ytdlp_update_channel` | `stable` | `stable`, `nightly`, or `master` |
 | `ytdl_transcoding` | `false` | Software, or `vaapi`, `qsv`, `nvenc`, `amf` |
+| `ytdl_preferred_codec` | Empty | `h264`, `hevc`, `av1` or `vp9`; see [codec discovery](../usage/tasks.md#codec-discovery) |
 | `ytdl_use_cookies` | `false` | Uses the uploaded cookie file |
 
 Folder paths, filename normalization, metadata, thumbnails, archive settings, notification variables, and other options are listed in [configuration defaults](configuration.md).

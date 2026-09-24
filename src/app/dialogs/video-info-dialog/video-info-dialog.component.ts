@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import { MatDatepickerInput, MatDatepickerToggle, MatDatepicker } from '@angular/material/datepicker';
 import { MatSelect, MatOption } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
+import { codecLabel } from 'app/utils/file-display';
 
 @Component({
     selector: 'app-video-info-dialog',
@@ -103,6 +104,20 @@ export class VideoInfoDialogComponent implements OnInit {
   cancelEditing(): void {
     this.initializeFile(this.file);
     this.editing = false;
+  }
+
+  /** The codec a file is in now, as its badge says it: the video's, or an audio file's. */
+  get codecBadge(): string | null {
+    return codecLabel(this.file?.isAudio ? this.file?.acodec : this.file?.vcodec);
+  }
+
+  /**
+   * A codec row's value. Null means the file was read and has no such stream; absent means
+   * it has not been read yet, which the Codec discovery task catches up on.
+   */
+  describeCodec(codec: string | null | undefined): string {
+    if (codec === undefined) return $localize`Not checked yet`;
+    return codecLabel(codec) ?? $localize`None`;
   }
 
   formatDuration(seconds: number): string {

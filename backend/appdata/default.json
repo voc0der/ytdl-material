@@ -23,7 +23,8 @@
       "skip_join_only_videos": false,
       "use_ytdlp_impersonation": false,
       "transcoding": false,
-      "js_runtimes": ""
+      "js_runtimes": "",
+      "preferred_codec": ""
     },
     "Extra": {
       "title_top": "ytdl-material",
