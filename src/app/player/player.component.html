@@ -5,11 +5,14 @@
         <mat-drawer-container style="height: 100%" class="example-container" autosize>
           <div class="theater-video-stage" style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
             <vg-player style="height: fit-content; max-height: 75vh" (onPlayerReady)="onPlayerReady($event)" (mousemove)="onPlayerMouseMove($event)" (mouseleave)="onPlayerMouseLeave()" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
-              <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [vgMedia]="$any(media)" [src]="currentItem.src" id="singleVideo" preload="auto" controls playsinline>
+              <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [vgMedia]="$any(media)" [src]="currentItem.src" id="singleVideo" preload="auto" controls playsinline (pointerdown)="onMediaPointerDown($event)" (click)="onMediaClick($event)">
                 @for (subtitle of currentSubtitleTracks; track subtitle.src ?? subtitle.language ?? $index) {
                   <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
                 }
               </video>
+              @if (speed_hold_active) {
+                <div class="speed-hold-indicator" aria-hidden="true"><mat-icon>fast_forward</mat-icon>{{speed_hold_rate}}x</div>
+              }
               @if (currentChapters.length > 0 && currentItem.type !== 'audio/mp3') {
                 <div class="chapter-overlay" [class.visible]="chapterTimelineVisible">
                   <div class="chapter-overlay-header">
