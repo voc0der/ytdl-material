@@ -1560,12 +1560,9 @@ app.post('/api/updateFile', optionalJwt, requirePermission('filemanager'), async
     }
 
     // Scoped to the caller in multi-user mode, so one user cannot edit another's records.
-    const file_filter = {uid: uid};
-    if (config_api.getConfigItem('ytdl_multi_user_mode') && user_uid) file_filter['user_uid'] = user_uid;
+    const updated = await files_api.updateFileRecord(uid, filtered_change_obj, user_uid);
 
-    const file = await db_api.updateRecord('files', file_filter, filtered_change_obj);
-
-    if (!file) {
+    if (!updated) {
         res.send({
             success: false,
             error: 'File could not be found'

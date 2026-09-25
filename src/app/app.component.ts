@@ -461,9 +461,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshActiveDownloads();
   }
 
+  /**
+   * Listing downloads takes the downloads_manager permission, which an account made by
+   * registering does not have. The poll used to ask anyway and was refused every ten seconds for
+   * as long as the page stayed open, so an account that cannot list them is treated like nobody
+   * being logged in: nothing is asked, and the poll idles until someone who can logs in.
+   */
+  private canListDownloads(): boolean {
+    if (!this.postsService.config?.Advanced?.multi_user_mode) return true;
+    return this.postsService.isLoggedIn && this.postsService.hasPermission('downloads_manager');
+  }
+
   private refreshActiveDownloads(): void {
-    const multi_user_mode_enabled = !!this.postsService.config?.Advanced?.multi_user_mode;
-    if (multi_user_mode_enabled && !this.postsService.isLoggedIn) {
+    if (!this.canListDownloads()) {
       this.previous_download_states.clear();
       this.setActiveDownloads([], false);
       this.scheduleNextActiveDownloadsPoll(this.IDLE_ACTIVE_DOWNLOADS_POLL_INTERVAL_MS);

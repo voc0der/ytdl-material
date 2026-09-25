@@ -724,6 +724,47 @@ describe('Account ownership', function() {
         });
     });
 
+    describe('File edits', function() {
+        const {files_api} = require('./test-shared');
+
+        beforeEach(async function() {
+            await db_api.removeAllRecords('files', {uid: 'hardening_file'});
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'hardening_file', user_uid: OWNER, title: 'Original', favorite: false
+            });
+        });
+
+        it('lets the owner edit their own file', async function() {
+            assert.strictEqual(await files_api.updateFileRecord('hardening_file', {title: 'Renamed', favorite: true}, OWNER), true);
+
+            const file = await db_api.getRecord('files', {uid: 'hardening_file'});
+            assert.strictEqual(file.title, 'Renamed');
+            assert.strictEqual(file.favorite, true);
+        });
+
+        it('says so when the file is somebody else\'s, rather than answering success', async function() {
+            // The owner was only in the update filter, and updateRecord reports success
+            // whether or not its filter matched: nothing was written, and the caller was told
+            // it had been.
+            assert.strictEqual(await files_api.updateFileRecord('hardening_file', {title: 'Renamed', favorite: true}, OTHER), false);
+
+            const file = await db_api.getRecord('files', {uid: 'hardening_file'});
+            assert.strictEqual(file.title, 'Original');
+            assert.strictEqual(file.favorite, false);
+        });
+
+        it('says so when there is no such file', async function() {
+            assert.strictEqual(await files_api.updateFileRecord('hardening_missing', {title: 'Renamed'}, OWNER), false);
+        });
+
+        it('refuses a uid that is not a string, which a filter would read as a query', async function() {
+            assert.strictEqual(await files_api.updateFileRecord({$ne: null}, {title: 'Renamed'}, OWNER), false);
+
+            const file = await db_api.getRecord('files', {uid: 'hardening_file'});
+            assert.strictEqual(file.title, 'Original');
+        });
+    });
+
     describe('Secret comparison', function() {
         it('matches only an exact value', function() {
             assert.strictEqual(utils.timingSafeEquals('abc123', 'abc123'), true);
