@@ -2,6 +2,10 @@
 
 Categories organize media by rules applied to its metadata. They are configured under **Settings → Downloader → Categories** and are shared across the server. Category views still respect ownership in multi-user mode.
 
+## Filter your library by category
+
+Turn on **Show as library filter** when you create or edit a category, and it appears as a filter on the home page next to **Video only**, **Audio only**, and **Favorited**. Turn it on there to see only the files in that category. On a phone, the filters are under the filter button in the search field.
+
 ## Create a rule
 
 Create or edit a category, then choose a metadata property, comparison, and value. Combine additional rules with **AND** or **OR**.
