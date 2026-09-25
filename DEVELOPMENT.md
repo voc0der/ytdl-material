@@ -486,8 +486,9 @@ It plays a minute-long clip cut into four chapters and checks the video has no n
 and the scrubber a segment per chapter, that the controls hide while it plays untouched and come
 back when the pointer moves, that a click on the picture pauses and plays, and that holding it
 plays at 2x with the badge showing, paused or not, and puts back the rate and the paused state
-on release. It tries the keyboard shortcuts, hovers the scrubber for the chapter's name and
-clicks it to seek, sets the speed from its menu and jumps from the chapters menu, goes full
+on release. It tries the keyboard shortcuts, hovers the scrubber for the chapter's name, checks
+the marker stays at the end of the played part, and clicks it to seek, sets the speed from its
+menu, which has to open clear of the scrubber, and jumps from the chapters menu, goes full
 screen with a double-click and leaves with `f`, and turns theater mode on from the bar and off
 with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
 browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the

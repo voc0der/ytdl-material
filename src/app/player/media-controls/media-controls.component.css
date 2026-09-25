@@ -1,5 +1,7 @@
 :host {
-    --controls-accent: #29b6f6;
+    --controls-accent: #ff0033;
+    --controls-accent-end: #ff3d7f;
+    --controls-pill: rgba(0, 0, 0, 0.38);
     --controls-surface: rgba(22, 22, 22, 0.9);
     /* Opaque on purpose: Firefox puts its own picture-in-picture button over the right of the
        video and takes clicks there, unless something opaque covers the video at that point. */
@@ -31,7 +33,7 @@
     bottom: 0;
     left: 0;
     opacity: 0;
-    padding: 0 12px 2px;
+    padding: 0 12px 8px;
     position: absolute;
     right: 0;
     transition: opacity 0.25s ease, visibility 0s linear 0.25s;
@@ -40,10 +42,10 @@
 }
 
 .chrome::before {
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.38) 45%, rgba(0, 0, 0, 0) 100%);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0) 100%);
     bottom: 0;
     content: '';
-    height: 132px;
+    height: 120px;
     left: 0;
     pointer-events: none;
     position: absolute;
@@ -77,11 +79,11 @@
 }
 
 .scrubber.has-chapters .segments {
-    gap: 2px;
+    gap: 4px;
 }
 
 .segment {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.28);
     flex-basis: 0;
     height: 100%;
     min-width: 2px;
@@ -91,8 +93,7 @@
 }
 
 .segment-buffered,
-.segment-hover,
-.segment-played {
+.segment-hover {
     inset: 0;
     position: absolute;
     transform: scaleX(0);
@@ -100,21 +101,29 @@
 }
 
 .segment-buffered {
-    background: rgba(255, 255, 255, 0.36);
+    background: rgba(255, 255, 255, 0.4);
 }
 
 .segment-hover {
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.55);
 }
 
+/* One gradient from the start of the bar to the playhead, across the chapters' gaps: each
+   segment's piece is sized and shifted to the whole played length when it is painted. */
 .segment-played {
-    background: var(--controls-accent);
+    background-image: linear-gradient(to right, var(--controls-accent) 0%, var(--controls-accent) 72%, var(--controls-accent-end) 100%);
+    background-repeat: no-repeat;
+    bottom: 0;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 0;
 }
 
 .scrubber:hover .segments,
 .scrubber.scrubbing .segments,
 .scrubber:focus-visible .segments {
-    height: 5px;
+    height: 6px;
 }
 
 .scrubber.has-chapters .segment.hovered {
@@ -122,41 +131,42 @@
 }
 
 .scrub-thumb {
-    background: var(--controls-accent);
+    background: var(--controls-accent-end);
     border-radius: 50%;
-    height: 13px;
-    left: -6.5px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+    height: 14px;
+    left: -7px;
     pointer-events: none;
     position: absolute;
-    scale: 0;
-    top: calc(50% - 6.5px);
+    top: calc(50% - 7px);
     transition: scale 0.12s ease;
-    width: 13px;
+    width: 14px;
 }
 
 .scrubber:hover .scrub-thumb,
 .scrubber.scrubbing .scrub-thumb,
 .scrubber:focus-visible .scrub-thumb {
-    scale: 1;
+    scale: 1.4;
 }
 
 .scrubber:focus-visible .scrub-thumb {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
 }
 
+/* The time under the pointer, then its chapter, on one line in a pill like the bar's. */
 .scrub-tooltip {
     align-items: center;
-    background: var(--controls-surface);
-    border-radius: 6px;
-    bottom: 24px;
+    backdrop-filter: blur(10px);
+    background: var(--controls-pill);
+    border-radius: 999px;
+    bottom: 30px;
     display: flex;
-    flex-direction: column;
-    font-size: 12px;
-    gap: 1px;
+    font-size: 14px;
+    gap: 10px;
     left: 0;
-    line-height: 1.35;
+    line-height: 1.3;
     opacity: 0;
-    padding: 4px 8px;
+    padding: 7px 16px;
     pointer-events: none;
     position: absolute;
     transform: translateX(-50%);
@@ -170,7 +180,7 @@
 
 .scrub-tooltip-title {
     font-weight: 500;
-    max-width: 240px;
+    max-width: 280px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -185,19 +195,37 @@
     align-items: center;
     display: flex;
     gap: 8px;
-    height: 44px;
     justify-content: space-between;
+    padding-top: 4px;
 }
 
 .bar-group {
     align-items: center;
     display: flex;
     flex: none;
+    gap: 8px;
     min-width: 0;
 }
 
 .bar-group:first-child {
     flex: 1 1 auto;
+}
+
+/* The buttons sit in pills of their own, so they read over any picture. */
+.pill {
+    align-items: center;
+    backdrop-filter: blur(10px);
+    background: var(--controls-pill);
+    border-radius: 24px;
+    display: flex;
+    flex: none;
+    height: 48px;
+    min-width: 0;
+    padding: 0 4px;
+}
+
+.time-pill {
+    padding: 0 16px;
 }
 
 .control {
@@ -219,7 +247,7 @@
 }
 
 .control:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.14);
     opacity: 1;
 }
 
@@ -231,15 +259,15 @@
 }
 
 .control mat-icon {
-    font-size: 26px;
-    height: 26px;
-    width: 26px;
+    font-size: 24px;
+    height: 24px;
+    width: 24px;
 }
 
 .control.on::after {
     background: var(--controls-accent);
     border-radius: 1px;
-    bottom: 6px;
+    bottom: 5px;
     content: '';
     height: 2px;
     left: 11px;
@@ -250,7 +278,7 @@
 .control[data-tip]::before {
     background: var(--controls-surface);
     border-radius: 6px;
-    bottom: calc(100% + 10px);
+    bottom: calc(100% + 14px);
     color: #fff;
     content: attr(data-tip);
     font-size: 12px;
@@ -272,13 +300,13 @@
 }
 
 .control.tip-start::before {
-    left: 0;
+    left: -4px;
     transform: none;
 }
 
 .control.tip-end::before {
     left: auto;
-    right: 0;
+    right: -4px;
     transform: none;
 }
 
@@ -289,14 +317,14 @@
 .rate-badge {
     background: var(--controls-accent);
     border-radius: 3px;
-    color: #01263a;
+    color: #fff;
     font-size: 9px;
     font-weight: 700;
     line-height: 13px;
     padding: 0 3px;
     position: absolute;
     right: 0;
-    top: 5px;
+    top: 4px;
 }
 
 /* Volume */
@@ -377,9 +405,8 @@
 
 .time {
     flex: none;
-    font-size: 13px;
+    font-size: 14px;
     font-variant-numeric: tabular-nums;
-    margin: 0 8px 0 6px;
     white-space: nowrap;
 }
 
@@ -392,29 +419,21 @@
     opacity: 0.8;
 }
 
+/* A pill of its own, which can shrink and cut its title short. */
 .chapter-button {
-    align-items: center;
-    background: transparent;
     border: 0;
-    border-radius: 16px;
     color: inherit;
     cursor: pointer;
-    display: inline-flex;
+    flex: 0 1 auto;
     font: inherit;
-    font-size: 13px;
-    height: 32px;
-    min-width: 0;
-    opacity: 0.92;
-    padding: 0 4px 0 2px;
+    font-size: 14px;
+    gap: 2px;
+    padding: 0 10px 0 16px;
+    transition: background-color 0.15s ease;
 }
 
 .chapter-button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    opacity: 1;
-}
-
-.chapter-dot {
-    margin-right: 6px;
+    background: rgba(40, 40, 40, 0.55);
 }
 
 .chapter-title {
@@ -432,18 +451,20 @@
 
 /* Menus */
 
+/* Above the whole bar, scrubber included, and over it. */
 .controls-menu {
     animation: menu-in 0.14s ease-out;
     background: var(--controls-menu-surface);
     border-radius: 12px;
-    bottom: 60px;
+    bottom: calc(100% + 8px);
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-    max-height: calc(100cqh - 76px);
+    max-height: calc(100cqh - 104px);
     min-width: 168px;
     overflow-y: auto;
     padding: 6px 0;
     position: absolute;
     right: 12px;
+    z-index: 4;
 }
 
 .chapters-menu {
@@ -497,7 +518,8 @@
 }
 
 .chapters-menu .menu-item[aria-checked="true"] {
-    color: var(--controls-accent);
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 500;
 }
 
 .menu-time {
@@ -696,7 +718,12 @@
 
 @container (max-width: 520px) {
     .chrome {
-        padding: 0 6px;
+        padding: 0 6px 6px;
+    }
+
+    .bar,
+    .bar-group {
+        gap: 4px;
     }
 
     .volume-slider,
@@ -704,9 +731,18 @@
         display: none;
     }
 
+    .pill {
+        height: 40px;
+        padding: 0 2px;
+    }
+
+    .time-pill {
+        padding: 0 10px;
+    }
+
     .time {
         font-size: 12px;
-        margin: 0 4px;
+        margin: 0;
     }
 
     .control {
@@ -715,9 +751,9 @@
     }
 
     .control mat-icon {
-        font-size: 24px;
-        height: 24px;
-        width: 24px;
+        font-size: 22px;
+        height: 22px;
+        width: 22px;
     }
 }
 
@@ -727,8 +763,9 @@
         padding: 0 20px 6px;
     }
 
-    .bar {
-        height: 54px;
+    .pill {
+        border-radius: 28px;
+        height: 56px;
     }
 
     .control {
@@ -737,9 +774,9 @@
     }
 
     .control mat-icon {
-        font-size: 32px;
-        height: 32px;
-        width: 32px;
+        font-size: 28px;
+        height: 28px;
+        width: 28px;
     }
 
     .time,

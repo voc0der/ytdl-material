@@ -277,12 +277,22 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     const played = scrubber.querySelectorAll<HTMLElement>('.segment-played');
     const buffered = scrubber.querySelectorAll<HTMLElement>('.segment-buffered');
     const buffered_end = this.bufferedEnd(time);
+    const elements = this.segmentElements();
+    const playhead = this.offsetOf(time);
     this.segments.forEach((segment, index) => {
-      played[index]?.style.setProperty('transform', `scaleX(${this.fraction(time, segment)})`);
+      const fill = played[index];
+      if (fill) {
+        // Each segment shows its own slice of one gradient that runs from the start of the bar
+        // to the playhead.
+        fill.style.width = `${this.fraction(time, segment) * 100}%`;
+        fill.style.backgroundSize = `${Math.max(playhead, 1)}px 100%`;
+        fill.style.backgroundPosition = `${-(elements[index]?.offsetLeft ?? 0)}px 0`;
+      }
       buffered[index]?.style.setProperty('transform', `scaleX(${this.fraction(buffered_end, segment)})`);
     });
     const thumb = scrubber.querySelector<HTMLElement>('.scrub-thumb');
-    if (thumb) thumb.style.transform = `translateX(${this.offsetOf(time)}px)`;
+    // `translate`, not `transform`: the hover's `scale` would otherwise scale the offset too.
+    if (thumb) thumb.style.translate = `${playhead}px 0`;
   }
 
   private paintHover(time: number | null): void {

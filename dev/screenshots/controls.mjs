@@ -223,6 +223,14 @@ async function onDesktop(browser, name, seeded, errors) {
     const tooltip = await page.locator('app-media-controls .scrub-tooltip').innerText();
     check('hovering the scrubber names the chapter under it', tooltip.includes('The long middle part'), tooltip.replace(/\n/g, ' '));
     await shoot(page, `${name}-scrubber-hover`);
+    const thumb_at = await page.locator('app-media-controls .scrub-thumb').evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return box.left + box.width / 2;
+    });
+    const played_to = await page.locator('app-media-controls .segment-played').evaluateAll(fills =>
+        Math.max(...fills.map(fill => fill.getBoundingClientRect()).filter(box => box.width > 0).map(box => box.right)));
+    check('the marker sits at the end of the played part while hovered', Math.abs(thumb_at - played_to) < 3,
+        `marker ${Math.round(thumb_at)}, played to ${Math.round(played_to)}`);
     await page.mouse.click(target.x, target.y);
     await page.waitForTimeout(300);
     const scrubbed = (await media(page)).time;
@@ -232,6 +240,10 @@ async function onDesktop(browser, name, seeded, errors) {
     await page.getByRole('button', { name: 'Playback speed' }).click();
     await page.waitForTimeout(200);
     await shoot(page, `${name}-speed-menu`);
+    const menu_box = await page.locator('app-media-controls .controls-menu').boundingBox();
+    const scrubber_box = await page.locator('app-media-controls .scrubber').boundingBox();
+    check('the menu opens above the scrubber, clear of it', menu_box.y + menu_box.height <= scrubber_box.y,
+        `menu ends at ${Math.round(menu_box.y + menu_box.height)}, scrubber starts at ${Math.round(scrubber_box.y)}`);
     await page.getByRole('menuitemradio', { name: '1.5x' }).click();
     check('the speed menu sets the rate', (await media(page)).rate === 1.5);
     check('and the button says so', (await page.locator('app-media-controls .rate-badge').innerText()) === '1.5x');

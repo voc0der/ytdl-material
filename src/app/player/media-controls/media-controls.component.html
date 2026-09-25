@@ -87,41 +87,44 @@
     </div>
     <div class="scrub-thumb"></div>
     <div class="scrub-tooltip" #scrubTooltip [class.shown]="hover_time !== null || scrubbing" [style.left.px]="hover_left">
+      <span class="scrub-tooltip-time">{{formatTime(scrubbing ? shownTime : (hover_time ?? 0))}}</span>
       @if (segments[hover_segment]?.title; as title) {
         <span class="scrub-tooltip-title">{{title}}</span>
       }
-      <span class="scrub-tooltip-time">{{formatTime(scrubbing ? shownTime : (hover_time ?? 0))}}</span>
     </div>
   </div>
 
   <div class="bar">
     <div class="bar-group">
-      <button class="control tip-start" type="button" (click)="togglePlay()" [attr.aria-label]="playLabel" [attr.data-tip]="playLabel + ' (k)'">
-        <mat-icon>{{playIcon}}</mat-icon>
-      </button>
-      @if (hasNext) {
-        <button class="control" type="button" (click)="playNext.emit()" aria-label="Next" i18n-aria-label="Next video button label" data-tip="Next (Shift+N)" i18n-data-tip="Next video button tip">
-          <mat-icon>skip_next</mat-icon>
+      <div class="pill">
+        <button class="control tip-start" type="button" (click)="togglePlay()" [attr.aria-label]="playLabel" [attr.data-tip]="playLabel + ' (k)'">
+          <mat-icon>{{playIcon}}</mat-icon>
         </button>
-      }
-      <div class="volume">
-        <button class="control" type="button" (click)="toggleMute()" [attr.aria-label]="muted ? unmuteLabel : muteLabel" [attr.data-tip]="(muted ? unmuteLabel : muteLabel) + ' (m)'">
-          <mat-icon>{{volumeIcon}}</mat-icon>
-        </button>
-        <input class="volume-slider" type="range" min="0" max="1" step="0.05"
-               aria-label="Volume" i18n-aria-label="Volume slider label"
-               [value]="muted ? 0 : volume"
-               [style.--volume-fill]="((muted ? 0 : volume) * 100) + '%'"
-               (input)="setVolume($any($event.target).valueAsNumber)">
+        @if (hasNext) {
+          <button class="control" type="button" (click)="playNext.emit()" aria-label="Next" i18n-aria-label="Next video button label" data-tip="Next (Shift+N)" i18n-data-tip="Next video button tip">
+            <mat-icon>skip_next</mat-icon>
+          </button>
+        }
+        <div class="volume">
+          <button class="control" type="button" (click)="toggleMute()" [attr.aria-label]="muted ? unmuteLabel : muteLabel" [attr.data-tip]="(muted ? unmuteLabel : muteLabel) + ' (m)'">
+            <mat-icon>{{volumeIcon}}</mat-icon>
+          </button>
+          <input class="volume-slider" type="range" min="0" max="1" step="0.05"
+                 aria-label="Volume" i18n-aria-label="Volume slider label"
+                 [value]="muted ? 0 : volume"
+                 [style.--volume-fill]="((muted ? 0 : volume) * 100) + '%'"
+                 (input)="setVolume($any($event.target).valueAsNumber)">
+        </div>
       </div>
-      <span class="time">
-        <span class="time-current">{{formatTime(shownTime)}}</span>
-        <span class="time-separator">/</span>
-        <span class="time-duration">{{formatTime(duration)}}</span>
-      </span>
+      <div class="pill time-pill">
+        <span class="time">
+          <span class="time-current">{{formatTime(shownTime)}}</span>
+          <span class="time-separator">/</span>
+          <span class="time-duration">{{formatTime(duration)}}</span>
+        </span>
+      </div>
       @if (currentChapterTitle; as chapter_title) {
-        <button class="chapter-button menu-button" type="button" (click)="toggleMenu('chapters', $event)" [attr.aria-expanded]="menu === 'chapters'" [attr.aria-label]="chaptersLabel + ': ' + chapter_title">
-          <span class="chapter-dot" aria-hidden="true">&middot;</span>
+        <button class="pill chapter-button menu-button" type="button" (click)="toggleMenu('chapters', $event)" [attr.aria-expanded]="menu === 'chapters'" [attr.aria-label]="chaptersLabel + ': ' + chapter_title">
           <span class="chapter-title">{{chapter_title}}</span>
           <mat-icon>chevron_right</mat-icon>
         </button>
@@ -129,35 +132,37 @@
     </div>
 
     <div class="bar-group">
-      @if (subtitlesAvailable) {
-        <button class="control toggle" type="button" [class.on]="subtitlesEnabled" [attr.aria-pressed]="subtitlesEnabled" (click)="toggleSubtitles.emit()"
-                aria-label="Subtitles" i18n-aria-label="Subtitles button label" data-tip="Subtitles (c)" i18n-data-tip="Subtitles button tip">
-          <mat-icon>{{subtitlesEnabled ? 'closed_caption' : 'closed_caption_off'}}</mat-icon>
-        </button>
-      }
-      <button class="control menu-button" type="button" [class.rate-changed]="rate !== 1" (click)="toggleMenu('speed', $event)" [attr.aria-expanded]="menu === 'speed'"
-              aria-label="Playback speed" i18n-aria-label="Playback speed button label" data-tip="Playback speed" i18n-data-tip="Playback speed button tip">
-        <mat-icon>speed</mat-icon>
-        <!-- A hold says so in the corner of the picture instead. -->
-        @if (rate !== 1 && !speed_hold_active) {
-          <span class="rate-badge">{{rateLabel}}</span>
+      <div class="pill">
+        @if (subtitlesAvailable) {
+          <button class="control toggle" type="button" [class.on]="subtitlesEnabled" [attr.aria-pressed]="subtitlesEnabled" (click)="toggleSubtitles.emit()"
+                  aria-label="Subtitles" i18n-aria-label="Subtitles button label" data-tip="Subtitles (c)" i18n-data-tip="Subtitles button tip">
+            <mat-icon>{{subtitlesEnabled ? 'closed_caption' : 'closed_caption_off'}}</mat-icon>
+          </button>
         }
-      </button>
-      @if (pip_supported) {
-        <button class="control" type="button" [class.on]="pip" (click)="togglePictureInPicture()"
-                aria-label="Picture-in-picture" i18n-aria-label="Picture-in-picture button label" data-tip="Picture-in-picture" i18n-data-tip="Picture-in-picture button tip">
-          <mat-icon>picture_in_picture_alt</mat-icon>
+        <button class="control menu-button" type="button" [class.rate-changed]="rate !== 1" (click)="toggleMenu('speed', $event)" [attr.aria-expanded]="menu === 'speed'"
+                aria-label="Playback speed" i18n-aria-label="Playback speed button label" data-tip="Playback speed" i18n-data-tip="Playback speed button tip">
+          <mat-icon>speed</mat-icon>
+          <!-- A hold says so in the corner of the picture instead. -->
+          @if (rate !== 1 && !speed_hold_active) {
+            <span class="rate-badge">{{rateLabel}}</span>
+          }
         </button>
-      }
-      @if (theaterAvailable && !fullscreen) {
-        <button class="control theater-button" type="button" [attr.aria-pressed]="theaterEnabled" (click)="toggleTheater.emit()"
-                aria-label="Theater mode" i18n-aria-label="Theater mode toggle label" data-tip="Theater mode (t)" i18n-data-tip="Theater mode button tip">
-          <mat-icon>{{theaterEnabled ? 'width_normal' : 'width_wide'}}</mat-icon>
+        @if (pip_supported) {
+          <button class="control" type="button" [class.on]="pip" (click)="togglePictureInPicture()"
+                  aria-label="Picture-in-picture" i18n-aria-label="Picture-in-picture button label" data-tip="Picture-in-picture" i18n-data-tip="Picture-in-picture button tip">
+            <mat-icon>picture_in_picture_alt</mat-icon>
+          </button>
+        }
+        @if (theaterAvailable && !fullscreen) {
+          <button class="control theater-button" type="button" [attr.aria-pressed]="theaterEnabled" (click)="toggleTheater.emit()"
+                  aria-label="Theater mode" i18n-aria-label="Theater mode toggle label" data-tip="Theater mode (t)" i18n-data-tip="Theater mode button tip">
+            <mat-icon>{{theaterEnabled ? 'width_normal' : 'width_wide'}}</mat-icon>
+          </button>
+        }
+        <button class="control tip-end" type="button" (click)="toggleFullscreen()" [attr.aria-label]="fullscreen ? exitFullscreenLabel : fullscreenLabel" [attr.data-tip]="(fullscreen ? exitFullscreenLabel : fullscreenLabel) + ' (f)'">
+          <mat-icon>{{fullscreen ? 'fullscreen_exit' : 'fullscreen'}}</mat-icon>
         </button>
-      }
-      <button class="control tip-end" type="button" (click)="toggleFullscreen()" [attr.aria-label]="fullscreen ? exitFullscreenLabel : fullscreenLabel" [attr.data-tip]="(fullscreen ? exitFullscreenLabel : fullscreenLabel) + ' (f)'">
-        <mat-icon>{{fullscreen ? 'fullscreen_exit' : 'fullscreen'}}</mat-icon>
-      </button>
+      </div>
     </div>
   </div>
 </div>
