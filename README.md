@@ -13,7 +13,7 @@
 [![Version badge](https://img.shields.io/github/v/release/voc0der/ytdl-material?display_name=tag)](https://github.com/voc0der/ytdl-material/releases/latest)
 [![Dependencies badge](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml)
 
-ytdl-material is a self-hosted web interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp). Download video and audio from a link, subscribe to channels and playlists so new uploads arrive on their own, and watch everything from a library in your browser, whether it's just you or everyone on your server. See the [full feature list](https://voc0der.github.io/ytdl-material/features/).
+Download and watch video and audio from a web app you host yourself. Paste a link to download something, or subscribe to channels and playlists and new uploads show up automatically. Everything goes into a library you can watch from any browser, solo or together. It runs on [yt-dlp](https://github.com/yt-dlp/yt-dlp), which it installs and updates for you. See the [full feature list](https://voc0der.github.io/ytdl-material/features/).
 
 **[Documentation](https://voc0der.github.io/ytdl-material/)** · [Quick start](https://voc0der.github.io/ytdl-material/getting-started/quick-start/) · [Troubleshooting](https://voc0der.github.io/ytdl-material/reference/troubleshooting/)
 
