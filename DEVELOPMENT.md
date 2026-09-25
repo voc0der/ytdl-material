@@ -479,7 +479,7 @@ Chromium and Firefox against a library whose files really play:
 ```bash
 dev/screenshots/controls.sh               # build, boot, run, stop
 dev/screenshots/controls.sh --skip-build  # reuse the last frontend build
-dev/screenshots/controls.sh --keep        # leave the backend running on :17458 afterwards
+dev/screenshots/controls.sh --keep        # leave the backend running on :17461 afterwards
 ```
 
 It plays a minute-long clip cut into four chapters and checks the video has no native controls
