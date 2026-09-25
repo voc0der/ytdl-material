@@ -32,7 +32,7 @@ Recipients still need a reachable server address. Test the link outside your sig
 
 In multi-user mode, turn on **Share library** under **Profile → Preferences** to let every other account on the server browse and watch your library. They cannot change anything in it: no favorites, edits, cover art, playlists, deletions or downloads to their device, and watching does not add to your view counts. Turn it off to withdraw access at once.
 
-Once someone shares their library, your name at the top of **Profile** becomes a menu. Pick their name to browse their files and playlists on the home page; each file's menu then offers only **Media info**. While you browse someone else's library, a button left of the notification bell takes you back to yours in one press. Downloads you start meanwhile still go to your own library, and reloading the page or signing in again starts on your own.
+Once someone shares their library, your name at the top of **Profile** becomes a menu. Pick their name to browse their files and playlists on the home page; each file's menu then offers only **Media info**. While you browse someone else's library, a button left of the notification bell takes you back to yours in one press. Pages that only ever show your own things, such as Subscriptions, Downloads, Duplicates and Archive, are put away meanwhile, and opening one from a link or bookmark takes you back to your own library first. Downloads you start meanwhile still go to your own library, and reloading the page or signing in again starts on your own.
 
 ## Import existing files
 

@@ -396,7 +396,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   canOpenDownloadsPage(): boolean {
-    return this.enableDownloadsManager && this.postsService.hasPermission('downloads_manager');
+    return this.enableDownloadsManager && this.postsService.hasPermission('downloads_manager') && !this.postsService.viewed_library;
   }
 
   shouldShowActiveDownloadsIndicator(): boolean {

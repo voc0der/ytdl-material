@@ -404,4 +404,13 @@ describe('AppComponent while browsing someone else\'s library', () => {
     expect(posts_service_mock.viewLibrary).toHaveBeenCalledWith(null);
     expect(router_mock.navigate).toHaveBeenCalledWith(['/home']);
   });
+
+  it('keeps the link to your own downloads out of the toolbar until you are back', () => {
+    component.enableDownloadsManager = true;
+    posts_service_mock.hasPermission = vi.fn().mockReturnValue(true);
+    expect(component.canOpenDownloadsPage()).toBe(false);
+
+    posts_service_mock.viewed_library = null;
+    expect(component.canOpenDownloadsPage()).toBe(true);
+  });
 });

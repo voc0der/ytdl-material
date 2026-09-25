@@ -172,6 +172,18 @@ const shareToggle = page => profile(page).locator('mat-slide-toggle button[role=
 const backToMine = page => page.locator('.viewing-library-button');
 const fileCount = page => page.locator('.library-switch-count').first();
 const cards = page => page.locator('app-unified-file-card');
+const subscriptionsLink = page => page.locator('a.navigation-link', { hasText: 'Subscriptions' });
+
+// What the toolbar's overflow menu offers, closed again after reading it.
+async function overflowItems(page) {
+    await page.locator('button[aria-label="More options"]').click();
+    const items = page.locator('.mat-mdc-menu-panel .mat-mdc-menu-item');
+    await items.first().waitFor();
+    const labels = (await items.allInnerTexts()).map(text => text.replace(/^\S+\s*/, '').trim());
+    await page.keyboard.press('Escape');
+    await items.first().waitFor({ state: 'detached' });
+    return labels;
+}
 
 async function openHome(page) {
     await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
@@ -229,6 +241,8 @@ async function browsing(page, seeded, token) {
     await openHome(page);
     check('the viewer starts on their own library', await waitForFileCount(page, VIEWER_VIDEOS));
     check('with nothing in the toolbar saying otherwise', await backToMine(page).count() === 0);
+    check('and their own Subscriptions and Archive on offer',
+        await subscriptionsLink(page).count() === 1 && (await overflowItems(page)).includes('Archive'));
 
     await openProfile(page);
     check('their name has become a switch', (await ownerSwitch(page).innerText()).includes(VIEWER.name));
@@ -244,6 +258,9 @@ async function browsing(page, seeded, token) {
     check('the library is Bob\'s', await waitForFileCount(page, seeded.owner_files.length));
     check('the toolbar says whose it is, and offers the way back',
         (await backToMine(page).getAttribute('aria-label')) === 'Browsing Bob\'s library. Back to yours');
+    const overflow = await overflowItems(page);
+    check('while their own Subscriptions and Archive are put away',
+        await subscriptionsLink(page).count() === 0 && !overflow.includes('Archive'), overflow.join(', '));
 
     await page.waitForFunction(() => [...document.querySelectorAll('app-unified-file-card img')]
         .every(img => img.complete), null, { timeout: 15_000 }).catch(() => {});
@@ -306,6 +323,18 @@ async function browsing(page, seeded, token) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.library-switcher').waitFor({ timeout: 30_000 });
     check('a reload starts on their own library again', await waitForFileCount(page, VIEWER_VIDEOS));
+
+    await openProfile(page);
+    await ownerSwitch(page).click();
+    await page.getByRole('menuitemradio').filter({ hasText: OWNER.name }).click();
+    await profile(page).waitFor({ state: 'detached' });
+    await waitForFileCount(page, seeded.owner_files.length);
+    await page.goto(`${BASE}/#/subscriptions`, { waitUntil: 'domcontentloaded' });
+    await page.locator('app-subscriptions').waitFor({ timeout: 15_000 });
+    check('opening Subscriptions by its address goes back to their own library first',
+        await backToMine(page).count() === 0 && await subscriptionsLink(page).count() === 1);
+    await openHome(page);
+    check('so home is their own again', await waitForFileCount(page, VIEWER_VIDEOS));
 }
 
 async function refusing(seeded, token) {
