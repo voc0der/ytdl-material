@@ -74,7 +74,7 @@ jobs:
           echo "Backend check outcome: $BACKEND_OUTCOME"
 
           if [ "$FRONTEND_OUTCOME" != "failure" ] && [ "$BACKEND_OUTCOME" != "failure" ]; then
-            echo "Every dependency is at the version its declared range wants, apart from releases under 3 days old."
+            echo "Every dependency is at the version its declared range wants, apart from releases under 3.5 days old."
             exit 0
           fi
 

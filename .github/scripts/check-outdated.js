@@ -3,11 +3,12 @@
 //
 // Renovate holds every release back for 3 days (minimumReleaseAge in .github/renovate.json5),
 // so a version younger than that is not drift yet: flagging it would turn main red for the
-// days Renovate is deliberately waiting.
+// days Renovate is deliberately waiting. The extra half day covers the time Renovate then
+// needs to open the PR, run its checks and merge it on a later hourly run.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 
-const MINIMUM_RELEASE_AGE_DAYS = 3;
+const MINIMUM_RELEASE_AGE_DAYS = 3.5;
 const MINIMUM_RELEASE_AGE_MS = MINIMUM_RELEASE_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 function npmView(spec, field) {
