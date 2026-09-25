@@ -1,8 +1,9 @@
 :host {
     --controls-accent: #ff0033;
     --controls-accent-end: #ff3d7f;
-    /* Grey rather than black, so a pill still shows over the black around a letterboxed picture. */
-    --controls-pill: rgba(52, 52, 52, 0.62);
+    /* Plainly see-through, with enough grey in it to still show over the black around a
+       letterboxed picture. */
+    --controls-pill: rgba(50, 50, 50, 0.4);
     --controls-surface: rgba(22, 22, 22, 0.9);
     /* Opaque on purpose: Firefox puts its own picture-in-picture button over the right of the
        video and takes clicks there, unless something opaque covers the video at that point. */
@@ -157,7 +158,6 @@
 /* The time under the pointer, then its chapter, on one line in a pill like the bar's. */
 .scrub-tooltip {
     align-items: center;
-    backdrop-filter: blur(10px);
     background: var(--controls-pill);
     border-radius: 999px;
     bottom: 30px;
@@ -215,7 +215,6 @@
 /* The buttons sit in pills of their own, so they read over any picture. */
 .pill {
     align-items: center;
-    backdrop-filter: blur(10px);
     background: var(--controls-pill);
     border-radius: 24px;
     display: flex;
@@ -542,7 +541,6 @@
 .speed-hold-badge {
     align-items: center;
     animation: fade-in 0.15s ease;
-    backdrop-filter: blur(6px);
     background: rgba(0, 0, 0, 0.5);
     border-radius: 999px;
     display: flex;
