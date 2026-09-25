@@ -76,7 +76,7 @@
       @if (playlistLibraryReceived) {
         @for (playlist of visiblePlaylists; track playlist.id; let i = $index) {
           <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [ngClass]="cardColumnClass">
-            <app-unified-file-card [ngClass]="downloading_content[playlist.id] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" (goToFile)="goToPlaylist($event)" [file_obj]="playlist" [is_playlist]="true" (editPlaylist)="editPlaylistDialog($event)" (deleteFile)="deletePlaylist($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [loading]="false"></app-unified-file-card>
+            <app-unified-file-card [ngClass]="downloading_content[playlist.id] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" (goToFile)="goToPlaylist($event)" [file_obj]="playlist" [is_playlist]="true" (editPlaylist)="editPlaylistDialog($event)" (deleteFile)="deletePlaylist($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [library]="libraryUid" [loading]="false"></app-unified-file-card>
             @if (downloading_content[playlist.id]) {
               <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
             }
@@ -95,7 +95,11 @@
 
     @if (playlistLibraryReceived && visiblePlaylists.length === 0) {
       <section class="empty-state library-empty-state">
-        @if (playlistLibraryIsEmpty) {
+        @if (playlistLibraryIsEmpty && libraryOwnerName) {
+          <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
+          <h2 i18n="No playlists title">No playlists yet</h2>
+          <p i18n="No playlists in a shared library text">{{libraryOwnerName}} has not made any playlists.</p>
+        } @else if (playlistLibraryIsEmpty) {
           <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
           <h2 i18n="No playlists title">No playlists yet</h2>
           <p i18n="No playlists text">Put files from your library in order to play them back to back.</p>
@@ -162,7 +166,7 @@
             <div class="virtual-video-row" [style.grid-template-columns]="getVirtualizedRowTemplateColumns(row)">
               @for (file of row.items; track file.uid; let i = $index) {
                 <div class="virtual-video-card-slot" [attr.data-file-uid]="file.uid">
-                  <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="row.startIndex + i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [displayDateProperty]="sortProperty" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''"></app-unified-file-card>
+                  <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="row.startIndex + i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [displayDateProperty]="sortProperty" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [library]="libraryUid"></app-unified-file-card>
                   @if (downloading_content[file.uid]) {
                     <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
                   }
@@ -178,7 +182,7 @@
         @if (normal_files_received && paged_data) {
           @for (file of paged_data; track file.uid; let i = $index) {
             <div style="display: flex; align-items: center;" class="mb-2 mt-2 d-flex justify-content-center" [attr.data-file-uid]="file.uid" [ngClass]="cardColumnClass">
-              <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [displayDateProperty]="sortProperty" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''"></app-unified-file-card>
+              <app-unified-file-card [ngClass]="downloading_content[file.uid] ? 'blurred' : ''" [index]="i" [card_size]="postsService.card_size" [layout]="cardLayout" [locale]="postsService.locale" [displayDateProperty]="sortProperty" (goToFile)="goToFile($event)" (goToSubscription)="goToSubscription($event)" (toggleFavorite)="toggleFavorite($event)" [file_obj]="file" [use_youtubedl_archive]="postsService.config['Downloader']['use_youtubedl_archive']" [availablePlaylists]="playlists" (addFileToPlaylist)="addFileToPlaylist($event)" [loading]="false" (deleteFile)="deleteFile($event)" [baseStreamPath]="postsService.path" [jwtString]="postsService.isLoggedIn ? this.postsService.token : ''" [library]="libraryUid"></app-unified-file-card>
               @if (downloading_content[file.uid]) {
                 <mat-spinner class="downloading-spinner" [diameter]="32"></mat-spinner>
               }
@@ -202,6 +206,10 @@
           <span class="empty-state-icon"><mat-icon>video_library</mat-icon></span>
           <h2 i18n="Empty subscription library title">Nothing downloaded yet</h2>
           <p i18n="Empty subscription library text">Files show up here as this subscription downloads them.</p>
+        } @else if (libraryIsEmpty && libraryOwnerName) {
+          <span class="empty-state-icon"><mat-icon>video_library</mat-icon></span>
+          <h2 i18n="Empty shared library title">Nothing here yet</h2>
+          <p i18n="Empty shared library text">{{libraryOwnerName}} has not downloaded anything.</p>
         } @else if (libraryIsEmpty) {
           <span class="empty-state-icon"><mat-icon>video_library</mat-icon></span>
           <h2 i18n="Empty library title">Your library is empty</h2>

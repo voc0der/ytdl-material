@@ -65,6 +65,9 @@ export class MediaLibraryNavigationStateService {
           playlistsInvalidated: true
         };
       });
+
+    // What was saved is a page of the library that was showing, which is not the one coming back.
+    this.postsService.library_changed.subscribe(() => this.clearPendingRestoreState());
   }
 
   savePendingRestoreState(state: MediaLibraryRestoreState): void {

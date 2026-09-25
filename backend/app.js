@@ -6,6 +6,8 @@ const https = require('https');
 const auth_api = require('./authentication/auth');
 const { requireAdmin, requirePermission, requireAuthenticated, requireAuthenticatedOrShared } = require('./authentication/permissions');
 const { optionalJwt, resolveJwtIfPresent, requireJwtForTokenManagement } = require('./authentication/optional-jwt');
+const library_sharing = require('./authentication/library-sharing');
+const { resolveLibraryOwner, libraryOwnerUid } = library_sharing;
 const api_tokens_api = require('./authentication/api-tokens');
 const oidc_api = require('./authentication/oidc');
 const path = require('path');
@@ -1435,12 +1437,12 @@ app.get('/api/getMp4s', optionalJwt, requireAuthenticated, async function(req, r
     });
 });
 
-app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, async function (req, res) {
+app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, resolveLibraryOwner, async function (req, res) {
     const uid = req.body.uid;
     const uuid = req.body.uuid;
     let file;
     if (req.isAuthenticated()) {
-        file = await files_api.getVideo(uid, req.user.uid);
+        file = await files_api.getVideo(uid, libraryOwnerUid(req));
     } else if (uuid) {
         file = await auth_api.getUserVideo(uuid, uid, true);
     } else {
@@ -1463,7 +1465,7 @@ app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, async functi
     }
 });
 
-app.post('/api/getAllFiles', optionalJwt, requireAuthenticated, async function (req, res) {
+app.post('/api/getAllFiles', optionalJwt, requireAuthenticated, resolveLibraryOwner, async function (req, res) {
     // these are returned
     const sort = req.body.sort;
     const range = req.body.range;
@@ -1473,7 +1475,7 @@ app.post('/api/getAllFiles', optionalJwt, requireAuthenticated, async function (
     const category_filter_uids = req.body.category_filter_uids;
     const sub_id = req.body.sub_id;
     const include_chapters = req.body.include_chapters === true;
-    const uuid = req.isAuthenticated() ? req.user.uid : null;
+    const uuid = libraryOwnerUid(req);
 
     const {files, file_count} = await files_api.getAllFiles(sort, range, text_search, file_type_filter, favorite_filter, sub_id, uuid, category_filter_uids);
     const parsed_files = include_chapters ? files_api.attachFileChaptersCollection(files) : files;
@@ -2118,11 +2120,11 @@ app.post('/api/createPlaylist', optionalJwt, requireAuthenticated, async (req, r
     })
 });
 
-app.post('/api/getPlaylist', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
+app.post('/api/getPlaylist', optionalJwt, requireAuthenticatedOrShared, resolveLibraryOwner, async (req, res) => {
     let playlist_id = req.body.playlist_id;
     let uuid = req.body.uuid ? req.body.uuid : (req.user && req.user.uid ? req.user.uid : null);
     let include_file_metadata = req.body.include_file_metadata;
-    if (req.user && req.user.uid) uuid = req.user.uid;
+    if (req.user && req.user.uid) uuid = libraryOwnerUid(req);
 
     const playlist = await files_api.getPlaylist(playlist_id, uuid);
     const file_objs = [];
@@ -2139,8 +2141,8 @@ app.post('/api/getPlaylist', optionalJwt, requireAuthenticatedOrShared, async (r
     });
 });
 
-app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, async (req, res) => {
-    const uuid = req.isAuthenticated() ? req.user.uid : null;
+app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, resolveLibraryOwner, async (req, res) => {
+    const uuid = libraryOwnerUid(req);
     const include_categories = req.body.include_categories;
     const filter_obj = getScopedFilterByUser(uuid);
 
@@ -2810,9 +2812,9 @@ app.post('/api/updateServer', optionalJwt, requireAdmin, async (req, res) => {
 
 app.post('/api/createPlaybackLink', optionalJwt, requirePermission('sharing'), playback_links.create);
 
-app.get('/api/stream', playback_links.authorizeStream(optionalJwt, requireAuthenticatedOrShared), async (req, res) => {
+app.get('/api/stream', playback_links.authorizeStream(optionalJwt, requireAuthenticatedOrShared), resolveLibraryOwner, async (req, res) => {
     const type = req.query.type;
-    const uuid = req.playback ? req.playback.owner : (req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null));
+    const uuid = req.playback ? req.playback.owner : (req.user ? libraryOwnerUid(req) : (req.query.uuid ? req.query.uuid : null));
     const sub_id = req.query.sub_id;
     let head;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
@@ -2920,8 +2922,8 @@ app.get('/api/stream', playback_links.authorizeStream(optionalJwt, requireAuthen
     }
 });
 
-app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, async (req, res) => {
-    const uuid = req.user ? req.user.uid : (req.query.uuid ? req.query.uuid : null);
+app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, resolveLibraryOwner, async (req, res) => {
+    const uuid = req.user ? libraryOwnerUid(req) : (req.query.uuid ? req.query.uuid : null);
     const sub_id = req.query.sub_id;
     const requestedUID = typeof req.query.uid === 'string' ? req.query.uid : '';
     const uid = requestedUID ? decodeURIComponent(requestedUID) : '';
@@ -2963,7 +2965,7 @@ app.get('/api/streamSubtitle', optionalJwt, requireAuthenticatedOrShared, async 
     res.sendFile(resolved_subtitle_path, utils.sendFileOptions());
 });
 
-app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, async (req, res) => {
+app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, resolveLibraryOwner, async (req, res) => {
     /*************************************************
      * Identifies the thumbnail by the uid of the file
      * it belongs to, never by a path off the URL.
@@ -2975,8 +2977,8 @@ app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, async (req, re
      * the endpoint cannot be used to find out which
      * uids exist.
      ************************************************/
-    const caller_uid = req.isAuthenticated() && req.user ? req.user.uid : null;
-    const thumbnail_path = await files_api.getThumbnailPathForUser(req.params.uid, caller_uid);
+    const owner_uid = req.isAuthenticated() && req.user ? libraryOwnerUid(req) : null;
+    const thumbnail_path = await files_api.getThumbnailPathForUser(req.params.uid, owner_uid);
     if (!thumbnail_path) {
         res.sendStatus(404);
         return;
@@ -3718,6 +3720,29 @@ app.post('/api/revokeAPIToken', optionalJwt, requireAuthenticated, requireJwtFor
 
     const success = await api_tokens_api.revokeTokenForUser(req.user.uid, req.body && req.body.token_id);
     res.send({success: success});
+});
+
+// library sharing
+
+app.post('/api/getSharedLibraries', optionalJwt, requireAuthenticated, async (req, res) => {
+    const libraries = await library_sharing.getSharedLibraries(req.user ? req.user.uid : null);
+    res.send({libraries: libraries});
+});
+
+app.post('/api/setLibrarySharing', optionalJwt, requireAuthenticated, async (req, res) => {
+    if (!config_api.getConfigItem('ytdl_multi_user_mode')) {
+        res.status(400).send({success: false, error: 'Libraries are only shared in multi-user mode, where there is more than one.'});
+        return;
+    }
+
+    const enabled = req.body ? req.body.enabled : undefined;
+    if (typeof enabled !== 'boolean') {
+        res.status(400).send({success: false, error: 'enabled must be true or false'});
+        return;
+    }
+
+    const success = await library_sharing.setLibrarySharing(req.user.uid, enabled);
+    res.send({success: !!success});
 });
 
 /*************************************************

@@ -9,14 +9,18 @@ interface ThumbnailSource {
  * thumbnail that was downloaded with the file, else the one the site had, else none.
  *
  * The endpoint takes the uid of the file, never its path -- a path says nothing about who owns
- * it -- and the token goes in the query, because an <img> cannot send a header.
+ * it -- and the token goes in the query, because an <img> cannot send a header. So does the
+ * owner of a shared library the file is being shown from.
  */
-export function fileThumbnailURL(file: ThumbnailSource | null | undefined, base_path: string, jwt: string | null = null): string | null {
+export function fileThumbnailURL(file: ThumbnailSource | null | undefined, base_path: string, jwt: string | null = null, library: string | null = null): string | null {
   if (!file) return null;
   if (file.thumbnailPath && file.uid) {
     const base = base_path.endsWith('/') ? base_path.slice(0, -1) : base_path;
-    const auth = jwt ? `?jwt=${jwt}` : '';
-    return `${base}/thumbnail/${encodeURIComponent(file.uid)}${auth}`;
+    const query = [
+      jwt ? `jwt=${jwt}` : null,
+      library ? `library=${encodeURIComponent(library)}` : null
+    ].filter(Boolean).join('&');
+    return `${base}/thumbnail/${encodeURIComponent(file.uid)}${query ? '?' + query : ''}`;
   }
   return file.thumbnailURL || null;
 }

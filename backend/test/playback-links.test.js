@@ -158,7 +158,7 @@ describe('Playback links', function() {
 
     it('ticket cannot select a different file, owner, route, method or auth scheme', async () => {
         const f = fixture(); const link = (await f.create('alice')).body.stream_path;
-        for (const suffix of ['&uuid=bob', '&sub_id=x', '&jwt=x', '&playlist_id=x']) {
+        for (const suffix of ['&uuid=bob', '&sub_id=x', '&jwt=x', '&playlist_id=x', '&library=bob']) {
             assert.equal((await f.stream(link + suffix)).res.statusCode, 403);
         }
         assert.equal((await f.stream(link.replace('file-1', 'file-2'))).res.statusCode, 403);
@@ -208,6 +208,9 @@ describe('Playback links', function() {
         vm.runInNewContext(block, {app, playback_links: f.exports, playback_transcode: f.transcode, optionalJwt,
             requirePermission: permission => {assert.equal(permission, 'sharing'); return (req, res, next) => req.headers['x-no-sharing'] ? res.sendStatus(403) : next();},
             requireAuthenticatedOrShared: (_req, _res, next) => next(),
+            // A playback link never names a library -- authorizeStream refuses one that does.
+            resolveLibraryOwner: (_req, _res, next) => next(),
+            libraryOwnerUid: req => req.user ? req.user.uid : null,
             config_api: f.config, files_api: f.files, utils: f.utils, fs,
             mime: {lookup: () => 'video/mp4'}, logger: {warn() {}, error() {}}});
         const server = http.createServer(async (req, res) => {

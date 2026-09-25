@@ -1,7 +1,11 @@
 <header class="dialog-header">
   <div class="dialog-heading">
     <h2 mat-dialog-title class="dialog-title" i18n="Media information dialog title">Media information</h2>
-    <p class="dialog-subtitle" i18n="Media information subtitle">Details about this file in your library.</p>
+    @if (library) {
+      <p class="dialog-subtitle" i18n="Media information subtitle for a file in someone else's library">Details about this file in a library shared with you. You can look, but not change anything.</p>
+    } @else {
+      <p class="dialog-subtitle" i18n="Media information subtitle">Details about this file in your library.</p>
+    }
   </div>
   <button type="button" class="kit-icon-button" mat-dialog-close aria-label="Close" i18n-aria-label="Close"><mat-icon>close</mat-icon></button>
 </header>
@@ -19,12 +23,14 @@
         @if (file.category?.name) { <span>{{file.category.name}}</span> }
       </div>
     </div>
-    <button type="button" class="kit-icon-button favorite-button" [class.is-favorite]="file.favorite"
-      [disabled]="!initialized || retrieving_file || !write_access" (click)="toggleFavorite()"
-      [attr.aria-pressed]="file.favorite" aria-label="Favorite" i18n-aria-label="Favorite"
-      matTooltip="Favorite" i18n-matTooltip="Favorite">
-      <mat-icon>{{file.favorite ? 'favorite' : 'favorite_border'}}</mat-icon>
-    </button>
+    @if (!library) {
+      <button type="button" class="kit-icon-button favorite-button" [class.is-favorite]="file.favorite"
+        [disabled]="!initialized || retrieving_file || !write_access" (click)="toggleFavorite()"
+        [attr.aria-pressed]="file.favorite" aria-label="Favorite" i18n-aria-label="Favorite"
+        matTooltip="Favorite" i18n-matTooltip="Favorite">
+        <mat-icon>{{file.favorite ? 'favorite' : 'favorite_border'}}</mat-icon>
+      </button>
+    }
   </section>
 
   @if (editing) {

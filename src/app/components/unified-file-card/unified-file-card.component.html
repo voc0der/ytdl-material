@@ -5,7 +5,8 @@
     [style.top]="contextMenuPosition.y"
     [matMenuTriggerFor]="context_menu">
   </div>
-  @if (!file_obj || !file_obj.auto) {
+  <!-- A playlist in someone else's library has nothing to offer but opening it. -->
+  @if ((!file_obj || !file_obj.auto) && !(library && is_playlist)) {
     <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button aria-label="More actions" i18n-aria-label="File card actions"><mat-icon>more_vert</mat-icon></button>
   }
   <mat-menu #context_menu class="kit-menu kit-action-menu">
@@ -15,7 +16,9 @@
     }
   </mat-menu>
   <mat-menu #action_menu="matMenu" class="kit-menu kit-action-menu">
-    @if (!is_playlist && !loading) {
+    @if (library && !is_playlist && !loading) {
+      <button (click)="openFileInfoDialog()" mat-menu-item><mat-icon>info</mat-icon><ng-container i18n="Media info button">Media info</ng-container></button>
+    } @else if (!is_playlist && !loading) {
       <button (click)="emitToggleFavorite()" mat-menu-item>
         <mat-icon>{{file_obj.favorite ? 'favorite_filled' : 'favorite_outline'}}</mat-icon>
         @if (!file_obj.favorite) {

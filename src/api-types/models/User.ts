@@ -14,4 +14,8 @@ export type User = {
     role?: string;
     permissions?: Array<UserPermission>;
     permission_overrides?: Array<UserPermission>;
+    /**
+     * Whether every other account may browse this user's library, read only.
+     */
+    library_shared?: boolean;
 };

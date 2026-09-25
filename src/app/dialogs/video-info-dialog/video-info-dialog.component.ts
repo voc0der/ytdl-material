@@ -32,6 +32,8 @@ export class VideoInfoDialogComponent implements OnInit {
   initialized = false;
   retrieving_file = false;
   write_access = false;
+  // Set when the file is in someone else's library, which is only ever shown, never changed.
+  library: string = null;
   // Snipping needs a player to scrub in, so it is only offered when the dialog was opened
   // from one. The player reads snip_requested back off this instance once the dialog closes.
   allow_snip = false;
@@ -57,6 +59,7 @@ export class VideoInfoDialogComponent implements OnInit {
     this.filesize = filesize;
     if (this.data) {
       this.allow_snip = !!this.data.allow_snip;
+      this.library = this.data.library ?? null;
       this.initializeFile(this.data.file);
     }
     this.postsService.reloadCategories();
@@ -75,7 +78,7 @@ export class VideoInfoDialogComponent implements OnInit {
     this.upload_date.setMinutes( this.upload_date.getMinutes() + this.upload_date.getTimezoneOffset() );
 
     this.category = this.file.category ? this.file.category : {};
-    this.write_access = !this.file?.user_uid || (this.file?.user_uid && this.postsService.user?.uid === this.file.user_uid);
+    this.write_access = !this.library && (!this.file?.user_uid || (this.file?.user_uid && this.postsService.user?.uid === this.file.user_uid));
 
     // we need to align whether missing category is null or undefined. this line helps with that.
     if (!this.file.category) { this.new_file.category = null; this.file.category = null; }
@@ -130,7 +133,7 @@ export class VideoInfoDialogComponent implements OnInit {
 
   getFile(): void {
     this.retrieving_file = true;
-    this.postsService.getFile(this.file.uid).subscribe(res => {
+    this.postsService.getFile(this.file.uid, null, this.library).subscribe(res => {
       this.retrieving_file = false;
       this.file = res['file'];
       this.initializeFile(this.file);

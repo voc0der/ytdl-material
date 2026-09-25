@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { VgApiService } from '@videogular/ngx-videogular/core';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IChapter, IMedia, ISubtitleTrack, PlayerComponent } from './player.component';
@@ -618,6 +618,61 @@ describe('PlayerComponent', () => {
     const subtitleTrackURL = component.createSubtitleTrackURL('uid with spaces', 0);
 
     expect(subtitleTrackURL).toBe('/api/streamSubtitle?uid=uid%20with%20spaces&index=0');
+  });
+
+  describe('playing from someone else\'s library', () => {
+    beforeEach(() => {
+      component.library = 'bob';
+      component.baseStreamPath = '/api/';
+    });
+
+    it('should ask for its media from that library', () => {
+      postsServiceStub.isLoggedIn = true;
+      postsServiceStub.token = 'token';
+
+      expect(component.createStreamURL({uid: 'f1', isAudio: false} as DatabaseFile)).toBe('/api/stream?uid=f1&type=video&jwt=token&library=bob');
+      expect(component.createSubtitleTrackURL('f1', 0)).toBe('/api/streamSubtitle?uid=f1&index=0&jwt=token&library=bob');
+    });
+
+    it('should queue the rest of that library for autoplay', () => {
+      const media: IMedia = {title: 'Single file', src: '/stream/test', type: 'video/mp4', label: 'Single file', url: 'https://example.com/video', uid: 'uid-single'};
+      component.uid = 'uid-single';
+      component.playlist = [media];
+      component.currentItem = media;
+      component.autoplay_enabled = true;
+      component.autoplay_queue_initialized = false;
+      component.autoplay_queue_loading = false;
+
+      component.ensureAutoplayQueueReady();
+
+      expect(vi.mocked(postsServiceStub.getAllFiles).mock.lastCall[8]).toBe('bob');
+    });
+
+    it('should not count a view of a file that is not the viewer\'s', () => {
+      postsServiceStub.incrementViewCount = vi.fn();
+      postsServiceStub.getFile.mockReturnValue(of({file: {uid: 'f1', title: 'A video', isAudio: false, url: 'https://example.com/video'}}));
+      component.uid = 'f1';
+
+      component.getFile();
+
+      expect(postsServiceStub.getFile).toHaveBeenLastCalledWith('f1', null, 'bob');
+      expect(postsServiceStub.incrementViewCount).not.toHaveBeenCalled();
+    });
+
+    it('should offer nothing that would copy, share or change it', () => {
+      postsServiceStub.isLoggedIn = true;
+      postsServiceStub.permissions = ['sharing'];
+      showPlayer();
+      component.db_file = {uid: 'f1', title: 'A video', url: 'https://www.twitch.tv/videos/1', isAudio: false} as any;
+      fixture.detectChanges();
+
+      const icons = actionBarButtons().map(button => button.querySelector('mat-icon')?.textContent.trim());
+      expect(icons).toContain('info');
+      for (const icon of ['cloud_download', 'folder_zip', 'share', 'chat']) {
+        expect(icons).not.toContain(icon);
+      }
+      expect(component.canSnipCurrentFile()).toBe(false);
+    });
   });
 
   it('should reset page title on destroy', () => {

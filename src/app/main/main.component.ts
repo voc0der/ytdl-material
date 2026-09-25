@@ -214,7 +214,10 @@ export class MainComponent implements OnInit {
   }
 
   get showCreatePlaylistShortcut(): boolean {
-    return !!this.mediaLibrary && this.mediaLibrary.showLibraryTabs && this.mediaLibrary.activeLibraryTab === 1;
+    // A playlist is made from your own files, so there is nothing to make one from while
+    // someone else's library is showing.
+    return !!this.mediaLibrary && this.mediaLibrary.showLibraryTabs && this.mediaLibrary.activeLibraryTab === 1
+      && !this.mediaLibrary.libraryUid;
   }
 
   openCreatePlaylistDialog(): void {

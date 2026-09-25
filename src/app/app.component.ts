@@ -322,6 +322,16 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.notification_count > 99 ? '99+' : `${this.notification_count}`;
   }
 
+  get viewingLibraryLabel(): string {
+    return $localize`:Toolbar button shown while browsing someone else's library:Browsing ${this.postsService.viewed_library?.name}:owner name:'s library. Back to yours`;
+  }
+
+  // One press from anywhere back to your own library, which is what the button is for.
+  returnToOwnLibrary(): void {
+    this.postsService.viewLibrary(null);
+    this.router.navigate(['/home']);
+  }
+
   get notificationsLabel(): string {
     return this.notification_count > 0
       ? $localize`:Toolbar notifications button, with the number waiting:Notifications, ${this.notification_count}:count: unread`
