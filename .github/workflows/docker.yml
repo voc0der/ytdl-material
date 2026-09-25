@@ -1,8 +1,11 @@
 name: docker
 
 on:
-  # Publishing nightly is a deliberate step, like a release, so automated merges to main
-  # never ship an image on their own.
+  # Nightly is built once a night, and only when main has moved since the last build, so
+  # automated merges during the day never ship an image on their own. 07:00 UTC is 3am US
+  # Eastern in summer and 2am in winter.
+  schedule:
+    - cron: '0 7 * * *'
   workflow_dispatch:
     inputs:
       cold_rebuild:
@@ -11,7 +14,32 @@ on:
         default: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    steps:
+      - name: Compare with the last nightly build
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last_sha=$(gh run list -R "${{ github.repository }}" --workflow docker.yml --branch main \
+            --status success --limit 1 --json headSha -q '.[0].headSha // ""')
+          if [ "$last_sha" = "${{ github.sha }}" ]; then
+            echo "main is still at ${last_sha}, which nightly was last built from."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main moved from ${last_sha:-nothing} to ${{ github.sha }}."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-push:
+    needs: changes
+    # A manual run always builds; the nightly schedule only builds when main has moved.
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
