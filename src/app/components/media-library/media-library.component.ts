@@ -289,6 +289,19 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         });
       });
 
+    this.postsService.library_changed
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.sub_id) return;
+        // Nothing on screen belongs to the library being switched to, so it is loaded from
+        // scratch rather than refreshed in place.
+        this.manualPageIndex = 0;
+        this.paged_data = [];
+        this.normal_files_received = false;
+        this.getAllFiles();
+        this.getPlaylistLibraryItems();
+      });
+
     this.searchChangedSubject
       .pipe(
         debounceTime(500),
@@ -629,6 +642,16 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     return !this.sub_id;
   }
 
+  // Whose library this is showing when it is not the viewer's own. A subscription's files are
+  // always the viewer's, so only the home page's library can be someone else's.
+  get libraryUid(): string | null {
+    return this.sub_id ? null : this.postsService.viewedLibraryUid;
+  }
+
+  get libraryOwnerName(): string | null {
+    return this.libraryUid ? this.postsService.viewed_library.name : null;
+  }
+
   // Nothing downloaded yet, as opposed to a search or filters that matched nothing. There is
   // nothing to search, sort, filter or page through then, so only the empty state is shown.
   get libraryIsEmpty(): boolean {
@@ -676,7 +699,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   getPlaylistLibraryItems(): void {
     this.playlistLibraryReceived = false;
-    this.postsService.getPlaylists(true).subscribe(res => {
+    this.postsService.getPlaylists(true, this.libraryUid).subscribe(res => {
       this.playlistLibraryItems = res['playlists'];
       this.playlistLibraryReceived = true;
       this.schedulePendingScrollRestore();
@@ -913,7 +936,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     const fileTypeFilter = this.getFileTypeFilter();
     const favoriteFilter = this.getFavoriteFilter();
     const categoryFilterUids = this.getCategoryFilterUids();
-    this.postsService.getAllFiles(sort, range, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids).subscribe(res => {
+    this.postsService.getAllFiles(sort, range, this.search_mode ? this.search_text : null, fileTypeFilter as FileTypeFilter, favoriteFilter, this.sub_id, false, categoryFilterUids, this.libraryUid).subscribe(res => {
       // Deferring the request is not enough on its own: a refresh asked for just before a card
       // was pressed lands during it, and it is applying the response that rebuilds the grid.
       // The in-progress flags below belong solely to this request and are cleared either way,
@@ -930,6 +953,11 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         console.error(err);
         if (!append) {
           this.normal_files_received = had_loaded_files;
+        }
+        // Usually its owner has stopped sharing it. Your own library is the one left to show.
+        if (this.libraryUid) {
+          this.postsService.openSnackBar($localize`Could not open ${this.libraryOwnerName}:owner name:'s library. Showing yours instead.`);
+          this.postsService.viewLibrary(null);
         }
       }
 
@@ -1032,6 +1060,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
     if (this.sub_id) {
       routeParams.queue_sub_id = this.sub_id;
+    }
+    if (this.libraryUid) {
+      routeParams.library = this.libraryUid;
     }
     return routeParams;
   }
@@ -1821,6 +1852,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
     if (playlist.auto) {
       routeParams['auto'] = `${playlist.auto}`;
+    }
+
+    if (this.libraryUid) {
+      routeParams['library'] = this.libraryUid;
     }
 
     return routeParams;

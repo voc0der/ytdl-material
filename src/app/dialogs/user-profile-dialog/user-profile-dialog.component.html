@@ -10,7 +10,35 @@
 <mat-dialog-content class="dialog-content">
   @if (postsService.isLoggedIn && postsService.user) {
     <section class="dialog-section dialog-surface account-summary">
-      <h3>{{postsService.user.name}}</h3>
+      <!-- Once somebody shares their library, the name says whose library the app is showing, and
+           picks another. -->
+      @if (shared_libraries.length || postsService.viewed_library) {
+        <h3>
+          <button type="button" class="library-owner-switch" [matMenuTriggerFor]="libraryMenu" [attr.aria-label]="librarySwitchLabel">
+            <span class="library-owner-name">{{viewedLibraryName}}</span>
+            <mat-icon>expand_more</mat-icon>
+          </button>
+        </h3>
+        <mat-menu #libraryMenu="matMenu" class="kit-menu">
+          <button mat-menu-item role="menuitemradio" [attr.aria-checked]="!postsService.viewed_library" (click)="viewLibrary(null)">
+            <mat-icon [class.kit-invisible]="!!postsService.viewed_library">check</mat-icon>
+            <span>{{postsService.user.name}}</span>
+            <span class="kit-menu-detail" i18n="Your own library, in the library switch">Yours</span>
+          </button>
+          @for (library of shared_libraries; track library.uid) {
+            <button mat-menu-item role="menuitemradio" [attr.aria-checked]="library.uid === postsService.viewedLibraryUid" (click)="viewLibrary(library)">
+              <mat-icon [class.kit-invisible]="library.uid !== postsService.viewedLibraryUid">check</mat-icon>
+              <span>{{library.name}}</span>
+              <span class="kit-menu-detail" i18n="A shared library, in the library switch">Read only</span>
+            </button>
+          }
+        </mat-menu>
+        @if (postsService.viewed_library) {
+          <p class="dialog-hint library-owner-hint" i18n="Viewing a shared library hint">You are browsing {{postsService.viewed_library.name}}'s library. You can watch anything in it, but not change it.</p>
+        }
+      } @else {
+        <h3>{{postsService.user.name}}</h3>
+      }
       <dl class="dialog-details">
         <div><dt i18n="Created">Created</dt><dd>{{postsService.user.created ? (postsService.user.created | date) : 'N/A'}}</dd></div>
         <div><dt i18n="UID">UID</dt><dd class="dialog-mono">{{postsService.user.uid}}</dd></div>
@@ -42,6 +70,16 @@
         </div>
         <app-picker title="File card size" i18n-title="File card size" [options]="card_size_options" [(value)]="card_size" (valueChange)="cardSizeOptionChanged($event)"></app-picker>
       </div>
+      @if (postsService.isLoggedIn && postsService.user) {
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title" id="share-library-title" i18n="Share library setting">Share library</span>
+            <span class="settings-row-hint" i18n="Share library setting hint">Everyone with an account here can browse and watch your library. Nobody else can change anything in it.</span>
+          </div>
+          <mat-slide-toggle [checked]="!!postsService.user.library_shared" [disabled]="library_sharing_saving"
+            (change)="librarySharingChanged($event)" aria-labelledby="share-library-title"></mat-slide-toggle>
+        </div>
+      }
     </div>
   </section>
 

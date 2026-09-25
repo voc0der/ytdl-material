@@ -471,6 +471,48 @@ It downloads nothing, and like the others it is not part of CI.
   itself is blocked, and Autoplay has nothing to follow. A person opening the player has clicked
   something already.
 
+# Exercising library sharing
+
+Sharing is the one feature that needs two accounts at once, and what it must not do -- let one
+account change anything in another's library -- cannot be seen from either account's own pages.
+`dev/screenshots/sharing.sh` boots the backend in multi-user mode with two libraries and works
+it from both sides:
+
+```bash
+dev/screenshots/sharing.sh               # build, boot, run, stop
+dev/screenshots/sharing.sh --skip-build  # reuse the last frontend build
+dev/screenshots/sharing.sh --keep        # leave the backend running on :17459 afterwards
+```
+
+It registers an admin, Bob and a viewer through the API, seeding Bob with four of the README's
+videos and a playlist and the viewer with one. As Bob it turns on **Share library** in Profile and
+checks the backend now lists his library, by uid and name only. As the viewer it checks their
+name in Profile has become a switch offering both libraries, picks Bob's, and checks the home
+page shows his files with their thumbnails, the toolbar names whose library it is, a file's menu
+offers only Media info, that dialog changes nothing, and his playlist has no menu. It plays one of
+his videos and checks the stream is served, the player offers no download or share, and his view
+count has not moved. The toolbar button must take the viewer back to their own library in one
+press, and a reload must start there too. Then it asks the API directly for everything the page
+does not offer -- editing, favoriting, deleting, new cover art, adding to his playlist, and a
+download -- and checks each is refused and his records are unchanged, as is asking for a library
+nobody shared. Finally Bob stops sharing while the viewer is browsing it, and the viewer must be
+told and put back on their own library. Screenshots at a desktop and a phone width, light and
+dark, are left in the `shots` folder it prints.
+
+It downloads nothing, and like the others it is not part of CI.
+
+## Things worth knowing
+
+- **Each account's files live under `users/<uid>/`.** The stream and thumbnail routes check a
+  record's path against its owner's folder, so a file seeded into the shared `video/` folder with
+  a `user_uid` is refused rather than served, and the run then reads as a sharing bug.
+- **`/api/auth` allows 25 requests in 15 minutes per address.** Every page load signs in again
+  from the stored token, and a run makes about fifteen requests in all. A `--keep` backend poked
+  at by hand shares the same budget.
+- **Only the read routes look at `library`.** A write that is handed the parameter ignores it and
+  acts on the caller's own records, which is why the refusals are checked against Bob's records
+  and not only against the answer.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`

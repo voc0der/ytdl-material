@@ -55,6 +55,10 @@ const GUARDS = ['requireAdmin', 'requirePermission', 'requireAuthenticatedOrShar
 // /api/getPlaylists.
 const SHARED_LINK_ROUTES = ['/api/getFile', '/api/stream', '/api/streamSubtitle', '/api/getPlaylist', '/api/downloadFileFromServer'];
 
+// The only routes that may answer from another user's shared library. Each one reads; a
+// shared library is shown, never changed, and downloading a copy is not part of it.
+const SHARED_LIBRARY_ROUTES = ['/api/getAllFiles', '/api/getFile', '/api/getPlaylists', '/api/getPlaylist', '/api/stream', '/api/streamSubtitle', '/api/thumbnail/:uid'];
+
 function parseRoutes() {
     const routes = [];
     let match;
@@ -123,6 +127,41 @@ describe('API route guards', function() {
 
         assert.deepStrictEqual(overreaching.map(r => r.route), [],
             'these routes accept a share link but optionalJwt never validates a share for them');
+    });
+
+    it('only reads another user\'s library on the routes that show it', function() {
+        for (const route of SHARED_LIBRARY_ROUTES) {
+            const definition = routes.find(r => r.route === route);
+            assert(definition, `expected ${route} to exist`);
+            const guard = GUARDS.find(candidate => definition.rest.includes(candidate));
+            assert(definition.rest.indexOf('resolveLibraryOwner') > definition.rest.indexOf(guard),
+                `${route} must resolve the library owner, after its guard has established who is asking`);
+        }
+
+        const overreaching = routes.filter(({route, rest}) =>
+            !SHARED_LIBRARY_ROUTES.includes(route) && rest.includes('resolveLibraryOwner'));
+        assert.deepStrictEqual(overreaching.map(r => r.route), [],
+            'these routes would act on another user\'s library, which is only ever read');
+
+        // resolveLibraryOwner only says whose library was asked for; libraryOwnerUid is what
+        // acts on it. A handler that called it without the middleware would quietly read the
+        // caller's own library, and one outside the list above could write to someone else's.
+        const route_starts = [];
+        const route_start_pattern = new RegExp(`^[ \\t]*app\\.(?:${ROUTE_VERBS})\\(\\s*['"\`](/api/[^'"\`]*)['"\`]`, 'gm');
+        let match;
+        while ((match = route_start_pattern.exec(APP_SOURCE)) !== null) route_starts.push({index: match.index, route: match[1]});
+
+        const misplaced = [];
+        const use_pattern = /libraryOwnerUid\(/g;
+        while ((match = use_pattern.exec(APP_SOURCE)) !== null) {
+            const index = match.index;
+            const enclosing = route_starts.filter(start => start.index < index).pop();
+            if (!enclosing || !SHARED_LIBRARY_ROUTES.includes(enclosing.route)) {
+                misplaced.push(enclosing ? enclosing.route : `offset ${index}`);
+            }
+        }
+        assert.deepStrictEqual(misplaced, [],
+            'libraryOwnerUid is used outside the routes that read a shared library');
     });
 
     it('keeps the server-wide cookie file behind an administrator', function() {

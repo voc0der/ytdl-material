@@ -89,7 +89,7 @@ describe('VideoInfoDialogComponent', () => {
   });
 
   it('should fetch the full file payload on init', () => {
-    expect(postsServiceStub.getFile).toHaveBeenCalledWith('uid-1');
+    expect(postsServiceStub.getFile).toHaveBeenCalledWith('uid-1', null, null);
     expect(component.new_file.subtitles?.length).toBe(1);
   });
 
@@ -262,5 +262,23 @@ describe('VideoInfoDialogComponent', () => {
 
     component.file.thumbnailPath = 'users/vocoder/video/Mac Miller - Self Care.webp';
     expect(component.hasThumbnail()).toBe(true);
+  });
+
+  it('only shows a file from someone else\'s library, reading it from there', () => {
+    postsServiceStub.getFile.mockClear();
+    component.data.library = 'bob';
+    component.data.allow_snip = true;
+
+    component.ngOnInit();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+
+    expect(postsServiceStub.getFile).toHaveBeenCalledWith('uid-1', null, 'bob');
+    expect(component.write_access).toBe(false);
+    expect(component.canSnip()).toBe(false);
+    expect(component.canGenerateThumbnail()).toBe(false);
+    expect(element.querySelector('.favorite-button')).toBeNull();
+    expect(element.querySelector('.dialog-actions').textContent).not.toContain('Edit details');
+    expect(element.querySelector('.dialog-subtitle').textContent).toContain('shared with you');
   });
 });

@@ -18,7 +18,7 @@
 - Build playlists and continue playback through the player's Autoplay queue.
 - Use available chapters and subtitles, theater mode, and video blackout for listening.
 - Save a selected time range from a library item as a new snip, or crop a new download before it enters the library.
-- Share individual files or playlists with a link.
+- Share individual files or playlists with a link, or let the other accounts on a server browse your whole library, read only.
 - Apply rule-based categories and custom filenames, and manage download history through the Archive.
 
 [Library](usage/library.md) · [Player](usage/player.md) · [Categories](usage/categories.md)

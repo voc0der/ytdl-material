@@ -95,6 +95,9 @@ function createPostsServiceStub(): any {
     open_create_default_admin_dialog: createUniversalStub(),
     reload_config: createUniversalStub(),
     files_changed: createUniversalStub(),
+    library_changed: createUniversalStub(),
+    viewed_library: null,
+    viewedLibraryUid: null,
     config: {
       Downloader: {
         use_youtubedl_archive: false

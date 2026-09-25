@@ -120,7 +120,9 @@ import {
     Subscription,
     RestartDownloadResponse,
     TaskType,
-    CheckSubscriptionRequest
+    CheckSubscriptionRequest,
+    GetSharedLibrariesResponse,
+    SharedLibrary
 } from '../api-types';
 import { isoLangs } from './dialogs/user-profile-dialog/locales_list';
 import { Title } from '@angular/platform-browser';
@@ -220,6 +222,12 @@ export class PostsService {
     files_changed = new Subject<boolean>();
     playlists_changed = new Subject<boolean>();
     categories_changed = new Subject<boolean>();
+
+    // Someone else's library the home page is showing, read only. Null while it shows your own.
+    // It lasts until you switch back, log out or log in again, and is never stored: a reload
+    // shows your own library.
+    viewed_library: SharedLibrary = null;
+    library_changed = new Subject<SharedLibrary | null>();
 
     // app status
     initialized = false;
@@ -492,12 +500,12 @@ export class PostsService {
         return this.http.get<GetMp4sResponse>(this.path + 'getMp4s', this.httpOptions);
     }
 
-    getFile(uid: string, uuid: string = null) {
+    getFile(uid: string, uuid: string = null, library: string = null) {
         const body: GetFileRequest = {uid: uid, uuid: uuid};
-        return this.http.post<GetFileResponse>(this.path + 'getFile', body, this.httpOptions);
+        return this.http.post<GetFileResponse>(this.path + 'getFile', body, this.libraryOptions(library));
     }
 
-    getAllFiles(sort: Sort = null, range: number[] = null, text_search: string = null, file_type_filter: FileTypeFilter = FileTypeFilter.BOTH, favorite_filter = false, sub_id: string = null, include_chapters = false, category_filter_uids: string[] = null) {
+    getAllFiles(sort: Sort = null, range: number[] = null, text_search: string = null, file_type_filter: FileTypeFilter = FileTypeFilter.BOTH, favorite_filter = false, sub_id: string = null, include_chapters = false, category_filter_uids: string[] = null, library: string = null) {
         const body: GetAllFilesRequest = {
             sort: sort,
             range: range,
@@ -508,7 +516,7 @@ export class PostsService {
             include_chapters: include_chapters,
             category_filter_uids: category_filter_uids
         };
-        return this.http.post<GetAllFilesResponse>(this.path + 'getAllFiles', body, this.httpOptions);
+        return this.http.post<GetAllFilesResponse>(this.path + 'getAllFiles', body, this.libraryOptions(library));
     }
 
     getDuplicateSummary() {
@@ -651,6 +659,35 @@ export class PostsService {
         return this.http.post<{success: boolean}>(this.path + 'revokeAPIToken', {token_id: token_id}, this.httpOptions);
     }
 
+    // library sharing
+
+    getSharedLibraries() {
+        return this.http.post<GetSharedLibrariesResponse>(this.path + 'getSharedLibraries', {}, this.httpOptions);
+    }
+
+    setLibrarySharing(enabled: boolean) {
+        return this.http.post<SuccessObject>(this.path + 'setLibrarySharing', {enabled: enabled}, this.httpOptions);
+    }
+
+    get viewedLibraryUid(): string | null {
+        return this.viewed_library?.uid ?? null;
+    }
+
+    // Shows someone else's library on the home page, or your own again with null.
+    viewLibrary(library: SharedLibrary | null): void {
+        const next = library && library.uid !== this.user?.uid ? {uid: library.uid, name: library.name} : null;
+        if ((next?.uid ?? null) === this.viewedLibraryUid) return;
+        this.viewed_library = next;
+        this.library_changed.next(next);
+    }
+
+    // For the handful of reads that can answer from someone else's library. Nothing else is
+    // sent the parameter, so a write can only ever reach your own.
+    private libraryOptions(library: string | null) {
+        return library ? {params: this.httpOptions.params.set('library', library)} : this.httpOptions;
+    }
+
+
     enableSharing(uid: string, is_playlist: boolean) {
         const body: SharingToggle = {uid: uid, is_playlist: is_playlist};
         return this.http.post<SuccessObject>(this.path + 'enableSharing', body, this.httpOptions);
@@ -668,14 +705,14 @@ export class PostsService {
         return this.http.post<CreatePlaylistResponse>(this.path + 'createPlaylist', body, this.httpOptions);
     }
 
-    getPlaylist(playlist_id: string, uuid: string = null, include_file_metadata: boolean = false) {
+    getPlaylist(playlist_id: string, uuid: string = null, include_file_metadata: boolean = false, library: string = null) {
         const body: GetPlaylistRequest = {playlist_id: playlist_id,
             include_file_metadata: include_file_metadata, uuid: uuid};
-        return this.http.post<GetPlaylistResponse>(this.path + 'getPlaylist', body, this.httpOptions);
+        return this.http.post<GetPlaylistResponse>(this.path + 'getPlaylist', body, this.libraryOptions(library));
     }
 
-    getPlaylists(include_categories = false) {
-        return this.http.post<GetPlaylistsRequest>(this.path + 'getPlaylists', {include_categories: include_categories}, this.httpOptions);
+    getPlaylists(include_categories = false, library: string = null) {
+        return this.http.post<GetPlaylistsRequest>(this.path + 'getPlaylists', {include_categories: include_categories}, this.libraryOptions(library));
     }
 
     incrementViewCount(file_uid, sub_id, uuid, playlist_id = null) {
@@ -908,6 +945,7 @@ export class PostsService {
     afterLogin(user, token, permissions, available_permissions, redirect_path = '/home') {
         this.isLoggedIn = true;
         this.user = user;
+        this.viewLibrary(null);
         this.permissions = permissions;
         this.available_permissions = available_permissions;
         this.token = token;
@@ -1038,6 +1076,7 @@ export class PostsService {
     }
 
     logout() {
+        this.viewLibrary(null);
         this.user = null;
         this.permissions = null;
         this.isLoggedIn = false;

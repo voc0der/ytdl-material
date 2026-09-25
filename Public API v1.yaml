@@ -127,6 +127,8 @@ paths:
       summary: Get all files
       description: Gets all files and playlists stored in the db
       operationId: get-getAllFiles
+      parameters:
+        - $ref: '#/components/parameters/Library'
       requestBody:
         content:
           application/json:
@@ -175,6 +177,8 @@ paths:
       summary: Get file database object
       description: Gets a file db object by its uid and type. Type will be found if not provided
       operationId: post-getFile
+      parameters:
+        - $ref: '#/components/parameters/Library'
       requestBody:
         content:
           application/json:
@@ -322,6 +326,7 @@ paths:
           description: >-
             Owner uid, for a share link. The file, or the playlist it was shared
             in, must have sharing enabled.
+        - $ref: '#/components/parameters/Library'
       responses:
         '200':
           description: The whole file.
@@ -405,6 +410,7 @@ paths:
           schema:
             type: string
           description: uid of the file whose thumbnail to return.
+        - $ref: '#/components/parameters/Library'
       responses:
         '200':
           description: The thumbnail image.
@@ -768,6 +774,8 @@ paths:
       summary: Get playlist
       description: Gets a playlist object from the database from its ID
       operationId: post-api-getPlaylist
+      parameters:
+        - $ref: '#/components/parameters/Library'
       requestBody:
         content:
           application/json:
@@ -1144,6 +1152,57 @@ paths:
           description: OK
       security:
         - JWT token parameter: []
+  /api/getSharedLibraries:
+    post:
+      tags:
+        - multi-user mode
+      summary: List shared libraries
+      description: >-
+        Lists the other accounts that share their library, which the caller can
+        browse read only by passing the owner's uid as the library parameter.
+        Empty in single-user mode.
+      operationId: post-api-getSharedLibraries
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSharedLibrariesResponse'
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
+  /api/setLibrarySharing:
+    post:
+      tags:
+        - multi-user mode
+      summary: Share your library
+      description: >-
+        Lets every other account browse and watch the caller's library, or stops
+        it. Nobody else can change anything in it. Multi-user mode only.
+      operationId: post-api-setLibrarySharing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+        '400':
+          description: enabled is not a boolean, or the server is in single-user mode.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/config:
     get:
       tags: []
@@ -2096,6 +2155,17 @@ paths:
         - JWT token parameter: []
         - API bearer token: []
 components:
+  parameters:
+    Library:
+      name: library
+      in: query
+      schema:
+        type: string
+      description: >-
+        Multi-user mode only. The uid of the account whose library to read from,
+        when it is not the caller's own. The owner must share their library, or
+        the request is refused with a 403. Shared libraries are read only: no
+        other route accepts this parameter.
   schemas:
     SuccessObject:
       required:
@@ -3634,6 +3704,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserPermission'
+        library_shared:
+          type: boolean
+          description: Whether every other account may browse this user's library, read only.
+    SharedLibrary:
+      type: object
+      required:
+        - uid
+        - name
+      properties:
+        uid:
+          type: string
+        name:
+          type: string
+    GetSharedLibrariesResponse:
+      type: object
+      required:
+        - libraries
+      properties:
+        libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedLibrary'
     UserPermission:
       type: string
       enum:

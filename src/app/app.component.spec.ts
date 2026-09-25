@@ -333,3 +333,37 @@ describe('AppComponent notification bell', () => {
     expect(component.notificationsLabel).toContain('3');
   });
 });
+
+describe('AppComponent while browsing someone else\'s library', () => {
+  let component: AppComponent;
+  let posts_service_mock: any;
+  let router_mock: any;
+
+  beforeEach(() => {
+    posts_service_mock = {
+      config_reloaded: of(false),
+      files_changed: new Subject<boolean>(),
+      open_create_default_admin_dialog: of(false),
+      service_initialized: of(true),
+      initialized: true,
+      config: { Advanced: { multi_user_mode: true } },
+      getCurrentDownloads: () => of({ downloads: [] }),
+      viewed_library: { uid: 'bob', name: 'Bob' },
+      viewLibrary: vi.fn()
+    };
+    router_mock = { events: of(), navigate: vi.fn(), url: '/player' };
+    const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
+    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock);
+  });
+
+  it('says whose library it is, and that the button leaves it', () => {
+    expect(component.viewingLibraryLabel).toBe('Browsing Bob\'s library. Back to yours');
+  });
+
+  it('goes back to your own library in one press, from wherever you are', () => {
+    component.returnToOwnLibrary();
+
+    expect(posts_service_mock.viewLibrary).toHaveBeenCalledWith(null);
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/home']);
+  });
+});

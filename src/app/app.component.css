@@ -222,3 +222,8 @@
     color: #ffffff !important;
     font-weight: 700;
 }
+
+/* Tinted, so browsing someone else's library is hard to mistake for browsing your own. */
+.viewing-library-button {
+    color: var(--kit-accent);
+}

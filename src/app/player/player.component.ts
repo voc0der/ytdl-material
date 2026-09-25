@@ -100,6 +100,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   sub_id = null;
   subPlaylist = null;
   uuid = null; // used for sharing in multi-user mode, uuid is the user that downloaded the video
+  // The owner of a shared library this is played from, which is only ever watched, never changed.
+  library: string = null;
   timestamp = null;
   auto = null;
   queue_sort_by = 'registered';
@@ -185,6 +187,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.url = this.route.snapshot.paramMap.get('url');
     this.name = this.route.snapshot.paramMap.get('name');
     this.uuid = this.route.snapshot.paramMap.get('uuid');
+    this.library = this.route.snapshot.paramMap.get('library');
     this.timestamp = this.route.snapshot.paramMap.get('timestamp');
     this.auto = this.route.snapshot.paramMap.get('auto');
     this.queue_sort_by = this.route.snapshot.paramMap.get('queue_sort_by') ?? 'registered';
@@ -289,7 +292,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   getFile(): void {
-    this.postsService.getFile(this.uid, this.uuid).subscribe(res => {
+    this.postsService.getFile(this.uid, this.uuid, this.library).subscribe(res => {
       this.db_file = res['file'];
       if (!this.db_file) {
         this.postsService.openSnackBar($localize`Failed to get file information from the server.`, 'Dismiss');
@@ -297,11 +300,14 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       }
       // playlist_id is sent so a file played through a shared playlist can be counted:
       // the server accepts membership of a shared playlist as the capability, and the
-      // file itself is often not shared on its own.
-      this.postsService.incrementViewCount(this.db_file['uid'], null, this.uuid, this.playlist_id).subscribe(() => undefined, err => {
-        console.error('Failed to increment view count');
-        console.error(err);
-      });
+      // file itself is often not shared on its own. A view of someone else's library is
+      // not counted: the count is theirs, and nothing in their library is changed.
+      if (!this.library) {
+        this.postsService.incrementViewCount(this.db_file['uid'], null, this.uuid, this.playlist_id).subscribe(() => undefined, err => {
+          console.error('Failed to increment view count');
+          console.error(err);
+        });
+      }
       // regular video/audio file (not playlist)
       this.uids = [this.db_file['uid']];
       this.type = this.db_file['isAudio'] ? 'audio' as FileType : 'video' as FileType;
@@ -326,7 +332,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   getPlaylistFiles(): void {
-    this.postsService.getPlaylist(this.playlist_id, this.uuid, true).subscribe(res => {
+    this.postsService.getPlaylist(this.playlist_id, this.uuid, true, this.library).subscribe(res => {
       if (res['playlist']) {
         this.db_playlist = res['playlist'];
         this.file_objs = res['file_objs'];
@@ -704,6 +710,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       data: {
         file: file_obj,
         allow_snip: this.canSnipCurrentFile(),
+        library: this.library
       },
       panelClass: 'kit-dialog-panel',
       width: '720px',
@@ -729,7 +736,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   canSnipCurrentFile(): boolean {
     // A snip needs a real registered file to trim and a duration to lay the track out over.
     return !!this.currentFile?.uid && this.getSnipDuration() > MIN_SNIP_DURATION_SECONDS
-      && this.postsService.hasPermission('filemanager');
+      && this.postsService.hasPermission('filemanager') && !this.library;
   }
 
   getSnipDuration(): number {
@@ -962,7 +969,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       uid: file_obj.uid,
       chapters: normalizedChapters,
       subtitles: normalizedSubtitles,
-      thumbnail: fileThumbnailURL(file_obj, this.baseStreamPath, this.postsService.isLoggedIn ? this.postsService.token : null),
+      thumbnail: fileThumbnailURL(file_obj, this.baseStreamPath, this.postsService.isLoggedIn ? this.postsService.token : null, this.library),
       duration: formatDuration(file_obj.duration),
       uploader: file_obj.uploader || ''
     };
@@ -983,6 +990,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
     if (this.uuid) {
       fullLocation += `&uuid=${this.uuid}`;
+    }
+
+    if (this.library) {
+      fullLocation += `&library=${encodeURIComponent(this.library)}`;
     }
 
     if (this.sub_id) {
@@ -1006,6 +1017,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
     if (this.uuid) {
       fullLocation += `&uuid=${this.uuid}`;
+    }
+
+    if (this.library) {
+      fullLocation += `&library=${encodeURIComponent(this.library)}`;
     }
 
     if (this.sub_id) {
@@ -1051,7 +1066,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     const textSearch = this.queue_search?.trim() ? this.queue_search.trim() : null;
     const queueSubID = this.queue_sub_id || null;
 
-    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, false, this.queue_category_filter_uids).subscribe(res => {
+    this.postsService.getAllFiles(sort, null, textSearch, fileTypeFilter, this.queue_favorite_filter, queueSubID, false, this.queue_category_filter_uids, this.library).subscribe(res => {
       if (!this.autoplay_enabled) {
         this.autoplay_queue_loading = false;
         this.pending_autoplay_advance = false;
@@ -1530,7 +1545,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }
 
     this.chapterLoadInFlight.add(current_uid);
-    this.postsService.getFile(current_uid, this.uuid).subscribe(res => {
+    this.postsService.getFile(current_uid, this.uuid, this.library).subscribe(res => {
       this.chapterLoadInFlight.delete(current_uid);
       const normalized_chapters = this.normalizeChapters(res?.file?.chapters);
       const normalized_subtitles = this.normalizeSubtitles(res?.file?.subtitles, current_uid);

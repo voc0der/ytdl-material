@@ -77,6 +77,12 @@
                 }
               </mat-menu>
             }
+            @if (postsService.viewed_library) {
+              <button class="viewing-library-button" (click)="returnToOwnLibrary()" mat-icon-button
+                [attr.aria-label]="viewingLibraryLabel" [matTooltip]="viewingLibraryLabel">
+                <mat-icon>switch_account</mat-icon>
+              </button>
+            }
             @if (postsService.config?.Extra.enable_notifications && postsService.hasSession()) {
               <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button
                 [attr.aria-label]="notificationsLabel" [matTooltip]="notificationsLabel">

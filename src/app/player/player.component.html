@@ -117,7 +117,8 @@
                         <mat-icon>movie</mat-icon>
                       </button>
                     }
-                    @if (db_playlist) {
+                    <!-- Someone else's library is only watched: nothing is downloaded, shared or synced from it. -->
+                    @if (db_playlist && !library) {
                       <span class="buttons">
                         @if (!downloading) {
                           <button (click)="downloadContent()" matTooltip="Download the whole playlist as a zip" i18n-matTooltip="Download playlist tooltip" aria-label="Download the whole playlist as a zip" i18n-aria-label="Download playlist label" mat-icon-button><mat-icon>folder_zip</mat-icon></button>
@@ -128,7 +129,7 @@
                         }
                       </span>
                     }
-                    @if (db_file) {
+                    @if (db_file && !library) {
                       <span class="buttons">
                         <button (click)="downloadFile()" [disabled]="downloading" matTooltip="Download this file" i18n-matTooltip="Download file tooltip" aria-label="Download this file" i18n-aria-label="Download file label" mat-icon-button><mat-icon>cloud_download</mat-icon></button>
                         @if (downloading) {
@@ -136,10 +137,10 @@
                         }
                       </span>
                     }
-                    @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto) {
+                    @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto && !library) {
                       <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
                     }
-                    @if (db_file && (!postsService.isLoggedIn || postsService.permissions.includes('sharing'))) {
+                    @if (db_file && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !library) {
                       <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
                     }
                     @if (db_file || playlist[currentIndex]) {
@@ -152,7 +153,7 @@
                     @if (db_file || db_playlist) {
                       <button (click)="openFileInfoDialog()" matTooltip="Details" i18n-matTooltip="Details tooltip" aria-label="Details" i18n-aria-label="Details label" mat-icon-button><mat-icon>info</mat-icon></button>
                     }
-                    @if (db_file && db_file.url.includes('twitch.tv')) {
+                    @if (db_file && db_file.url.includes('twitch.tv') && !library) {
                       <button (click)="drawer.toggle()" matTooltip="Chat" i18n-matTooltip="Chat toggle tooltip" aria-label="Chat" i18n-aria-label="Chat toggle label" mat-icon-button><mat-icon>chat</mat-icon></button>
                     }
                   </span>
@@ -202,7 +203,7 @@
                   </button>
                   @if (currentItem === playlist_item) {
                     <div class="playlist-row-actions" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
-                      @if (db_file && api && api.time && postsService.config) {
+                      @if (db_file && api && api.time && postsService.config && !library) {
                         <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="api?.state === 'playing'" [uid]="currentItem.uid" [playback_timestamp]="(api?.time?.current ?? 0)/1000" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
                       }
                       <button class="playlist-repeat-button playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
@@ -217,8 +218,8 @@
               }
             </ol>
           </section>
-          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists']">
-            @if (api_ready && db_file && db_file.url.includes('twitch.tv')) {
+          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists'] && !library">
+            @if (api_ready && db_file && db_file.url.includes('twitch.tv') && !library) {
               <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="api?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>
             }
           </mat-drawer>

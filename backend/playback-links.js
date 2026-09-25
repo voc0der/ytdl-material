@@ -151,7 +151,7 @@ exports.authorizeStream = (optionalJwt, requireAuthenticatedOrShared) =>
         if (!['GET', 'HEAD'].includes(req.method)
             || req.path !== '/api/stream'
             || req.query.uid !== grant.uid
-            || ['uuid', 'sub_id', 'jwt', 'playlist_id'].some(key => key in req.query)
+            || ['uuid', 'sub_id', 'jwt', 'playlist_id', 'library'].some(key => key in req.query)
             || grant.multiUser !== !!config.getConfigItem('ytdl_multi_user_mode')) {
             return res.sendStatus(403);
         }

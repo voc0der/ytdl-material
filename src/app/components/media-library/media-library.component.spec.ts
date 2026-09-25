@@ -56,7 +56,11 @@ describe('MediaLibraryComponent', () => {
       getPlaylists: vi.fn().mockName('getPlaylists').mockReturnValue(of({ playlists: [] })),
       files_changed: new BehaviorSubject(false),
       playlists_changed: new BehaviorSubject(false),
-      categories_changed: new BehaviorSubject(false)
+      categories_changed: new BehaviorSubject(false),
+      library_changed: new Subject(),
+      viewed_library: null,
+      viewedLibraryUid: null,
+      viewLibrary: vi.fn().mockName('viewLibrary')
     };
     routerStub = {
       url: '/home',
@@ -115,7 +119,7 @@ describe('MediaLibraryComponent', () => {
 
     component.getAllFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 12], null, 'both', false, null, false, []);
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 12], null, 'both', false, null, false, [], null);
     expect(component.paged_data.length).toBe(2);
     expect(component.file_count).toBe(40);
   });
@@ -141,7 +145,7 @@ describe('MediaLibraryComponent', () => {
 
     component.loadMoreAutoFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [2, 14], null, 'both', false, null, false, []);
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [2, 14], null, 'both', false, null, false, [], null);
     expect(component.paged_data.map(file => file.uid)).toEqual(['file-1', 'file-2', 'file-3']);
   });
 
@@ -174,7 +178,7 @@ describe('MediaLibraryComponent', () => {
 
     component.getAllFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 10], null, 'both', true, null, false, ['cat-music']);
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [0, 10], null, 'both', true, null, false, ['cat-music'], null);
   });
 
   it('should expose only categories marked as library filters', () => {
@@ -645,7 +649,7 @@ describe('MediaLibraryComponent', () => {
 
     component.loadMoreAutoFiles();
 
-    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [24, 48], null, 'both', false, 'network-chuck', false, []);
+    expect(postsServiceStub.getAllFiles).toHaveBeenCalledWith({ by: 'registered', order: -1 }, [24, 48], null, 'both', false, 'network-chuck', false, [], null);
   });
 
   describe('list layout', () => {
@@ -1117,6 +1121,74 @@ describe('MediaLibraryComponent', () => {
     expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBeNull();
     expect(navigationStateService.consumePendingRestoreState('/home', null)).toBeNull();
     expect(routerStub.navigate).not.toHaveBeenCalled();
+  });
+
+  describe('someone else\'s library', () => {
+    const element = (): HTMLElement => fixture.nativeElement;
+    const emptyState = (): HTMLElement => element().querySelector('.library-empty-state');
+
+    beforeEach(() => {
+      postsServiceStub.viewed_library = { uid: 'bob', name: 'Bob' };
+      postsServiceStub.viewedLibraryUid = 'bob';
+    });
+
+    it('should read its files and playlists, and open them from it', () => {
+      component.getAllFiles();
+      component.getPlaylistLibraryItems();
+
+      expect(postsServiceStub.getAllFiles.mock.lastCall[8]).toBe('bob');
+      expect(postsServiceStub.getPlaylists).toHaveBeenCalledWith(true, 'bob');
+      expect(component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any).library).toBe('bob');
+      expect(component.getPlaylistRouteParams({ id: 'playlist-1' } as any).library).toBe('bob');
+    });
+
+    it('should keep a subscription\'s files the viewer\'s own', () => {
+      component.sub_id = 'sub-1';
+
+      component.getAllFiles();
+
+      expect(component.libraryUid).toBeNull();
+      expect(postsServiceStub.getAllFiles.mock.lastCall[8]).toBeNull();
+      expect(component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any).library).toBeUndefined();
+    });
+
+    it('should load the other library from its first page when it is switched to', () => {
+      fixture.detectChanges();
+      component.manualPageIndex = 3;
+      postsServiceStub.getAllFiles.mockClear();
+      postsServiceStub.getPlaylists.mockClear();
+
+      postsServiceStub.library_changed.next({ uid: 'bob', name: 'Bob' });
+
+      expect(component.manualPageIndex).toBe(0);
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+      expect(postsServiceStub.getAllFiles.mock.lastCall[8]).toBe('bob');
+      expect(postsServiceStub.getPlaylists).toHaveBeenCalledWith(true, 'bob');
+    });
+
+    it('should say whose library is empty, and offer nothing to create in it', () => {
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(emptyState().querySelector('h2').textContent.trim()).toBe('Nothing here yet');
+      expect(emptyState().textContent).toContain('Bob has not downloaded anything.');
+
+      component.activeLibraryTab = 1;
+      fixture.detectChanges();
+
+      expect(emptyState().textContent).toContain('Bob has not made any playlists.');
+      expect(emptyState().querySelector('.kit-chip')).toBeNull();
+    });
+
+    it('should go back to the viewer\'s own library when the other one cannot be read', () => {
+      postsServiceStub.getAllFiles.mockReturnValue(throwError(() => 'That library is not shared'));
+      vi.spyOn(console, 'error').mockReturnValue(undefined);
+
+      component.getAllFiles();
+
+      expect(postsServiceStub.viewLibrary).toHaveBeenCalledWith(null);
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith(expect.stringContaining('Bob'));
+    });
   });
 
   it('removes only the playlist when the default delete action is chosen', () => {

@@ -77,6 +77,9 @@ export class UnifiedFileCardComponent implements OnInit {
   @Input() displayDateProperty = 'registered';
   @Input() baseStreamPath = null;
   @Input() jwtString = null;
+  // The owner of the library the card is shown from, when it is not the viewer's own. The card
+  // is read only then, and its media is asked for from that library.
+  @Input() library: string = null;
   @Input() availablePlaylists = null;
   @Output() goToFile = new EventEmitter<any>();
   @Output() toggleFavorite = new EventEmitter<DatabaseFile>();
@@ -212,8 +215,11 @@ export class UnifiedFileCardComponent implements OnInit {
     // A category borrows a thumbnail from one of its files and names that file instead.
     const thumbnailFileUid = this.file_obj?.thumbnailFileUid ?? (this.is_playlist ? null : this.file_obj?.uid);
     if (this.file_obj && this.file_obj.thumbnailPath && thumbnailFileUid) {
-      const authQuery = this.jwtString ? `jwt=${this.jwtString}` : '';
-      this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(thumbnailFileUid)}${authQuery ? '?' + authQuery : ''}`;
+      const query = [
+        this.jwtString ? `jwt=${this.jwtString}` : null,
+        this.library ? `library=${encodeURIComponent(this.library)}` : null
+      ].filter(Boolean).join('&');
+      this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(thumbnailFileUid)}${query ? '?' + query : ''}`;
     }
 
   }
@@ -245,6 +251,7 @@ export class UnifiedFileCardComponent implements OnInit {
     const dialogRef = this.dialog.open(VideoInfoDialogComponent, {
       data: {
         file: this.file_obj,
+        library: this.library
       },
       panelClass: 'kit-dialog-panel',
       width: '720px',
@@ -281,6 +288,10 @@ export class UnifiedFileCardComponent implements OnInit {
 
     if (this.jwtString) {
       fullLocation += `&jwt=${this.jwtString}`;
+    }
+
+    if (this.library) {
+      fullLocation += `&library=${encodeURIComponent(this.library)}`;
     }
 
     fullLocation += '&t=,10';

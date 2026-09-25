@@ -9,6 +9,9 @@ import { MatIcon } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { PickerComponent, PickerOption } from 'app/components/picker/picker.component';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
+import { SharedLibrary } from 'api-types';
 
 @Component({
     selector: 'app-user-profile-dialog',
@@ -16,7 +19,7 @@ import { PickerComponent, PickerOption } from 'app/components/picker/picker.comp
     styleUrls: ['./user-profile-dialog.component.scss'],
     changeDetection: ChangeDetectionStrategy.Eager,
     host: { class: 'kit-dialog' },
-    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatTooltip, MatIcon, FormsModule, PickerComponent, MatDialogActions, MatDialogClose, DatePipe]
+    imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatTooltip, MatIcon, FormsModule, PickerComponent, MatMenu, MatMenuItem, MatMenuTrigger, MatSlideToggle, MatDialogActions, MatDialogClose, DatePipe]
 })
 export class UserProfileDialogComponent implements OnInit {
 
@@ -51,10 +54,17 @@ export class UserProfileDialogComponent implements OnInit {
   token_error = null;
   unnamedTokenLabel = $localize`Unnamed token`;
 
+  // The other accounts sharing their library, which the name at the top switches between.
+  shared_libraries: SharedLibrary[] = [];
+  library_sharing_saving = false;
+
   constructor(public postsService: PostsService, private router: Router, public dialogRef: MatDialogRef<UserProfileDialogComponent>) { }
 
   ngOnInit(): void {
-    if (this.postsService.isLoggedIn) this.loadAPITokens();
+    if (this.postsService.isLoggedIn) {
+      this.loadAPITokens();
+      this.loadSharedLibraries();
+    }
 
     this.postsService.getSupportedLocales().subscribe(res => {
       if (res && res['supported_locales']) {
@@ -64,6 +74,49 @@ export class UserProfileDialogComponent implements OnInit {
     }, err => {
       console.error(`Failed to retrieve list of supported languages! You may need to run: 'node src/postbuild.mjs'. Error below:`);
       console.error(err);
+    });
+  }
+
+  get viewedLibraryName(): string {
+    return this.postsService.viewed_library?.name ?? this.postsService.user?.name ?? '';
+  }
+
+  get librarySwitchLabel(): string {
+    return $localize`:Library switch label:Library: ${this.viewedLibraryName}:owner name:`;
+  }
+
+  loadSharedLibraries(): void {
+    this.postsService.getSharedLibraries().subscribe(res => {
+      this.shared_libraries = res && Array.isArray(res.libraries) ? res.libraries : [];
+    }, () => {
+      this.shared_libraries = [];
+    });
+  }
+
+  viewLibrary(library: SharedLibrary | null): void {
+    this.postsService.viewLibrary(library);
+    this.dialogRef.close();
+    this.router.navigate(['/home']);
+  }
+
+  librarySharingChanged(change: MatSlideToggleChange): void {
+    const enabled = change.checked;
+    const failed = () => {
+      change.source.checked = !enabled;
+      this.postsService.openSnackBar($localize`Could not change library sharing. Please try again.`);
+    };
+
+    this.library_sharing_saving = true;
+    this.postsService.setLibrarySharing(enabled).subscribe(res => {
+      this.library_sharing_saving = false;
+      if (!res?.success) return failed();
+      this.postsService.user.library_shared = enabled;
+      this.postsService.openSnackBar(enabled
+        ? $localize`Your library is now shared with everyone on this server.`
+        : $localize`Your library is no longer shared.`);
+    }, () => {
+      this.library_sharing_saving = false;
+      failed();
     });
   }
 

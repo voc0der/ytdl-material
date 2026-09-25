@@ -119,6 +119,54 @@ describe('UnifiedFileCardComponent', () => {
     expect(component.generateStreamURL()).toBe('/api/stream?uid=uid%20with%20spaces&type=video&t=,10');
   });
 
+  describe('in someone else\'s library', () => {
+    function openActionMenuItems(): string[] {
+      fixture.debugElement.query(By.css('button.menuButton')).injector.get(MatMenuTrigger).openMenu();
+      fixture.detectChanges();
+      const panels = TestBed.inject(OverlayContainer).getContainerElement().querySelectorAll('.mat-mdc-menu-panel');
+      return Array.from(panels[panels.length - 1].querySelectorAll('button.mat-mdc-menu-item'))
+        .map(button => button.textContent.trim());
+    }
+
+    beforeEach(() => {
+      component.library = 'bob';
+    });
+
+    it('should offer nothing but its media info', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5});
+
+      expect(openActionMenuItems()).toEqual(['infoMedia info']);
+    });
+
+    it('should give a playlist no menu at all', () => {
+      component.loading = false;
+      component.is_playlist = true;
+      component.file_obj = {id: 'p1', name: 'Road trip', uids: []};
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.query(By.css('button.menuButton'))).toBeNull();
+    });
+
+    it('should ask for its thumbnail and preview from that library', () => {
+      component.baseStreamPath = '/api/';
+      component.jwtString = 'token';
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5, thumbnailPath: 'video/f1.jpg'});
+
+      expect(component.thumbnailBlobURL).toBe('/api/thumbnail/f1?jwt=token&library=bob');
+      expect(component.generateStreamURL()).toBe('/api/stream?uid=f1&type=video&jwt=token&library=bob&t=,10');
+    });
+
+    it('should open the media info read only, from that library', () => {
+      const open = vi.fn().mockReturnValue({afterClosed: () => ({subscribe: () => undefined})});
+      (TestBed.inject(MatDialog) as any).open = open;
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5});
+
+      component.openFileInfoDialog();
+
+      expect(open.mock.lastCall[1].data.library).toBe('bob');
+    });
+  });
+
   it('should use the upload date as the displayed date when requested', () => {
     component.displayDateProperty = 'upload_date';
     component.locale = { ngID: 'en-US' } as any;
