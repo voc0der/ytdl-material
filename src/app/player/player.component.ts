@@ -69,6 +69,26 @@ const THEATER_TOOLBAR_HIDE_DELAY_MS = 2000;
 // and hold on a touch screen. Otherwise every swipe that starts on a row drags it, and the
 // list cannot be scrolled.
 const QUEUE_TOUCH_DRAG_DELAY_MS = 400;
+// Holding the left button on the picture plays at SPEED_HOLD_RATE until it is let go. A press
+// released sooner is an ordinary click, which the browser's own controls take as pause/play.
+const SPEED_HOLD_DELAY_MS = 400;
+const SPEED_HOLD_RATE = 2;
+// A press that drifts further than this before the hold engages is a drag, not a hold.
+const SPEED_HOLD_MOVE_TOLERANCE_PX = 8;
+// The page sees a press on the native control bar (seek bar, volume) as a press on the video,
+// so presses this close to the bottom are left to the controls.
+const NATIVE_CONTROLS_HEIGHT_PX = 48;
+
+interface SpeedHold {
+  media: HTMLVideoElement;
+  src: string;
+  start_x: number;
+  start_y: number;
+  // Pending until the hold engages; null once it has.
+  timer: ReturnType<typeof setTimeout> | null;
+  previous_rate: number;
+  was_paused: boolean;
+}
 
 @Component({
     selector: 'app-player',
@@ -175,6 +195,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   subtitlesEnabled = false;
   private destroyed = false;
 
+  readonly speed_hold_rate = SPEED_HOLD_RATE;
+  speed_hold_active = false;
+  private speed_hold: SpeedHold | null = null;
+  private suppress_media_click = false;
+
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
   @ViewChild('media', {read: ElementRef}) mediaElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('queueList') queueList?: ElementRef<HTMLElement>;
@@ -231,6 +256,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     clearInterval(this.save_volume_timer);
     this.clearTheaterToolbarHideTimer();
     this.clearSnipPoll();
+    this.endSpeedHold();
     if (this.subtitleTrackActivationTimer) {
       clearTimeout(this.subtitleTrackActivationTimer);
       this.subtitleTrackActivationTimer = null;
@@ -1442,6 +1468,92 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   onPlayerMouseLeave(): void {
     this.chapterTimelineVisible = false;
+  }
+
+  onMediaPointerDown(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    if (this.currentItem?.type === 'audio/mp3') return;
+    const media = event.currentTarget as HTMLVideoElement;
+    if (media.ended) return;
+    if (media.getBoundingClientRect().bottom - event.clientY <= NATIVE_CONTROLS_HEIGHT_PX) return;
+
+    this.endSpeedHold();
+    this.speed_hold = {
+      media,
+      src: media.currentSrc,
+      start_x: event.clientX,
+      start_y: event.clientY,
+      timer: setTimeout(() => this.engageSpeedHold(), SPEED_HOLD_DELAY_MS),
+      previous_rate: media.playbackRate,
+      was_paused: media.paused
+    };
+    // On the window, so letting go anywhere ends the hold, not only over the video.
+    window.addEventListener('pointermove', this.onSpeedHoldPointerMove);
+    window.addEventListener('pointerup', this.onSpeedHoldRelease);
+    window.addEventListener('pointercancel', this.onSpeedHoldRelease);
+    window.addEventListener('blur', this.onSpeedHoldRelease);
+  }
+
+  // Letting go of a hold is also a click on the video, which would pause or play it.
+  onMediaClick(event: MouseEvent): void {
+    if (this.suppress_media_click) event.preventDefault();
+  }
+
+  private engageSpeedHold(): void {
+    const hold = this.speed_hold;
+    if (!hold) return;
+    hold.timer = null;
+    hold.media.playbackRate = SPEED_HOLD_RATE;
+    if (hold.was_paused) this.playMediaElement(hold.media);
+    this.speed_hold_active = true;
+  }
+
+  private readonly onSpeedHoldPointerMove = (event: PointerEvent): void => {
+    const hold = this.speed_hold;
+    // Once engaged, the hold lasts until release wherever the pointer goes.
+    if (!hold?.timer) return;
+    const distance = Math.hypot(event.clientX - hold.start_x, event.clientY - hold.start_y);
+    if (distance > SPEED_HOLD_MOVE_TOLERANCE_PX) this.endSpeedHold();
+  };
+
+  private readonly onSpeedHoldRelease = (): void => this.endSpeedHold();
+
+  private endSpeedHold(): void {
+    const hold = this.speed_hold;
+    if (!hold) return;
+    this.speed_hold = null;
+    window.removeEventListener('pointermove', this.onSpeedHoldPointerMove);
+    window.removeEventListener('pointerup', this.onSpeedHoldRelease);
+    window.removeEventListener('pointercancel', this.onSpeedHoldRelease);
+    window.removeEventListener('blur', this.onSpeedHoldRelease);
+    if (hold.timer) {
+      clearTimeout(hold.timer);
+      return;
+    }
+
+    this.speed_hold_active = false;
+    const media = hold.media;
+    // Loading the next file already reset the rate, and its paused state is its own.
+    const same_file = media.currentSrc === hold.src;
+    if (same_file) media.playbackRate = hold.previous_rate;
+    // The click that follows this release is dispatched before the timeout runs.
+    this.suppress_media_click = true;
+    setTimeout(() => {
+      this.suppress_media_click = false;
+      if (!same_file || this.destroyed) return;
+      // Put back the paused state from before the hold, including where the browser's controls
+      // toggled on the release click without honouring preventDefault.
+      if (hold.was_paused && !media.paused) {
+        media.pause();
+      } else if (!hold.was_paused && media.paused && !media.ended) {
+        this.playMediaElement(media);
+      }
+    });
+  }
+
+  private playMediaElement(media: HTMLVideoElement): void {
+    // A rejected play() (such as the file failing to load) needs no handling here.
+    media.play()?.catch(() => undefined);
   }
 
   selectChapterFromDropdown(chapter: IChapter, event: MouseEvent): void {

@@ -1327,4 +1327,155 @@ describe('PlayerComponent', () => {
       expect(component.canSnipCurrentFile()).toBe(false);
     });
   });
+
+  describe('holding the video', () => {
+    let media: any;
+
+    beforeEach(() => {
+      media = {
+        playbackRate: 1,
+        paused: false,
+        ended: false,
+        currentSrc: '/stream/a',
+        getBoundingClientRect: () => ({top: 0, bottom: 400}),
+        play: vi.fn().mockName('play').mockImplementation(() => {
+          media.paused = false;
+          return Promise.resolve();
+        }),
+        pause: vi.fn().mockName('pause').mockImplementation(() => {
+          media.paused = true;
+        })
+      };
+    });
+
+    function press(overrides: Partial<PointerEvent> = {}): void {
+      component.onMediaPointerDown({
+        pointerType: 'mouse', button: 0, clientX: 100, clientY: 100, currentTarget: media, ...overrides
+      } as unknown as PointerEvent);
+    }
+
+    function release(): void {
+      window.dispatchEvent(new Event('pointerup'));
+    }
+
+    function click(): MouseEvent {
+      const event = new MouseEvent('click', {cancelable: true});
+      component.onMediaClick(event);
+      return event;
+    }
+
+    it('plays at 2x while held, then goes back to the old rate without the release pausing it', fakeAsync(() => {
+      media.playbackRate = 1.5;
+      press();
+      tick(399);
+      expect(media.playbackRate).toBe(1.5);
+      expect(component.speed_hold_active).toBe(false);
+
+      tick(1);
+      expect(media.playbackRate).toBe(2);
+      expect(component.speed_hold_active).toBe(true);
+
+      release();
+      expect(media.playbackRate).toBe(1.5);
+      expect(component.speed_hold_active).toBe(false);
+      expect(click().defaultPrevented).toBe(true);
+      tick();
+      expect(media.pause).not.toHaveBeenCalled();
+      // Only the click of the release itself is swallowed.
+      expect(click().defaultPrevented).toBe(false);
+    }));
+
+    it('leaves a short press to the browser as pause/play', fakeAsync(() => {
+      press();
+      tick(100);
+      release();
+      expect(click().defaultPrevented).toBe(false);
+      tick(1000);
+      expect(media.playbackRate).toBe(1);
+      expect(component.speed_hold_active).toBe(false);
+    }));
+
+    it('plays a paused video while held and pauses it again on release', fakeAsync(() => {
+      media.paused = true;
+      press();
+      tick(400);
+      expect(media.play).toHaveBeenCalled();
+      expect(media.paused).toBe(false);
+
+      release();
+      tick();
+      expect(media.pause).toHaveBeenCalled();
+      expect(media.paused).toBe(true);
+    }));
+
+    it('resumes playback when the browser paused on the release click anyway', fakeAsync(() => {
+      press();
+      tick(400);
+      release();
+      media.paused = true;
+      tick();
+      expect(media.play).toHaveBeenCalled();
+      expect(media.paused).toBe(false);
+    }));
+
+    it('ignores the native control bar, other buttons and touch', fakeAsync(() => {
+      press({clientY: 380});
+      press({button: 2});
+      press({pointerType: 'touch'});
+      tick(1000);
+      expect(media.playbackRate).toBe(1);
+      expect(component.speed_hold_active).toBe(false);
+    }));
+
+    it('treats a press that drifts before the hold engages as a drag', fakeAsync(() => {
+      press();
+      window.dispatchEvent(new MouseEvent('pointermove', {clientX: 120, clientY: 100}));
+      tick(1000);
+      expect(media.playbackRate).toBe(1);
+      expect(component.speed_hold_active).toBe(false);
+    }));
+
+    it('keeps the hold going when the pointer moves after it engaged', fakeAsync(() => {
+      press();
+      tick(400);
+      window.dispatchEvent(new MouseEvent('pointermove', {clientX: 300, clientY: 300}));
+      expect(component.speed_hold_active).toBe(true);
+      release();
+      tick();
+    }));
+
+    it('leaves the next file alone when the hold outlasts the one it started on', fakeAsync(() => {
+      media.paused = true;
+      media.playbackRate = 1.5;
+      press();
+      tick(400);
+      media.currentSrc = '/stream/b';
+      media.playbackRate = 1;
+
+      release();
+      tick();
+      expect(media.playbackRate).toBe(1);
+      expect(media.pause).not.toHaveBeenCalled();
+    }));
+
+    it('shows the rate in the corner of the player while held', fakeAsync(() => {
+      showPlayer();
+      fixture.detectChanges();
+      const video: HTMLVideoElement = fixture.nativeElement.querySelector('video');
+      vi.spyOn(video, 'getBoundingClientRect').mockReturnValue({top: 0, bottom: 400} as DOMRect);
+      vi.spyOn(video, 'play').mockReturnValue(Promise.resolve());
+      vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+      const indicator = () => fixture.nativeElement.querySelector('vg-player .speed-hold-indicator');
+
+      video.dispatchEvent(new PointerEvent('pointerdown', {pointerType: 'mouse', button: 0, clientY: 100}));
+      tick(400);
+      fixture.detectChanges();
+      expect(indicator().textContent).toContain('2x');
+
+      release();
+      tick();
+      fixture.detectChanges();
+      expect(indicator()).toBeNull();
+    }));
+  });
 });
