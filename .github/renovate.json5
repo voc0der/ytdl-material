@@ -1,0 +1,43 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended', 'group:allNonMajor'],
+  // Dependabot alerts are off for this repo, so vulnerabilities come from OSV instead.
+  osvVulnerabilityAlerts: true,
+  // main has no branch protection, so GitHub's auto-merge is unavailable. Renovate merges
+  // on its own next run, and only once every check on the PR has passed.
+  platformAutomerge: false,
+  // Every advisory so far was in an indirect dependency, which only a lockfile refresh
+  // picks up.
+  lockFileMaintenance: {
+    enabled: true,
+    automerge: true,
+    schedule: ['before 6am'],
+  },
+  // Majors wait on the Dependency Dashboard issue until approved there.
+  major: {
+    dependencyDashboardApproval: true,
+  },
+  packageRules: [
+    {
+      // Nobody reviews these before they merge, so a compromised publish gets a few days
+      // to be caught and pulled first. Security updates are not held back.
+      matchUpdateTypes: ['minor', 'patch', 'pin', 'digest'],
+      automerge: true,
+      minimumReleaseAge: '3 days',
+    },
+    {
+      // TypeScript majors land ahead of what Angular's compiler accepts, so let the
+      // Angular bump pull TypeScript along rather than the other way around.
+      matchPackageNames: ['typescript'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
+    {
+      // The README screenshot harness runs npm ci on a workstation, and nothing in CI
+      // exercises it. A Playwright bump also brings a new Chromium, which can change
+      // docs/images/readme-home.png even though the UI did not.
+      matchFileNames: ['dev/screenshots/**'],
+      minimumReleaseAge: '7 days',
+    },
+  ],
+}

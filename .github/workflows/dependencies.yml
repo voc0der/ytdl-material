@@ -111,8 +111,8 @@ jobs:
           # The badge this workflow exists for reads ?branch=main, so a pull request run
           # contributes nothing to it. Failing one only ever punished the PR that happened
           # to be open when an unrelated package published -- the drift is upstream, not
-          # in the change under review, and dependabot opens a PR for it on its own daily
-          # run. Report it on the PR, block on main.
+          # in the change under review, and Renovate opens a PR for it on its own. Report it
+          # on the PR, block on main.
           if [ "$EVENT_NAME" = "pull_request" ]; then
             echo "::warning::Dependencies are behind what their declared ranges want. This does not block the pull request -- the drift is upstream, not in this change. The run on main is what drives the badge."
             exit 0
