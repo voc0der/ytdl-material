@@ -471,6 +471,45 @@ It downloads nothing, and like the others it is not part of CI.
   itself is blocked, and Autoplay has nothing to follow. A person opening the player has clicked
   something already.
 
+# Exercising the player's controls
+
+The player draws its own controls over the video, so `dev/screenshots/controls.sh` works them in
+Chromium and Firefox against a library whose files really play:
+
+```bash
+dev/screenshots/controls.sh               # build, boot, run, stop
+dev/screenshots/controls.sh --skip-build  # reuse the last frontend build
+dev/screenshots/controls.sh --keep        # leave the backend running on :17458 afterwards
+```
+
+It plays a minute-long clip cut into four chapters and checks the video has no native controls
+and the scrubber a segment per chapter, that the controls hide while it plays untouched and come
+back when the pointer moves, that a click on the picture pauses and plays, and that holding it
+plays at 2x with the badge showing, paused or not, and puts back the rate and the paused state
+on release. It tries the keyboard shortcuts, hovers the scrubber for the chapter's name, checks
+the marker stays at the end of the played part, and clicks it to seek, sets the speed from its
+menu, which has to open clear of the scrubber, and jumps from the chapters menu, goes full
+screen with a double-click and leaves with `f`, and turns theater mode on from the bar and off
+with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
+browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the
+bar fits, and that the play button in the middle pauses. Screenshots of each, per browser, are
+left in the `shots` folder it prints.
+
+It downloads nothing, and like the others it is not part of CI.
+
+## Things worth knowing
+
+- **It needs ffmpeg**, and **it installs Playwright's Firefox** on its first run, which no other
+  harness needs.
+- **Firefox is why the controls are the player's own.** With native controls it sends the page
+  no pointerdown, mouseup or click for a press on the video, so nothing drawn over them can see
+  a hold. Every check runs in both browsers for that reason.
+- **Firefox puts its own picture-in-picture button over the right of the picture** and takes
+  the clicks there, whatever the page has drawn on top, unless what is on top is opaque. That is
+  why the menus have a solid background, and it ignores `disablePictureInPicture`. The speed
+  menu's Normal sits where the button would be, which is what the check that an option there
+  takes its own click is for.
+
 # Exercising library sharing
 
 Sharing is the one feature that needs two accounts at once, and what it must not do -- let one

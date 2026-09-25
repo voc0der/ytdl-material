@@ -95,6 +95,15 @@ describe('PlayerComponent', () => {
     return row ? Array.from(row.nativeElement.querySelectorAll('button')) : [];
   }
 
+  // The player's own bar, over the video.
+  function controlBarButtons(): HTMLButtonElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('app-media-controls button'));
+  }
+
+  function theaterButton(): HTMLButtonElement | undefined {
+    return controlBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode');
+  }
+
   function playerToolbar(): HTMLElement | null {
     return fixture.nativeElement.querySelector('.player-toolbar-section');
   }
@@ -200,16 +209,16 @@ describe('PlayerComponent', () => {
   it('should mark only the engaged playback toggles', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
-    component.theater_mode_enabled = true;
+    component.autoplay_enabled = true;
     component.repeat_enabled = false;
     fixture.detectChanges();
 
     const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
-    const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
+    const autoplay = toggles.find(button => button.getAttribute('aria-label') === 'Autoplay');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
     // Idle toggles carry no marker at all, so they render at the same colour as the
     // actions beside them rather than dimmed.
-    expect(theaterMode.classList.contains('active')).toBe(true);
+    expect(autoplay.classList.contains('active')).toBe(true);
     expect(repeat.classList.contains('active')).toBe(false);
   });
 
@@ -221,9 +230,8 @@ describe('PlayerComponent', () => {
     fixture.detectChanges();
 
     const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
-    const theaterMode = toggles.find(button => button.getAttribute('aria-label') === 'Theater mode');
     const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
-    expect(theaterMode.getAttribute('aria-pressed')).toBe('true');
+    expect(theaterButton().getAttribute('aria-pressed')).toBe('true');
     expect(repeat.getAttribute('aria-pressed')).toBe('false');
   });
 
@@ -412,7 +420,7 @@ describe('PlayerComponent', () => {
     });
   });
 
-  it('should place theater mode before download and make the video the only visible player content', () => {
+  it('should put theater mode in the player\'s own bar and make the video the only visible player content', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     component.api = {state: 'paused', time: {current: 0}} as unknown as VgApiService;
@@ -420,18 +428,17 @@ describe('PlayerComponent', () => {
     fixture.detectChanges();
 
     const buttons = actionBarButtons();
-    const theaterModeIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Theater mode');
     const downloadIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Download this file');
     const shareIndex = buttons.findIndex(button => button.getAttribute('aria-label') === 'Share');
-    expect(theaterModeIndex).toBeGreaterThan(-1);
-    expect(downloadIndex).toBe(theaterModeIndex + 1);
+    expect(buttons.some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(false);
+    expect(downloadIndex).toBe(0);
     expect(shareIndex).toBe(downloadIndex + 1);
 
-    buttons[theaterModeIndex].click();
+    theaterButton().click();
     fixture.detectChanges();
 
     expect(component.theater_mode_enabled).toBe(true);
-    expect(buttons[theaterModeIndex].getAttribute('aria-pressed')).toBe('true');
+    expect(theaterButton().getAttribute('aria-pressed')).toBe('true');
     expect(playerPage()?.classList.contains('theater-mode-active')).toBe(true);
     expect(document.body.classList.contains('player-theater-mode-active')).toBe(true);
     expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
@@ -447,7 +454,7 @@ describe('PlayerComponent', () => {
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     fixture.detectChanges();
 
-    const theaterMode = actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode');
+    const theaterMode = theaterButton();
     theaterMode.focus();
     expect(document.activeElement).toBe(theaterMode);
     theaterMode.click();
@@ -457,8 +464,7 @@ describe('PlayerComponent', () => {
     expect(document.activeElement).not.toBe(theaterMode);
     expect(playerPlaylist()?.hidden).toBe(true);
 
-    const playerElement = fixture.nativeElement.querySelector('vg-player') as HTMLElement;
-    component.onPlayerMouseMove({currentTarget: playerElement, clientY: 100} as unknown as MouseEvent);
+    component.onPlayerMouseMove();
     fixture.detectChanges();
 
     expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(true);
@@ -479,7 +485,7 @@ describe('PlayerComponent', () => {
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
     fixture.detectChanges();
 
-    actionBarButtons().find(button => button.getAttribute('aria-label') === 'Theater mode').click();
+    theaterButton().click();
     fixture.detectChanges();
     document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
     fixture.detectChanges();
@@ -498,6 +504,9 @@ describe('PlayerComponent', () => {
     component.parseFileNames();
     fixture.detectChanges();
 
+    // An audio file keeps the browser's own bar, so the player's is not there to offer it either.
+    expect(fixture.nativeElement.querySelector('app-media-controls')).toBeNull();
+    expect(fixture.nativeElement.querySelector('video').controls).toBe(true);
     expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(false);
     component.toggleTheaterMode();
     expect(component.theater_mode_enabled).toBe(false);
@@ -518,7 +527,7 @@ describe('PlayerComponent', () => {
     fixture.detectChanges();
 
     expect(playlistAutoplayButtons()).toHaveLength(1);
-    expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(true);
+    expect(theaterButton()).toBeDefined();
   });
 
   it('should create', () => {
@@ -1184,56 +1193,6 @@ describe('PlayerComponent', () => {
     expect(component.currentChapterLabel).toBe('Intro');
   });
 
-  it('should calculate chapter segment progress from the current playback time', () => {
-    component.playbackTime = 45;
-    const chapter: IChapter = { title: 'Part 2', start_time: 30, end_time: 90 };
-
-    expect(component.getChapterProgressWidth(chapter)).toBe(25);
-
-    component.playbackTime = 120;
-    expect(component.getChapterProgressWidth(chapter)).toBe(100);
-  });
-
-  it('should use file duration when building the chapter timeline duration', () => {
-    component.currentChapters = [
-      { title: 'Intro', start_time: 0, end_time: 30 },
-      { title: 'Part 2', start_time: 30, end_time: 90 }
-    ];
-    component.currentFile = { duration: 120 } as DatabaseFile;
-
-    expect(component.getChapterTimelineDuration()).toBe(120);
-
-    component.currentFile = { duration: 60 } as DatabaseFile;
-    expect(component.getChapterTimelineDuration()).toBe(90);
-  });
-
-  it('should only show the chapter timeline overlay near the bottom hover band', () => {
-    component.currentItem = {
-      title: 'Hover Test',
-      src: '/stream/test',
-      type: 'video/mp4',
-      label: 'Hover Test',
-      url: 'https://example.com/video'
-    };
-    component.currentChapters = [
-      { title: 'Intro', start_time: 0, end_time: 30 }
-    ];
-
-    const playerElement = {
-      clientHeight: 540,
-      getBoundingClientRect: () => ({ bottom: 500 })
-    } as unknown as HTMLElement;
-
-    component.onPlayerMouseMove({ currentTarget: playerElement, clientY: 430 } as unknown as MouseEvent);
-    expect(component.chapterTimelineVisible).toBe(true);
-
-    component.onPlayerMouseMove({ currentTarget: playerElement, clientY: 320 } as unknown as MouseEvent);
-    expect(component.chapterTimelineVisible).toBe(false);
-
-    component.onPlayerMouseLeave();
-    expect(component.chapterTimelineVisible).toBe(false);
-  });
-
   describe('snip mode', () => {
     beforeEach(() => {
       component.currentFile = { uid: 'file-uid', duration: 120 } as DatabaseFile;
@@ -1326,156 +1285,5 @@ describe('PlayerComponent', () => {
       component.currentFile = { uid: 'file-uid', duration: 0.5 } as DatabaseFile;
       expect(component.canSnipCurrentFile()).toBe(false);
     });
-  });
-
-  describe('holding the video', () => {
-    let media: any;
-
-    beforeEach(() => {
-      media = {
-        playbackRate: 1,
-        paused: false,
-        ended: false,
-        currentSrc: '/stream/a',
-        getBoundingClientRect: () => ({top: 0, bottom: 400}),
-        play: vi.fn().mockName('play').mockImplementation(() => {
-          media.paused = false;
-          return Promise.resolve();
-        }),
-        pause: vi.fn().mockName('pause').mockImplementation(() => {
-          media.paused = true;
-        })
-      };
-    });
-
-    function press(overrides: Partial<PointerEvent> = {}): void {
-      component.onMediaPointerDown({
-        pointerType: 'mouse', button: 0, clientX: 100, clientY: 100, currentTarget: media, ...overrides
-      } as unknown as PointerEvent);
-    }
-
-    function release(): void {
-      window.dispatchEvent(new Event('pointerup'));
-    }
-
-    function click(): MouseEvent {
-      const event = new MouseEvent('click', {cancelable: true});
-      component.onMediaClick(event);
-      return event;
-    }
-
-    it('plays at 2x while held, then goes back to the old rate without the release pausing it', fakeAsync(() => {
-      media.playbackRate = 1.5;
-      press();
-      tick(399);
-      expect(media.playbackRate).toBe(1.5);
-      expect(component.speed_hold_active).toBe(false);
-
-      tick(1);
-      expect(media.playbackRate).toBe(2);
-      expect(component.speed_hold_active).toBe(true);
-
-      release();
-      expect(media.playbackRate).toBe(1.5);
-      expect(component.speed_hold_active).toBe(false);
-      expect(click().defaultPrevented).toBe(true);
-      tick();
-      expect(media.pause).not.toHaveBeenCalled();
-      // Only the click of the release itself is swallowed.
-      expect(click().defaultPrevented).toBe(false);
-    }));
-
-    it('leaves a short press to the browser as pause/play', fakeAsync(() => {
-      press();
-      tick(100);
-      release();
-      expect(click().defaultPrevented).toBe(false);
-      tick(1000);
-      expect(media.playbackRate).toBe(1);
-      expect(component.speed_hold_active).toBe(false);
-    }));
-
-    it('plays a paused video while held and pauses it again on release', fakeAsync(() => {
-      media.paused = true;
-      press();
-      tick(400);
-      expect(media.play).toHaveBeenCalled();
-      expect(media.paused).toBe(false);
-
-      release();
-      tick();
-      expect(media.pause).toHaveBeenCalled();
-      expect(media.paused).toBe(true);
-    }));
-
-    it('resumes playback when the browser paused on the release click anyway', fakeAsync(() => {
-      press();
-      tick(400);
-      release();
-      media.paused = true;
-      tick();
-      expect(media.play).toHaveBeenCalled();
-      expect(media.paused).toBe(false);
-    }));
-
-    it('ignores the native control bar, other buttons and touch', fakeAsync(() => {
-      press({clientY: 380});
-      press({button: 2});
-      press({pointerType: 'touch'});
-      tick(1000);
-      expect(media.playbackRate).toBe(1);
-      expect(component.speed_hold_active).toBe(false);
-    }));
-
-    it('treats a press that drifts before the hold engages as a drag', fakeAsync(() => {
-      press();
-      window.dispatchEvent(new MouseEvent('pointermove', {clientX: 120, clientY: 100}));
-      tick(1000);
-      expect(media.playbackRate).toBe(1);
-      expect(component.speed_hold_active).toBe(false);
-    }));
-
-    it('keeps the hold going when the pointer moves after it engaged', fakeAsync(() => {
-      press();
-      tick(400);
-      window.dispatchEvent(new MouseEvent('pointermove', {clientX: 300, clientY: 300}));
-      expect(component.speed_hold_active).toBe(true);
-      release();
-      tick();
-    }));
-
-    it('leaves the next file alone when the hold outlasts the one it started on', fakeAsync(() => {
-      media.paused = true;
-      media.playbackRate = 1.5;
-      press();
-      tick(400);
-      media.currentSrc = '/stream/b';
-      media.playbackRate = 1;
-
-      release();
-      tick();
-      expect(media.playbackRate).toBe(1);
-      expect(media.pause).not.toHaveBeenCalled();
-    }));
-
-    it('shows the rate in the corner of the player while held', fakeAsync(() => {
-      showPlayer();
-      fixture.detectChanges();
-      const video: HTMLVideoElement = fixture.nativeElement.querySelector('video');
-      vi.spyOn(video, 'getBoundingClientRect').mockReturnValue({top: 0, bottom: 400} as DOMRect);
-      vi.spyOn(video, 'play').mockReturnValue(Promise.resolve());
-      vi.spyOn(video, 'pause').mockImplementation(() => undefined);
-      const indicator = () => fixture.nativeElement.querySelector('vg-player .speed-hold-indicator');
-
-      video.dispatchEvent(new PointerEvent('pointerdown', {pointerType: 'mouse', button: 0, clientY: 100}));
-      tick(400);
-      fixture.detectChanges();
-      expect(indicator().textContent).toContain('2x');
-
-      release();
-      tick();
-      fixture.detectChanges();
-      expect(indicator()).toBeNull();
-    }));
   });
 });

@@ -243,6 +243,8 @@ async function playingAPlaylist(page, seeded) {
     check('a row can be dragged to another place in the list', reordered.join('|') === expected.join('|'), reordered.map(title => title.slice(0, 12)).join(', '));
     check('and the playing row stays the one playing', await playingIndex(page) === 3 && await queueMeta(page) === '4 of 4');
 
+    // Theater mode is on the player's own bar, which is hidden while the video plays untouched.
+    await page.locator('vg-player').hover();
     await page.getByRole('button', { name: 'Theater mode' }).click();
     check('theater mode hides the list', await queue(page).isHidden());
     await page.keyboard.press('Escape');
