@@ -1531,6 +1531,13 @@ exports.resumeDownload = async (download_uid) => {
             logger.warn(`Download ${download_uid} is not paused!`);
             return false;
         }
+        // Cancelling does not unpause, so a download paused and then cancelled still reads as
+        // paused. Resuming one only cleared the flag -- it stayed finished and never ran again --
+        // and reported success.
+        if (download['cancelled'] || download['finished']) {
+            logger.warn(`Download ${download_uid} has ended and cannot be resumed.`);
+            return false;
+        }
 
         const success = await db_api.updateRecord('download_queue', {uid: download_uid}, getResumedDownloadUpdate(download));
         should_check_downloads = true;

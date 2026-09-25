@@ -2194,6 +2194,18 @@ describe('Downloader', function() {
         assert.strictEqual(updated_download['step_index'], 1);
     });
 
+    it('Resume refuses a download that was cancelled while paused', async function() {
+        const returned_download = await downloader_api.createDownload(`${url}&cancelled_while_paused=1`, 'video', options);
+        await downloader_api.pauseDownload(returned_download['uid']);
+        await downloader_api.cancelDownload(returned_download['uid']);
+
+        assert.strictEqual(await downloader_api.resumeDownload(returned_download['uid']), false);
+
+        const updated_download = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+        assert.strictEqual(updated_download['cancelled'], true);
+        assert.strictEqual(updated_download['paused'], true);
+    });
+
     it('Generate args', async function() {
         const args = await downloader_api.generateArgs(url, 'video', options);
         assert(args.length > 0);
