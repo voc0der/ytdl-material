@@ -35,6 +35,8 @@ curl --fail-with-body -X POST 'https://media.example.com/api/getMp4s' \
 
 The account must have the permissions required by each endpoint. A valid token does not bypass those checks.
 
+For chat apps and agents, the [MCP server](mcp.md) offers library search and download management with one of these tokens.
+
 ## Endpoint reference
 
 Enable API documentation under **Settings → Extra**, or set `ytdl_enable_documentation_api: 'true'`, and **restart**. Your instance serves the interactive reference at `/docs` and its OpenAPI document at `/openapi.yaml`.

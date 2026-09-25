@@ -513,6 +513,39 @@ It downloads nothing, and like the others it is not part of CI.
   acts on the caller's own records, which is why the refusals are checked against Bob's records
   and not only against the answer.
 
+# Exercising the MCP server
+
+`mcp-server/ytdl_material_mcp.py` is a client of the API, so an API change can break it without
+touching it. `dev/mcp/check.mjs` runs it the way an MCP client does, over stdio through `uv`,
+against a throwaway backend in multi-user mode:
+
+```bash
+node dev/mcp/check.mjs          # boot, run, stop
+node dev/mcp/check.mjs --keep   # leave the backend running on :17460 afterwards
+```
+
+It seeds an admin with five files, a playlist, and a download in each state, and another account
+with a file and a download of its own, then gives each an API token. With the admin's token it
+checks the six tools and their read-only and destructive markings; that search, the audio and
+favourites filters, and the limit find the right files, newest first, with player links on
+`YTDL_PUBLIC_URL`; that the download list reads each state as the Downloads page does, links
+finished downloads to the file or playlist they made, and pages; that pause, resume and cancel
+succeed where they should and are refused on the wrong state or on the other account's download;
+and that a download it starts is queued and then shows up failed with its reason. Then it checks
+what the other account, a bad token, no token, an unreachable instance and a malformed `YTDL_URL`
+are each told.
+
+It needs `uv`, and the backend's dependencies installed. The one download it starts is of a
+closed local port, so it downloads nothing; like the others it is not part of CI.
+
+## Things worth knowing
+
+- **The default `user` role cannot list or control downloads.** `/api/downloads` and the pause,
+  resume and cancel routes need `downloads_manager`, which only the admin role has out of the box.
+  That is why the other account is told about the permission rather than shown an empty list.
+- **Download uids and file uids are different things.** A finished download's player link comes
+  from its `container` -- a file's `uid` or a playlist's `id` -- never from the download's own uid.
+
 # Regenerating the README screenshot
 
 `docs/images/readme-home.png` is generated, not taken by hand. `dev/screenshots/capture.sh`
