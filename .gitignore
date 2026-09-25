@@ -81,12 +81,14 @@ src/assets/i18n/*.json
 /video/
 /subscriptions/
 /users/
+/hooks/
 /backend/db/
 /backend/appdata/
 /backend/audio/
 /backend/video/
 /backend/subscriptions/
 /backend/users/
+/backend/hooks/
 
 # Modern local/dev files
 .env

@@ -98,8 +98,20 @@ services:
       - ./video:/app/video
       - ./subscriptions:/app/subscriptions
       - ./users:/app/users
+      # Your own scripts, run when the container starts (init.d), once the server is up
+      # (started.d) and after each new file (download-finished.d). Mount it read-only.
+      # See "Startup and download hooks" in the docs for examples.
+      # - ./hooks:/app/hooks:ro
     ports:
       - "17442:17442"
+    # /healthz answers once startup, including migrations, has finished. Change the port
+    # if you set ytdl_port; with HTTPS use https:// and curl -k.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:17442/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 3m
 
   ytdl-postgres-db:
     image: postgres:alpine
