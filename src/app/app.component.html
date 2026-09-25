@@ -99,7 +99,7 @@
                 <mat-icon>person</mat-icon>
                 <span i18n="Profile menu label">Profile</span>
               </button>
-              @if (!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) {
+              @if ((!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) && !postsService.viewed_library) {
                 <button (click)="openArchiveDialog()" mat-menu-item>
                   <mat-icon>archive</mat-icon>
                   <span i18n="Archive menu label">Archive</span>
@@ -140,19 +140,19 @@
               <span matListItemTitle i18n="Navigation menu Login Page title">Login</span>
             </a>
           }
-          @if (postsService.config && allowSubscriptions && postsService.hasPermission('subscriptions')) {
+          @if (postsService.config && allowSubscriptions && postsService.hasPermission('subscriptions') && !postsService.viewed_library) {
             <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/subscriptions'>
               <mat-icon matListItemIcon class="navigation-icon">subscriptions</mat-icon>
               <span matListItemTitle i18n="Navigation menu Subscriptions Page title">Subscriptions</span>
             </a>
           }
-          @if (postsService.config && enableDownloadsManager && postsService.hasPermission('downloads_manager')) {
+          @if (postsService.config && enableDownloadsManager && postsService.hasPermission('downloads_manager') && !postsService.viewed_library) {
             <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/downloads'>
               <mat-icon matListItemIcon class="navigation-icon">download</mat-icon>
               <span matListItemTitle i18n="Navigation menu Downloads Page title">Downloads</span>
             </a>
           }
-          @if (postsService.config && canViewDuplicates && hasDuplicateGroups && postsService.hasPermission('filemanager')) {
+          @if (postsService.config && canViewDuplicates && hasDuplicateGroups && postsService.hasPermission('filemanager') && !postsService.viewed_library) {
             <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/duplicates'>
               <mat-icon matListItemIcon class="navigation-icon">content_copy</mat-icon>
               <span matListItemTitle i18n="Navigation menu Duplicates Page title">Duplicates</span>
@@ -171,7 +171,7 @@
               <span matListItemTitle i18n="Settings menu label">Settings</span>
             </a>
           }
-          @if (postsService.config && allowSubscriptions && postsService.subscriptions && postsService.hasPermission('subscriptions')) {
+          @if (postsService.config && allowSubscriptions && postsService.subscriptions && postsService.hasPermission('subscriptions') && !postsService.viewed_library) {
             @if (postsService.subscriptions.length > 0) {
               <mat-divider></mat-divider>
             }

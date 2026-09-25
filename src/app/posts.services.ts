@@ -183,6 +183,9 @@ export interface OIDCStatus {
     auto_register: boolean;
 }
 
+// Pages that only ever show your own things, never a library someone shared with you.
+export const OWN_LIBRARY_PAGES = ['subscriptions', 'subscription', 'downloads', 'duplicates'];
+
 @Injectable()
 export class PostsService {
     path = '';
@@ -340,7 +343,11 @@ export class PostsService {
             tasks: 'tasks_manager',
             duplicates: 'filemanager'
         }
-        const required_perm = PATH_TO_REQUIRED_PERM[route.routeConfig.path];
+        const path = route.routeConfig.path;
+        // These pages only ever show your own things, so opening one while browsing someone
+        // else's library, from a bookmark or the address bar, goes back to your own first.
+        if (OWN_LIBRARY_PAGES.includes(path)) this.viewLibrary(null);
+        const required_perm = PATH_TO_REQUIRED_PERM[path];
         return Promise.resolve(required_perm ? this.hasPermission(required_perm) : true);
     }
 
