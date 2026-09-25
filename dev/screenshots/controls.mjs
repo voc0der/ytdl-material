@@ -28,8 +28,8 @@ import {
 const FIXTURES = join(HERE, 'fixtures');
 const RUN_DIR = join(CACHE, 'controls');
 const SHOTS_DIR = join(RUN_DIR, 'shots');
-// Beside the other harnesses' 17449 to 17457.
-const PORT = 17458;
+// Past the other harnesses' 17449 to 17460.
+const PORT = 17461;
 const BASE = `http://localhost:${PORT}`;
 const CLIP_SECONDS = 60;
 const CHAPTERS = [
