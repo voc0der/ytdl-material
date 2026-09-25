@@ -22,7 +22,7 @@
 <ng-template #videoSearchTools>
   <div class="kit-field library-search">
     <mat-icon>search</mat-icon>
-    <input type="search" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" placeholder="Search" i18n-placeholder="Search" aria-label="Search" i18n-aria-label="Search">
+    <input #videoSearchInput type="search" [(ngModel)]="search_text" (ngModelChange)="onSearchInputChanged($event)" placeholder="Search" i18n-placeholder="Search" aria-label="Search" i18n-aria-label="Search">
     @if (narrowScreen) {
       <app-sort-property [iconOnly]="true" [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
       @if (getVisibleFilters().length) {
@@ -30,6 +30,10 @@
           <mat-icon>tune</mat-icon>
         </button>
       }
+    } @else if (search_text) {
+      <button type="button" class="kit-icon-button" (click)="clearSearch(); videoSearchInput.focus()" aria-label="Clear search" i18n-aria-label="Clear search">
+        <mat-icon>close</mat-icon>
+      </button>
     }
   </div>
   @if (!narrowScreen) {
@@ -40,9 +44,13 @@
 <ng-template #playlistSearchTools>
   <div class="kit-field library-search">
     <mat-icon>search</mat-icon>
-    <input type="search" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" placeholder="Search playlists" i18n-placeholder="Search playlists" aria-label="Search playlists" i18n-aria-label="Search playlists">
+    <input #playlistSearchInput type="search" [(ngModel)]="playlistSearchText" (ngModelChange)="onPlaylistSearchInputChanged($event)" placeholder="Search playlists" i18n-placeholder="Search playlists" aria-label="Search playlists" i18n-aria-label="Search playlists">
     @if (narrowScreen) {
       <app-sort-property [iconOnly]="true" [(sortProperty)]="sortProperty" [(descendingMode)]="descendingMode" (sortOptionChanged)="sortOptionChanged($event)"></app-sort-property>
+    } @else if (playlistSearchText) {
+      <button type="button" class="kit-icon-button" (click)="clearPlaylistSearch(); playlistSearchInput.focus()" aria-label="Clear search" i18n-aria-label="Clear search">
+        <mat-icon>close</mat-icon>
+      </button>
     }
   </div>
   @if (!narrowScreen) {
