@@ -45,22 +45,7 @@ jobs:
             exit "$status"
           fi
 
-          node <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('outdated.json', 'utf8').trim();
-          const packages = raw ? JSON.parse(raw) : {};
-          const behindWanted = Object.entries(packages)
-            .filter(([, details]) => details.current !== details.wanted);
-
-          if (behindWanted.length === 0) {
-            process.exit(0);
-          }
-
-          for (const [name, details] of behindWanted) {
-            console.log(`${name}: current ${details.current}, wanted ${details.wanted}, latest ${details.latest}`);
-          }
-          process.exit(1);
-          NODE
+          node "$GITHUB_WORKSPACE/.github/scripts/check-outdated.js"
 
       - name: Check backend dependencies
         id: backend_outdated
@@ -75,22 +60,7 @@ jobs:
             exit "$status"
           fi
 
-          node <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('outdated.json', 'utf8').trim();
-          const packages = raw ? JSON.parse(raw) : {};
-          const behindWanted = Object.entries(packages)
-            .filter(([, details]) => details.current !== details.wanted);
-
-          if (behindWanted.length === 0) {
-            process.exit(0);
-          }
-
-          for (const [name, details] of behindWanted) {
-            console.log(`${name}: current ${details.current}, wanted ${details.wanted}, latest ${details.latest}`);
-          }
-          process.exit(1);
-          NODE
+          node "$GITHUB_WORKSPACE/.github/scripts/check-outdated.js"
         working-directory: ./backend
 
       - name: Report dependency status
@@ -104,7 +74,7 @@ jobs:
           echo "Backend check outcome: $BACKEND_OUTCOME"
 
           if [ "$FRONTEND_OUTCOME" != "failure" ] && [ "$BACKEND_OUTCOME" != "failure" ]; then
-            echo "Every dependency is at the version its declared range wants."
+            echo "Every dependency is at the version its declared range wants, apart from releases under 3.5 days old."
             exit 0
           fi
 
