@@ -1,20 +1,14 @@
 name: docker
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '.vscode/**'
-      - 'chrome-extension/**'
-      - 'releases/**'
-      - '**/**.md'
-      - '**.crx'
-      - '**.pem'
-      - '.dockerignore'
-      - '.gitignore'
-  schedule:
-    - cron:  '34 4 * * 2'
+  # Publishing nightly is a deliberate step, like a release, so automated merges to main
+  # never ship an image on their own.
   workflow_dispatch:
+    inputs:
+      cold_rebuild:
+        description: 'Rebuild without the layer cache'
+        type: boolean
+        default: false
 
 jobs:
   build-and-push:
@@ -78,7 +72,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build & push images
-        if: github.event_name != 'schedule'
+        if: ${{ !inputs.cold_rebuild }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -90,8 +84,8 @@ jobs:
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}
 
-      - name: build & push images (scheduled cold rebuild)
-        if: github.event_name == 'schedule'
+      - name: build & push images (cold rebuild)
+        if: ${{ inputs.cold_rebuild }}
         uses: docker/build-push-action@v7
         with:
           context: .
