@@ -98,6 +98,7 @@ nav:
       - Updates: deployment/updates.md
   - Integrations:
       - API and tokens: integrations/api.md
+      - MCP server: integrations/mcp.md
       - RSS feeds: integrations/rss.md
       - Notifications and webhooks: integrations/notifications.md
       - Browser extensions: integrations/browser.md
