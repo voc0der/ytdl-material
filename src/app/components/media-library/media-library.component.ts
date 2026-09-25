@@ -731,6 +731,15 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.playlistSearchText = newvalue;
   }
 
+  clearSearch(): void {
+    this.search_text = '';
+    this.onSearchInputChanged('');
+  }
+
+  clearPlaylistSearch(): void {
+    this.onPlaylistSearchInputChanged('');
+  }
+
   libraryTabChanged(index: number): void {
     this.activeLibraryTab = index;
     localStorage.setItem(this.libraryTabStorageKey, `${index}`);

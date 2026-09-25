@@ -806,6 +806,60 @@ describe('MediaLibraryComponent', () => {
       (header().querySelector('.library-filter-summary button') as HTMLButtonElement).click();
       expect(clear_filters).toHaveBeenCalled();
     });
+
+    it('should offer a clear button in the search field on a wide screen once something is typed', fakeAsync(() => {
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: [{ uid: 'file-1', title: 'Cats', duration: 12 }], file_count: 1 }));
+      fixture.detectChanges();
+      component.narrowScreen = false;
+      fixture.detectChanges();
+      const clear_button = (): HTMLButtonElement => header().querySelector('.library-search button[aria-label="Clear search"]');
+      expect(clear_button()).toBeNull();
+
+      component.search_text = 'cats';
+      component.onSearchInputChanged('cats');
+      tick(500);
+      fixture.detectChanges();
+      const input: HTMLInputElement = header().querySelector('.library-search input');
+      expect(component.search_mode).toBe(true);
+
+      clear_button().click();
+      tick(500);
+      fixture.detectChanges();
+
+      expect(component.search_text).toBe('');
+      expect(component.search_mode).toBe(false);
+      expect(postsServiceStub.getAllFiles.mock.lastCall[2]).toBeNull();
+      expect(document.activeElement).toBe(input);
+      expect(clear_button()).toBeNull();
+      flush();
+    }));
+
+    it('should clear the playlist search from its own clear button on a wide screen', () => {
+      fixture.detectChanges();
+      component.activeLibraryTab = 1;
+      component.narrowScreen = false;
+      component.playlistLibraryReceived = true;
+      component.playlistLibraryItems = [{ id: 'p1', name: 'Road trip' }, { id: 'p2', name: 'Chores' }] as any;
+      component.playlistSearchText = 'road';
+      fixture.detectChanges();
+      expect(component.visiblePlaylists.map(playlist => playlist.id)).toEqual(['p1']);
+
+      (header().querySelector('.library-search button[aria-label="Clear search"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(component.playlistSearchText).toBe('');
+      expect(component.visiblePlaylists.map(playlist => playlist.id)).toEqual(['p1', 'p2']);
+      expect(header().querySelector('.library-search button[aria-label="Clear search"]')).toBeNull();
+    });
+
+    it('should leave clearing the search to the browser on a narrow screen', () => {
+      fixture.detectChanges();
+      component.narrowScreen = true;
+      component.search_text = 'cats';
+      fixture.detectChanges();
+
+      expect(header().querySelector('.library-search button[aria-label="Clear search"]')).toBeNull();
+    });
   });
 
   it('should window auto-loaded video rows instead of rendering every loaded row', () => {

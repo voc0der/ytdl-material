@@ -151,6 +151,11 @@
     width: 280px;
 }
 
+// A wide screen gets its own clear button, so the browser's, where it draws one, would be a second.
+.library-header-tools .library-search > input::-webkit-search-cancel-button {
+    display: none;
+}
+
 .my-videos-title {
     margin: 0;
     font-size: 20px;
