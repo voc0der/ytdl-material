@@ -1,7 +1,8 @@
 :host {
     --controls-accent: #ff0033;
     --controls-accent-end: #ff3d7f;
-    --controls-pill: rgba(0, 0, 0, 0.38);
+    /* Grey rather than black, so a pill still shows over the black around a letterboxed picture. */
+    --controls-pill: rgba(52, 52, 52, 0.62);
     --controls-surface: rgba(22, 22, 22, 0.9);
     /* Opaque on purpose: Firefox puts its own picture-in-picture button over the right of the
        video and takes clicks there, unless something opaque covers the video at that point. */
