@@ -2120,6 +2120,30 @@ exports.getVideoUIDByID = async (file_id, uuid = null) => {
     return file_obj ? file_obj['uid'] : null;
 }
 
+/*************************************************
+ * Writes changes to one file record, if there is
+ * one -- and in multi-user mode, if it is the
+ * caller's.
+ *
+ * The owner used to go into the update filter and
+ * the answer was taken as the result. That reads
+ * like a check but is not one: updateRecord
+ * reports success whether or not its filter matched
+ * anything, so editing somebody else's file wrote
+ * nothing and answered success anyway. The record
+ * is looked up first instead, as changeSharingMode
+ * does.
+ ************************************************/
+exports.updateFileRecord = async (file_uid, update_obj, user_uid = null) => {
+    if (typeof file_uid !== 'string' || !file_uid) return false;
+
+    const file_filter = {uid: file_uid};
+    if (shouldRestrictToUser(user_uid)) file_filter['user_uid'] = user_uid;
+    if (!await db_api.getRecord('files', file_filter)) return false;
+
+    return !!await db_api.updateRecord('files', file_filter, update_obj);
+}
+
 exports.getVideo = async (file_uid, user_uid = null, sub_id = null) => {
     const filter_obj = {uid: file_uid};
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
