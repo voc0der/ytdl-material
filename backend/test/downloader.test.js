@@ -22,6 +22,7 @@ const {
 describe('Downloader', function() {
     const downloader_api = require('../downloader');
     const notifications_api = require('../notifications');
+    const hooks_api = require('../hooks');
     // These tests are intended to be unit-style. By default we do NOT hit live
     // YouTube/yt-dlp during CI because it is inherently flaky (bot checks,
     // removed videos, geo/auth restrictions, etc.).
@@ -481,6 +482,47 @@ describe('Downloader', function() {
         }
         const success = await downloader_api.downloadQueuedFile(returned_download['uid'], custom_download_method);
         assert(success);
+    });
+
+    it('Download file runs the download-finished hooks for the new file', async function() {
+        this.timeout(300000);
+        const hooks_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-download-hooks-'));
+        const output = path.join(hooks_dir, 'output');
+        fs.mkdirSync(path.join(hooks_dir, 'download-finished.d'));
+        fs.writeFileSync(
+            path.join(hooks_dir, 'download-finished.d', 'record'),
+            `#!/bin/sh\nprintf '%s|%s|%s\\n' "$YTDL_FILE_UID" "$YTDL_FILE_PATH" "$YTDL_DOWNLOAD_UID" >> "${output}"\n`,
+            {mode: 0o755}
+        );
+        const original_hooks_dir = hooks_api.getHooksDir();
+        hooks_api.setHooksDir(hooks_dir);
+        let info_json_path = null;
+        try {
+            await downloader_api.setupDownloads();
+            const args = await downloader_api.generateArgs(url, 'video', options, null, true);
+            const [info] = await downloader_api.getVideoInfoByURL(url, args);
+            if (fs.existsSync(info['_filename'])) fs.unlinkSync(info['_filename']);
+            const returned_download = await downloader_api.createDownload(url, 'video', options);
+            // Beside the file, where registration looks for it, as yt-dlp leaves it.
+            const custom_download_method = async (url, args, options, callback) => {
+                await generateEmptyVideoFile(info['_filename']);
+                info_json_path = `${utils.removeFileExtension(info['_filename'])}.info.json`;
+                fs.writeJSONSync(info_json_path, info);
+                return await callback(null, [JSON.stringify(info)]);
+            };
+            assert(await downloader_api.downloadQueuedFile(returned_download['uid'], custom_download_method));
+
+            assert(await waitForCondition(() => fs.existsSync(output)), 'the hook never ran');
+            const finished = await db_api.getRecord('download_queue', {uid: returned_download['uid']});
+            const [file_uid, file_path, download_uid] = fs.readFileSync(output, 'utf8').trim().split('|');
+            assert.strictEqual(file_uid, finished.file_uids[0]);
+            assert(path.isAbsolute(file_path) && file_path.endsWith(path.basename(info['_filename'])), file_path);
+            assert.strictEqual(download_uid, returned_download['uid']);
+        } finally {
+            hooks_api.setHooksDir(original_hooks_dir);
+            fs.rmSync(hooks_dir, {recursive: true, force: true});
+            if (info_json_path) fs.rmSync(info_json_path, {force: true});
+        }
     });
 
     it('Download failure persists a bounded stderr diagnostic', async function() {

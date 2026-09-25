@@ -15,6 +15,7 @@ const codecs = require('./codecs');
 const db_api = require('./db');
 const files_api = require('./files');
 const notifications_api = require('./notifications');
+const hooks_api = require('./hooks');
 const archive_api = require('./archive');
 
 const mutex = new Mutex();
@@ -2203,6 +2204,8 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             await archive_api.addToArchive(output_json['extractor'], output_json['id'], type, output_json['title'], download['user_uid'], download['sub_id']);
 
             notifications_api.sendDownloadNotification(file_obj, download['user_uid']);
+            // Queued, not awaited: a slow hook does not hold up the download.
+            hooks_api.queueDownloadFinishedHooks(file_obj, download);
 
             file_objs.push(file_obj);
         }

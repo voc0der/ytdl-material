@@ -45,8 +45,13 @@ const codec_discovery = require('./codec-discovery');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 const thumbnails_api = require('./thumbnails');
+const hooks_api = require('./hooks');
+const healthz = require('./healthz');
 
 const app = express();
+
+// Ahead of every other middleware on purpose; see healthz.js.
+app.get('/healthz', healthz.handler);
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
 const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
 
@@ -450,6 +455,7 @@ async function startServer() {
         server = https.createServer(httpsOptions, app);
         server.listen(backendPort, function() {
             logger.info(`ytdl-material ${CONSTS['CURRENT_VERSION']} started on HTTPS PORT ${backendPort}`);
+            hooks_api.runStartedHooks(backendPort, config_api.getConfigItem('ytdl_url'));
         });
     } else {
         // Start HTTP server
@@ -460,6 +466,7 @@ async function startServer() {
         server = http.createServer(app);
         server.listen(backendPort, function() {
             logger.info(`ytdl-material ${CONSTS['CURRENT_VERSION']} started on HTTP PORT ${backendPort}`);
+            hooks_api.runStartedHooks(backendPort, config_api.getConfigItem('ytdl_url'));
         });
     }
 }

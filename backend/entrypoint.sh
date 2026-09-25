@@ -210,18 +210,44 @@ has_supplementary_groups() {
     return 1
 }
 
+# Scripts mounted at hooks/init.d, in name order (the image sets no locale, so byte order),
+# as whoever the container started as: root by default, which is what installing a package
+# needs. hooks.js runs the other stages from the backend. A failing script stops the
+# container starting, since what comes after it may depend on it.
+run_init_hooks() {
+    local hooks_dir="hooks/init.d"
+    local hook
+
+    [ -d "$hooks_dir" ] || return 0
+
+    for hook in "$hooks_dir"/*; do
+        [ -f "$hook" ] || continue
+        if [ ! -x "$hook" ]; then
+            echo "[entrypoint] Skipping init hook $hook: it is not executable (chmod +x it)"
+            continue
+        fi
+        echo "[entrypoint] Running init hook $hook"
+        if ! YTDL_EVENT=init "$hook"; then
+            echo "[entrypoint] ERROR: init hook $hook failed, so the container is not starting."
+            exit 1
+        fi
+    done
+}
+
 runtime_uid="$(resolve_runtime_env 1000 ytdl_uid uid UID)"
 runtime_gid="$(resolve_runtime_env 1000 ytdl_gid gid GID)"
 transcoding_mode="$(resolve_transcoding_mode)"
 
 install_ytdlp_impersonation_dependencies
 install_transcoding_drivers "$transcoding_mode"
+run_init_hooks
 
 # Check if we're running as root
 if [ "$(id -u)" = "0" ]; then
     # Running as root - fix permissions and drop privileges
     echo "[entrypoint] Running as root, fixing permissions (this may take a while)"
-    find . \! -user "$runtime_uid" -exec chown "$runtime_uid:$runtime_gid" '{}' + || echo "WARNING! Could not change directory ownership. If you manage permissions externally this is fine, otherwise you may experience issues when downloading or deleting videos."
+    # hooks/ is left alone: it is usually a read-only mount of the host's own files.
+    find . -path ./hooks -prune -o \! -user "$runtime_uid" -exec chown "$runtime_uid:$runtime_gid" '{}' + || echo "WARNING! Could not change directory ownership. If you manage permissions externally this is fine, otherwise you may experience issues when downloading or deleting videos."
     case "$transcoding_mode" in
         vaapi|qsv|intel|quicksync)
             if has_supplementary_groups; then

@@ -31,7 +31,7 @@
 | Database | PostgreSQL, MongoDB, or local JSON |
 | Accounts | Single-user mode, internal accounts, LDAP, or OpenID Connect |
 | Processing | Software ffmpeg, VAAPI, QSV, NVENC, or AMF when supported by the host |
-| Automation | Scheduled tasks, per-user API tokens, RSS feeds |
+| Automation | Scheduled tasks, per-user API tokens, RSS feeds, [startup and download hooks](deployment/hooks.md) |
 | Notifications | In-app alerts, custom webhooks, Discord, Slack, Telegram, Gotify, ntfy |
 | Browser integration | Chromium package, Firefox package, bookmarklet |
 

@@ -88,6 +88,7 @@ nav:
       - Tasks and schedules: usage/tasks.md
   - Deployment:
       - Docker and storage: deployment/docker.md
+      - Startup and download hooks: deployment/hooks.md
       - Databases and Redis: deployment/databases.md
       - Migrating an installation: deployment/migration.md
       - Backups and restore: deployment/backups.md

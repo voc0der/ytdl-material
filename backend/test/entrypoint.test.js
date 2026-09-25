@@ -27,13 +27,21 @@ function runEntrypointDetailed({
     runtimeGid,
     impersonation = false,
     updateChannel,
-    impersonationAlreadyPresent = false
+    impersonationAlreadyPresent = false,
+    // Each {name, body, mode}, written to hooks/init.d.
+    initHooks = [],
+    expectFailure = false
 } = {}) {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-entrypoint-'));
     const binDir = path.join(tempDir, 'bin');
     const callsPath = path.join(tempDir, 'calls');
+    const findCallsPath = path.join(tempDir, 'find-calls');
     fs.mkdirSync(binDir);
     fs.mkdirSync(path.join(tempDir, 'appdata'));
+    if (initHooks.length) fs.mkdirSync(path.join(tempDir, 'hooks', 'init.d'), { recursive: true });
+    for (const hook of initHooks) {
+        fs.writeFileSync(path.join(tempDir, 'hooks', 'init.d', hook.name), `#!/bin/sh\n${hook.body}\n`, { mode: hook.mode ?? 0o755 });
+    }
     const defaultStoredConfig = {
         YtdlMaterial: {
             Downloader: {
@@ -47,7 +55,8 @@ function runEntrypointDetailed({
     );
 
     writeStub(binDir, 'id', 'case "$1" in -u) printf "%s" "$ENTRYPOINT_UID" ;; -g) printf "%s" "$ENTRYPOINT_GID" ;; -G) printf "%s" "$ENTRYPOINT_GROUPS" ;; *) exit 1 ;; esac');
-    writeStub(binDir, 'find', 'exit 0');
+    // Its own file, so the calls every other test compares stay as they were.
+    writeStub(binDir, 'find', 'printf "%s\\n" "$*" >> "$ENTRYPOINT_FIND_CALLS"');
     writeStub(binDir, 'dpkg-query', 'for package_name do :; done; case " $ENTRYPOINT_PACKAGES " in *" $package_name "*) printf "install ok installed" ;; *) exit 1 ;; esac');
     writeStub(binDir, 'ls', 'case "$*" in *iHD_drv_video.so*) [ "$ENTRYPOINT_INTEL_DRIVER" = "true" ] ;; *) [ "$ENTRYPOINT_VA_DRIVER" = "true" ] ;; esac');
     writeStub(binDir, 'rm', 'exit 0');
@@ -78,6 +87,7 @@ function runEntrypointDetailed({
         ...process.env,
         PATH: `${binDir}:${process.env.PATH}`,
         ENTRYPOINT_CALLS: callsPath,
+        ENTRYPOINT_FIND_CALLS: findCallsPath,
         ENTRYPOINT_UID: processUid,
         ENTRYPOINT_GID: processGid,
         ENTRYPOINT_GROUPS: [processGid, ...supplementaryGroups].join(' '),
@@ -116,10 +126,15 @@ function runEntrypointDetailed({
     });
 
     const calls = fs.existsSync(callsPath) ? fs.readFileSync(callsPath, 'utf8') : '';
+    const findCalls = fs.existsSync(findCallsPath) ? fs.readFileSync(findCallsPath, 'utf8') : '';
     const stdout = result.stdout || '';
     fs.rmSync(tempDir, { recursive: true, force: true });
-    assert.strictEqual(result.status, 0, result.stderr || result.stdout);
-    return { calls, stdout };
+    if (expectFailure) {
+        assert.notStrictEqual(result.status, 0, 'the entrypoint was expected to stop');
+    } else {
+        assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+    }
+    return { calls, stdout, findCalls };
 }
 
 function runEntrypoint(options) {
@@ -127,6 +142,48 @@ function runEntrypoint(options) {
 }
 
 describe('Docker entrypoint', function() {
+    describe('init hooks', function() {
+        // A hook records its name, the user it ran as and the event it was told.
+        const recordingHook = name => ({ name, body: `printf "hook ${name} %s %s\\n" "$(id -u)" "$YTDL_EVENT" >> "$ENTRYPOINT_CALLS"` });
+
+        it('runs them in name order, as root, before dropping privileges', function() {
+            const calls = runEntrypoint({ initHooks: [recordingHook('20-second'), recordingHook('10-first')] });
+
+            assert.strictEqual(calls, 'hook 10-first 0 init\nhook 20-second 0 init\ngosu 1000:1000 npm start\n');
+        });
+
+        it('runs them as the container\'s user when it starts non-root', function() {
+            const calls = runEntrypoint({ processUid: '1234', initHooks: [recordingHook('only')] });
+
+            assert.strictEqual(calls, 'hook only 1234 init\nnpm start\n');
+        });
+
+        it('skips one that is not executable, and says so', function() {
+            const { calls, stdout } = runEntrypointDetailed({
+                initHooks: [{ ...recordingHook('forgot-chmod'), mode: 0o644 }, recordingHook('runs')]
+            });
+
+            assert.strictEqual(calls, 'hook runs 0 init\ngosu 1000:1000 npm start\n');
+            assert(stdout.includes('Skipping init hook hooks/init.d/forgot-chmod'), stdout);
+        });
+
+        it('does not start the server when one fails', function() {
+            const { calls, stdout } = runEntrypointDetailed({
+                initHooks: [{ name: '10-fails', body: 'exit 7' }, recordingHook('20-never')],
+                expectFailure: true
+            });
+
+            assert.strictEqual(calls, '');
+            assert(stdout.includes('init hook hooks/init.d/10-fails failed'), stdout);
+        });
+
+        it('leaves the hooks directory out of the ownership fix', function() {
+            const { findCalls } = runEntrypointDetailed();
+
+            assert(findCalls.startsWith('. -path ./hooks -prune -o ! -user 1000 -exec chown 1000:1000'), findCalls);
+        });
+    });
+
     it('does not install VAAPI packages when hardware transcoding is disabled', function() {
         const calls = runEntrypoint();
 
