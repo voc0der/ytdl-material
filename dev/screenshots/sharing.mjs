@@ -57,8 +57,10 @@ function check(name, ok, detail = '') {
     console.log(`    ${mark} ${name}${detail ? ` (${detail})` : ''}`);
 }
 
+// The same fixture uid on every run. SHA-256 rather than the SHA-1 the other harnesses use:
+// these are built from an account's uid, and CodeQL flags a weak hash over one whatever it is for.
 function stableUid(id) {
-    const hex = createHash('sha1').update(`ytdl-material-sharing:${id}`).digest('hex');
+    const hex = createHash('sha256').update(`ytdl-material-sharing:${id}`).digest('hex');
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
