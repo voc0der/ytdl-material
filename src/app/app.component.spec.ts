@@ -129,6 +129,44 @@ describe('AppComponent', () => {
     expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledWith(null, true);
   });
 
+  describe('in multi-user mode', () => {
+    beforeEach(() => {
+      posts_service_mock.config = { Advanced: { multi_user_mode: true } };
+      posts_service_mock.getCurrentDownloads = vi.fn().mockName('getCurrentDownloads').mockReturnValue(of({ downloads: [] }));
+    });
+
+    it('polls downloads for an account that may list them', () => {
+      posts_service_mock.hasPermission = vi.fn().mockReturnValue(true);
+
+      (component as any).refreshActiveDownloads();
+
+      expect(posts_service_mock.hasPermission).toHaveBeenCalledWith('downloads_manager');
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalled();
+    });
+
+    it('asks nothing for an account without downloads_manager, which would be refused every poll', () => {
+      posts_service_mock.hasPermission = vi.fn().mockReturnValue(false);
+      const schedule_spy = vi.spyOn(component as any, 'scheduleNextActiveDownloadsPoll').mockReturnValue(undefined);
+
+      (component as any).refreshActiveDownloads();
+
+      expect(posts_service_mock.getCurrentDownloads).not.toHaveBeenCalled();
+      expect(component.active_download_count).toBe(0);
+      // Still ticking, without a request, so an account that can list them is picked up after a
+      // log out and log in.
+      expect(schedule_spy).toHaveBeenCalled();
+    });
+
+    it('asks nothing while nobody is logged in', () => {
+      posts_service_mock.isLoggedIn = false;
+      vi.spyOn(component as any, 'scheduleNextActiveDownloadsPoll').mockReturnValue(undefined);
+
+      (component as any).refreshActiveDownloads();
+
+      expect(posts_service_mock.getCurrentDownloads).not.toHaveBeenCalled();
+    });
+  });
+
   it('does not auto-open on initial active download load', () => {
     const show_spy = vi.spyOn(component as any, 'showActiveDownloadsMenuTemporarily').mockReturnValue(undefined);
     (component as any).active_downloads_initialized = false;
