@@ -87,6 +87,12 @@
     font-size: 20px;
 }
 
+/* A subscription's artwork in its round avatar. A playlist's cover is wide, and would be
+   squeezed to fit rather than cropped. */
+.navigation-icon ::ng-deep ngx-avatars img {
+    object-fit: cover;
+}
+
 .navigation-link.navigation-active {
     background: var(--kit-tonal);
     --mat-list-list-item-label-text-color: var(--kit-on-tonal);

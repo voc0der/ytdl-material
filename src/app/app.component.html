@@ -177,7 +177,7 @@
             }
             @for (subscription of postsService.subscriptions; track subscription) {
               <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" [routerLink]="['/subscription', { id: subscription.id }]" [matTooltip]="subscription.name">
-                <span matListItemIcon class="navigation-icon" aria-hidden="true"><ngx-avatars size="28" [initialsSize]="2" [name]="subscription.name"></ngx-avatars></span>
+                <span matListItemIcon class="navigation-icon" aria-hidden="true"><ngx-avatars size="28" [initialsSize]="2" [src]="subscriptionActions.artworkURL(subscription)" [name]="subscription.name"></ngx-avatars></span>
                 <span matListItemTitle>{{subscription.name}}</span>
               </a>
             }

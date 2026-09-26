@@ -54,7 +54,7 @@ describe('AppComponent', () => {
     const overlay_container_mock: any = { getContainerElement: () => ({ classList: { remove: () => { }, add: () => { } } }) };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
 
-    component = new AppComponent(posts_service_mock, snack_bar_mock, dialog_mock, router_mock, overlay_container_mock, element_ref_mock);
+    component = new AppComponent(posts_service_mock, snack_bar_mock, dialog_mock, router_mock, overlay_container_mock, element_ref_mock, { artworkURL: () => null } as any);
 
     active_downloads_trigger_mock = {
       menuOpen: false,
@@ -349,7 +349,7 @@ describe('AppComponent notification bell', () => {
     };
     const router_mock: any = { events: of(), navigate: () => { }, url: '/home' };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
-    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock);
+    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock, { artworkURL: () => null } as any);
   });
 
   it('counts up to ninety-nine and then stops growing', () => {
@@ -391,7 +391,7 @@ describe('AppComponent while browsing someone else\'s library', () => {
     };
     router_mock = { events: of(), navigate: vi.fn(), url: '/player' };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
-    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock);
+    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock, { artworkURL: () => null } as any);
   });
 
   it('says whose library it is, and that the button leaves it', () => {
