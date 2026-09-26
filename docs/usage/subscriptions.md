@@ -4,7 +4,7 @@ A subscription checks a channel or playlist for eligible uploads and adds missin
 
 ## Create a subscription
 
-Open **Subscriptions**, paste the channel or playlist URL, and choose the download settings before subscribing. The app reads the source name and begins collecting eligible items.
+Open **Subscriptions**, paste the channel or playlist URL, and choose the download settings before subscribing. The app reads the source name and begins collecting eligible items. It also fetches the channel's avatar, or the playlist's cover, to show the subscription with, and refreshes it at most once a day as the subscription is checked.
 
 | Setting | Behavior |
 | --- | --- |
@@ -16,6 +16,8 @@ Open **Subscriptions**, paste the channel or playlist URL, and choose the downlo
 | Custom args / output | Overrides download details for this subscription |
 
 A date range such as `now-2weeks` controls which uploads are eligible when a check runs. It does not delete older files that were already downloaded. Use the **Delete old files** task for retention.
+
+A check with a date range first lists the source's uploads with their approximate dates, and fetches full details only for uploads near or inside the range, whose exact date decides. A short range on a large channel therefore takes seconds rather than one request per upload the channel has ever made.
 
 The global **Skip join-only videos** option skips items identified as membership-only and records skipped subscription items in the Archive. If your access later changes, review that history before expecting those items to download. The optional **Redownload fresh uploads** setting requests later quality checks for recently published items; it is not a command to upgrade every existing file in a subscription.
 

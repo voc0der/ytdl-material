@@ -56,6 +56,26 @@ describe('SubscriptionActionsService', () => {
     });
   });
 
+  describe('artwork', () => {
+    it('points at the subscription\'s own image, versioned by when it last changed', () => {
+      expect(service.artworkURL(sub({ artwork_updated_at: 1234 })))
+        .toBe('http://localhost:17442/api/subscriptionArtwork/sub-1?v=1234');
+    });
+
+    it('carries the token when logged in', () => {
+      postsService.isLoggedIn = true;
+      postsService.token = 'a token';
+
+      expect(service.artworkURL(sub({ artwork_updated_at: 1234 }))).toBe(
+        'http://localhost:17442/api/subscriptionArtwork/sub-1?v=1234&jwt=a%20token'
+      );
+    });
+
+    it('has no artwork until the backend has fetched one', () => {
+      expect(service.artworkURL(sub())).toBeNull();
+    });
+  });
+
   describe('pausing', () => {
     it('sends only the setting it changes', async () => {
       expect(await service.setPaused(sub(), true)).toBe(true);

@@ -12,7 +12,15 @@ describe('Subscriptions', function() {
         type: 'video',
         paused: true
     };
+    // A check asks the source for the channel's own record before listing its uploads. Tests
+    // that do not replace this get an empty record, rather than a real yt-dlp process.
+    let original_runYoutubeDL = null;
     beforeEach(async function() {
+        original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+        youtubedl_api.runYoutubeDL = async () => ({
+            child_process: null,
+            callback: Promise.resolve({parsed_output: [{}], err: null})
+        });
         await db_api.removeAllRecords('subscriptions');
         await db_api.removeAllRecords('download_queue');
         await db_api.removeAllRecords('files');
@@ -25,6 +33,9 @@ describe('Subscriptions', function() {
         config_api.setConfigItem('ytdl_replace_invalid_filename_chars', false);
         config_api.setConfigItem('ytdl_invalid_filename_chars', '\\/:*?"<>|');
         config_api.setConfigItem('ytdl_invalid_filename_replacement', '_');
+    });
+    afterEach(function() {
+        youtubedl_api.runYoutubeDL = original_runYoutubeDL;
     });
 
     async function waitForCondition(predicate, timeout_ms = 2000) {
@@ -72,12 +83,17 @@ describe('Subscriptions', function() {
         }
 
         const sleep_interval_index = captured_args.indexOf('--sleep-interval');
-        const playlist_end_index = captured_args.indexOf('--playlist-end');
+        const playlist_items_index = captured_args.indexOf('--playlist-items');
         assert(captured_args.includes('--resize-buffer'));
         assert(sleep_interval_index !== -1);
         assert.strictEqual(captured_args[sleep_interval_index + 1], '2');
-        assert(playlist_end_index !== -1);
-        assert.strictEqual(captured_args[playlist_end_index + 1], '1');
+        // The channel's own record, none of its entries: no video is extracted to learn a name.
+        assert(captured_args.includes('--dump-single-json'));
+        assert(captured_args.includes('--flat-playlist'));
+        assert(playlist_items_index !== -1);
+        assert.strictEqual(captured_args[playlist_items_index + 1], '0');
+        const stored_sub = await db_api.getRecord('subscriptions', {id: sub.id});
+        assert.strictEqual(stored_sub.name, 'metadata_args_sub');
     });
     it('Unsubscribe', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
@@ -681,7 +697,12 @@ describe('Subscriptions', function() {
     it('Update subscription leaves the fields the backend owns alone', async function () {
         await subscriptions_api.subscribe(new_sub, null, true);
         const refresh_status = {active: true, phase: 'collecting', discovered_count: 7};
-        await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {downloading: true, refresh_status: refresh_status});
+        await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {
+            downloading: true,
+            refresh_status: refresh_status,
+            artwork_file: `${new_sub['id']}.jpg`,
+            artwork_updated_at: 1234
+        });
 
         // What a page holding a copy from before the check started would send back.
         const stale_update = Object.assign({}, new_sub, {
@@ -689,7 +710,9 @@ describe('Subscriptions', function() {
             downloading: false,
             refresh_status: {active: false, phase: 'idle', discovered_count: 0},
             file_count: 99,
-            thumbnail_file_uid: 'not-a-file'
+            thumbnail_file_uid: 'not-a-file',
+            artwork_file: '../../users.json',
+            artwork_updated_at: 1
         });
         assert.strictEqual(await subscriptions_api.updateSubscription(stale_update), true);
 
@@ -700,6 +723,8 @@ describe('Subscriptions', function() {
         assert.strictEqual(updated_sub['refresh_status'].discovered_count, 7);
         assert.strictEqual(updated_sub['file_count'], undefined);
         assert.strictEqual(updated_sub['thumbnail_file_uid'], undefined);
+        assert.strictEqual(updated_sub['artwork_file'], `${new_sub['id']}.jpg`);
+        assert.strictEqual(updated_sub['artwork_updated_at'], 1234);
     });
     it('Update subscription refuses an update that names no subscription', async function () {
         assert.strictEqual(await subscriptions_api.updateSubscription(null), false);
@@ -1509,6 +1534,284 @@ describe('Subscriptions', function() {
         } finally {
             config_api.setConfigItem('ytdl_custom_args', original_global_args);
         }
+    });
+
+    async function checkAndWait(sub_id) {
+        assert.strictEqual(await subscriptions_api.getVideosForSub(sub_id), true);
+        assert(await waitForCondition(async () => {
+            const refreshed_sub = await subscriptions_api.getSubscription(sub_id);
+            return !!(refreshed_sub && !refreshed_sub.downloading);
+        }));
+    }
+
+    it('Keeps the channel id and avatar from the channel record', async function () {
+        const axios = require('axios');
+        const original_get = axios.get;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: null});
+        const requested_images = [];
+        youtubedl_api.runYoutubeDL = async () => ({
+            child_process: null,
+            callback: Promise.resolve({parsed_output: [{
+                _type: 'playlist',
+                title: 'Channel - Videos',
+                uploader: 'Channel',
+                channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+                thumbnails: [
+                    {id: 'banner', url: 'https://img.example/banner', width: 2560, height: 424},
+                    {id: '7', url: 'https://img.example/avatar-900', width: 900, height: 900},
+                    {id: '6', url: 'https://img.example/avatar-88', width: 88, height: 88},
+                    {id: 'avatar_uncropped', url: 'https://img.example/avatar-full'}
+                ]
+            }], err: null})
+        });
+        axios.get = async (url) => {
+            requested_images.push(url);
+            return {headers: {'content-type': 'image/jpeg'}, data: Buffer.from('avatar-bytes')};
+        };
+
+        let artwork_path = null;
+        try {
+            const result = await subscriptions_api.subscribe(sub, null, false);
+            assert.strictEqual(result.success, true);
+
+            const stored_sub = await db_api.getRecord('subscriptions', {id: sub.id});
+            assert.strictEqual(stored_sub.name, 'Channel');
+            assert.strictEqual(stored_sub.channel_id, 'UCzofo-P8yMMCOv8rsPfIR-g');
+            assert.strictEqual(stored_sub.artwork_file, `${sub.id}.jpg`);
+            assert.strictEqual(stored_sub.artwork_source_url, 'https://img.example/avatar-900');
+            assert(stored_sub.artwork_updated_at > 0);
+            assert.deepStrictEqual(requested_images, ['https://img.example/avatar-900']);
+
+            artwork_path = await subscriptions_api.getSubscriptionArtworkPath(sub.id);
+            assert(artwork_path);
+            assert.strictEqual(fs.readFileSync(artwork_path, 'utf8'), 'avatar-bytes');
+
+            await subscriptions_api.unsubscribe(sub.id, false);
+            assert.strictEqual(fs.existsSync(artwork_path), false);
+        } finally {
+            axios.get = original_get;
+            if (artwork_path) fs.removeSync(artwork_path);
+        }
+    });
+
+    it('Asks for the avatar on a check at most daily, and downloads it again only once it changes', async function () {
+        const axios = require('axios');
+        const original_get = axios.get;
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'avatar_refresh_sub'});
+        let avatar_url = 'https://img.example/avatar-a';
+        let info_requests = 0;
+        const requested_images = [];
+        youtubedl_api.runYoutubeDL = async () => {
+            info_requests += 1;
+            return {child_process: null, callback: Promise.resolve({parsed_output: [{
+                channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+                thumbnails: [{url: avatar_url, width: 900, height: 900}]
+            }], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async () => ({child_process: {pid: 4321}, callback: Promise.resolve({err: null})});
+        axios.get = async (url) => {
+            requested_images.push(url);
+            return {headers: {'content-type': 'image/png'}, data: Buffer.from(url)};
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await checkAndWait(sub.id);
+            assert.strictEqual(info_requests, 1);
+            assert.deepStrictEqual(requested_images, ['https://img.example/avatar-a']);
+
+            await checkAndWait(sub.id);
+            assert.strictEqual(info_requests, 1, 'a second check the same day does not ask again');
+
+            await db_api.updateRecord('subscriptions', {id: sub.id}, {source_info_checked_at: Date.now() - 2 * 24 * 60 * 60 * 1000});
+            await checkAndWait(sub.id);
+            assert.strictEqual(info_requests, 2);
+            assert.strictEqual(requested_images.length, 1, 'the same avatar is not downloaded again');
+
+            avatar_url = 'https://img.example/avatar-b';
+            await db_api.updateRecord('subscriptions', {id: sub.id}, {source_info_checked_at: 0});
+            await checkAndWait(sub.id);
+            assert.deepStrictEqual(requested_images, ['https://img.example/avatar-a', 'https://img.example/avatar-b']);
+            const artwork_path = await subscriptions_api.getSubscriptionArtworkPath(sub.id);
+            assert(artwork_path.endsWith(`${sub.id}.png`));
+            assert.strictEqual(fs.readFileSync(artwork_path, 'utf8'), 'https://img.example/avatar-b');
+        } finally {
+            axios.get = original_get;
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            const artwork_path = await subscriptions_api.getSubscriptionArtworkPath(sub.id);
+            if (artwork_path) fs.removeSync(artwork_path);
+        }
+    });
+
+    it('Picks a channel avatar or a playlist cover from the source images', function () {
+        const banner = {id: 'banner', url: 'https://img.example/banner', width: 2560, height: 424};
+        const small_avatar = {id: '1', url: 'https://img.example/avatar-88', width: 88, height: 88};
+        const large_avatar = {id: '2', url: 'https://img.example/avatar-900', width: 900, height: 900};
+        const uncropped_avatar = {id: 'avatar_uncropped', url: 'https://img.example/avatar-full'};
+        const pick = subscriptions_api.pickSubscriptionArtworkUrl;
+
+        assert.strictEqual(pick({thumbnails: [banner, small_avatar, large_avatar, uncropped_avatar]}, false), large_avatar.url);
+        // Without sizes only an image named as the avatar will do. A banner never stands in.
+        assert.strictEqual(pick({thumbnails: [banner, uncropped_avatar]}, false), uncropped_avatar.url);
+        assert.strictEqual(pick({thumbnails: [banner]}, false), null);
+        assert.strictEqual(pick({thumbnails: [{url: 'file:///etc/passwd', width: 10, height: 10}]}, false), null);
+
+        const playlist_covers = [
+            {url: 'https://img.example/cover-320', width: 320, height: 180},
+            {url: 'https://img.example/cover-800', width: 800, height: 450}
+        ];
+        assert.strictEqual(pick({thumbnails: playlist_covers}, true), 'https://img.example/cover-800');
+        assert.strictEqual(pick({thumbnail: 'https://img.example/cover'}, true), 'https://img.example/cover');
+        assert.strictEqual(pick(null, true), null);
+    });
+
+    it('Reads the lower bound of a date filter the way yt-dlp does', function () {
+        const now = Date.UTC(2026, 2, 31, 15, 30);
+        const bound = args => subscriptions_api.getSubscriptionDiscoveryDateLowerBound(args, now);
+
+        assert.strictEqual(bound(['--dateafter', 'now-1week']), Date.UTC(2026, 2, 24));
+        assert.strictEqual(bound(['--dateafter', 'now-3days']), Date.UTC(2026, 2, 28));
+        assert.strictEqual(bound(['--dateafter', 'today']), Date.UTC(2026, 2, 31));
+        assert.strictEqual(bound(['--dateafter', 'yesterday']), Date.UTC(2026, 2, 30));
+        // Calendar months with the day clamped: a month before March 31st is February 28th.
+        assert.strictEqual(bound(['--dateafter', 'now-1month']), Date.UTC(2026, 1, 28));
+        assert.strictEqual(bound(['--dateafter', 'now-1year']), Date.UTC(2025, 2, 31));
+        assert.strictEqual(bound(['--dateafter', '20260101']), Date.UTC(2026, 0, 1));
+        assert.strictEqual(bound(['--dateafter=20260101']), Date.UTC(2026, 0, 1));
+        // The last one given wins, and --date wins over --dateafter.
+        assert.strictEqual(bound(['--dateafter', '20250101', '--dateafter', '20260101']), Date.UTC(2026, 0, 1));
+        assert.strictEqual(bound(['--date', '20240505', '--dateafter', '20260101']), Date.UTC(2024, 4, 5));
+        // No lower bound, or a form yt-dlp itself refuses.
+        assert.strictEqual(bound(['--datebefore', '20260101']), null);
+        assert.strictEqual(bound(['--dateafter', 'last tuesday']), null);
+        assert.strictEqual(bound([]), null);
+    });
+
+    it('Leaves a margin before the cutoff that grows with the range', function () {
+        const day = 24 * 60 * 60 * 1000;
+        const now = Date.UTC(2026, 8, 26);
+        assert.strictEqual(subscriptions_api.getSubscriptionListingDateThreshold(now - 7 * day, now), now - 10 * day);
+        assert.strictEqual(subscriptions_api.getSubscriptionListingDateThreshold(now - 365 * day, now), now - 365 * day - 36.5 * day);
+    });
+
+    it('Dates listing entries by timestamp, or by upload date when that is all there is', function () {
+        const lines = subscriptions_api.getListingEntriesDatedBefore([
+            {ie_key: 'Youtube', id: 'by-timestamp', timestamp: Date.UTC(2025, 11, 1) / 1000},
+            {ie_key: 'Youtube', id: 'by-upload-date', timestamp: null, upload_date: '20251201'},
+            {ie_key: 'Youtube', id: 'recent', timestamp: Date.UTC(2026, 0, 2) / 1000},
+            // A missing timestamp is not the epoch.
+            {ie_key: 'Youtube', id: 'undated', timestamp: null, upload_date: null},
+            {id: 'no-extractor', timestamp: 0},
+            {extractor_key: 'Youtube', id: 'by-timestamp', timestamp: 0}
+        ], Date.UTC(2026, 0, 1));
+
+        assert.deepStrictEqual(lines, ['youtube by-timestamp', 'youtube by-upload-date']);
+    });
+
+    it('Lists a channel\'s uploads by date first, so a date filter does not fetch every older upload', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const day = 24 * 60 * 60;
+        const now_seconds = Math.floor(Date.now() / 1000);
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'dated_listing_sub',
+            timerange: 'now-1week',
+            channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+            source_info_checked_at: Date.now()
+        });
+        let listing_request = null;
+        let discovery_args = null;
+        let discovery_archive = null;
+        youtubedl_api.runYoutubeDL = async (requested_url, args) => {
+            listing_request = {url: requested_url, args: args};
+            return {child_process: null, callback: Promise.resolve({parsed_output: [
+                {ie_key: 'Youtube', id: 'new-video', timestamp: now_seconds - 2 * day},
+                // Inside the margin: left for the exact check.
+                {ie_key: 'Youtube', id: 'edge-video', timestamp: now_seconds - 9 * day},
+                {ie_key: 'Youtube', id: 'old-video', timestamp: now_seconds - 30 * day},
+                {ie_key: 'Youtube', id: 'old-short', timestamp: null, upload_date: '20200101'},
+                {ie_key: 'Youtube', id: 'undated-short', timestamp: null, upload_date: null}
+            ], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args) => {
+            discovery_args = args;
+            const archive_index = args.indexOf('--download-archive');
+            discovery_archive = archive_index === -1 ? '' : fs.readFileSync(args[archive_index + 1], 'utf8');
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await checkAndWait(sub.id);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        // A channel's own tabs leave Shorts undated; its uploads playlist dates everything.
+        assert.strictEqual(listing_request.url, 'https://www.youtube.com/playlist?list=UUzofo-P8yMMCOv8rsPfIR-g');
+        assert(listing_request.args.includes('--flat-playlist'));
+        assert.strictEqual(listing_request.args[listing_request.args.indexOf('--extractor-args') + 1], 'youtubetab:approximate_date');
+
+        assert.deepStrictEqual(discovery_archive.split('\n').filter(Boolean).sort(), ['youtube old-short', 'youtube old-video']);
+        // yt-dlp still makes the exact call on everything the listing did not rule out.
+        assert.strictEqual(discovery_args[discovery_args.indexOf('--dateafter') + 1], 'now-1week');
+        assert(!discovery_args.includes('--flat-playlist'));
+    });
+
+    it('Merges the approximate date into extractor args the user set for the listing', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'merged_extractor_args_sub',
+            timerange: 'now-1week',
+            custom_args: '--extractor-args,,youtubetab:skip=authcheck,,--extractor-args,,youtube:player_client=default',
+            source_info_checked_at: Date.now()
+        });
+        let listing_args = null;
+        youtubedl_api.runYoutubeDL = async (requested_url, args) => {
+            listing_args = args;
+            return {child_process: null, callback: Promise.resolve({parsed_output: [], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async () => ({child_process: {pid: 4321}, callback: Promise.resolve({err: null})});
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await checkAndWait(sub.id);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const extractor_args = listing_args.filter((arg, index) => index > 0 && listing_args[index - 1] === '--extractor-args');
+        assert.deepStrictEqual(extractor_args.sort(), ['youtube:player_client=default', 'youtubetab:skip=authcheck;approximate_date']);
+    });
+
+    it('Leaves discovery as it was when a dated listing cannot help', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const listing_requests = [];
+        youtubedl_api.runYoutubeDL = async (requested_url) => {
+            listing_requests.push(requested_url);
+            return {child_process: null, callback: Promise.resolve({parsed_output: [], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async () => ({child_process: {pid: 4321}, callback: Promise.resolve({err: null})});
+
+        try {
+            for (const settings of [
+                {name: 'no_date_filter_sub'},
+                // Skipped entries would be where --break-on-existing stops.
+                {name: 'break_on_existing_sub', timerange: 'now-1week', custom_args: '--break-on-existing'},
+                // Entries added to the user's own archive would count as downloaded for good.
+                {name: 'own_archive_sub', timerange: 'now-1week', custom_args: '--download-archive,,own-archive.txt'}
+            ]) {
+                const sub = Object.assign({}, new_sub, settings, {id: uuid(), source_info_checked_at: Date.now()});
+                await subscriptions_api.subscribe(sub, null, true);
+                await checkAndWait(sub.id);
+            }
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        assert.deepStrictEqual(listing_requests, []);
     });
 
     it('Fresh uploads', async function() {

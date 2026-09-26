@@ -745,6 +745,40 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/subscriptionArtwork/{sub_id}:
+    get:
+      tags:
+        - subscriptions
+      summary: Get a subscription's artwork
+      description: >-
+        Returns the subscription's own image: the channel's avatar, or the
+        playlist's cover. It is fetched from the source when subscribing and
+        refreshed at most daily as the subscription is checked.
+      operationId: get-subscriptionArtwork
+      parameters:
+        - name: sub_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: id of the subscription whose artwork to return.
+      responses:
+        '200':
+          description: The artwork image.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Authentication required.
+        '404':
+          description: >-
+            No such subscription, not the caller's, or it has no artwork yet.
+            All three answer the same way.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/createPlaylist:
     post:
       tags:
@@ -3628,6 +3662,14 @@ components:
           type: string
           nullable: true
           description: The newest downloaded file with a thumbnail, whose thumbnail the subscription is shown with.
+        channel_id:
+          type: string
+          nullable: true
+          description: The source's id for the channel, or for a playlist the channel that owns it.
+        artwork_updated_at:
+          type: number
+          nullable: true
+          description: When the artwork served by /api/subscriptionArtwork was last replaced, in epoch ms. Absent until there is artwork.
         videos:
           type: array
           items:

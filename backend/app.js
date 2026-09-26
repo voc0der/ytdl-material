@@ -3003,6 +3003,28 @@ app.get('/api/thumbnail/:uid', optionalJwt, requireAuthenticated, resolveLibrary
     });
 });
 
+// A subscription's own image, its channel avatar or playlist cover. Looked up by the
+// subscription, so the answer is the same for one that does not exist and one that is not yours.
+app.get('/api/subscriptionArtwork/:sub_id', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const artwork_path = await subscriptions_api.getSubscriptionArtworkPath(req.params.sub_id, user_uid);
+    if (!artwork_path) {
+        res.sendStatus(404);
+        return;
+    }
+
+    res.sendFile(artwork_path, utils.sendFileOptions(), (err) => {
+        if (!err) return;
+        if (res.headersSent) return;
+        if (err.statusCode === 404) {
+            res.sendStatus(404);
+            return;
+        }
+        logger.error(err);
+        res.sendStatus(500);
+    });
+});
+
 // Downloads management
 
 const DOWNLOADS_DEFAULT_PAGE_SIZE = 20;

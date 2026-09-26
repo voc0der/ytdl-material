@@ -47,6 +47,13 @@
   object-fit: cover;
 }
 
+// A channel's avatar, round, at the height the cover would have had.
+.sub-cover.sub-cover-avatar {
+  width: 72px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
 .sub-cover-initial {
   font-size: 32px;
   font-weight: 500;
@@ -246,6 +253,11 @@
   .sub-cover {
     width: 88px;
     border-radius: 10px;
+  }
+
+  .sub-cover.sub-cover-avatar {
+    width: 56px;
+    border-radius: 50%;
   }
 
   .sub-cover-initial {

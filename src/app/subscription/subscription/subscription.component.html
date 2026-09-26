@@ -5,7 +5,7 @@
         <button type="button" class="kit-icon-button sub-back" (click)="goBack()" [attr.aria-label]="backLabel" [matTooltip]="backLabel">
           <mat-icon>arrow_back</mat-icon>
         </button>
-        <span class="sub-cover" aria-hidden="true">
+        <span class="sub-cover" [class.sub-cover-avatar]="coverIsAvatar" aria-hidden="true">
           @if (coverURL; as cover) {
             <img [src]="cover" alt="">
           } @else {

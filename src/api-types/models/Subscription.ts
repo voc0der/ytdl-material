@@ -28,5 +28,13 @@ export type Subscription = {
      * The newest downloaded file with a thumbnail, whose thumbnail the subscription is shown with.
      */
     thumbnail_file_uid?: string | null;
+    /**
+     * The source's id for the channel, or for a playlist the channel that owns it.
+     */
+    channel_id?: string | null;
+    /**
+     * When the artwork served by /api/subscriptionArtwork was last replaced, in epoch ms. Absent until there is artwork.
+     */
+    artwork_updated_at?: number | null;
     videos?: Array<any>;
 };

@@ -17,9 +17,24 @@ export class SubscriptionActionsService {
   /** The subscription's cover: the thumbnail of its newest download that has one. */
   coverURL(sub: Subscription): string | null {
     if (!sub?.thumbnail_file_uid) return null;
+    return this.apiURL(`thumbnail/${encodeURIComponent(sub.thumbnail_file_uid)}`, {});
+  }
+
+  /**
+   * The subscription's own image, its channel avatar or playlist cover, once one has been
+   * fetched. The version changes whenever the image does, so a cached copy never outlives it.
+   */
+  artworkURL(sub: Subscription): string | null {
+    if (!sub?.id || !sub.artwork_updated_at) return null;
+    return this.apiURL(`subscriptionArtwork/${encodeURIComponent(sub.id)}`, { v: String(sub.artwork_updated_at) });
+  }
+
+  private apiURL(route: string, params: Record<string, string>): string {
     const base = this.postsService.path.endsWith('/') ? this.postsService.path.slice(0, -1) : this.postsService.path;
-    const auth = this.postsService.isLoggedIn && this.postsService.token ? `?jwt=${encodeURIComponent(this.postsService.token)}` : '';
-    return `${base}/thumbnail/${encodeURIComponent(sub.thumbnail_file_uid)}${auth}`;
+    const query = Object.entries(params);
+    if (this.postsService.isLoggedIn && this.postsService.token) query.push(['jwt', this.postsService.token]);
+    const query_string = query.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+    return `${base}/${route}${query_string ? `?${query_string}` : ''}`;
   }
 
   async check(sub: Subscription): Promise<boolean> {

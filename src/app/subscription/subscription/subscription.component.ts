@@ -204,8 +204,14 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     return this.getSubscriptionFileCount(this.subscription);
   }
 
+  // The page stands for the channel or playlist itself, so its own image comes first.
   get coverURL(): string | null {
-    return this.actions.coverURL(this.subscription);
+    return this.actions.artworkURL(this.subscription) || this.actions.coverURL(this.subscription);
+  }
+
+  // A channel's avatar is shown round, as the channel shows it; anything else fills the frame.
+  get coverIsAvatar(): boolean {
+    return !!this.subscription && !this.subscription.isPlaylist && !!this.actions.artworkURL(this.subscription);
   }
 
   get initial(): string {
@@ -465,13 +471,11 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     return phase === 'collecting' || phase === 'queueing';
   }
 
+  // Collecting has no honest fraction to show: yt-dlp reports only the uploads it keeps, and
+  // says nothing of the ones it passes over as already downloaded or outside a date filter.
   getRefreshProgressMode(): 'determinate' | 'indeterminate' {
     const refresh_status = this.getRefreshStatus();
     if (!refresh_status) return 'indeterminate';
-
-    if (refresh_status.phase === 'collecting' && refresh_status.total_count > 0) {
-      return 'determinate';
-    }
 
     if (refresh_status.phase === 'queueing' && refresh_status.new_items_count > 0) {
       return 'determinate';
@@ -483,10 +487,6 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   getRefreshProgressValue(): number {
     const refresh_status = this.getRefreshStatus();
     if (!refresh_status) return 0;
-
-    if (refresh_status.phase === 'collecting' && refresh_status.total_count > 0) {
-      return Math.min(100, (refresh_status.discovered_count / refresh_status.total_count) * 100);
-    }
 
     if (refresh_status.phase === 'queueing' && refresh_status.new_items_count > 0) {
       return Math.min(100, (refresh_status.queued_count / refresh_status.new_items_count) * 100);
@@ -502,12 +502,10 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     const metrics: string[] = [];
     const skipped_count = this.getSkippedCount(refresh_status);
     const queued_count = this.getQueuedAfterSkippedCount(refresh_status);
-    if (refresh_status.phase === 'collecting') {
-      if (refresh_status.total_count > 0) {
-        metrics.push($localize`${refresh_status.discovered_count}:discovered count: / ${refresh_status.total_count}:total count: items scanned`);
-      } else if (refresh_status.discovered_count > 0) {
-        metrics.push($localize`${refresh_status.discovered_count}:discovered count: items scanned`);
-      }
+    // A count of what was found, not of what was looked at. Measured against the size of the
+    // channel it read as progress, and sat at "1 / 386" through every upload it passed over.
+    if (refresh_status.phase === 'collecting' && refresh_status.discovered_count > 0) {
+      metrics.push($localize`${refresh_status.discovered_count}:discovered count: found so far`);
     }
 
     if (refresh_status.new_items_count > 0) {

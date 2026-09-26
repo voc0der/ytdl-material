@@ -98,6 +98,16 @@
   transform: scale(1.03);
 }
 
+// A channel's avatar is shown whole and round on the cover's own background, not cropped to fill it.
+.card-cover-avatar img {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: 64%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
 .subscription-card[data-state='paused'] .card-cover img,
 .subscription-card[data-state='unavailable'] .card-cover img {
   filter: grayscale(0.85) brightness(0.7);
