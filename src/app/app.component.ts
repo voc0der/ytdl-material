@@ -25,6 +25,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatNavList, MatListItem, MatListItemIcon, MatListItemTitle, MatDivider } from '@angular/material/list';
 import { AvatarComponent } from 'ngx-avatars';
+import { SubscriptionActionsService } from './subscriptions/subscription-actions.service';
 
 @Component({
     selector: 'app-root',
@@ -95,6 +96,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(public postsService: PostsService, public snackBar: MatSnackBar, private dialog: MatDialog,
     public router: Router, public overlayContainer: OverlayContainer, private elementRef: ElementRef,
+    public subscriptionActions: SubscriptionActionsService,
   ) {
 
     this.navigator = this.getStoredPlayerNavigator();
