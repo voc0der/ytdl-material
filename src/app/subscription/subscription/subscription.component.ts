@@ -48,6 +48,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
 
   // The settings panel edits a copy, so Cancel leaves the subscription as it was.
   settingsOpen = false;
+  refreshDetailsOpen = false;
   settingsDraft: SubscriptionSettings | null = null;
   private settingsSaved: SubscriptionSettings | null = null;
   savingSettings = false;
@@ -242,7 +243,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     case 'downloading':
       return $localize`Downloading ${sub.refresh_status?.pending_download_count ?? 0}:download count: new`;
     case 'failed':
-      return $localize`Last check failed`;
+      return $localize`Last check didn't finish`;
     default: {
       const checked_at = lastCheckedAt(sub);
       return checked_at
@@ -412,7 +413,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     case 'cancelled':
       return $localize`Refresh cancelled`;
     case 'error':
-      return $localize`Refresh failed`;
+      return $localize`Check didn't finish`;
     default:
       if (this.subscription?.downloading) {
         return is_playlist ? $localize`Checking playlist metadata` : $localize`Checking channel metadata`;
@@ -458,9 +459,9 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     case 'cancelled':
       return $localize`The refresh was stopped before it finished collecting metadata or queueing all downloads.`;
     case 'error':
-      return refresh_status?.error
-        ? `${$localize`The refresh failed:`} ${refresh_status.error}`
-        : $localize`The refresh failed before the app could finish collecting metadata or queue downloads.`;
+      // Most often the site or the network for a moment. Nothing is lost: the next check
+      // looks at everything again.
+      return $localize`The check stopped before it finished, so nothing new was queued. The next check starts over.`;
     default:
       return $localize`The subscription page will show completed files only.`;
     }

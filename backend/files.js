@@ -1666,15 +1666,80 @@ exports.createPlaylist = async (playlist_name, uids, user_uid = null) => {
     return new_playlist;
 }
 
+function getFileSourceId(file_obj = null) {
+    if (!file_obj) return null;
+    if (file_obj['source_id']) return String(file_obj['source_id']);
+    const source_metadata = extractSourceMetadataFromUrl(file_obj['url'], file_obj['isAudio'] ? 'audio' : 'video');
+    return source_metadata ? source_metadata.source_id : null;
+}
+
+/*************************************************
+ * A channel's own playlists, as playlists here:
+ * one each, in the channel's order, holding
+ * whichever of its videos have been downloaded.
+ * The subscription keeps the ids from its last
+ * check. A playlist is made once it has a video
+ * to hold, and each is set to the channel's order
+ * whenever a video of it arrives.
+ ************************************************/
+async function syncSubscriptionChannelPlaylists(subscription, user_uid = null, file_uid = null) {
+    const channel_playlists = subscription['retrieve_channel_playlists'] === true && Array.isArray(subscription['channel_playlists'])
+        ? subscription['channel_playlists'].filter(channel_playlist => channel_playlist && channel_playlist.id && Array.isArray(channel_playlist.video_ids))
+        : [];
+    if (channel_playlists.length === 0) return;
+
+    if (file_uid) {
+        const source_id = getFileSourceId(await exports.getVideo(file_uid, user_uid));
+        if (!source_id || !channel_playlists.some(channel_playlist => channel_playlist.video_ids.includes(source_id))) return;
+    }
+
+    const files_filter = {sub_id: subscription.id};
+    const playlist_filter = {source_sub_id: subscription.id};
+    if (shouldRestrictToUser(user_uid)) {
+        files_filter['user_uid'] = user_uid;
+        playlist_filter['user_uid'] = user_uid;
+    }
+    const [subscription_files, stored_playlists] = await Promise.all([
+        db_api.getRecords('files', files_filter),
+        db_api.getRecords('playlists', playlist_filter)
+    ]);
+    const uid_by_source_id = new Map();
+    for (const file of subscription_files) {
+        const source_id = getFileSourceId(file);
+        if (source_id && !uid_by_source_id.has(source_id)) uid_by_source_id.set(source_id, file.uid);
+    }
+
+    for (const channel_playlist of channel_playlists) {
+        const uids = [...new Set(channel_playlist.video_ids.map(video_id => uid_by_source_id.get(video_id)).filter(Boolean))];
+        const playlist = stored_playlists.find(stored_playlist => stored_playlist['source_playlist_id'] === channel_playlist.id);
+        if (!playlist) {
+            if (uids.length === 0) continue;
+            const created_playlist = await exports.createPlaylist(channel_playlist.title || channel_playlist.id, uids, user_uid);
+            if (created_playlist) {
+                await db_api.updateRecord('playlists', {id: created_playlist.id}, {source_sub_id: subscription.id, source_playlist_id: channel_playlist.id});
+            }
+            continue;
+        }
+
+        const stored_uids = Array.isArray(playlist['uids']) ? playlist['uids'] : [];
+        if (stored_uids.length === uids.length && stored_uids.every((uid, index) => uid === uids[index])) continue;
+        playlist['uids'] = uids;
+        await exports.updatePlaylist(playlist, user_uid);
+    }
+}
+
 async function syncSubscriptionPlaylist(sub_id, user_uid = null, file_uid = null) {
     const subscription_filter = {id: sub_id};
     if (shouldRestrictToUser(user_uid)) subscription_filter['user_uid'] = user_uid;
     const subscription = await db_api.getRecord('subscriptions', subscription_filter);
-    if (!subscription || subscription['auto_create_playlist'] !== true || !subscription['name']) return null;
+    if (!subscription || !subscription['name']) return null;
+    await syncSubscriptionChannelPlaylists(subscription, user_uid, file_uid);
+    if (subscription['auto_create_playlist'] !== true) return null;
 
+    // The subscription's own playlist, as opposed to those copied from the channel.
     const playlist_filter = {source_sub_id: sub_id};
     if (shouldRestrictToUser(user_uid)) playlist_filter['user_uid'] = user_uid;
-    let playlist = await db_api.getRecord('playlists', playlist_filter);
+    let playlist = (await db_api.getRecords('playlists', playlist_filter)).find(stored_playlist => !stored_playlist['source_playlist_id']) || null;
 
     if (playlist && file_uid) {
         const stored_uids = Array.isArray(playlist['uids']) ? playlist['uids'] : [];

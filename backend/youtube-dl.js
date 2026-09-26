@@ -239,8 +239,10 @@ exports.runYoutubeDLLineStream = async (url, args, line_handlers = {}, youtubedl
     logger.debug(`Spawning ${selected_fork} process in streaming mode with ${runtime_args.length + 1} arguments`);
     logger.debug(`${selected_fork} streaming args: ${utils.redactCommandArgsForLogging(runtime_args).join(' ')}`);
     // '--' first, URL last: yt-dlp parses an option wherever it appears, so a URL of
-    // '--update-to=owner/repo@tag' would otherwise ask it to replace its own binary.
-    const child_process = trackYoutubeDLProcess(spawn(getYoutubeDLRuntimePath(selected_fork), [...runtime_args, '--', url], {
+    // '--update-to=owner/repo@tag' would otherwise ask it to replace its own binary. Several
+    // URLs go the same way, and one run then goes through them in turn.
+    const urls = Array.isArray(url) ? url : [url];
+    const child_process = trackYoutubeDLProcess(spawn(getYoutubeDLRuntimePath(selected_fork), [...runtime_args, '--', ...urls], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: getYoutubeDLRuntimeEnv(selected_fork)
     }));

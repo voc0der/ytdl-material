@@ -118,7 +118,7 @@ describe('SubscriptionsComponent', () => {
     await component.subscribe();
 
     expect(postsService.createSubscription).toHaveBeenCalledWith(
-      'https://example.com/playlist', 'My name', 'now-1week', '720', false, '', '', true, true
+      'https://example.com/playlist', 'My name', 'now-1week', '720', false, '', '', true, true, false
     );
     expect(component.url).toBe('');
     expect(component.name).toBe('');
@@ -207,7 +207,7 @@ describe('SubscriptionsComponent', () => {
     it('names the state of a subscription that needs attention', () => {
       expect(component.statusText(channel({ name: null }) as any)).toBe('Couldn\'t read this link');
       expect(component.statusText(channel({ paused: true }) as any)).toBe('Paused');
-      expect(component.statusText(channel({ refresh_status: { phase: 'error' } }) as any)).toBe('Last check failed');
+      expect(component.statusText(channel({ refresh_status: { phase: 'error' } }) as any)).toBe('Last check didn\'t finish');
     });
 
     it('counts what is still downloading', () => {

@@ -516,6 +516,18 @@ describe('SubscriptionComponent', () => {
       expect(component.shouldShowRefreshStatus()).toBe(true);
     });
 
+    it('keeps a check that did not finish to one quiet line, with the details folded away', () => {
+      component.subscription = {
+        id: 'sub-1', name: 'Test', refresh_status: { phase: 'error', error: '[site] abc: This live event will begin in a few moments.' }
+      } as any;
+
+      expect(component.statusText()).toBe('Last check didn\'t finish');
+      expect(component.shouldShowRefreshStatus()).toBe(true);
+      expect(component.refreshDetailsOpen).toBe(false);
+      expect(component.getRefreshHeadline()).toBe('Check didn\'t finish');
+      expect(component.getRefreshDescription()).not.toContain('This live event');
+    });
+
     it('names a playlist as one', () => {
       component.subscription = { id: 'sub-1', name: 'Test', isPlaylist: true, refresh_status: { phase: 'complete' } } as any;
 

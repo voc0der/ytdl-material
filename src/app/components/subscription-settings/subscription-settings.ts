@@ -13,6 +13,8 @@ export interface SubscriptionSettings {
   paused: boolean;
   use_subfolder: boolean;
   auto_create_playlist: boolean;
+  // A channel's own playlists, downloaded and kept as playlists. Means nothing for a playlist.
+  retrieve_channel_playlists: boolean;
   custom_args: string;
   custom_output: string;
 }
@@ -55,6 +57,7 @@ export function defaultSubscriptionSettings(): SubscriptionSettings {
     paused: false,
     use_subfolder: true,
     auto_create_playlist: false,
+    retrieve_channel_playlists: false,
     custom_args: '',
     custom_output: ''
   };
@@ -69,6 +72,7 @@ export function settingsFromSubscription(sub: Subscription): SubscriptionSetting
     // Both predate these settings, so a subscription without them keeps the old behaviour.
     use_subfolder: sub.use_subfolder !== false,
     auto_create_playlist: sub.auto_create_playlist === true,
+    retrieve_channel_playlists: sub.retrieve_channel_playlists === true,
     custom_args: sub.custom_args || '',
     custom_output: sub.custom_output || ''
   };
@@ -86,6 +90,7 @@ export function changedSubscriptionFields(before: SubscriptionSettings, after: S
   if (after.paused !== before.paused) changes.paused = after.paused;
   if (after.use_subfolder !== before.use_subfolder) changes.use_subfolder = after.use_subfolder;
   if (after.auto_create_playlist !== before.auto_create_playlist) changes.auto_create_playlist = after.auto_create_playlist;
+  if (after.retrieve_channel_playlists !== before.retrieve_channel_playlists) changes.retrieve_channel_playlists = after.retrieve_channel_playlists;
   if (after.custom_args !== before.custom_args) changes.custom_args = after.custom_args;
   if (after.custom_output !== before.custom_output) changes.custom_output = after.custom_output;
   return changes;

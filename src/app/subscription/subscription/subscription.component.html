@@ -26,7 +26,18 @@
             <span aria-hidden="true">·</span>
             <span i18n="Subscription file count">{fileCount, plural, =0 {No files} =1 {1 file} other {{{fileCount}} files}}</span>
           </div>
-          <div class="sub-status" [class.sub-status-busy]="isChecking || subscription.refresh_status?.pending_download_count > 0">{{statusText()}}</div>
+          <div class="sub-status" [class.sub-status-busy]="isChecking || subscription.refresh_status?.pending_download_count > 0">
+            <span>{{statusText()}}</span>
+            <!-- What the last check found, counted and worded, for whoever wants it. It is not
+                 what the page is for, so it stays folded away until asked for. -->
+            @if (shouldShowRefreshStatus()) {
+              <button type="button" class="kit-text-button sub-status-details" [attr.aria-expanded]="refreshDetailsOpen"
+                aria-controls="refresh-details" (click)="refreshDetailsOpen = !refreshDetailsOpen">
+                <span i18n="Subscription check details toggle">Details</span>
+                <mat-icon>{{refreshDetailsOpen ? 'expand_less' : 'expand_more'}}</mat-icon>
+              </button>
+            }
+          </div>
         </div>
       </header>
 
@@ -100,7 +111,7 @@
       @if (settingsOpen && settingsDraft) {
         <section class="settings-panel" id="subscription-settings" aria-labelledby="subscription-settings-title">
           <h2 class="settings-panel-title" id="subscription-settings-title" i18n="Subscription settings title">Settings</h2>
-          <app-subscription-settings mode="edit" [settings]="settingsDraft" [disabled]="savingSettings"></app-subscription-settings>
+          <app-subscription-settings mode="edit" [settings]="settingsDraft" [isPlaylist]="subscription.isPlaylist" [disabled]="savingSettings"></app-subscription-settings>
           <dl class="settings-details">
             <div>
               <dt i18n="Subscription URL property">Link</dt>
@@ -126,8 +137,8 @@
         </section>
       }
 
-      @if (shouldShowRefreshStatus()) {
-        <mat-card class="refresh-status-card" [class.refresh-status-card-active]="hasActiveRefresh()">
+      @if (refreshDetailsOpen && shouldShowRefreshStatus()) {
+        <mat-card class="refresh-status-card" id="refresh-details" [class.refresh-status-card-active]="hasActiveRefresh()">
           <div class="refresh-status-card-header">
             <div>
               <div class="refresh-status-label">
@@ -149,6 +160,9 @@
           </div>
 
           <p class="refresh-status-description">{{getRefreshDescription()}}</p>
+          @if (getRefreshStatus()?.phase === 'error' && getRefreshStatus()?.error) {
+            <p class="refresh-status-error">{{getRefreshStatus().error}}</p>
+          }
 
           @if (shouldShowRefreshProgressBar()) {
             <mat-progress-bar

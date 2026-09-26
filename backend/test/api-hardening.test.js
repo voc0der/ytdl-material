@@ -1148,7 +1148,8 @@ describe('The yt-dlp command line', function() {
 
         assert.strictEqual(spawn_calls.length, 2, `expected two launcher argument lists, found ${spawn_calls.length}`);
         for (const call of spawn_calls) {
-            assert(/\.\.\.runtime_args,\s*'--',\s*url/.test(call),
+            // One URL, or several spread in the same place.
+            assert(/\.\.\.runtime_args,\s*'--',\s*(?:\.\.\.)?urls?\b/.test(call),
                 `a launcher still passes the URL before the options: ${call}`);
         }
     });

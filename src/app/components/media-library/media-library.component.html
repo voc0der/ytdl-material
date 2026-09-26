@@ -1,4 +1,4 @@
-@if (showLibraryTabs && activeLibraryTab === 1) {
+@if (activeLibraryTab === 1) {
   <ng-container [ngTemplateOutlet]="playlistLibraryContent"></ng-container>
 } @else {
   <ng-container [ngTemplateOutlet]="videoLibraryContent"></ng-container>
@@ -62,11 +62,7 @@
   <div class="container library-header">
     <div class="library-header-top">
       <div class="library-header-title">
-        @if (showLibraryTabs) {
-          <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
-        } @else {
-          <h4 class="my-videos-title" i18n="Playlists library title">Playlists</h4>
-        }
+        <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
       </div>
       @if (!narrowScreen && !playlistLibraryIsEmpty) {
         <div class="library-header-tools">
@@ -107,6 +103,10 @@
           <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
           <h2 i18n="No playlists title">No playlists yet</h2>
           <p i18n="No playlists in a shared library text">{{libraryOwnerName}} has not made any playlists.</p>
+        } @else if (playlistLibraryIsEmpty && sub_id) {
+          <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
+          <h2 i18n="No playlists title">No playlists yet</h2>
+          <p i18n="No subscription playlists text">Turn on Auto playlist or Retrieve channel playlists in this subscription's settings.</p>
         } @else if (playlistLibraryIsEmpty) {
           <span class="empty-state-icon"><mat-icon>queue_music</mat-icon></span>
           <h2 i18n="No playlists title">No playlists yet</h2>
@@ -128,11 +128,7 @@
   <div class="container library-header">
     <div class="library-header-top">
       <div class="library-header-title">
-        @if (showLibraryTabs) {
-          <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
-        } @else {
-          <h4 class="my-videos-title" i18n="My files title">My files</h4>
-        }
+        <ng-container [ngTemplateOutlet]="librarySwitcher"></ng-container>
       </div>
       @if (!narrowScreen && !libraryIsEmpty) {
         <div class="library-header-tools">

@@ -86,7 +86,8 @@ const SUBSCRIPTION_BACKEND_OWNED_FIELDS = Object.freeze([
     'artwork_file',
     'artwork_source_url',
     'artwork_updated_at',
-    'source_info_checked_at'
+    'source_info_checked_at',
+    'channel_playlists'
 ]);
 const active_subscription_refresh_trackers = new Map();
 
@@ -779,17 +780,30 @@ function updateSubscriptionRefreshTrackerFromLine(tracker, output_line = '') {
         return null;
     }
 
-    const output_key = getSubscriptionOutputKey(output_json);
-    if (output_key && tracker.seen_output_keys.has(output_key)) {
+    if (!recordSubscriptionRefreshOutput(tracker, output_json)) {
         if (refresh_status_updated) maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
         return null;
     }
+    return output_json;
+}
+
+// Counts an entry the check found, once, however many times it is listed.
+function recordSubscriptionRefreshOutput(tracker, output_json) {
+    const output_key = getSubscriptionOutputKey(output_json);
+    if (output_key && tracker.seen_output_keys.has(output_key)) return false;
     if (output_key) tracker.seen_output_keys.add(output_key);
 
     tracker.refresh_status.discovered_count += 1;
     tracker.refresh_status.latest_item_title = normalizeNullableString(output_json.title) || tracker.refresh_status.latest_item_title;
     maybePersistSubscriptionRefreshStatus(tracker).catch(() => {});
-    return output_json;
+    return true;
+}
+
+// yt-dlp's own account of what went wrong, for a check that failed, rather than its exit code.
+function describeSubscriptionCheckError(process_error = null, error_lines = []) {
+    const last_error_line = error_lines[error_lines.length - 1];
+    if (last_error_line) return last_error_line.replace(/^ERROR:\s*/, '');
+    return process_error ? process_error.toString() : 'Subscription check failed.';
 }
 
 function isSubscriptionRefreshCancelled(tracker) {
@@ -1017,7 +1031,8 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
         pending_output_batch: [],
         queue_context: null,
         flush_promise: Promise.resolve(),
-        flush_error: null
+        flush_error: null,
+        error_lines: []
     };
 
     const flushOutputBatch = async (output_batch = []) => {
@@ -1056,6 +1071,10 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
     return {
         ingestLine(output_line = '') {
             if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return;
+            if (typeof output_line === 'string' && output_line.startsWith('ERROR:')) {
+                stream_state.error_lines = [...stream_state.error_lines.slice(-4), output_line.trim()];
+                return;
+            }
             const output_json = updateSubscriptionRefreshTrackerFromLine(refresh_tracker, output_line);
             if (!output_json) return;
 
@@ -1064,7 +1083,21 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
                 scheduleBatchFlush();
             }
         },
-        async finalize(process_error = null) {
+        // An entry found some other way than the check's own run, as in a channel's playlists.
+        ingestOutput(output_json = null) {
+            if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return;
+            if (!output_json || typeof output_json !== 'object') return;
+            if (refresh_tracker && !recordSubscriptionRefreshOutput(refresh_tracker, output_json)) return;
+
+            stream_state.pending_output_batch.push(output_json);
+            if (stream_state.pending_output_batch.length >= SUBSCRIPTION_QUEUE_BATCH_SIZE) {
+                scheduleBatchFlush();
+            }
+        },
+        // source_listed: the uploads were already listed once this check, so the source itself
+        // answers. yt-dlp then exits with an error for any one upload it cannot read, which on
+        // its own is no reason to call the whole check failed.
+        async finalize(process_error = null, {source_listed = false} = {}) {
             if (isSubscriptionRefreshCancelled(refresh_tracker)) {
                 stream_state.pending_output_batch = [];
                 await stream_state.flush_promise;
@@ -1081,14 +1114,16 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
                 : 0;
             const has_streamed_results = discovered_count > 0 || queued_count > 0;
 
-            if (process_error && !has_streamed_results) {
+            if (process_error && !has_streamed_results && !source_listed) {
                 logger.error('Subscription check failed!');
                 logger.error(process_error);
-                await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, process_error ? process_error.toString() : 'Subscription check failed.');
+                await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, describeSubscriptionCheckError(process_error, stream_state.error_lines));
                 return null;
             }
 
-            if (process_error) {
+            if (process_error && !has_streamed_results) {
+                logger.warn(`Subscription check for '${sub.name}' could not read some uploads: ${describeSubscriptionCheckError(process_error, stream_state.error_lines)}`);
+            } else if (process_error) {
                 logger.warn(`Subscription discovery for '${sub.name}' exited early after streaming ${discovered_count} entries. Queueing the streamed results.`);
                 logger.debug(process_error);
             }
@@ -1351,7 +1386,7 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     if (shouldRestrictToUser(user_uid)) remove_sub_filter['user_uid'] = user_uid;
     // Stop any registration callback that arrives after teardown begins from creating a
     // new managed playlist. Cleanup is also serialized behind callbacks already in flight.
-    await db_api.updateRecord('subscriptions', remove_sub_filter, {auto_create_playlist: false});
+    await db_api.updateRecord('subscriptions', remove_sub_filter, {auto_create_playlist: false, retrieve_channel_playlists: false});
 
     await killSubDownloads(sub_id, true);
     await files_api.cleanupSubscriptionPlaylists(id, user_uid, sub_files.map(file => file.uid));
@@ -1624,8 +1659,9 @@ async function _getVideosForSub(sub) {
         if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
 
         const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
-        await skipUploadsBeforeDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
+        const listed_count = await skipUploadsBeforeDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
             logger.warn(`Subscription: could not skip the uploads of ${sub.name} that predate its date filter: ${e.message}`);
+            return 0;
         });
         if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
 
@@ -1645,7 +1681,14 @@ async function _getVideosForSub(sub) {
         }, downloader_fork);
         await recordChildProcess(child_process);
         const {err} = await callback;
-        const queued_count = await refresh_stream_processor.finalize(err);
+
+        if (sub.retrieve_channel_playlists === true && !sub.isPlaylist && !isSubscriptionRefreshCancelled(refresh_tracker)) {
+            await retrieveSubscriptionChannelPlaylists(sub, refresh_stream_processor, recordChildProcess).catch(e => {
+                logger.warn(`Subscription: could not retrieve the playlists of ${sub.name}: ${e.message}`);
+            });
+        }
+
+        const queued_count = await refresh_stream_processor.finalize(err, {source_listed: listed_count > 0});
         logger.verbose('Subscription: finished check for ' + sub.name);
         return queued_count;
     } catch (e) {
@@ -1982,7 +2025,8 @@ exports.getListingEntriesDatedBefore = getListingEntriesDatedBefore;
  * listing could not date, still gets the exact
  * --dateafter check.
  *
- * Resolves how many uploads will be skipped.
+ * Resolves how many uploads the listing found, 0
+ * when it was not made or came back empty.
  ************************************************/
 async function skipUploadsBeforeDateFilter(sub, base_path, discovery_args, on_spawn = null, now = Date.now()) {
     const lower_bound = getSubscriptionDiscoveryDateLowerBound(discovery_args, now);
@@ -2008,14 +2052,111 @@ async function skipUploadsBeforeDateFilter(sub, base_path, discovery_args, on_sp
     }
 
     const archive_lines = getListingEntriesDatedBefore(parsed_output, getSubscriptionListingDateThreshold(lower_bound, now));
-    if (archive_lines.length === 0) return 0;
+    if (archive_lines.length === 0) return parsed_output.length;
 
     await fs.ensureDir(path.dirname(archive_path));
     // The archive text is written without a trailing newline.
     await fs.appendFile(archive_path, `\n${archive_lines.join('\n')}\n`);
     if (effective_archive_path === null) discovery_args.push('--download-archive', archive_path);
     logger.verbose(`Subscription: skipping ${archive_lines.length} uploads of ${sub.name} that predate its date filter.`);
-    return archive_lines.length;
+    return parsed_output.length;
+}
+
+function getSubscriptionChannelPlaylistsURL(sub) {
+    if (sub.isPlaylist || typeof sub.channel_id !== 'string' || !/^UC[\w-]{22}$/.test(sub.channel_id)) return null;
+    return `https://www.youtube.com/channel/${sub.channel_id}/playlists`;
+}
+
+async function generateArgsForSubscriptionChannelPlaylistListing(sub, downloader_fork) {
+    let args = [];
+    args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
+    args = applyCustomArgs(args, sub.custom_args);
+    // Downloaded or not, every video is listed, so each playlist is kept whole and in order.
+    args.push('--flat-playlist', '--no-download-archive');
+    args = downloader_api.appendYtDlpImpersonationArgs(args, downloader_fork);
+    return await appendSubscriptionCookieArgs(args);
+}
+
+/*************************************************
+ * The playlists on a channel, each with the ids of
+ * its videos in order. One run lists the channel's
+ * playlists and one more goes through all of them,
+ * so a channel with many playlists still costs two
+ * runs rather than one each. The second streams,
+ * so one private or deleted playlist costs only
+ * itself.
+ *
+ * Resolves {playlists, entries}: the playlists as a
+ * subscription keeps them, and each video's listing
+ * entry, to be queued like any the check found.
+ * null when there is no channel id to ask with.
+ ************************************************/
+async function listSubscriptionChannelPlaylists(sub, on_spawn = null) {
+    const playlists_url = getSubscriptionChannelPlaylistsURL(sub);
+    if (!playlists_url) return null;
+    const downloader_fork = downloader_api.getPreferredDownloaderFork({});
+    const listing_args = await generateArgsForSubscriptionChannelPlaylistListing(sub, downloader_fork);
+
+    const tab_run = await youtubedl_api.runYoutubeDL(playlists_url, [...listing_args, '--dump-single-json'], null, downloader_fork);
+    if (on_spawn) await on_spawn(tab_run.child_process);
+    const {parsed_output, err} = await tab_run.callback;
+    const tab_info = Array.isArray(parsed_output)
+        ? parsed_output.find(output_json => !!output_json && Array.isArray(output_json.entries))
+        : null;
+    if (!tab_info) throw new Error(describeSubscriptionInfoError(err));
+
+    const playlists = [];
+    for (const entry of tab_info.entries) {
+        const id = normalizeNullableString(entry && entry.id);
+        if (!id || playlists.some(playlist => playlist.id === id)) continue;
+        playlists.push({
+            id: id,
+            title: normalizeNullableString(entry.title) || id,
+            url: normalizeNullableString(entry.url) || `https://www.youtube.com/playlist?list=${encodeURIComponent(id)}`,
+            video_ids: []
+        });
+    }
+    if (playlists.length === 0) return {playlists: [], entries: []};
+
+    const entries = [];
+    const collectEntry = line => {
+        const {output_json} = parseSubscriptionRefreshOutputLine(line);
+        const video_id = normalizeNullableString(output_json && output_json.id);
+        const playlist = video_id ? playlists.find(candidate => candidate.id === output_json.playlist_id) : null;
+        if (!playlist) return;
+        if (!playlist.video_ids.includes(video_id)) playlist.video_ids.push(video_id);
+        entries.push(output_json);
+    };
+    const entries_run = await youtubedl_api.runYoutubeDLLineStream(playlists.map(playlist => playlist.url), [...listing_args, '--dump-json'], {
+        onStdoutLine: collectEntry
+    }, downloader_fork);
+    if (on_spawn) await on_spawn(entries_run.child_process);
+    const entries_result = await entries_run.callback;
+    if (entries_result.err) {
+        logger.warn(`Subscription: some playlists of ${sub.name} could not be listed: ${describeSubscriptionInfoError(entries_result.err)}`);
+    }
+
+    return {
+        playlists: playlists.map(({id, title, video_ids}) => ({id, title, video_ids})),
+        entries: entries
+    };
+}
+exports.listSubscriptionChannelPlaylists = listSubscriptionChannelPlaylists;
+
+// The channel's playlists are kept on the subscription, their videos go through the check with
+// its uploads, and those already downloaded are put in their playlists here straight away. The
+// rest join theirs as each download finishes.
+async function retrieveSubscriptionChannelPlaylists(sub, stream_processor, on_spawn = null) {
+    const listing = await listSubscriptionChannelPlaylists(sub, on_spawn);
+    if (!listing) {
+        logger.verbose(`Subscription: ${sub.name} has no channel id yet, so its playlists are left for a later check.`);
+        return;
+    }
+
+    await updateSubscriptionProperty(sub, {channel_playlists: listing.playlists});
+    for (const entry of listing.entries) stream_processor.ingestOutput(entry);
+    await files_api.syncSubscriptionPlaylist(sub.id, sub.user_uid);
+    logger.verbose(`Subscription: found ${listing.playlists.length} playlists on ${sub.name}.`);
 }
 
 async function createSubscriptionDownloadContext(sub) {
@@ -2177,7 +2318,7 @@ exports.getSubscriptionSummaries = async (user_uid = null) => {
             db_api.getRecords('download_queue', {sub_id: sub.id, finished: false}, true),
             db_api.getRecords('download_queue', {sub_id: sub.id, running: true, finished: false}, true)
         ]);
-        const summary = _.omit(sub, ['_id', 'child_process', 'videos']);
+        const summary = _.omit(sub, ['_id', 'child_process', 'videos', 'channel_playlists']);
         summary.downloading = !!sub.downloading || running_download_count > 0;
         summary.file_count = file_count;
         summary.thumbnail_file_uid = thumbnail_file_uid;
@@ -2203,7 +2344,8 @@ exports.getSubscription = async (subID, user_uid = null) => {
     if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
     const raw_sub = await db_api.getRecord('subscriptions', filter_obj);
     if (!raw_sub) return null;
-    const sub = JSON.parse(JSON.stringify(raw_sub));
+    // Every video id in every playlist of the channel, which no page needs to be sent.
+    const sub = JSON.parse(JSON.stringify(_.omit(raw_sub, ['channel_playlists'])));
     const removed_archived_pending_count = await removeArchivedPendingSubscriptionDownloads(sub);
     // now with the download_queue, we may need to override 'downloading'
     const [
@@ -2549,11 +2691,16 @@ exports.updateSubscription = async (sub_update, user_uid = null) => {
 
     const updated = await db_api.updateRecord('subscriptions', filter_obj, updated_fields);
     if (!updated) return false;
-    if (sub['auto_create_playlist'] === true) {
+    if (sub['auto_create_playlist'] === true || sub['retrieve_channel_playlists'] === true) {
         await files_api.syncSubscriptionPlaylist(sub.id, user_uid);
     }
     exports.writeSubscriptionMetadata(sub);
     await cleanupSubscriptionPathChange(current_sub, sub, user_uid);
+    // The playlists are only found by a check, so one starts rather than leave the setting
+    // looking like it did nothing until the next.
+    if (sub['retrieve_channel_playlists'] === true && current_sub['retrieve_channel_playlists'] !== true && !sub.isPlaylist && !sub.paused) {
+        exports.getVideosForSub(sub.id, user_uid);
+    }
     return true;
 }
 

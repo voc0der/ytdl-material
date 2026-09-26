@@ -1814,6 +1814,148 @@ describe('Subscriptions', function() {
         assert.deepStrictEqual(listing_requests, []);
     });
 
+    it('Retrieves a channel\'s playlists: their videos download with its uploads, and each is kept in order', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_createDownload = downloader_api.createDownload;
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'channel_playlists_sub',
+            channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+            retrieve_channel_playlists: true,
+            source_info_checked_at: Date.now()
+        });
+        const downloaded_file = {
+            uid: uuid(),
+            sub_id: sub.id,
+            title: 'Already here',
+            url: 'https://www.youtube.com/watch?v=have-it',
+            source_id: 'have-it',
+            source_extractor: 'youtube',
+            duration: 30,
+            registered: 100
+        };
+        const entry = (playlist_id, id) => JSON.stringify({
+            _type: 'url', ie_key: 'Youtube', id: id, playlist_id: playlist_id, title: id, webpage_url: `https://www.youtube.com/watch?v=${id}`
+        });
+        let tab_url = null;
+        let playlist_run = null;
+        const queued_urls = [];
+        youtubedl_api.runYoutubeDL = async (requested_url) => {
+            tab_url = requested_url;
+            return {child_process: null, callback: Promise.resolve({parsed_output: [{entries: [
+                {id: 'PL-a', title: 'Series A', url: 'https://www.youtube.com/playlist?list=PL-a'},
+                {id: 'PL-b', title: 'Series B', url: 'https://www.youtube.com/playlist?list=PL-b'}
+            ]}], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, handlers) => {
+            if (Array.isArray(requested_url)) {
+                playlist_run = {urls: requested_url, args: args};
+                [entry('PL-a', 'new-one'), entry('PL-a', 'have-it'), entry('PL-b', 'have-it'), entry('PL-z', 'elsewhere')]
+                    .forEach(line => handlers.onStdoutLine(line));
+            }
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+        downloader_api.createDownload = async (url) => { queued_urls.push(url); };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await db_api.insertRecordIntoTable('files', downloaded_file);
+            await checkAndWait(sub.id);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            downloader_api.createDownload = original_createDownload;
+        }
+
+        assert.strictEqual(tab_url, 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/playlists');
+        // One run for every playlist, listing what is already downloaded too.
+        assert.deepStrictEqual(playlist_run.urls, ['https://www.youtube.com/playlist?list=PL-a', 'https://www.youtube.com/playlist?list=PL-b']);
+        assert(playlist_run.args.includes('--flat-playlist'));
+        assert(playlist_run.args.includes('--no-download-archive'));
+        assert.deepStrictEqual(queued_urls, ['https://www.youtube.com/watch?v=new-one']);
+
+        const stored_sub = await db_api.getRecord('subscriptions', {id: sub.id});
+        assert.deepStrictEqual(stored_sub.channel_playlists, [
+            {id: 'PL-a', title: 'Series A', video_ids: ['new-one', 'have-it']},
+            {id: 'PL-b', title: 'Series B', video_ids: ['have-it']}
+        ]);
+        assert.strictEqual((await subscriptions_api.getSubscription(sub.id)).channel_playlists, undefined);
+
+        const series_a = await db_api.getRecord('playlists', {source_playlist_id: 'PL-a'});
+        assert.strictEqual(series_a.name, 'Series A');
+        assert.strictEqual(series_a.source_sub_id, sub.id);
+        assert.deepStrictEqual(series_a.uids, [downloaded_file.uid]);
+        assert.deepStrictEqual((await db_api.getRecord('playlists', {source_playlist_id: 'PL-b'})).uids, [downloaded_file.uid]);
+
+        // The new video lands ahead of the old one, where the channel has it.
+        const new_file = Object.assign({}, downloaded_file, {uid: uuid(), url: 'https://www.youtube.com/watch?v=new-one', source_id: 'new-one'});
+        await db_api.insertRecordIntoTable('files', new_file);
+        await files_api.syncSubscriptionPlaylist(sub.id, null, new_file.uid);
+        assert.deepStrictEqual((await db_api.getRecord('playlists', {source_playlist_id: 'PL-a'})).uids, [new_file.uid, downloaded_file.uid]);
+        assert.deepStrictEqual((await db_api.getRecord('playlists', {source_playlist_id: 'PL-b'})).uids, [downloaded_file.uid]);
+    });
+
+    it('Keeps the automatic playlist apart from the channel\'s playlists', async function () {
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'both_playlists_sub',
+            auto_create_playlist: true,
+            retrieve_channel_playlists: true,
+            channel_playlists: [{id: 'PL-a', title: 'Series A', video_ids: ['second', 'first']}]
+        });
+        const first = {uid: uuid(), sub_id: sub.id, title: 'First', source_id: 'first', duration: 30, registered: 100};
+        const second = {uid: uuid(), sub_id: sub.id, title: 'Second', source_id: 'second', duration: 30, registered: 200};
+        await db_api.insertRecordIntoTable('subscriptions', sub);
+        await db_api.insertRecordIntoTable('files', first);
+        await db_api.insertRecordIntoTable('files', second);
+
+        const automatic = await files_api.syncSubscriptionPlaylist(sub.id);
+        await files_api.syncSubscriptionPlaylist(sub.id);
+
+        const playlists = await db_api.getRecords('playlists', {source_sub_id: sub.id});
+        assert.strictEqual(playlists.length, 2);
+        assert.strictEqual(automatic.name, 'both_playlists_sub');
+        assert.deepStrictEqual(automatic.uids, [first.uid, second.uid]);
+        assert.deepStrictEqual(playlists.find(playlist => playlist.source_playlist_id === 'PL-a').uids, [second.uid, first.uid]);
+    });
+
+    it('Says what yt-dlp said when a check fails, and does not fail one for an upload it could not read', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const now_seconds = Math.floor(Date.now() / 1000);
+        const failing_sub = Object.assign({}, new_sub, {id: uuid(), name: 'failing_sub', source_info_checked_at: Date.now()});
+        const dated_sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'one_bad_upload_sub',
+            timerange: 'now-1week',
+            channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+            source_info_checked_at: Date.now()
+        });
+        youtubedl_api.runYoutubeDL = async () => ({child_process: null, callback: Promise.resolve({parsed_output: [
+            {ie_key: 'Youtube', id: 'recent-video', timestamp: now_seconds - 60}
+        ], err: null})});
+        let error_line = null;
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, handlers) => {
+            handlers.onStderrLine(error_line);
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: new Error('yt-dlp process exited with code 1')})};
+        };
+
+        try {
+            await subscriptions_api.subscribe(failing_sub, null, true);
+            await subscriptions_api.subscribe(dated_sub, null, true);
+            error_line = 'ERROR: [youtube:tab] nope: This channel does not exist.';
+            await checkAndWait(failing_sub.id);
+            error_line = 'ERROR: [youtube] recent-video: This live event will begin in a few moments.';
+            await checkAndWait(dated_sub.id);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const failed = (await db_api.getRecord('subscriptions', {id: failing_sub.id})).refresh_status;
+        assert.strictEqual(failed.phase, 'error');
+        assert.strictEqual(failed.error, '[youtube:tab] nope: This channel does not exist.');
+        // Its uploads were listed a moment before, so the channel itself answers.
+        assert.strictEqual((await db_api.getRecord('subscriptions', {id: dated_sub.id})).refresh_status.phase, 'complete');
+    });
+
     it('Fresh uploads', async function() {
 
     });

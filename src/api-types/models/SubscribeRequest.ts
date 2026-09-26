@@ -11,5 +11,9 @@ export type SubscribeRequest = {
     customFileOutput?: string;
     useSubfolder?: boolean;
     autoCreatePlaylist?: boolean;
+    /**
+     * For a channel, also download the videos in its playlists and keep each one as a playlist
+     */
+    retrieveChannelPlaylists?: boolean;
     maxQuality?: string;
 };

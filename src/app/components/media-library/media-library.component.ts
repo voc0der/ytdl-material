@@ -231,6 +231,8 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       // subscriptions can't download both audio and video (for now), so don't let users filter for these
       delete this.fileFilters['audio_only'];
       delete this.fileFilters['video_only'];
+      // The remembered tab is the home library's. A subscription opens on what it downloaded.
+      this.activeLibraryTab = 0;
     }
 
     this.pendingNavigationRestoreState = this.mediaLibraryNavigationState.consumePendingRestoreState(this.getCurrentRouteKey(), this.sub_id);
@@ -244,7 +246,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         this.getAllFiles();
       }
       this.getAvailablePlaylists();
-      if (this.showLibraryTabs && !this.playlistLibraryReceived) {
+      if (!this.playlistLibraryReceived) {
         this.getPlaylistLibraryItems();
       }
     };
@@ -271,9 +273,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       if (changed) {
         this.runWhenGridIdle('playlists', () => {
           this.getAvailablePlaylists();
-          if (this.showLibraryTabs) {
-            this.getPlaylistLibraryItems();
-          }
+          this.getPlaylistLibraryItems();
         });
       }
     });
@@ -315,7 +315,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
         }
         // A new search has its own pages; the page it was typed on may be past the last of them.
         this.manualPageIndex = 0;
-        if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
+        if (this.activeLibraryTab === 0) {
           this.getAllFiles();
         }
       });
@@ -351,11 +351,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   private applyRestoredNavigationSnapshot(snapshot: MediaLibraryRestoreSnapshot): void {
-    if (this.showLibraryTabs) {
-      this.activeLibraryTab = [0, 1].includes(snapshot.activeLibraryTab) ? snapshot.activeLibraryTab : 0;
-    } else {
-      this.activeLibraryTab = 0;
-    }
+    this.activeLibraryTab = [0, 1].includes(snapshot.activeLibraryTab) ? snapshot.activeLibraryTab : 0;
 
     if (typeof snapshot.sortProperty === 'string' && snapshot.sortProperty.trim()) {
       this.sortProperty = snapshot.sortProperty;
@@ -393,7 +389,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.pendingScrollRestoreSnapshot = snapshot;
     this.pendingScrollRestoreAttempts = 0;
 
-    if (this.showLibraryTabs && playlistLibraryReceived && !playlistsInvalidated) {
+    if (playlistLibraryReceived && !playlistsInvalidated) {
       this.playlistLibraryItems = playlistLibraryItems ?? [];
       this.playlistLibraryReceived = true;
     }
@@ -638,10 +634,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
   }
 
-  get showLibraryTabs(): boolean {
-    return !this.sub_id;
-  }
-
   // Whose library this is showing when it is not the viewer's own. A subscription's files are
   // always the viewer's, so only the home page's library can be someone else's.
   get libraryUid(): string | null {
@@ -686,9 +678,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   getAllPlaylists(): void {
     this.getAvailablePlaylists();
-    if (this.showLibraryTabs) {
-      this.getPlaylistLibraryItems();
-    }
+    this.getPlaylistLibraryItems();
   }
 
   getAvailablePlaylists(): void {
@@ -697,10 +687,12 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     });
   }
 
+  // A subscription's page lists the playlists it keeps: its own, and those from its channel.
   getPlaylistLibraryItems(): void {
     this.playlistLibraryReceived = false;
-    this.postsService.getPlaylists(true, this.libraryUid).subscribe(res => {
-      this.playlistLibraryItems = res['playlists'];
+    this.postsService.getPlaylists(!this.sub_id, this.libraryUid).subscribe(res => {
+      const playlists: Playlist[] = res['playlists'] ?? [];
+      this.playlistLibraryItems = this.sub_id ? playlists.filter(playlist => playlist.source_sub_id === this.sub_id) : playlists;
       this.playlistLibraryReceived = true;
       this.schedulePendingScrollRestore();
     });
@@ -742,7 +734,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   libraryTabChanged(index: number): void {
     this.activeLibraryTab = index;
-    localStorage.setItem(this.libraryTabStorageKey, `${index}`);
+    if (!this.sub_id) localStorage.setItem(this.libraryTabStorageKey, `${index}`);
     this.scheduleVirtualVideoWindowUpdate(true);
 
     if (index === 0) {
@@ -750,7 +742,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.showLibraryTabs && !this.playlistLibraryReceived) {
+    if (!this.playlistLibraryReceived) {
       this.getPlaylistLibraryItems();
     }
   }
@@ -761,7 +753,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     this.descendingMode = value['order'] === -1;
     this.sortProperty = value['by'];
     
-    if (!this.showLibraryTabs || this.activeLibraryTab === 0) {
+    if (this.activeLibraryTab === 0) {
       this.getAllFiles();
     }
   }
@@ -1274,7 +1266,7 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   isVideoLibraryActive(): boolean {
-    return !this.showLibraryTabs || this.activeLibraryTab === 0;
+    return this.activeLibraryTab === 0;
   }
 
   get virtualizedTopSpacerHeight(): number {

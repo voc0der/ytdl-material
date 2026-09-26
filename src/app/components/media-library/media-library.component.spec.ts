@@ -429,7 +429,20 @@ describe('MediaLibraryComponent', () => {
       fixture.detectChanges();
 
       expect(emptyTitle()).toBe('Nothing downloaded yet');
-      expect(element().querySelector('.library-switcher')).toBeNull();
+      expect(element().querySelector('.library-switcher')).not.toBeNull();
+    });
+
+    it('should list only the playlists a subscription keeps', () => {
+      postsServiceStub.getPlaylists.mockReturnValue(of({ playlists: [
+        { id: 'own', name: 'Own', uids: [], source_sub_id: 'sub-1' },
+        { id: 'channel', name: 'From the channel', uids: [], source_sub_id: 'sub-1', source_playlist_id: 'PL-a' },
+        { id: 'other', name: 'Other', uids: [] }
+      ] }));
+      component.sub_id = 'sub-1';
+      fixture.detectChanges();
+
+      expect(postsServiceStub.getPlaylists).toHaveBeenCalledWith(false, null);
+      expect(component.playlistLibraryItems.map(playlist => playlist.id)).toEqual(['own', 'channel']);
     });
 
     it('should keep the tools when a search or filter matches nothing', () => {
