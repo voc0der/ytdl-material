@@ -1,0 +1,21 @@
+name: nightly-on-merge
+
+# A merged pull request labelled nightly ships a nightly image right away, rather than waiting
+# for the scheduled build. pull_request_target so the token can dispatch for a fork's pull
+# request too; nothing from the pull request is checked out or run.
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  dispatch:
+    if: github.event.pull_request.merged && contains(github.event.pull_request.labels.*.name, 'nightly')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start the nightly build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docker.yml -R "${{ github.repository }}" --ref main
