@@ -59,6 +59,10 @@
     }
   </mat-menu>
   @if (isListLayout) {
+    <!-- The library leaves 16px between rows, where a click would open neither card, so each
+         card takes the half on its side. This lies under the row rather than wrapping it, which
+         would send the menu button's clicks through the row's handler too. -->
+    <div class="list-card-hit-area" (click)="navigateToFile($event)"></div>
     <div (click)="navigateToFile($event)" matRipple class="list-card">
       <div class="list-thumbnail" [style.flex-basis.%]="listThumbnailWidthPercent" [style.aspect-ratio]="listThumbnailAspectRatio">
         @if (loading) {

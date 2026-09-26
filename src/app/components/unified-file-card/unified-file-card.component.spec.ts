@@ -508,6 +508,20 @@ describe('UnifiedFileCardComponent', () => {
       expect(go_to_file).toHaveBeenCalledTimes(1);
     });
 
+    it('should open the file from the gap beside the row too', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', duration: 5, registered: Date.now()});
+      const go_to_file = vi.fn();
+      component.goToFile.subscribe(go_to_file);
+
+      const hit_area: HTMLElement = fixture.debugElement.query(By.css('.list-card-hit-area')).nativeElement;
+      const row: HTMLElement = fixture.debugElement.query(By.css('.list-card')).nativeElement;
+      // Ahead of the row, so the row is painted over it and it is left only the gaps.
+      expect(hit_area.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      hit_area.click();
+      expect(go_to_file).toHaveBeenCalledTimes(1);
+    });
+
     it('should keep every action in the menu', () => {
       setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5});
 
