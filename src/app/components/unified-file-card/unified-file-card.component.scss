@@ -266,11 +266,20 @@
   width: 100%;
 }
 
+// Positioned, so it is painted over the hit area before it and leaves it only the gaps.
 .list-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   border-radius: 12px;
+  cursor: pointer;
+}
+
+// Half of the 16px the library leaves between rows, on either side.
+.list-card-hit-area {
+  position: absolute;
+  inset: -8px 0;
   cursor: pointer;
 }
 
