@@ -28,7 +28,7 @@ ytdl-material in a desktop browser and on a phone. Select a screenshot to see it
 </figure>
 
 <figure markdown="span">
-[![A channel subscription's page: the status of its last check, three queued downloads, and the files downloaded so far](images/gallery/desktop-subscription.png){ width="1280" height="800" loading="lazy" }](images/gallery/desktop-subscription.png)
+[![A channel subscription's page: downloading three new videos, with the check's details folded away and its videos and playlists under separate tabs](images/gallery/desktop-subscription.png){ width="1280" height="800" loading="lazy" }](images/gallery/desktop-subscription.png)
 <figcaption>One subscription, mid-check</figcaption>
 </figure>
 
