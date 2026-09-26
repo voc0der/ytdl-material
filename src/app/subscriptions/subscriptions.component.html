@@ -93,7 +93,7 @@
     <ul class="subscription-grid">
       @for (sub of visibleSubscriptions; track sub.id) {
         <li class="subscription-card" [attr.data-state]="state(sub)">
-          <a class="card-cover" [routerLink]="['/subscription', { id: sub.id }]" tabindex="-1" aria-hidden="true">
+          <a class="card-cover" [class.card-cover-avatar]="coverIsAvatar(sub)" [routerLink]="['/subscription', { id: sub.id }]" tabindex="-1" aria-hidden="true">
             @if (coverURL(sub); as cover) {
               <img [src]="cover" alt="" loading="lazy">
             } @else {

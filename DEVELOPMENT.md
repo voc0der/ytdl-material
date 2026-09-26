@@ -201,6 +201,35 @@ on knowing the title and the video count are skipped.
   the subscription page one at a time, well after the check that queued them reports itself
   finished. The refresh card is what explains the gap.
 
+## Timing a check with a date range
+
+```bash
+node dev/subscriptions/date-range-check.mjs                     # a channel with Shorts, last week
+node dev/subscriptions/date-range-check.mjs --url URL --range now-1month
+node dev/subscriptions/date-range-check.mjs --keep              # leave it running, subscribed
+```
+
+Boots a throwaway backend with downloads held at zero, subscribes with a date range, and
+prints how long subscribing and the check took, how many uploads the dated listing let the
+check skip, what it queued, and whether the artwork was stored and served. No frontend build
+is needed. A healthy run on a channel of a few hundred uploads checks in about ten seconds.
+
+Worth knowing when a check with a date range is slow:
+
+- **yt-dlp applies `--dateafter` only once it has an upload's full metadata**, and a listing
+  carries no dates, so without help it fetches every upload the channel has, one request
+  each, to reject all but a few. Under `--dump-json` those rejections print nothing, which is
+  why the refresh card used to sit on "1 / 386" for as long as that took.
+- **`--extractor-args youtubetab:approximate_date` dates a flat listing** from its relative
+  "3 weeks ago" text: rounded down by the site, then to the nearest day by yt-dlp, so it is
+  only good for ruling out uploads well before the cutoff. The check leaves a margin of three
+  days or a tenth of the range, whichever is larger, for the exact check to settle.
+- **A channel's Shorts tab has no dates at all; its uploads playlist does.** That playlist is
+  the channel id with `UC` swapped for `UU`, and lists every upload newest first, 100 to a page.
+- **Entries in `--download-archive` are skipped from the listing without being fetched**,
+  which is what the dated listing feeds: the uploads it rules out go into the check's own
+  temporary archive, never the user's.
+
 # Exercising downloads and tasks
 
 The Downloads and Tasks pages are the other two that are tedious to check by hand: a real

@@ -70,7 +70,7 @@ describe('Rate limit exemptions', function() {
         it('exempts the paths it is meant to', function() {
             for (const exempt_path of ['/api/getPlaylists', '/api/getFile', '/api/versionInfo',
                 '/api/updaterStatus', '/api/checkConcurrentStream', '/api/auth/jwtAuth',
-                '/api/auth/adminExists', '/api/stream', '/api/rss', '/api/thumbnail/abc']) {
+                '/api/auth/adminExists', '/api/stream', '/api/rss', '/api/thumbnail/abc', '/api/subscriptionArtwork/abc']) {
                 assert.strictEqual(skipApiRateLimit(requestFor(exempt_path)), true,
                     `${exempt_path} is fetched constantly and must stay exempt`);
             }

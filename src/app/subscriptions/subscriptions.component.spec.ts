@@ -39,7 +39,8 @@ describe('SubscriptionsComponent', () => {
       setPaused: vi.fn().mockName('setPaused').mockResolvedValue(true),
       redownload: vi.fn().mockName('redownload').mockResolvedValue(true),
       unsubscribe: vi.fn().mockName('unsubscribe').mockResolvedValue(true),
-      coverURL: vi.fn().mockName('coverURL').mockReturnValue(null)
+      coverURL: vi.fn().mockName('coverURL').mockReturnValue(null),
+      artworkURL: vi.fn().mockName('artworkURL').mockReturnValue(null)
     };
     router = { navigate: vi.fn().mockName('navigate') };
 
@@ -226,6 +227,19 @@ describe('SubscriptionsComponent', () => {
     it('stands in for a cover with the first letter of the name', () => {
       expect(component.initial(channel() as any)).toBe('A');
       expect(component.initial(channel({ name: null }) as any)).toBe('?');
+    });
+
+    it('previews the newest download, and shows the channel\'s avatar until there is one', () => {
+      actions.artworkURL.mockReturnValue('/api/subscriptionArtwork/sub-1?v=1');
+
+      expect(component.coverURL(channel() as any)).toBe('/api/subscriptionArtwork/sub-1?v=1');
+      expect(component.coverIsAvatar(channel() as any)).toBe(true);
+      // A playlist's own image is a cover like any thumbnail, not an avatar.
+      expect(component.coverIsAvatar(playlist() as any)).toBe(false);
+
+      actions.coverURL.mockReturnValue('/api/thumbnail/file-1');
+      expect(component.coverURL(channel() as any)).toBe('/api/thumbnail/file-1');
+      expect(component.coverIsAvatar(channel() as any)).toBe(false);
     });
   });
 });

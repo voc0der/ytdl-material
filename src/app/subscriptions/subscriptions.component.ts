@@ -185,8 +185,14 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
     if (await this.actions.unsubscribe(sub)) await this.loadSubscriptions();
   }
 
+  // A card previews what was downloaded, so the newest thumbnail comes first, and the channel's
+  // or playlist's own image stands in until there is one.
   coverURL(sub: Subscription): string | null {
-    return this.actions.coverURL(sub);
+    return this.actions.coverURL(sub) || this.actions.artworkURL(sub);
+  }
+
+  coverIsAvatar(sub: Subscription): boolean {
+    return !sub.isPlaylist && !this.actions.coverURL(sub) && !!this.actions.artworkURL(sub);
   }
 
   initial(sub: Subscription): string {

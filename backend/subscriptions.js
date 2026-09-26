@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const _ = require('lodash');
+const axios = require('axios');
 
 const youtubedl_api = require('./youtube-dl');
 const config_api = require('./config');
@@ -80,9 +81,36 @@ const SUBSCRIPTION_BACKEND_OWNED_FIELDS = Object.freeze([
     'refresh_status',
     'videos',
     'file_count',
-    'thumbnail_file_uid'
+    'thumbnail_file_uid',
+    'channel_id',
+    'artwork_file',
+    'artwork_source_url',
+    'artwork_updated_at',
+    'source_info_checked_at'
 ]);
 const active_subscription_refresh_trackers = new Map();
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// The subscription's own image: a channel's avatar, or a playlist's cover. It is a copy of
+// something the source can always give again, so it is kept with the app's data rather than
+// in the media folders, where it would have to follow the subscription's folder around.
+const SUBSCRIPTION_ARTWORK_DIR = path.join('appdata', 'subscription_artwork');
+const SUBSCRIPTION_ARTWORK_EXTENSIONS = Object.freeze({
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp'
+});
+const SUBSCRIPTION_ARTWORK_FILE_PATTERN = /^[\w-]+\.(?:jpg|png|webp)$/;
+const SUBSCRIPTION_ARTWORK_MAX_BYTES = 10 * 1024 * 1024;
+const SUBSCRIPTION_ARTWORK_DOWNLOAD_TIMEOUT_MS = 20000;
+// A channel's name and avatar rarely change, so a check asks for them at most this often.
+const SUBSCRIPTION_SOURCE_INFO_REFRESH_INTERVAL_MS = DAY_MS;
+// How far before a date filter's cutoff a listing's approximate date must fall before the
+// upload is skipped without being fetched. The listing says "3 weeks ago", not a date, so
+// the margin absorbs its rounding; anything inside it still gets the exact check.
+const SUBSCRIPTION_LISTING_DATE_MIN_MARGIN_MS = 3 * DAY_MS;
+const SUBSCRIPTION_LISTING_DATE_MARGIN_RATIO = 0.1;
+const SUBSCRIPTION_LISTING_ENTRY_TEMPLATE = '%(.{ie_key,extractor_key,id,timestamp,upload_date})j';
 
 function getSubscriptionPendingDownloadProjectionFields() {
     // MongoDB find projections cannot address an array by numeric index. Projecting
@@ -173,6 +201,53 @@ function applyCustomArgs(downloadConfig = [], args_string = '') {
     const custom_args = parseDelimitedArgs(args_string);
     if (custom_args.length === 0) return downloadConfig;
     return utils.injectArgs(downloadConfig, custom_args);
+}
+
+async function appendSubscriptionCookieArgs(args = []) {
+    if (!config_api.getConfigItem('ytdl_use_cookies')) return args;
+    if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
+        args.push('--cookies', path.join('appdata', 'cookies.txt'));
+    } else {
+        logger.warn('Cookies file could not be found. You can either upload one, or disable \'use cookies\' in the Advanced tab in the settings.');
+    }
+    return args;
+}
+
+// The value yt-dlp ends up using for an option: the last one given, in either spelling.
+function getLastArgValue(args = [], flag = '') {
+    let value = null;
+    if (!Array.isArray(args)) return value;
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (typeof arg !== 'string') continue;
+        if (arg === flag && i + 1 < args.length) {
+            value = args[++i];
+        } else if (arg.startsWith(`${flag}=`)) {
+            value = arg.slice(flag.length + 1);
+        }
+    }
+    return value;
+}
+
+// A later --extractor-args for an extractor replaces an earlier one outright rather than
+// adding to it, so one argument is added by merging it into whatever the user already set.
+function appendExtractorArg(args = [], extractor_key = '', extractor_arg = '') {
+    const prefix = `${extractor_key.toLowerCase()}:`;
+    const kept_args = [];
+    let user_value = null;
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        const inline = typeof arg === 'string' && arg.startsWith('--extractor-args=');
+        const value = inline ? arg.slice('--extractor-args='.length) : (arg === '--extractor-args' ? args[i + 1] : null);
+        if (typeof value === 'string' && value.toLowerCase().startsWith(prefix)) {
+            user_value = value.slice(prefix.length);
+            if (!inline) i++;
+            continue;
+        }
+        kept_args.push(arg);
+    }
+    const merged_value = user_value ? `${user_value};${extractor_arg}` : extractor_arg;
+    return [...kept_args, '--extractor-args', `${extractor_key}:${merged_value}`];
 }
 
 function collectMatchFiltersFromArgs(args = []) {
@@ -1050,7 +1125,7 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
     sub['user_uid'] = user_uid ? user_uid : undefined;
     await db_api.insertRecordIntoTable('subscriptions', JSON.parse(JSON.stringify(sub)));
 
-    let success = skip_get_info ? true : await getSubscriptionInfo(sub);
+    let success = skip_get_info ? true : await refreshSubscriptionSourceInfo(sub, {force: true});
     exports.writeSubscriptionMetadata(sub);
 
     if (success) {
@@ -1064,61 +1139,186 @@ exports.subscribe = async (sub, user_uid = null, skip_get_info = false) => {
     return result_obj;
 }
 
-async function getSubscriptionInfo(sub) {
-    // get videos
+/*************************************************
+ * The channel's or playlist's own record, without
+ * any of its entries. --playlist-items 0 stops
+ * yt-dlp at the first page, which already carries
+ * the name, the channel id and the avatar. This
+ * used to ask for the first video instead, a full
+ * video extraction to learn the same name.
+ *
+ * on_spawn is handed the process, so a check can
+ * record it where "Stop checking" will find it.
+ ************************************************/
+async function fetchSubscriptionSourceInfo(sub, on_spawn = null) {
     const downloader_fork = downloader_api.getPreferredDownloaderFork({});
-    let downloadConfig = ['--dump-json'];
-    downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
-    downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
-    downloadConfig = utils.injectArgs(downloadConfig, ['--playlist-end', '1']);
-    downloadConfig = downloader_api.appendYtDlpImpersonationArgs(downloadConfig, downloader_fork);
-    let useCookies = config_api.getConfigItem('ytdl_use_cookies');
-    if (useCookies) {
-        if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
-            downloadConfig.push('--cookies', path.join('appdata', 'cookies.txt'));
-        } else {
-            logger.warn('Cookies file could not be found. You can either upload one, or disable \'use cookies\' in the Advanced tab in the settings.');
-        }
-    }
+    let args = ['--dump-single-json', '--flat-playlist'];
+    args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
+    args = applyCustomArgs(args, sub.custom_args);
+    args = utils.injectArgs(args, ['--playlist-items', '0']);
+    args = downloader_api.appendYtDlpImpersonationArgs(args, downloader_fork);
+    args = await appendSubscriptionCookieArgs(args);
 
     // yt-dlp-ejs ships inside the yt-dlp binary (and is pip-installed with it in impersonation mode), so it is detected automatically
     // No --remote-components flag needed (would conflict with Deno's --no-remote flag)
 
-    let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig, null, downloader_fork);
+    const {child_process, callback} = await youtubedl_api.runYoutubeDL(sub.url, args, null, downloader_fork);
+    if (on_spawn) await on_spawn(child_process);
     const {parsed_output, err} = await callback;
-    if (err) {
-        logger.error(`Subscribe: failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
-        return false;
+    // Success is having the record. Warnings on stderr do not make it wrong.
+    const info = Array.isArray(parsed_output)
+        ? parsed_output.find(output_json => !!output_json && typeof output_json === 'object')
+        : null;
+    if (!info) {
+        logger.error(`Failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
+        return null;
     }
-    if (!Array.isArray(parsed_output) || parsed_output.length === 0) {
-        logger.error(`Subscribe: failed to retrieve info for subscription ${sub.id}: ${describeSubscriptionInfoError(err)}`);
-        return false;
+    return info;
+}
+
+async function applySubscriptionSourceName(sub, info) {
+    if (sub.name) return;
+    sub.name = sub.isPlaylist
+        ? (info.title || info.playlist_title || info.playlist)
+        : (info.uploader || info.channel || info.title);
+    if (!sub.name) return;
+
+    let sub_name = sub.name;
+    const sub_name_exists = await db_api.getRecord('subscriptions', {name: sub.name, isPlaylist: sub.isPlaylist, user_uid: sub.user_uid});
+    if (sub_name_exists) sub_name += ` - ${sub.id}`;
+    await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub_name});
+}
+
+/*************************************************
+ * The image that stands for the subscription, or
+ * null rather than a guess. A channel is its
+ * avatar: the largest square image, which leaves
+ * out the banners listed alongside it. A playlist
+ * is its own cover, the largest image offered.
+ ************************************************/
+function pickSubscriptionArtworkUrl(info = null, is_playlist = false) {
+    if (!info || typeof info !== 'object') return null;
+    const is_web_url = url => typeof url === 'string' && /^https?:\/\//i.test(url);
+    const thumbnails = (Array.isArray(info.thumbnails) ? info.thumbnails : [])
+        .filter(thumbnail => thumbnail && is_web_url(thumbnail.url));
+    const width = thumbnail => Number(thumbnail.width) || 0;
+    const height = thumbnail => Number(thumbnail.height) || 0;
+
+    if (is_playlist) {
+        const largest = _.maxBy(thumbnails, thumbnail => width(thumbnail) * height(thumbnail));
+        if (largest) return largest.url;
+        return is_web_url(info.thumbnail) ? info.thumbnail : null;
     }
-    logger.verbose('Subscribe: got info for subscription ' + sub.id);
-    for (const output_json of parsed_output) {
-        if (!output_json) {
-            continue;
+
+    const largest_square = _.maxBy(
+        thumbnails.filter(thumbnail => width(thumbnail) > 0 && width(thumbnail) === height(thumbnail)),
+        width
+    );
+    if (largest_square) return largest_square.url;
+    const avatar = thumbnails.find(thumbnail => typeof thumbnail.id === 'string' && thumbnail.id.includes('avatar'));
+    return avatar ? avatar.url : null;
+}
+exports.pickSubscriptionArtworkUrl = pickSubscriptionArtworkUrl;
+
+// The artwork file name is read back from the database before it is joined onto a path, so
+// it is held to the shape this module gives it.
+function getSubscriptionArtworkFilePath(artwork_file = null) {
+    if (typeof artwork_file !== 'string' || !SUBSCRIPTION_ARTWORK_FILE_PATTERN.test(artwork_file)) return null;
+    return path.resolve(SUBSCRIPTION_ARTWORK_DIR, artwork_file);
+}
+
+async function hasSubscriptionArtworkFile(sub) {
+    const artwork_path = getSubscriptionArtworkFilePath(sub && sub.artwork_file);
+    return !!artwork_path && await fs.pathExists(artwork_path);
+}
+
+// Resolves the stored file name, or null when the download failed or was not an image.
+async function downloadSubscriptionArtwork(sub, artwork_url) {
+    if (!sub || typeof sub.id !== 'string' || !/^[\w-]+$/.test(sub.id)) return null;
+    try {
+        const response = await axios.get(artwork_url, {
+            responseType: 'arraybuffer',
+            timeout: SUBSCRIPTION_ARTWORK_DOWNLOAD_TIMEOUT_MS,
+            maxContentLength: SUBSCRIPTION_ARTWORK_MAX_BYTES
+        });
+        const content_type = String((response.headers && response.headers['content-type']) || '').split(';')[0].trim().toLowerCase();
+        const extension = SUBSCRIPTION_ARTWORK_EXTENSIONS[content_type];
+        if (!extension) {
+            logger.warn(`Not keeping the artwork for subscription '${sub.name}': it was served as '${content_type || 'no content type'}', not an image.`);
+            return null;
         }
 
-        if (!sub.name) {
-            if (sub.isPlaylist) {
-                sub.name = output_json.playlist_title ? output_json.playlist_title : output_json.playlist;
-            } else {
-                sub.name = output_json.uploader;
-            }
-            // if it's now valid, update
-            if (sub.name) {
-                let sub_name = sub.name;
-                const sub_name_exists = await db_api.getRecord('subscriptions', {name: sub.name, isPlaylist: sub.isPlaylist, user_uid: sub.user_uid});
-                if (sub_name_exists) sub_name += ` - ${sub.id}`;
-                await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub_name});
-            }
-        }
+        const artwork_file = `${sub.id}.${extension}`;
+        const artwork_path = getSubscriptionArtworkFilePath(artwork_file);
+        // Written beside the current copy and renamed over it, so a failed write never
+        // leaves the page showing half an image.
+        await fs.ensureDir(path.dirname(artwork_path));
+        await fs.writeFile(`${artwork_path}.part`, Buffer.from(response.data));
+        await fs.move(`${artwork_path}.part`, artwork_path, {overwrite: true});
 
-        return true;
+        const previous_path = getSubscriptionArtworkFilePath(sub.artwork_file);
+        if (previous_path && previous_path !== artwork_path) await fs.remove(previous_path);
+        return artwork_file;
+    } catch (err) {
+        logger.warn(`Could not download the artwork for subscription '${sub.name}': ${err.message}`);
+        return null;
+    }
+}
+
+/*************************************************
+ * Brings a subscription's name, channel id and
+ * artwork up to date from its source. Subscribing
+ * forces it; a check asks at most once a day, or
+ * sooner when the artwork it had has gone missing.
+ * The image is downloaded again only when the
+ * source points at a different one.
+ *
+ * Resolves whether the source answered. A check
+ * carries on either way: without an answer the
+ * artwork just stays as it was.
+ ************************************************/
+async function refreshSubscriptionSourceInfo(sub, {force = false, on_spawn = null} = {}) {
+    const checked_at = Number(sub.source_info_checked_at) || 0;
+    const artwork_lost = !!sub.artwork_file && !(await hasSubscriptionArtworkFile(sub));
+    const due = force || artwork_lost || (Date.now() - checked_at) >= SUBSCRIPTION_SOURCE_INFO_REFRESH_INTERVAL_MS;
+    if (!due) return true;
+
+    // Recorded before asking, so a source that keeps failing is retried daily, not on every check.
+    const updates = {source_info_checked_at: Date.now()};
+    const info = await fetchSubscriptionSourceInfo(sub, on_spawn);
+    if (!info) {
+        await db_api.updateRecord('subscriptions', {id: sub.id}, updates);
+        Object.assign(sub, updates);
+        return false;
+    }
+    logger.verbose('Subscription: got info for subscription ' + sub.id);
+
+    await applySubscriptionSourceName(sub, info);
+
+    const channel_id = normalizeNullableString(info.channel_id);
+    if (channel_id) updates.channel_id = channel_id;
+
+    const artwork_url = pickSubscriptionArtworkUrl(info, !!sub.isPlaylist);
+    if (artwork_url && (artwork_url !== sub.artwork_source_url || !(await hasSubscriptionArtworkFile(sub)))) {
+        const artwork_file = await downloadSubscriptionArtwork(sub, artwork_url);
+        if (artwork_file) {
+            updates.artwork_file = artwork_file;
+            updates.artwork_source_url = artwork_url;
+            updates.artwork_updated_at = Date.now();
+        }
     }
 
-    return false;
+    await db_api.updateRecord('subscriptions', {id: sub.id}, updates);
+    Object.assign(sub, updates);
+    return true;
+}
+
+exports.getSubscriptionArtworkPath = async (sub_id, user_uid = null) => {
+    const filter = {id: sub_id};
+    if (shouldRestrictToUser(user_uid)) filter['user_uid'] = user_uid;
+    const sub = await db_api.getRecord('subscriptions', filter);
+    if (!sub || !(await hasSubscriptionArtworkFile(sub))) return null;
+    return getSubscriptionArtworkFilePath(sub.artwork_file);
 }
 
 exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
@@ -1164,6 +1364,8 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
 
     await db_api.removeRecord('subscriptions', remove_sub_filter);
     await db_api.removeAllRecords('files', {sub_id: id, ...(shouldRestrictToUser(user_uid) ? {user_uid: user_uid} : {})});
+    const artwork_path = getSubscriptionArtworkFilePath(sub.artwork_file);
+    if (artwork_path) await fs.remove(artwork_path);
 
     // failed subs have no name, on unsubscribe they shouldn't error
     if (!sub.name) {
@@ -1410,23 +1612,38 @@ async function _getVideosForSub(sub) {
     let appendedBasePath = getAppendedBasePath(sub, basePath);
     fs.ensureDirSync(appendedBasePath);
 
-    const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
-    const discovery_filter_context = {
-        match_filters: collectMatchFiltersFromArgs(downloadConfig)
-    };
-    const discoveryDownloadConfig = filterSubscriptionDiscoveryAvailabilityMatchFilters(downloadConfig);
+    // Each yt-dlp run is recorded as it starts, so "Stop checking" can end whichever is going.
+    const recordChildProcess = child_process => updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
 
-    // get videos
-    logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(discoveryDownloadConfig).join(',')}`);
-
-    const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context);
-    const downloader_fork = downloader_api.getPreferredDownloaderFork({});
-    let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, discoveryDownloadConfig, {
-        onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
-        onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
-    }, downloader_fork);
-    await updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
     try {
+        // Neither step is needed for the check to work, only to show it well and make it quick,
+        // so a failure in either leaves the check to go ahead the slow way.
+        await refreshSubscriptionSourceInfo(sub, {on_spawn: recordChildProcess}).catch(e => {
+            logger.warn(`Subscription: could not refresh the channel info of ${sub.name}: ${e.message}`);
+        });
+        if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
+
+        const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
+        await skipUploadsBeforeDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
+            logger.warn(`Subscription: could not skip the uploads of ${sub.name} that predate its date filter: ${e.message}`);
+        });
+        if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
+
+        const discovery_filter_context = {
+            match_filters: collectMatchFiltersFromArgs(downloadConfig)
+        };
+        const discoveryDownloadConfig = filterSubscriptionDiscoveryAvailabilityMatchFilters(downloadConfig);
+
+        // get videos
+        logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(discoveryDownloadConfig).join(',')}`);
+
+        const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context);
+        const downloader_fork = downloader_api.getPreferredDownloaderFork({});
+        let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, discoveryDownloadConfig, {
+            onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
+            onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
+        }, downloader_fork);
+        await recordChildProcess(child_process);
         const {err} = await callback;
         const queued_count = await refresh_stream_processor.finalize(err);
         logger.verbose('Subscription: finished check for ' + sub.name);
@@ -1528,7 +1745,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
     // skip videos that are in the archive. otherwise sub download can be permanently slow (vs. just the first time)
     const archive_text = await archive_api.generateArchive(sub.type, sub.user_uid, sub.id);
-    const archive_count = archive_text.split('\n').length - 1;
+    const archive_count = archive_text ? archive_text.split('\n').length : 0;
     if (archive_count > 0) {
         logger.verbose(`Generating temporary archive file for subscription ${sub.name} with ${archive_count} entries.`)
         const archive_path = getSubscriptionTemporaryArchivePath(sub, basePath);
@@ -1547,14 +1764,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
         downloadConfig.push('--dateafter', sub.timerange);
     }
 
-    let useCookies = config_api.getConfigItem('ytdl_use_cookies');
-    if (useCookies) {
-        if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
-            downloadConfig.push('--cookies', path.join('appdata', 'cookies.txt'));
-        } else {
-            logger.warn('Cookies file could not be found. You can either upload one, or disable \'use cookies\' in the Advanced tab in the settings.');
-        }
-    }
+    downloadConfig = await appendSubscriptionCookieArgs(downloadConfig);
 
     if (config_api.getConfigItem('ytdl_include_thumbnail')) {
         downloadConfig.push('--write-thumbnail');
@@ -1666,6 +1876,146 @@ async function generateArgsForSubscriptionDiscovery(sub, user_uid) {
         ...(should_use_full_metadata ? [] : ['--flat-playlist']),
         '--dump-json'
     ];
+}
+
+/*************************************************
+ * The start of the UTC day a date filter lets
+ * uploads through from, in epoch ms, or null when
+ * there is no lower bound or its form is unknown.
+ *
+ * Accepts what yt-dlp itself accepts for --date
+ * and --dateafter: YYYYMMDD, or now, today or
+ * yesterday, optionally minus N days, weeks,
+ * months or years. Months are calendar months
+ * with the day clamped, as in yt-dlp.
+ ************************************************/
+function parseSubscriptionDateArg(value = null, now = Date.now()) {
+    if (typeof value !== 'string') return null;
+    const match = value.match(/^(?:(\d{4})(\d{2})(\d{2})|(now|today|yesterday)(?:-(\d+)(day|week|month|year)s?)?)$/);
+    if (!match) return null;
+    if (match[1]) return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+
+    const today = new Date(now);
+    let year = today.getUTCFullYear();
+    let month = today.getUTCMonth();
+    let day = today.getUTCDate() - (match[4] === 'yesterday' ? 1 : 0);
+    const amount = match[5] ? Number(match[5]) : 0;
+    if (match[6] === 'day') day -= amount;
+    if (match[6] === 'week') day -= amount * 7;
+    if (match[6] === 'month' || match[6] === 'year') {
+        const months = year * 12 + month - amount * (match[6] === 'year' ? 12 : 1);
+        year = Math.floor(months / 12);
+        month = months - year * 12;
+        day = Math.min(day, new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+    }
+    return Date.UTC(year, month, day);
+}
+
+// yt-dlp applies --date over --dateafter when both are given.
+function getSubscriptionDiscoveryDateLowerBound(args = [], now = Date.now()) {
+    const date_value = getLastArgValue(args, '--date');
+    return parseSubscriptionDateArg(date_value !== null ? date_value : getLastArgValue(args, '--dateafter'), now);
+}
+exports.getSubscriptionDiscoveryDateLowerBound = getSubscriptionDiscoveryDateLowerBound;
+
+function getSubscriptionListingDateThreshold(lower_bound_ms, now = Date.now()) {
+    const range_ms = Math.max(0, now - lower_bound_ms);
+    return lower_bound_ms - Math.max(SUBSCRIPTION_LISTING_DATE_MIN_MARGIN_MS, range_ms * SUBSCRIPTION_LISTING_DATE_MARGIN_RATIO);
+}
+exports.getSubscriptionListingDateThreshold = getSubscriptionListingDateThreshold;
+
+// A channel's own tabs leave the date off Shorts, while its uploads playlist -- the channel
+// id with UC swapped for UU -- lists every upload with one. Anything else is listed as is.
+function getSubscriptionDatedListingURL(sub) {
+    if (!sub.isPlaylist && typeof sub.channel_id === 'string' && /^UC[\w-]{22}$/.test(sub.channel_id)) {
+        return `https://www.youtube.com/playlist?list=UU${sub.channel_id.slice(2)}`;
+    }
+    return sub.url;
+}
+
+async function generateArgsForSubscriptionDatedListing(sub) {
+    let args = [];
+    args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
+    args = applyCustomArgs(args, sub.custom_args);
+    args.push('--flat-playlist', '--print', SUBSCRIPTION_LISTING_ENTRY_TEMPLATE);
+    // Without it a listing entry has no date at all; with it, the relative "3 weeks ago" the
+    // listing shows, turned into a timestamp.
+    args = appendExtractorArg(args, 'youtubetab', 'approximate_date');
+    args = downloader_api.appendYtDlpImpersonationArgs(args, 'yt-dlp');
+    return await appendSubscriptionCookieArgs(args);
+}
+
+// Archive lines, in yt-dlp's own "extractor id" form, for the entries dated before the threshold.
+function getListingEntriesDatedBefore(listing_entries = [], threshold_ms) {
+    const archive_lines = new Set();
+    for (const entry of Array.isArray(listing_entries) ? listing_entries : []) {
+        if (!entry || typeof entry !== 'object') continue;
+        const extractor = normalizeStringForComparison(entry.ie_key || entry.extractor_key);
+        const id = normalizeArchiveSourceValue(entry.id);
+        if (!extractor || !id) continue;
+
+        const has_timestamp = entry.timestamp !== null && entry.timestamp !== undefined && Number.isFinite(Number(entry.timestamp));
+        const dated_at = has_timestamp
+            ? Number(entry.timestamp) * 1000
+            : parseSubscriptionDateArg(typeof entry.upload_date === 'string' ? entry.upload_date : null);
+        if (dated_at !== null && dated_at < threshold_ms) archive_lines.add(`${extractor} ${id}`);
+    }
+    return [...archive_lines];
+}
+exports.getListingEntriesDatedBefore = getListingEntriesDatedBefore;
+
+/*************************************************
+ * yt-dlp applies a date filter only once it has an
+ * upload's full metadata, and a listing mostly has
+ * no dates, so checking "the last week" used to
+ * fetch every upload the channel ever made, one
+ * page each, to reject nearly all of them. Those
+ * rejections print nothing, so the refresh sat on
+ * "1 / 386" for as long as that took.
+ *
+ * A flat listing with approximate dates costs a
+ * request per page of uploads instead of one per
+ * upload. Whatever it shows as clearly older than
+ * the filter goes into this check's temporary
+ * archive, which yt-dlp consults before fetching
+ * anything. The rest, including whatever the
+ * listing could not date, still gets the exact
+ * --dateafter check.
+ *
+ * Resolves how many uploads will be skipped.
+ ************************************************/
+async function skipUploadsBeforeDateFilter(sub, base_path, discovery_args, on_spawn = null, now = Date.now()) {
+    const lower_bound = getSubscriptionDiscoveryDateLowerBound(discovery_args, now);
+    if (lower_bound === null) return 0;
+    if (downloader_api.getPreferredDownloaderFork({}) !== 'yt-dlp') return 0;
+    // An archived entry is where --break-on-existing stops, and a playlist that runs oldest
+    // first would then stop at its first old upload, before reaching any new one.
+    if (discovery_args.includes('--break-on-existing')) return 0;
+    // Only this check's own archive may be added to. Entries added to the user's archive
+    // would be recorded as downloaded for good.
+    const archive_path = getSubscriptionTemporaryArchivePath(sub, base_path);
+    const effective_archive_path = getLastArgValue(discovery_args, '--download-archive');
+    if (effective_archive_path !== null && !isSamePath(effective_archive_path, archive_path)) return 0;
+
+    const listing_url = getSubscriptionDatedListingURL(sub);
+    const listing_args = await generateArgsForSubscriptionDatedListing(sub);
+    const {child_process, callback} = await youtubedl_api.runYoutubeDL(listing_url, listing_args, null, 'yt-dlp');
+    if (on_spawn) await on_spawn(child_process);
+    const {parsed_output, err} = await callback;
+    if (!Array.isArray(parsed_output)) {
+        logger.warn(`Subscription: could not list the uploads of ${sub.name} by date, so each one is fetched to check its date: ${describeSubscriptionInfoError(err)}`);
+        return 0;
+    }
+
+    const archive_lines = getListingEntriesDatedBefore(parsed_output, getSubscriptionListingDateThreshold(lower_bound, now));
+    if (archive_lines.length === 0) return 0;
+
+    await fs.ensureDir(path.dirname(archive_path));
+    // The archive text is written without a trailing newline.
+    await fs.appendFile(archive_path, `\n${archive_lines.join('\n')}\n`);
+    if (effective_archive_path === null) discovery_args.push('--download-archive', archive_path);
+    logger.verbose(`Subscription: skipping ${archive_lines.length} uploads of ${sub.name} that predate its date filter.`);
+    return archive_lines.length;
 }
 
 async function createSubscriptionDownloadContext(sub) {

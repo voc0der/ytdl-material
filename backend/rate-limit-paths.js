@@ -29,6 +29,7 @@
 const PUBLIC_API_PREFIXES = [
     '/api/stream',
     '/api/thumbnail/',
+    '/api/subscriptionArtwork/',
     '/api/rss',
     '/api/telegramRequest'
 ];

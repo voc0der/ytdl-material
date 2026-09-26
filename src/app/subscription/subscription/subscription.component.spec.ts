@@ -45,7 +45,8 @@ describe('SubscriptionComponent', () => {
       redownload: vi.fn().mockName('redownload').mockResolvedValue(true),
       unsubscribe: vi.fn().mockName('unsubscribe').mockResolvedValue(true),
       exportArchive: vi.fn().mockName('exportArchive').mockResolvedValue(true),
-      coverURL: vi.fn().mockName('coverURL').mockReturnValue(null)
+      coverURL: vi.fn().mockName('coverURL').mockReturnValue(null),
+      artworkURL: vi.fn().mockName('artworkURL').mockReturnValue(null)
     };
 
     component = new SubscriptionComponent(postsService, { params: of({ id: 'sub-1' }) } as any, router, dialog, actions);
@@ -306,7 +307,7 @@ describe('SubscriptionComponent', () => {
     expect(get_subscription_spy).toHaveBeenCalledWith(true);
   });
 
-  it('should describe collecting progress when totals are known', () => {
+  it('should count what collecting found without passing it off as progress through the channel', () => {
     component.subscription = {
       id: 'sub-1',
       name: 'Test subscription',
@@ -314,8 +315,9 @@ describe('SubscriptionComponent', () => {
       refresh_status: {
         phase: 'collecting',
         active: true,
-        discovered_count: 4,
-        total_count: 10,
+        discovered_count: 1,
+        // The size of the listing: yt-dlp passes over most of it without a word.
+        total_count: 386,
         latest_item_title: 'Newest item',
         pending_download_count: 0,
         running_download_count: 0
@@ -326,9 +328,23 @@ describe('SubscriptionComponent', () => {
     expect(component.shouldShowRefreshStatus()).toBe(true);
     expect(component.hasActiveRefresh()).toBe(true);
     expect(component.getRefreshHeadline()).toBe('Checking channel metadata');
-    expect(component.getRefreshProgressMode()).toBe('determinate');
-    expect(component.getRefreshProgressValue()).toBe(40);
-    expect(component.getRefreshMetrics()).toContain('4 / 10 items scanned');
+    expect(component.getRefreshProgressMode()).toBe('indeterminate');
+    expect(component.getRefreshMetrics()).toEqual(['1 found so far']);
+  });
+
+  it('should show a channel by its avatar, and a playlist by its cover', () => {
+    component.subscription = { id: 'sub-1', name: 'Test subscription', isPlaylist: false } as any;
+    actions.coverURL.mockReturnValue('/api/thumbnail/file-1');
+    expect(component.coverURL).toBe('/api/thumbnail/file-1');
+    expect(component.coverIsAvatar).toBe(false);
+
+    actions.artworkURL.mockReturnValue('/api/subscriptionArtwork/sub-1?v=1');
+    expect(component.coverURL).toBe('/api/subscriptionArtwork/sub-1?v=1');
+    expect(component.coverIsAvatar).toBe(true);
+
+    component.subscription = { ...component.subscription, isPlaylist: true } as any;
+    expect(component.coverURL).toBe('/api/subscriptionArtwork/sub-1?v=1');
+    expect(component.coverIsAvatar).toBe(false);
   });
 
   it('should expose the downloads page action when queued downloads exist', () => {
