@@ -30,7 +30,8 @@
 
     @if (optionsOpen) {
       <div class="kit-panel options-panel" id="subscribe-options">
-        <app-subscription-settings mode="create" [settings]="settings" [(name)]="name" [showChoices]="false" [disabled]="subscribing"></app-subscription-settings>
+        <app-subscription-settings mode="create" [settings]="settings" [(name)]="name" [showChoices]="false" [isPlaylist]="urlIsPlaylist"
+          [disabled]="subscribing"></app-subscription-settings>
       </div>
     }
 
@@ -99,7 +100,9 @@
             } @else {
               <span class="card-cover-initial">{{initial(sub)}}</span>
             }
-            @if (state(sub) !== 'idle') {
+            <!-- A check that did not finish is left to the status line: the next one is likely
+                 to, so it is no reason to mark the cover. -->
+            @if (state(sub) !== 'idle' && state(sub) !== 'failed') {
               <span class="card-state">
                 @if (isBusy(sub)) {
                   <mat-spinner [diameter]="12" [strokeWidth]="2"></mat-spinner>
@@ -125,7 +128,7 @@
                 <span aria-hidden="true">·</span>
                 <span i18n="Subscription file count">{sub.file_count ?? 0, plural, =0 {No files} =1 {1 file} other {{{sub.file_count}} files}}</span>
               </span>
-              @if (state(sub) === 'idle') {
+              @if (state(sub) === 'idle' || state(sub) === 'failed') {
                 <span class="card-status">{{statusText(sub)}}</span>
               }
             </div>

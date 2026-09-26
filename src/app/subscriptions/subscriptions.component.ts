@@ -78,6 +78,11 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
     return (this.subscriptions ?? []).filter(sub => sub.isPlaylist).length;
   }
 
+  // Read the way the backend reads it when subscribing.
+  get urlIsPlaylist(): boolean {
+    return this.url.includes('playlist');
+  }
+
   get visibleSubscriptions(): Subscription[] {
     const subscriptions = this.subscriptions ?? [];
     if (this.filter === 'channels') return subscriptions.filter(sub => !sub.isPlaylist);
@@ -91,6 +96,7 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
     return !!this.name.trim()
       || this.settings.use_subfolder !== defaults.use_subfolder
       || this.settings.auto_create_playlist !== defaults.auto_create_playlist
+      || (this.settings.retrieve_channel_playlists !== defaults.retrieve_channel_playlists && !this.urlIsPlaylist)
       || !!this.settings.custom_args.trim()
       || !!this.settings.custom_output.trim();
   }
@@ -133,7 +139,8 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
         this.settings.custom_args.trim(),
         this.settings.custom_output.trim(),
         this.settings.use_subfolder,
-        this.settings.auto_create_playlist
+        this.settings.auto_create_playlist,
+        this.settings.retrieve_channel_playlists && !this.urlIsPlaylist
       ));
       if (res?.new_sub) {
         this.postsService.openSnackBar($localize`Subscribed to ${res.new_sub.name || url}:subscription name:. Its uploads are on the way.`);
@@ -225,7 +232,7 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
       return $localize`Downloading ${waiting}:download count: new`;
     }
     case 'failed':
-      return $localize`Last check failed`;
+      return $localize`Last check didn't finish`;
     default: {
       const checked_at = lastCheckedAt(sub);
       return checked_at

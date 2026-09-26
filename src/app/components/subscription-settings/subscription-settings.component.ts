@@ -28,6 +28,8 @@ export class SubscriptionSettingsComponent implements OnChanges {
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() showChoices = true;
   @Input() showRows = true;
+  // A channel has playlists of its own to retrieve; a playlist does not.
+  @Input() isPlaylist = false;
   // Only when subscribing: a subscription is named once, from this or from its title.
   @Input() name = '';
   @Input() disabled = false;

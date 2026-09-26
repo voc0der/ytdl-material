@@ -31,4 +31,8 @@ export type Playlist = {
      * Subscription whose downloads are automatically appended to this playlist
      */
     source_sub_id?: string;
+    /**
+     * For a playlist copied from a subscribed channel, the id of the channel's playlist
+     */
+    source_playlist_id?: string;
 };

@@ -32,8 +32,15 @@ describe('SubscriptionSettingsComponent', () => {
   const rowTitles = (): string[] => Array.from(fixture.nativeElement.querySelectorAll('.settings-row-title')).map((title: HTMLElement) => title.textContent.trim());
 
   it('shows the choices and the rows of a new subscription', () => {
-    expect(rowTitles()).toEqual(['Name', 'Own folder', 'Playlist', 'File names', 'Extra arguments']);
+    expect(rowTitles()).toEqual(['Name', 'Own folder', 'Auto playlist', 'Retrieve channel playlists', 'File names', 'Extra arguments']);
     expect(chips().map(chip => chip.textContent.trim())).toContain('Only Audio');
+  });
+
+  it('offers a channel\'s playlists only for a channel', () => {
+    component.isPlaylist = true;
+    fixture.detectChanges();
+
+    expect(rowTitles()).not.toContain('Retrieve channel playlists');
   });
 
   it('shows what a page asks for on its own', () => {
@@ -48,7 +55,7 @@ describe('SubscriptionSettingsComponent', () => {
     component.mode = 'edit';
     fixture.detectChanges();
 
-    expect(rowTitles()).toEqual(['Paused', 'Own folder', 'Playlist', 'File names', 'Extra arguments']);
+    expect(rowTitles()).toEqual(['Paused', 'Own folder', 'Auto playlist', 'Retrieve channel playlists', 'File names', 'Extra arguments']);
   });
 
   it('drops the quality choice for an audio-only subscription', () => {

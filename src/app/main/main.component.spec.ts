@@ -863,7 +863,6 @@ describe('MainComponent', () => {
 
   it('shows the playlist shortcut only when the library is on the playlists tab', () => {
     component.mediaLibrary = {
-      showLibraryTabs: true,
       activeLibraryTab: 1,
       openCreatePlaylistDialog: () => { }
     } as any;
@@ -873,13 +872,6 @@ describe('MainComponent', () => {
     component.mediaLibrary.activeLibraryTab = 0;
     expect(component.showCreatePlaylistShortcut).toBe(false);
 
-    component.mediaLibrary = {
-      showLibraryTabs: false,
-      activeLibraryTab: 1,
-      openCreatePlaylistDialog: () => { }
-    } as any;
-    expect(component.showCreatePlaylistShortcut).toBe(false);
-
     component.mediaLibrary = null;
     expect(component.showCreatePlaylistShortcut).toBe(false);
   });
@@ -887,7 +879,6 @@ describe('MainComponent', () => {
   it('delegates playlist creation to the media library component', () => {
     const open_dialog_spy = vi.fn().mockName('openCreatePlaylistDialog');
     component.mediaLibrary = {
-      showLibraryTabs: true,
       activeLibraryTab: 1,
       openCreatePlaylistDialog: open_dialog_spy
     } as any;

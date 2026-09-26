@@ -20,6 +20,10 @@ export type Subscription = {
     custom_output?: string;
     use_subfolder?: boolean;
     auto_create_playlist?: boolean;
+    /**
+     * For a channel, also download the videos in its playlists and keep each one as a playlist
+     */
+    retrieve_channel_playlists?: boolean;
     downloading?: boolean;
     paused?: boolean;
     refresh_status?: SubscriptionRefreshStatus;

@@ -216,7 +216,7 @@ export class MainComponent implements OnInit {
   get showCreatePlaylistShortcut(): boolean {
     // A playlist is made from your own files, so there is nothing to make one from while
     // someone else's library is showing.
-    return !!this.mediaLibrary && this.mediaLibrary.showLibraryTabs && this.mediaLibrary.activeLibraryTab === 1
+    return !!this.mediaLibrary && this.mediaLibrary.activeLibraryTab === 1
       && !this.mediaLibrary.libraryUid;
   }
 

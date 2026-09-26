@@ -96,8 +96,27 @@
 }
 
 .sub-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 4px;
   font-size: 14px;
   color: var(--kit-on-surface-variant);
+}
+
+.sub-status-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-block: -8px;
+  padding: 8px 6px 8px 10px;
+  font-size: inherit;
+}
+
+.sub-status-details mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
 }
 
 .sub-status-busy {
@@ -222,6 +241,15 @@
   margin: 12px 0 0 0;
   line-height: 1.5;
   opacity: 0.88;
+}
+
+.refresh-status-error {
+  margin: 8px 0 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--kit-on-surface-variant);
 }
 
 .refresh-status-progress {

@@ -67,12 +67,23 @@
 
     <div class="settings-row">
       <span class="settings-row-text">
-        <span class="settings-row-title" id="subscription-playlist-title" i18n="Automatic subscription playlist setting">Playlist</span>
+        <span class="settings-row-title" id="subscription-playlist-title" i18n="Automatic subscription playlist setting">Auto playlist</span>
         <span class="settings-row-hint" i18n="Automatic subscription playlist hint">Add downloads to a playlist named after the subscription.</span>
       </span>
       <mat-slide-toggle name="autoCreatePlaylist" [(ngModel)]="settings.auto_create_playlist" (ngModelChange)="changed.emit()" [disabled]="disabled"
         aria-labelledby="subscription-playlist-title"></mat-slide-toggle>
     </div>
+
+    @if (!isPlaylist) {
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" id="subscription-channel-playlists-title" i18n="Retrieve channel playlists setting">Retrieve channel playlists</span>
+          <span class="settings-row-hint" i18n="Retrieve channel playlists hint">Also download the videos in the channel's playlists, whatever their date, and keep each one as a playlist.</span>
+        </span>
+        <mat-slide-toggle name="retrieveChannelPlaylists" [(ngModel)]="settings.retrieve_channel_playlists" (ngModelChange)="changed.emit()"
+          [disabled]="disabled" aria-labelledby="subscription-channel-playlists-title"></mat-slide-toggle>
+      </div>
+    }
 
     <label class="settings-row settings-field-row">
       <span class="settings-row-text">

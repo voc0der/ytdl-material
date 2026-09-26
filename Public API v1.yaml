@@ -2659,6 +2659,9 @@ components:
           type: boolean
         autoCreatePlaylist:
           type: boolean
+        retrieveChannelPlaylists:
+          type: boolean
+          description: For a channel, also download the videos in its playlists and keep each one as a playlist
         maxQuality:
           type: string
     SubscribeResponse:
@@ -3434,6 +3437,9 @@ components:
         source_sub_id:
           type: string
           description: Subscription whose downloads are automatically appended to this playlist
+        source_playlist_id:
+          type: string
+          description: For a playlist copied from a subscribed channel, the id of the channel's playlist
     Download:
       required:
         - url
@@ -3650,6 +3656,9 @@ components:
           type: boolean
         auto_create_playlist:
           type: boolean
+        retrieve_channel_playlists:
+          type: boolean
+          description: For a channel, also download the videos in its playlists and keep each one as a playlist
         downloading:
           type: boolean
         paused:
