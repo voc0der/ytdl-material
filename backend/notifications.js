@@ -481,7 +481,10 @@ function getWebhookPayload(webhook_info, data) {
         type: mapNotificationTypeToAppriseType(data['type']),
         event_type: data['type'],
         url: data['url'],
-        thumbnail: data['thumbnail']
+        thumbnail: data['thumbnail'],
+        // Declare the body's input format so Apprise does not fall back to its server
+        // default. Custom templates may use Markdown; default bodies stay literal text.
+        format: config_api.getConfigItem('ytdl_use_custom_webhook_template') ? 'markdown' : 'text'
     };
 
     const apprise_tag = webhook_info['parsed_url'].searchParams.get('tag') || webhook_info['parsed_url'].searchParams.get('tags');
