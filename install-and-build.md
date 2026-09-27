@@ -68,7 +68,7 @@ Note: `npm start` in the repo root starts the Angular dev server (`ng serve`). T
 
 ### Peer dependency install note
 
-The repo uses Angular 22, but three packages still declare older peer ranges: `@videogular/ngx-videogular` 20 (Angular 20), `ngx-avatars` (Angular 21), and `@angular/build` (Vitest 4, while the tests run on Vitest 5). The repository includes a temporary `.npmrc` with `legacy-peer-deps=true` so the install succeeds anyway.
+The repo uses Angular 22, but two packages still declare older peer ranges: `ngx-avatars` (Angular 21) and `@angular/build` (Vitest 4, while the tests run on Vitest 5). The repository includes a temporary `.npmrc` with `legacy-peer-deps=true` so the install succeeds anyway.
 
 Keep this file when building locally or in Docker until those peer ranges catch up.
 

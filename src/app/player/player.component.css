@@ -5,35 +5,29 @@
     --snip-panel-muted: rgba(255, 255, 255, 0.62);
 }
 
-.video-player {
-    display: block;
-    margin: 0;
-    max-width: 100%;
-    min-width: 0;
-    width: 100%;
+.speed-hold-badge {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 999px;
+    color: #fff;
+    display: flex;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 2px;
+    left: 14px;
+    letter-spacing: 0.02em;
+    padding: 3px 10px 3px 6px;
+    pointer-events: none;
+    position: absolute;
+    top: 14px;
+    /* Over the play button drawn on the picture and the controls. */
+    z-index: 303;
 }
 
-.video-player:focus {
-    outline: none;
-}
-
-.audio-styles {
-    height: 50px;
-    width: 100%;
-}
-
-.video-styles {
-    width: 100%;
-    height: 75vh;
-}
-
-/* On a phone a 75vh box leaves the picture floating in black, with the controls far below it. */
-@media (max-width: 767px) {
-    .video-styles {
-        aspect-ratio: 16 / 9;
-        height: auto;
-        max-height: 75vh;
-    }
+.speed-hold-badge mat-icon {
+    font-size: 18px;
+    height: 18px;
+    width: 18px;
 }
 
 .container-video {

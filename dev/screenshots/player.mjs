@@ -214,7 +214,7 @@ async function playingAPlaylist(page, seeded) {
 
     await rows(page).nth(2).locator('.queue-item').click();
     check('clicking a row plays it', await waitForPlaying(page, 2, 5_000)
-        && (await page.locator('#singleVideo').getAttribute('src')).includes(members[2].uid));
+        && (await page.locator('#singleVideo source').getAttribute('src')).includes(members[2].uid));
     check('the controls move with it', await rows(page).nth(2).locator('.playlist-autoplay-button').count() === 1);
     check('and the heading keeps count', await queueMeta(page) === '3 of 4', await queueMeta(page));
 
@@ -226,10 +226,16 @@ async function playingAPlaylist(page, seeded) {
     await repeatButton(page).click();
     check('Repeat turns Autoplay off', await repeatButton(page).getAttribute('aria-pressed') === 'true'
         && await autoplayButton(page).getAttribute('aria-pressed') === 'false');
+    // A looping video goes back to the start without ending or playing again, so count the
+    // times its clock does.
     const plays = await page.evaluate(async seconds => {
         const video = document.querySelector('#singleVideo');
-        let count = 0;
-        video.addEventListener('play', () => count++);
+        let count = 1;
+        let last = video.currentTime;
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime < last - 0.5) count++;
+            last = video.currentTime;
+        });
         await video.play();
         await new Promise(resolve => setTimeout(resolve, (seconds * 2 + 1) * 1000));
         return count;
@@ -244,7 +250,7 @@ async function playingAPlaylist(page, seeded) {
     check('and the playing row stays the one playing', await playingIndex(page) === 3 && await queueMeta(page) === '4 of 4');
 
     // Theater mode is on the player's own bar, which is hidden while the video plays untouched.
-    await page.locator('vg-player').hover();
+    await page.locator('eva-player').hover();
     await page.getByRole('button', { name: 'Theater mode' }).click();
     check('theater mode hides the list', await queue(page).isHidden());
     await page.keyboard.press('Escape');
