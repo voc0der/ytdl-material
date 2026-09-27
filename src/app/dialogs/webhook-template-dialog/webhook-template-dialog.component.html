@@ -27,7 +27,7 @@
       <label class="dialog-field dialog-field-wide">
         <span class="dialog-field-label" i18n="Webhook template body label">Body template</span>
         <span class="kit-field template-body"><textarea rows="5" [(ngModel)]="bodyTemplate" [disabled]="!customEnabled" [placeholder]="'{{event_body}}'"></textarea></span>
-        <span class="dialog-field-hint" i18n="Webhook template body hint">Leave blank to send an empty body.</span>
+        <span class="dialog-field-hint" i18n="Webhook template body hint">Leave blank to send an empty body. Apprise receives it as Markdown.</span>
       </label>
     </div>
   </section>

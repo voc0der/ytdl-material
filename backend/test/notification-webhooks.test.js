@@ -283,7 +283,7 @@ describe('Notification webhooks', function() {
                 await senders.download_complete();
                 const expectedTag = new URL(expected).searchParams.get('tag') || new URL(expected).searchParams.get('tags');
                 assert.deepEqual(webhookPayload(expected), {
-                    ...payloads.download_complete, type: 'success', event_type: 'download_complete',
+                    ...payloads.download_complete, type: 'success', event_type: 'download_complete', format: 'text',
                     ...(expectedTag ? {tag: 'ops'} : {})
                 });
                 assert.equal(requests.length, 1);
@@ -298,7 +298,7 @@ describe('Notification webhooks', function() {
                 settings.ytdl_webhook_url = endpoint;
                 await senders.task_finished();
                 assert.deepEqual(webhookPayload(endpoint), {
-                    ...payloads.task_finished, type: 'success', event_type: 'task_finished'
+                    ...payloads.task_finished, type: 'success', event_type: 'task_finished', format: 'text'
                 });
             });
         }
@@ -307,11 +307,11 @@ describe('Notification webhooks', function() {
             settings.ytdl_webhook_url = 'https://hooks.example.test/notify/key?tag=urgent&tags=all';
             await senders.download_error();
             assert.deepEqual(webhookPayload(settings.ytdl_webhook_url), {
-                ...payloads.download_error, type: 'failure', event_type: 'download_error', tag: 'urgent'
+                ...payloads.download_error, type: 'failure', event_type: 'download_error', format: 'text', tag: 'urgent'
             });
         });
 
-        it('applies custom title and body before translating the event type', async function() {
+        it('applies custom title and body as Markdown before translating the event type', async function() {
             settings.ytdl_webhook_url = 'apprises://hooks.example.test/key';
             settings.ytdl_use_custom_webhook_template = true;
             settings.ytdl_custom_webhook_title_template = '{{event_type}}: {{video_name}}';
@@ -319,7 +319,7 @@ describe('Notification webhooks', function() {
             await senders.download_complete();
             assert.deepEqual(webhookPayload('https://hooks.example.test/notify/key'), {
                 ...payloads.download_complete, title: 'download_complete: ' + FILE.title, body: FILE.uid,
-                type: 'success', event_type: 'download_complete'
+                type: 'success', event_type: 'download_complete', format: 'markdown'
             });
         });
 
