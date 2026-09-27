@@ -37,7 +37,6 @@
               "src/favicon.ico"
             ],
             "styles": [
-              "node_modules/ez-vid-ang/assets/eva-required-import.scss",
               "src/styles.scss",
               "src/bootstrap.scss"
             ],

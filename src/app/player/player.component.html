@@ -4,61 +4,27 @@
       <div style="max-width: 100%; margin-left: 0px; height: 100%">
         <mat-drawer-container style="height: 100%" class="example-container" autosize>
           <div class="theater-video-stage" style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
-            <!-- An audio file keeps the browser's own bar; a video gets the player's controls. -->
-            <eva-player [id]="'singleVideo'" style="height: fit-content; max-height: 75vh"
-                        [class.audio-player]="isAudio()"
-                        [evaVideoSources]="getVideoSources()"
-                        [evaVideoTracks]="getVideoTracks()"
-                        [evaVideoConfiguration]="{autoplay: true, controls: isAudio(), loop: repeat_enabled, preload: 'auto', playinline: true}"
-                        [evaKeyboardShortcutsEnabled]="!isAudio()"
-                        [evaKeyboardShortcutsConfiguration]="keyboard_shortcuts"
-                        [evaLocalStorageEnabled]="true"
-                        [evaLocalStorageConfiguration]="{volume: true}"
-                        (pointermove)="onPlayerPointerActivity($event)"
-                        (pointerdown)="onPlayerPointerActivity($event)"
-                        (dblclick)="onPlayerDoubleClick($event)"
-                        (contextmenu)="onPlayerContextMenu($event)"
-                        [style.background-color]="isAudio() ? postsService.theme.drawer_color : 'black'">
-              @if (!isAudio()) {
-                <eva-overlay-play />
-                @if (speed_hold_active) {
-                  <div class="speed-hold-badge" aria-hidden="true"><mat-icon>fast_forward</mat-icon>{{speed_hold_rate}}x</div>
+            <div class="media-player" style="height: fit-content; max-height: 75vh" (mousemove)="onPlayerMouseMove()" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
+              <!-- An audio file keeps the browser's own bar; a video gets the player's controls. -->
+              <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [src]="currentItem.src" id="singleVideo" preload="auto" [controls]="currentItem.type === 'audio/mp3'" playsinline>
+                @for (subtitle of currentSubtitleTracks; track subtitle.src ?? subtitle.language ?? $index) {
+                  <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
                 }
-                <eva-buffering />
-                <eva-error-overlay [evaErrorText]="playbackErrorText" [evaRetryText]="retryText" />
-                <eva-subtitle-display />
-                <eva-scrub-bar class="player-scrub-bar" [evaShowTimeOnHover]="true" [evaShowChapters]="true" [evaChapters]="getChapterMarkers()" [hideWithControlsContainer]="true">
-                  <eva-scrub-bar-buffering-time />
-                  <eva-scrub-bar-current-time />
-                </eva-scrub-bar>
-                <eva-chapter-list [evaChapterListOpen]="chapter_list_open" [evaChapterListTitle]="chaptersText" (evaChapterListClose)="chapter_list_open = false" />
-                <eva-controls-container evaUserInteractionEvents [evaAutohide]="true">
-                  <eva-play-pause evaTooltip evaTooltipShortcutKey="playPause" />
-                  @if (currentIndex + 1 < playlist.length) {
-                    <button class="player-control" type="button" (click)="advanceToNextVideo()" aria-label="Next" i18n-aria-label="Next video button label" [matTooltip]="nextTooltip">
-                      <mat-icon>skip_next</mat-icon>
-                    </button>
-                  }
-                  <eva-mute evaTooltip evaTooltipShortcutKey="muteKey" />
-                  <eva-volume />
-                  <eva-time-display evaTimeProperty="current" [evaTimeFormating]="time_format" />
-                  <span class="player-time-separator">/</span>
-                  <eva-time-display evaTimeProperty="total" [evaTimeFormating]="time_format" />
-                  <eva-active-chapter evaTooltip (evaChapterClicked)="chapter_list_open = !chapter_list_open" />
-                  <eva-controls-divider />
-                  <eva-track-selector evaTooltip evaTooltipShortcutKey="nextSubtitleTrackKey" [evaTrackSelectorText]="subtitlesText" [evaTrackOffText]="subtitlesOffText" />
-                  <eva-playback-speed evaTooltip evaTooltipShortcutKey="increasePlaybackSpeedKey" [evaPlaybackSpeeds]="playback_speeds" />
-                  <eva-picture-in-picture evaTooltip />
-                  @if (canToggleTheaterMode()) {
-                    <button class="player-control" type="button" (click)="toggleTheaterMode()" [attr.aria-pressed]="theater_mode_enabled"
-                            aria-label="Theater mode" i18n-aria-label="Theater mode toggle label" [matTooltip]="theaterTooltip">
-                      <mat-icon>{{theater_mode_enabled ? 'width_normal' : 'width_wide'}}</mat-icon>
-                    </button>
-                  }
-                  <eva-fullscreen evaTooltip evaTooltipShortcutKey="fullscreen" />
-                </eva-controls-container>
+              </video>
+              @if (currentItem.type !== 'audio/mp3') {
+                <app-media-controls
+                  [media]="media"
+                  [chapters]="currentChapters"
+                  [subtitlesAvailable]="canToggleSubtitles()"
+                  [subtitlesEnabled]="subtitlesEnabled"
+                  (toggleSubtitles)="toggleSubtitles()"
+                  [theaterAvailable]="canToggleTheaterMode()"
+                  [theaterEnabled]="theater_mode_enabled"
+                  (toggleTheater)="toggleTheaterMode()"
+                  [hasNext]="currentIndex + 1 < playlist.length"
+                  (playNext)="advanceToNextVideo()"></app-media-controls>
               }
-            </eva-player>
+            </div>
             @if (snip_mode && !theater_mode_enabled) {
               <div class="snip-panel">
                 <div class="snip-header">
@@ -208,8 +174,8 @@
                   </button>
                   @if (currentItem === playlist_item) {
                     <div class="playlist-row-actions" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
-                      @if (db_file && media && postsService.config && !library) {
-                        <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="!media.paused" [uid]="currentItem.uid" [playback_timestamp]="playbackTime" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
+                      @if (db_file && media_ready && postsService.config && !library) {
+                        <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="!!media && !media.paused" [uid]="currentItem.uid" [playback_timestamp]="playbackTime" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
                       }
                       <button class="playlist-repeat-button playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
                         <mat-icon>repeat_one</mat-icon>
@@ -224,8 +190,8 @@
             </ol>
           </section>
           <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists'] && !library">
-            @if (media && db_file && db_file.url.includes('twitch.tv') && !library) {
-              <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="playbackTime" [sub]="subscription"></app-twitch-chat>
+            @if (media_ready && db_file && db_file.url.includes('twitch.tv') && !library) {
+              <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="media?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>
             }
           </mat-drawer>
         </mat-drawer-container>
