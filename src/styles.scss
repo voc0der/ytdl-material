@@ -189,6 +189,96 @@ app-player eva-player {
   position: relative;
 }
 
+/* The player in the app's red, over a shade rather than a black strip. */
+:root {
+  /* At the root, for the tooltips the player adds to the page's body. */
+  --eva-font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+app-player eva-player {
+  --player-accent: #ff0033;
+  --player-accent-end: #ff3d7f;
+  --player-accent-shade: rgba(255, 0, 51, 0.25);
+  --eva-controls-container-background-color: transparent;
+  --eva-scrub-bar-heights: 3px;
+  --eva-scrub-bar-background: rgba(255, 255, 255, 0.28);
+  --eva-scrub-bar-buffering-background: rgba(255, 255, 255, 0.4);
+  --eva-scrub-bar-current-time-background: var(--player-accent);
+  /* A break in the bar between chapters. */
+  --eva-scrub-bar-chapter-marker-color: rgba(0, 0, 0, 0.6);
+  --eva-scrub-bar-chapter-marker-width: 4px;
+  --eva-playback-speed-dropdown-content-speed-option-icon-active: var(--player-accent-shade);
+  --eva-playback-speed-dropdown-content-speed-option-checkmark-color: var(--player-accent-end);
+  --eva-track-selector-dropdown-content-speed-option-icon-active: var(--player-accent-shade);
+  --eva-track-selector-dropdown-content-speed-option-checkmark-color: var(--player-accent-end);
+  --eva-chapter-list-item-active-background: var(--player-accent-shade);
+  --eva-chapter-list-item-active-title-color: var(--player-accent-end);
+  --eva-chapter-list-item-active-time-color: var(--player-accent-end);
+  /* Opaque on purpose: Firefox puts its own picture-in-picture button over the right of the
+     video and takes clicks there, unless something opaque covers the video at that point. */
+  --eva-playback-speed-dropdown-content-background: rgb(28, 28, 30);
+  --eva-track-selector-dropdown-content-background: rgb(28, 28, 30);
+  --eva-chapter-list-background: rgb(10, 10, 10);
+  /* A paused video stays readable behind its play button. */
+  --eva-overlay-play-background-color: rgba(0, 0, 0, 0.35);
+}
+
+app-player eva-controls-container::before {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0) 100%);
+  bottom: 0;
+  content: '';
+  height: 120px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: -1;
+}
+
+/* The scrub bar is slim, in from the edges, and thickens under the pointer. By class: the
+   player's own rule for its width outranks anything scoped under app-player. */
+app-player eva-scrub-bar.player-scrub-bar {
+  left: 12px;
+  transition: height 0.1s ease;
+  width: calc(100% - 24px);
+}
+
+app-player eva-scrub-bar.player-scrub-bar:hover,
+app-player eva-scrub-bar.player-scrub-bar:focus-visible {
+  --eva-scrub-bar-heights: 6px;
+}
+
+/* A taller strip to aim at than the bar drawn in it. */
+app-player eva-scrub-bar.player-scrub-bar::before {
+  content: '';
+  inset: -8px 0;
+  position: absolute;
+}
+
+app-player eva-scrub-bar-current-time .current-time-container {
+  background-image: linear-gradient(to right, var(--player-accent) 0%, var(--player-accent) 72%, var(--player-accent-end) 100%);
+  position: relative;
+}
+
+/* A knob at the playhead. */
+app-player eva-scrub-bar-current-time .current-time-container::after {
+  background: var(--player-accent-end);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  content: '';
+  height: 14px;
+  position: absolute;
+  right: -7px;
+  top: calc(50% - 7px);
+  transition: scale 0.12s ease;
+  width: 14px;
+}
+
+app-player eva-scrub-bar.player-scrub-bar:hover .current-time-container::after,
+app-player eva-scrub-bar.player-scrub-bar:focus-visible .current-time-container::after {
+  scale: 1.4;
+}
+
 /* By id: the player's own rule for its video outranks anything scoped under app-player. */
 app-player video#singleVideo {
   display: block;
@@ -247,12 +337,12 @@ app-player eva-track-selector .eva-track-selector-button {
   padding: 0;
 }
 
-/* A paused video stays readable behind its play button, which is sized for the picture rather
-   than the bar. */
-app-player eva-player {
-  --eva-overlay-play-background-color: rgba(0, 0, 0, 0.35);
+/* A button's tooltip would sit over the menu it opened. */
+body:has(app-player eva-controls-container .open) .eva-tooltip-popup {
+  display: none;
 }
 
+/* The paused video's play button, sized for the picture rather than the bar. */
 app-player eva-overlay-play svg {
   height: 64px;
   width: 64px;

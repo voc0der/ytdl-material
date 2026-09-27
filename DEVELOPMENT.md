@@ -538,6 +538,11 @@ It downloads nothing, and like the others it is not part of CI.
 - **The controls slide away when left alone**, so a click aimed at one first waits until it is
   under the pointer. Firefox also scrolls the page a little after the subtitles menu, so the
   target is measured again right before the click.
+- **Firefox puts its own picture-in-picture button over the right of the picture** and takes
+  the clicks there, whatever the page has drawn on top, unless what is on top is opaque. That is
+  why the player's menus are given a solid background, and it ignores
+  `disablePictureInPicture`. The speed menu's Normal sits where the button would be, which is
+  what the check that sets the speed back to normal catches.
 
 # Exercising library sharing
 
