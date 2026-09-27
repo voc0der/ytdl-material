@@ -27,7 +27,7 @@
                 <eva-buffering />
                 <eva-error-overlay [evaErrorText]="playbackErrorText" [evaRetryText]="retryText" />
                 <eva-subtitle-display />
-                <eva-scrub-bar [evaShowTimeOnHover]="true" [evaShowChapters]="true" [evaChapters]="getChapterMarkers()" [hideWithControlsContainer]="true">
+                <eva-scrub-bar class="player-scrub-bar" [evaShowTimeOnHover]="true" [evaShowChapters]="true" [evaChapters]="getChapterMarkers()" [hideWithControlsContainer]="true">
                   <eva-scrub-bar-buffering-time />
                   <eva-scrub-bar-current-time />
                 </eva-scrub-bar>
