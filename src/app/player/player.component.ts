@@ -1,14 +1,4 @@
 import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
-import {
-  addEvaIcons, EvaActiveChapter, EvaApi, EvaBuffering, EvaChapterList, EvaChapterMarker, EvaControlsContainer, EvaControlsDivider,
-  EvaErrorOverlay, EvaFullscreen, EvaKeyboardShortcutsConfiguration, EvaMute, EvaOverlayPlay, EvaPictureInPicture, EvaPlaybackSpeed,
-  EvaPlayer, EvaPlayPause, EvaScrubBar, EvaScrubBarBufferingTime, EvaScrubBarCurrentTime, EvaSubtitleDisplay, EvaTimeDisplay,
-  EvaTimeFormating, EvaTooltip, EvaTrack, EvaTrackSelector, EvaUserInteractionEventsDirective, EvaVideoSource, EvaVolume
-} from 'ez-vid-ang';
-import {
-  evaFullscreenExitIcon, evaFullscreenIcon, evaPauseIcon, evaPictureInPictureIcon, evaPlayIcon, evaVolumeHighIcon, evaVolumeLowIcon,
-  evaVolumeMediumIcon, evaVolumeMuteIcon
-} from 'ez-vid-ang/icons';
 import { PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -33,6 +23,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
+import { MediaControlsComponent } from './media-controls/media-controls.component';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
 
@@ -65,59 +56,6 @@ export interface IChapter {
   end_time: number;
 }
 
-addEvaIcons({
-  evaFullscreenExitIcon, evaFullscreenIcon, evaPauseIcon, evaPictureInPictureIcon, evaPlayIcon, evaVolumeHighIcon, evaVolumeLowIcon,
-  evaVolumeMediumIcon, evaVolumeMuteIcon
-});
-
-const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-
-// Holding the left button, or a finger, on the picture plays at SPEED_HOLD_RATE until it is let
-// go. A press released sooner is an ordinary click.
-const SPEED_HOLD_DELAY_MS = 400;
-const SPEED_HOLD_RATE = 2;
-// A press that drifts further than this before the hold engages is a drag, not a hold.
-const SPEED_HOLD_MOVE_TOLERANCE_PX = 10;
-
-interface SpeedHold {
-  src: string;
-  start_x: number;
-  start_y: number;
-  // Pending until the hold engages; null once it has.
-  timer: ReturnType<typeof setTimeout> | null;
-  previous_rate: number;
-  was_paused: boolean;
-}
-
-// No key is bound unless it is listed here. 0-9 (jump to a tenth of the way through) and ?
-// (list the shortcuts) are always on.
-const KEYBOARD_SHORTCUTS: EvaKeyboardShortcutsConfiguration = {
-  playPause: 'Space',
-  backwardsKeyOne: 'J',
-  forwardKeyOne: 'L',
-  backwardsKeyTwo: 'ArrowLeft',
-  forwardKeyTwo: 'ArrowRight',
-  muteKey: 'M',
-  fullscreen: 'F',
-  nextSubtitleTrackKey: 'C',
-  increasePlaybackSpeedKey: '>',
-  decreasePlaybackSpeedKey: '<'
-};
-
-// The player's shortcuts ignore Ctrl, Alt and Cmd, so without stopping them first Ctrl+C would
-// switch subtitles instead of copying and Ctrl+F would go full screen instead of finding.
-const PLAYER_SHORTCUT_KEYS = new Set([
-  ...Object.values(KEYBOARD_SHORTCUTS).filter((key): key is string => typeof key === 'string').map(key => key.toUpperCase()),
-  ...'0123456789?'
-]);
-
-function keepModifiedKeysFromPlayer(event: KeyboardEvent): void {
-  if (!event.ctrlKey && !event.metaKey && !event.altKey) return;
-  if (!PLAYER_SHORTCUT_KEYS.has(event.key.toUpperCase())) return;
-  if ((event.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
-  event.stopPropagation();
-}
-
 const AUTOPLAY_STORAGE_KEY = 'player_autoplay_enabled';
 const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 
@@ -137,10 +75,7 @@ const QUEUE_TOUCH_DRAG_DELAY_MS = 400;
     templateUrl: './player.component.html',
     styleUrls: ['./player.component.css'],
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [NgClass, MatDrawerContainer, EvaPlayer, EvaOverlayPlay, EvaBuffering, EvaErrorOverlay, EvaSubtitleDisplay, EvaScrubBar,
-      EvaScrubBarBufferingTime, EvaScrubBarCurrentTime, EvaChapterList, EvaControlsContainer, EvaUserInteractionEventsDirective, EvaPlayPause,
-      EvaMute, EvaVolume, EvaTimeDisplay, EvaActiveChapter, EvaControlsDivider, EvaTrackSelector, EvaPlaybackSpeed, EvaPictureInPicture,
-      EvaFullscreen, EvaTooltip, MatIcon, MatSlider, MatSliderRangeThumb, MatProgressBar, MatButton, MatTooltip, SeeMoreComponent, MatIconButton, MatProgressSpinner, CdkDropList, CdkDrag, ConcurrentStreamComponent, MatDrawer, TwitchChatComponent_1]
+    imports: [NgClass, MatDrawerContainer, MediaControlsComponent, MatIcon, MatSlider, MatSliderRangeThumb, MatProgressBar, MatButton, MatTooltip, SeeMoreComponent, MatIconButton, MatProgressSpinner, CdkDropList, CdkDrag, ConcurrentStreamComponent, MatDrawer, TwitchChatComponent_1]
 })
 export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
 
@@ -152,12 +87,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   currentIndex = 0;
   currentItem: IMedia = null;
-  // The <video> the player renders, once it is ready.
-  media: HTMLVideoElement | null = null;
-  evaApi: EvaApi | null = null;
-  private eva_player: EvaPlayer | null = null;
-  private media_listeners: Array<() => void> = [];
-  private player_ready_subscription: Subscription | null = null;
+  // Whether the <video> below has been set up: its saved volume, and what follows it.
+  media_ready = false;
+  private ready_media: HTMLVideoElement | null = null;
 
   // params
   uids: string[];
@@ -197,6 +129,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   downloading = false;
   playlistDownloadSubscription: Subscription | null = null;
 
+  save_volume_timer = null;
+  original_volume = null;
+
   autoplay_enabled = false;
   repeat_enabled = false;
   theater_mode_enabled = false;
@@ -231,53 +166,29 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   subtitleCacheByUID = new Map<string, ISubtitleTrack[]>();
   chapterLoadInFlight = new Set<string>();
   currentSubtitleTracks: ISubtitleTrack[] = [];
+  subtitleTrackActivationTimer: ReturnType<typeof setTimeout> | null = null;
+  subtitleTrackList?: TextTrackList & EventTarget;
+  subtitleTrackAddListener?: EventListener;
+  subtitleTrackRefreshToken = 0;
+  loadedSubtitleTrackSignature = '';
+  subtitleToggleStateKey: string | null = null;
+  subtitlesEnabled = false;
   private destroyed = false;
 
-  readonly speed_hold_rate = SPEED_HOLD_RATE;
-  speed_hold_active = false;
-  private speed_hold: SpeedHold | null = null;
-
-  readonly keyboard_shortcuts = KEYBOARD_SHORTCUTS;
-  readonly playback_speeds = PLAYBACK_SPEEDS;
-  time_format: EvaTimeFormating = 'mm:ss';
-  chapter_list_open = false;
-  // The player takes its sources, tracks and chapters by reference, and reloads or re-reads
-  // them whenever that changes, so each is rebuilt only when what it comes from does.
-  private video_sources: EvaVideoSource[] = [];
-  private video_sources_for: IMedia | null = null;
-  private video_tracks: EvaTrack[] = [];
-  private video_tracks_for: ISubtitleTrack[] | null = null;
-  private chapter_markers: EvaChapterMarker[] = [];
-  private chapter_markers_for: IChapter[] | null = null;
-
-  readonly nextTooltip = $localize`Next (Shift+N)`;
-  readonly theaterTooltip = $localize`Theater mode (t)`;
-  readonly subtitlesText = $localize`Subtitles`;
-  readonly subtitlesOffText = $localize`Off`;
-  readonly chaptersText = $localize`Chapters`;
-  readonly playbackErrorText = $localize`This file can't be played.`;
-  readonly retryText = $localize`Retry`;
-
   @ViewChild('twitchchat') twitchChat: TwitchChatComponent;
-  @ViewChild(EvaPlayer) set evaPlayer(player: EvaPlayer | undefined) {
-    const api = player?.playerMainAPI ?? null;
-    if (api === this.evaApi) return;
-    this.eva_player = player ?? null;
-    this.evaApi = api;
-    this.player_ready_subscription?.unsubscribe();
-    this.player_ready_subscription = null;
-    if (!api) return;
-    if (api.isPlayerReady) {
-      // Not during the change detection that found the player.
-      queueMicrotask(() => this.onPlayerReady(api.assignedVideoElement));
-    } else {
-      this.player_ready_subscription = api.playerReadyEvent.subscribe(() => this.onPlayerReady(api.assignedVideoElement));
-    }
+  mediaElement?: ElementRef<HTMLVideoElement>;
+  @ViewChild('media', {read: ElementRef}) set mediaRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    this.mediaElement = ref;
+    // Not during the change detection that rendered it.
+    if (ref) queueMicrotask(() => this.onPlayerReady(ref.nativeElement));
+  }
+
+  get media(): HTMLVideoElement | null {
+    return this.mediaElement?.nativeElement ?? null;
   }
   @ViewChild('queueList') queueList?: ElementRef<HTMLElement>;
 
   ngOnInit(): void {
-    window.addEventListener('keydown', keepModifiedKeysFromPlayer, true);
     this.initPlaybackModeToggles();
     this.playlist_id = this.route.snapshot.paramMap.get('playlist_id');
     this.uid = this.route.snapshot.paramMap.get('uid');
@@ -321,17 +232,24 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   ngOnDestroy(): void {
     this.destroyed = true;
-    window.removeEventListener('keydown', keepModifiedKeysFromPlayer, true);
     this.setTheaterMode(false);
     this.playlistDownloadSubscription?.unsubscribe();
     this.playlistDownloadSubscription = null;
+    this.subtitleTrackRefreshToken += 1;
+    // prevents volume save feature from running in the background
+    clearInterval(this.save_volume_timer);
     this.clearTheaterToolbarHideTimer();
     this.clearSnipPoll();
-    this.player_ready_subscription?.unsubscribe();
-    this.player_ready_subscription = null;
-    this.endSpeedHold();
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+      this.subtitleTrackActivationTimer = null;
+    }
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+      this.subtitleTrackAddListener = null;
+      this.subtitleTrackList = null;
+    }
     this.unloadMediaElement();
-    this.detachMediaListeners();
     this.postsService.setPageTitle();
   }
 
@@ -343,24 +261,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   @HostListener('document:keydown.escape')
   exitTheaterMode(): void {
     if (this.theater_mode_enabled) this.setTheaterMode(false);
-  }
-
-  // The player's own shortcuts cover playback; these two are about the page around it.
-  @HostListener('document:keydown', ['$event'])
-  onDocumentKeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || !this.media || this.isAudio()) return;
-    const target = event.target as HTMLElement | null;
-    if (target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .cdk-overlay-container')) return;
-
-    const key = event.key.toLowerCase();
-    if (key === 't' && !event.shiftKey && this.canToggleTheaterMode() && !document.fullscreenElement) {
-      this.toggleTheaterMode();
-    } else if (key === 'n' && event.shiftKey && this.currentIndex + 1 < this.playlist.length) {
-      this.advanceToNextVideo();
-    } else {
-      return;
-    }
-    event.preventDefault();
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
@@ -495,46 +395,51 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }
   }
 
-  onPlayerReady(media: HTMLVideoElement | null): void {
-    if (this.destroyed || !media || media === this.media) return;
-    this.detachMediaListeners();
-    this.media = media;
-    const listen = (target: EventTarget, event: string, handler: (event: Event) => void) => {
-      target.addEventListener(event, handler);
-      this.media_listeners.push(() => target.removeEventListener(event, handler));
-    };
-    listen(media, 'loadedmetadata', () => this.onMediaMetadataLoaded());
-    listen(media, 'ended', () => this.nextVideo());
-    listen(media, 'timeupdate', () => this.onPlaybackTimeUpdate());
+  onPlayerReady(media: HTMLVideoElement): void {
+      if (this.destroyed || media === this.ready_media) return;
+      this.ready_media = media;
+      this.media_ready = true;
+      this.cdr.detectChanges();
+      this.attachSubtitleTrackListener();
+      // Subtitles can be resolved before the live media element exists.
+      // Reset the loaded signature so the real player can attach/reload tracks.
+      this.loadedSubtitleTrackSignature = '';
+      this.syncCurrentSubtitles();
 
-    // The player draws subtitles itself from hidden tracks. One the browser shows draws twice,
-    // and one it leaves off never loads, so the c shortcut could not switch to it.
-    const hide = (track: TextTrack | null) => {
-      if (track && track.mode !== 'hidden') track.mode = 'hidden';
-    };
-    const text_tracks = media.textTracks;
-    if (typeof text_tracks?.addEventListener === 'function') {
-      Array.from(text_tracks).forEach(hide);
-      listen(text_tracks, 'addtrack', event => hide((event as TrackEvent).track as TextTrack));
-    }
+      // checks if volume has been previously set. if so, use that as default
+      const saved_volume = parseFloat(localStorage.getItem('player_volume'));
+      if (saved_volume >= 0 && saved_volume <= 1) {
+        media.volume = saved_volume;
+      }
 
-    if (this.timestamp) {
-      media.currentTime = +this.timestamp;
-    }
+      clearInterval(this.save_volume_timer);
+      this.save_volume_timer = setInterval(() => this.saveVolume(media), 2000)
+
+      media.addEventListener('loadedmetadata', () => {
+        this.showDefaultSubtitleTrack();
+        this.playVideo();
+      });
+      media.addEventListener('ended', () => this.nextVideo());
+      media.addEventListener('timeupdate', () => this.onPlaybackTimeUpdate());
+
+      if (this.timestamp) {
+        media.currentTime = +this.timestamp;
+      }
   }
 
-  onMediaMetadataLoaded(): void {
-    const duration = this.media?.duration;
-    this.time_format = Number.isFinite(duration) && duration >= 3600 ? 'HH:mm:ss' : 'mm:ss';
-  }
-
-  private detachMediaListeners(): void {
-    this.media_listeners.forEach(remove => remove());
-    this.media_listeners = [];
+  saveVolume(media: HTMLVideoElement): void {
+    if (this.original_volume !== media.volume) {
+      localStorage.setItem('player_volume', String(media.volume))
+      this.original_volume = media.volume;
+    }
   }
 
   nextVideo(): void {
-      // Repeat loops the video, so it only ends when repeat is off.
+      if (this.repeat_enabled) {
+        this.repeatCurrentVideo();
+        return;
+      }
+
       if (!this.autoplay_enabled) {
         return;
       }
@@ -550,10 +455,19 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   updateCurrentItem(newCurrentItem: IMedia, newCurrentIndex: number) {
+    const current_subtitle_toggle_key = this.getSubtitleToggleStateKey(this.currentItem, this.currentIndex);
+    const next_subtitle_toggle_key = this.getSubtitleToggleStateKey(newCurrentItem, newCurrentIndex);
+    if (current_subtitle_toggle_key !== next_subtitle_toggle_key) {
+      this.subtitleToggleStateKey = null;
+      this.subtitlesEnabled = false;
+    }
+    if (this.currentItem?.uid !== newCurrentItem?.uid) {
+      this.subtitleTrackRefreshToken += 1;
+      this.loadedSubtitleTrackSignature = '';
+    }
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.playbackTime = 0;
-    this.chapter_list_open = false;
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
@@ -566,47 +480,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.postsService.setPageTitle(media_title);
   }
 
-  isAudio(): boolean {
-    return this.currentItem?.type === 'audio/mp3';
-  }
-
-  getVideoSources(): EvaVideoSource[] {
-    if (this.video_sources_for !== this.currentItem) {
-      this.video_sources_for = this.currentItem;
-      // The source type is checked against what the browser can play, which knows mp3 as audio/mpeg.
-      this.video_sources = this.currentItem
-        ? [{src: this.currentItem.src, type: this.isAudio() ? 'audio/mpeg' : this.currentItem.type}]
-        : [];
-    }
-    return this.video_sources;
-  }
-
-  getVideoTracks(): EvaTrack[] {
-    if (this.video_tracks_for !== this.currentSubtitleTracks) {
-      this.video_tracks_for = this.currentSubtitleTracks;
-      this.video_tracks = this.currentSubtitleTracks
-        .filter(subtitle => !!subtitle.src)
-        .map(subtitle => ({
-          kind: 'subtitles',
-          srclang: subtitle.language,
-          label: subtitle.label,
-          src: subtitle.src,
-          default: subtitle.default === true
-        }));
-    }
-    return this.video_tracks;
-  }
-
-  getChapterMarkers(): EvaChapterMarker[] {
-    if (this.chapter_markers_for !== this.currentChapters) {
-      this.chapter_markers_for = this.currentChapters;
-      this.chapter_markers = this.currentChapters.map(chapter => ({
-        startTime: chapter.start_time,
-        endTime: chapter.end_time,
-        title: chapter.title
-      }));
-    }
-    return this.chapter_markers;
+  // A play the browser refuses, such as one it will not start without a click, is not an error.
+  playVideo(): void {
+      this.media?.play()?.catch(() => undefined);
   }
 
   onClickPlaylistItem(item: IMedia, index: number): void {
@@ -876,7 +752,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   getSnipDuration(): number {
-    const media_duration = Number(this.media?.duration);
+    const media_duration = Number(this.mediaElement?.nativeElement?.duration);
     if (Number.isFinite(media_duration) && media_duration > 0) return media_duration;
     const file_duration = Number(this.currentFile?.duration ?? this.db_file?.duration ?? 0);
     return Number.isFinite(file_duration) && file_duration > 0 ? file_duration : 0;
@@ -970,7 +846,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   previewSnip(): void {
     if (!this.media || !this.snipSelectionValid()) return;
     this.media.currentTime = this.snip_start;
-    this.playMedia();
+    this.playVideo();
   }
 
   confirmSnip(): void {
@@ -1046,15 +922,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   togglePlayback(to_play: boolean): void {
     if (to_play) {
-      this.playMedia();
+      this.playVideo();
     } else {
       this.media?.pause();
     }
-  }
-
-  // A play the browser refuses, such as one it will not start without a click, is not an error.
-  playMedia(): void {
-    this.media?.play()?.catch(() => undefined);
   }
 
   setPlaybackRate(speed: number): void {
@@ -1309,6 +1180,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     } else {
       this.currentSubtitleTracks = [];
     }
+    this.syncSubtitleToggleState();
+    this.refreshMediaSubtitleTracks();
   }
 
   normalizeChapters(chapters: DatabaseFile['chapters']): IChapter[] {
@@ -1347,8 +1220,122 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       .filter(Boolean) as ISubtitleTrack[];
   }
 
+  getSubtitleTrackSignature(subtitles: ISubtitleTrack[] = []): string {
+    if (!Array.isArray(subtitles) || subtitles.length === 0) return '';
+    return subtitles
+      .map(subtitle => `${subtitle.language ?? ''}:${subtitle.label ?? ''}:${subtitle.src ?? ''}:${subtitle.default === true}`)
+      .join('|');
+  }
+
+  getSubtitleToggleStateKey(item: IMedia = this.currentItem, item_index = this.currentIndex): string | null {
+    if (!item) return null;
+    return item.uid || item.url || `${item_index}:${item.title ?? ''}`;
+  }
+
+  getAvailableMediaTextTrackCount(): number {
+    const media_element = this.mediaElement?.nativeElement;
+    return media_element?.textTracks?.length ?? 0;
+  }
+
+  canToggleSubtitles(): boolean {
+    return this.currentItem?.type !== 'audio/mp3'
+      && (this.currentSubtitleTracks.length > 0 || this.getAvailableMediaTextTrackCount() > 0);
+  }
+
+  syncSubtitleToggleState(): void {
+    if (!this.canToggleSubtitles()) {
+      this.subtitlesEnabled = false;
+      return;
+    }
+
+    const subtitle_toggle_key = this.getSubtitleToggleStateKey();
+    if (subtitle_toggle_key && this.subtitleToggleStateKey !== subtitle_toggle_key) {
+      this.subtitleToggleStateKey = subtitle_toggle_key;
+      this.subtitlesEnabled = true;
+    }
+  }
+
+  disableSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element?.textTracks) return;
+
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = 'disabled';
+    }
+  }
+
+  toggleSubtitles(): void {
+    if (!this.canToggleSubtitles()) return;
+    this.subtitlesEnabled = !this.subtitlesEnabled;
+    this.showDefaultSubtitleTrack();
+  }
+
+  refreshMediaSubtitleTracks(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const subtitle_signature = this.getSubtitleTrackSignature(this.currentSubtitleTracks);
+
+    if (!media_element || this.currentItem?.type === 'audio/mp3') {
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      queueMicrotask(() => this.showDefaultSubtitleTrack());
+      return;
+    }
+
+    this.cdr.detectChanges();
+    queueMicrotask(() => {
+      if (this.destroyed) {
+        return;
+      }
+      this.attachSubtitleTrackListener();
+      const should_reload_media = media_element.readyState > 0
+        && subtitle_signature !== this.loadedSubtitleTrackSignature
+        && typeof media_element.load === 'function';
+
+      this.loadedSubtitleTrackSignature = subtitle_signature;
+      if (!should_reload_media) {
+        this.showDefaultSubtitleTrack();
+        return;
+      }
+
+      const refresh_token = ++this.subtitleTrackRefreshToken;
+      const current_uid = this.currentItem?.uid ?? null;
+      const resume_playback = !media_element.paused && !media_element.ended;
+      const resume_time = Number.isFinite(media_element.currentTime) ? media_element.currentTime : 0;
+      const restore_media_state = () => {
+        if (refresh_token !== this.subtitleTrackRefreshToken || current_uid !== (this.currentItem?.uid ?? null)) {
+          return;
+        }
+
+        if (resume_time > 0) {
+          try {
+            const duration = Number.isFinite(media_element.duration) && media_element.duration > 0
+              ? media_element.duration
+              : resume_time;
+            media_element.currentTime = Math.min(resume_time, duration);
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+
+        this.showDefaultSubtitleTrack();
+        if (resume_playback) {
+          try {
+            const play_result = media_element.play();
+            if (play_result && typeof play_result.catch === 'function') {
+              play_result.catch(() => undefined);
+            }
+          } catch (e) {
+            // Non-fatal.
+          }
+        }
+      };
+
+      media_element.addEventListener('loadedmetadata', restore_media_state, { once: true });
+      media_element.load();
+    });
+  }
+
   private unloadMediaElement(): void {
-    const media_element = this.media;
+    const media_element = this.mediaElement?.nativeElement;
     if (!media_element) {
       return;
     }
@@ -1359,16 +1346,69 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       // Non-fatal cleanup.
     }
 
-    // Removing the sources before reloading aborts any in-flight fetch so route changes
+    // Removing the source before reloading aborts any in-flight fetch so route changes
     // do not trigger a fallback load against the current document.
-    media_element.querySelectorAll?.('source').forEach(source => source.remove());
-    media_element.removeAttribute?.('src');
+    if (typeof media_element.removeAttribute === 'function') {
+      media_element.removeAttribute('src');
+    }
 
     try {
       media_element.load?.();
     } catch (e) {
       // Non-fatal cleanup.
     }
+  }
+
+  showDefaultSubtitleTrack(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    if (!media_element || !media_element.textTracks) return;
+
+    if (!this.subtitlesEnabled) {
+      this.disableSubtitleTracks();
+      return;
+    }
+
+    if (media_element.textTracks.length === 0) {
+      this.scheduleDefaultSubtitleTrackActivation();
+      return;
+    }
+
+    const default_track_index = this.currentSubtitleTracks.length > 0
+      ? Math.max(0, this.currentSubtitleTracks.findIndex(track => track.default))
+      : 0;
+    for (let i = 0; i < media_element.textTracks.length; i++) {
+      media_element.textTracks[i].mode = i === default_track_index ? 'showing' : 'disabled';
+    }
+  }
+
+  attachSubtitleTrackListener(): void {
+    const media_element = this.mediaElement?.nativeElement;
+    const text_tracks = media_element?.textTracks as (TextTrackList & EventTarget) | undefined;
+    if (!text_tracks || typeof text_tracks.addEventListener !== 'function') return;
+
+    if (this.subtitleTrackList && this.subtitleTrackAddListener && typeof this.subtitleTrackList.removeEventListener === 'function') {
+      this.subtitleTrackList.removeEventListener('addtrack', this.subtitleTrackAddListener);
+    }
+
+    this.subtitleTrackList = text_tracks;
+    this.subtitleTrackAddListener = () => {
+      queueMicrotask(() => {
+        this.syncSubtitleToggleState();
+        this.cdr.detectChanges();
+        this.showDefaultSubtitleTrack();
+      });
+    };
+    text_tracks.addEventListener('addtrack', this.subtitleTrackAddListener);
+  }
+
+  scheduleDefaultSubtitleTrackActivation(): void {
+    if (this.subtitleTrackActivationTimer) {
+      clearTimeout(this.subtitleTrackActivationTimer);
+    }
+    this.subtitleTrackActivationTimer = setTimeout(() => {
+      this.subtitleTrackActivationTimer = null;
+      this.showDefaultSubtitleTrack();
+    }, 150);
   }
 
   isChapterActive(chapter: IChapter): boolean {
@@ -1387,97 +1427,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.chapterDropdownOpen = !this.chapterDropdownOpen;
   }
 
-  // A double-click on the picture lands on the play button drawn over it, not on the video the
-  // player listens on, so it would never go full screen.
-  onPlayerDoubleClick(event: MouseEvent): void {
-    if (!(event.target as HTMLElement | null)?.closest?.('eva-overlay-play')) return;
-    this.eva_player?.playerFullscreenAPI.toggleFullscreen().catch(() => undefined);
-  }
-
-  onPlayerPointerActivity(event: PointerEvent): void {
+  onPlayerMouseMove(): void {
     this.revealTheaterToolbar();
-    // The player only counts movement over the picture itself as activity, not over its bar or
-    // the play button drawn on top of a paused video, so its controls would hide under the pointer.
-    this.evaApi?.triggerUserInteraction.next(event);
-    if (event.type === 'pointerdown') this.startSpeedHold(event);
-  }
-
-  onPlayerContextMenu(event: MouseEvent): void {
-    // A long press on a touch screen opens the context menu; during a hold it is the hold.
-    if (this.speed_hold) event.preventDefault();
-  }
-
-  // The picture is the play button the player draws over the video, whose click plays or pauses.
-  private startSpeedHold(event: PointerEvent): void {
-    const media = this.media;
-    if (!event.isPrimary || event.button !== 0 || !media || media.ended || media.error) return;
-    if (!(event.target as HTMLElement | null)?.closest?.('eva-overlay-play')) return;
-
-    this.endSpeedHold();
-    this.speed_hold = {
-      src: media.currentSrc,
-      start_x: event.clientX,
-      start_y: event.clientY,
-      timer: setTimeout(() => this.engageSpeedHold(), SPEED_HOLD_DELAY_MS),
-      previous_rate: media.playbackRate,
-      was_paused: media.paused
-    };
-    // On the window, so letting go anywhere ends the hold, not only over the video.
-    window.addEventListener('pointermove', this.onSpeedHoldPointerMove);
-    window.addEventListener('pointerup', this.onSpeedHoldRelease);
-    window.addEventListener('pointercancel', this.onSpeedHoldRelease);
-    window.addEventListener('blur', this.onSpeedHoldRelease);
-  }
-
-  private engageSpeedHold(): void {
-    const hold = this.speed_hold;
-    if (!hold || !this.media) return;
-    hold.timer = null;
-    this.media.playbackRate = SPEED_HOLD_RATE;
-    if (hold.was_paused) this.playMedia();
-    this.speed_hold_active = true;
-  }
-
-  private readonly onSpeedHoldPointerMove = (event: PointerEvent): void => {
-    const hold = this.speed_hold;
-    // Once engaged, the hold lasts until release wherever the pointer goes.
-    if (!hold?.timer) return;
-    const distance = Math.hypot(event.clientX - hold.start_x, event.clientY - hold.start_y);
-    if (distance > SPEED_HOLD_MOVE_TOLERANCE_PX) this.endSpeedHold();
-  };
-
-  private readonly onSpeedHoldRelease = (): void => this.endSpeedHold();
-
-  // Letting go of a hold is also a click, which would play or pause the video.
-  private readonly swallowSpeedHoldClick = (event: MouseEvent): void => {
-    if (!(event.target as HTMLElement | null)?.closest?.('eva-player')) return;
-    event.stopPropagation();
-    event.preventDefault();
-  };
-
-  private endSpeedHold(): void {
-    const hold = this.speed_hold;
-    if (!hold) return;
-    this.speed_hold = null;
-    window.removeEventListener('pointermove', this.onSpeedHoldPointerMove);
-    window.removeEventListener('pointerup', this.onSpeedHoldRelease);
-    window.removeEventListener('pointercancel', this.onSpeedHoldRelease);
-    window.removeEventListener('blur', this.onSpeedHoldRelease);
-    if (hold.timer) {
-      clearTimeout(hold.timer);
-      return;
-    }
-
-    this.speed_hold_active = false;
-    // Loading the next file already reset the rate, and its paused state is its own.
-    const media = this.media;
-    if (media && media.currentSrc === hold.src) {
-      media.playbackRate = hold.previous_rate;
-      if (hold.was_paused && !media.paused) media.pause();
-    }
-    // The click that comes with this release is dispatched before the timeout runs.
-    window.addEventListener('click', this.swallowSpeedHoldClick, true);
-    setTimeout(() => window.removeEventListener('click', this.swallowSpeedHoldClick, true));
   }
 
   selectChapterFromDropdown(chapter: IChapter, event: MouseEvent): void {
@@ -1623,6 +1574,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     if (this.currentItem?.uid === uid) {
       this.currentItem.subtitles = subtitles;
       this.currentSubtitleTracks = subtitles;
+      this.syncSubtitleToggleState();
+      this.refreshMediaSubtitleTracks();
     }
   }
 
@@ -1644,6 +1597,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     return raw_value.split(',')
       .map(category_uid => category_uid.trim())
       .filter(category_uid => !!category_uid);
+  }
+
+  repeatCurrentVideo(): void {
+    if (!this.media) return;
+    this.media.currentTime = 0;
+    this.playVideo();
   }
 
   advanceToNextVideo(): boolean {

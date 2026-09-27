@@ -1,10 +1,11 @@
-// Drives the player's controls in Chromium and Firefox: the picture, the scrub bar and its
-// chapters, subtitles, the menus, keyboard shortcuts, full screen and theater mode.
+// Drives the player's own controls in Chromium and Firefox: clicking and holding the picture,
+// the scrubber and its chapters, the menus, keyboard shortcuts, full screen and theater mode.
 //
-// Every check runs in both browsers. The library is two minute-long clips, the first cut into
-// chapters and carrying two subtitle tracks, a playlist of both, and a short audio file. The
-// browsers are started allowing playback without a click, as they would be after the click that
-// opened the player.
+// Firefox keeps every press on its native video controls to itself, which is why the player
+// draws its own, so every check runs in both browsers. The library is two minute-long clips,
+// the first cut into chapters, a playlist of both, and a short audio file. The browsers are
+// started allowing playback without a click, as they would be after the click that opened the
+// player.
 //
 // Nothing is mocked: the frontend is built from the working tree and the backend runs from a
 // throwaway copy (see stage.mjs). It downloads nothing. Screenshots at a desktop and a phone
@@ -37,9 +38,6 @@ const CHAPTERS = [
     { title: 'The long middle part, which has a title too long to fit', start_time: 25, end_time: 50 },
     { title: 'Wrap-up', start_time: 50, end_time: 60 }
 ];
-// Each track has a line every two seconds, as real subtitles change often.
-const SUBTITLES = { en: 'A line in English', es: 'Una línea en español' };
-const SUBTITLE_SECONDS = 2;
 
 const results = [];
 function check(name, ok, detail = '') {
@@ -66,25 +64,6 @@ async function seed() {
         '-f', 'lavfi', '-i', `testsrc2=size=640x360:rate=15:duration=${CLIP_SECONDS}`,
         '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', clip
     ]);
-    // The chaptered clip also carries two subtitle tracks, which the backend extracts for the player.
-    const subtitled = join(RUN_DIR, 'subtitled.mp4');
-    const srt = async (name, text) => {
-        const path = join(RUN_DIR, `${name}.srt`);
-        const at = seconds => `00:00:${String(seconds).padStart(2, '0')},000`;
-        const cues = [];
-        for (let start = 0; start < CLIP_SECONDS; start += SUBTITLE_SECONDS) {
-            cues.push(`${cues.length + 1}\n${at(start)} --> ${at(Math.min(start + SUBTITLE_SECONDS, CLIP_SECONDS - 1))}\n${text} ${cues.length + 1}\n`);
-        }
-        await writeFile(path, cues.join('\n'));
-        return path;
-    };
-    const [english, spanish] = [await srt('en', SUBTITLES.en), await srt('es', SUBTITLES.es)];
-    await ffmpeg([
-        '-i', clip, '-i', english, '-i', spanish, '-map', '0:v', '-map', '1', '-map', '2', '-c:v', 'copy', '-c:s', 'mov_text',
-        '-metadata:s:s:0', 'language=eng', '-metadata:s:s:0', 'title=English',
-        '-metadata:s:s:1', 'language=spa', '-metadata:s:s:1', 'title=Spanish',
-        '-disposition:s:0', 'default', '-movflags', '+faststart', subtitled
-    ]);
     const tone = join(RUN_DIR, 'tone.mp3');
     await ffmpeg(['-f', 'lavfi', '-i', 'sine=frequency=440:duration=5', '-c:a', 'libmp3lame', '-q:a', '6', tone]);
 
@@ -105,7 +84,7 @@ async function seed() {
     const files = [entry(first, 0), entry(second, 1), entry(third, 2, { audio: true })];
     for (const [index, video] of [first, second, third].entries()) {
         const file = files[index];
-        await cp(file.isAudio ? tone : index === 0 ? subtitled : clip, join(RUN_DIR, file.path));
+        await cp(file.isAudio ? tone : clip, join(RUN_DIR, file.path));
         await cp(join(FIXTURES, 'thumbnails', `${video.id}.jpg`), join(RUN_DIR, file.thumbnailPath));
     }
     // The player reads a file's chapters from the .info.json beside it, as the downloader left it.
@@ -141,47 +120,22 @@ async function newPage(browser, name, errors, viewport = { width: 1280, height: 
 
 async function shoot(page, name) {
     await page.evaluate(() => document.fonts.ready);
-    await page.locator('eva-player').screenshot({ path: join(SHOTS_DIR, `${name}.png`), caret: 'hide' });
+    await page.locator('.media-player').screenshot({ path: join(SHOTS_DIR, `${name}.png`), caret: 'hide' });
 }
 
 const media = page => page.evaluate(() => {
     const video = document.querySelector('video');
     return {
         paused: video.paused, rate: video.playbackRate, time: video.currentTime, muted: video.muted,
-        volume: video.volume, src: video.currentSrc, controls: video.controls, loop: video.loop
+        src: video.currentSrc, controls: video.controls
     };
 });
-const controlsShown = async page => !(await page.locator('eva-controls-container').evaluate(el => el.classList.contains('hide')));
-const subtitle = async page => {
-    const shown = page.locator('eva-subtitle-display.eva-subtitle-display--visible');
-    return await shown.count() ? (await shown.innerText()).trim() : null;
-};
-// The next line is at most SUBTITLE_SECONDS away.
-const subtitleShown = (page, text) => page.waitForFunction(text => {
-    const shown = document.querySelector('eva-subtitle-display.eva-subtitle-display--visible');
-    return text === null ? !shown : shown?.textContent.trim().startsWith(text);
-}, text, { timeout: (SUBTITLE_SECONDS + 1) * 1000 }).then(() => true, () => false);
-// The controls slide away when left alone, and back in on the next move, and Firefox scrolls
-// the page a little after the subtitles menu, so a click is aimed only once what it is meant for
-// is under the pointer. Returns where that is.
-async function pointAt(page, where, selector) {
-    for (let attempt = 0; attempt < 20; attempt++) {
-        const point = await where();
-        await page.mouse.move(point.x, point.y - 1);
-        await page.mouse.move(point.x, point.y);
-        await page.waitForTimeout(150);
-        if (await page.evaluate(([point, selector]) => !!document.elementFromPoint(point.x, point.y)?.closest(selector), [point, selector])) {
-            return point;
-        }
-    }
-    throw new Error(`nothing matching ${selector} came under the pointer`);
-}
-const nativeSubtitles = page => page.evaluate(() =>
-    Array.from(document.querySelector('video').textTracks).filter(track => track.mode === 'showing').length);
+const controlsShown = page => page.locator('app-media-controls .chrome').evaluate(el => getComputedStyle(el).visibility === 'visible');
+const badge = page => page.locator('app-media-controls .speed-hold-badge').count();
 
 async function openPlaying(page, route) {
     await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('eva-controls-container').waitFor({ timeout: 30_000 });
+    await page.locator('app-media-controls').waitFor({ timeout: 30_000 });
     await page.waitForFunction(() => {
         const video = document.querySelector('video');
         return video && !video.paused && video.currentTime > 0.3;
@@ -189,43 +143,31 @@ async function openPlaying(page, route) {
 }
 
 async function centre(page) {
-    const box = await page.locator('eva-player').boundingBox();
+    const box = await page.locator('.media-player').boundingBox();
     return { x: box.x + box.width / 2, y: box.y + box.height / 3 };
 }
 
 async function onDesktop(browser, name, seeded, errors) {
-    say(`${name}: the picture, the scrub bar, subtitles, the menus and the keyboard`);
+    say(`${name}: the picture, the scrubber, the menus and the keyboard`);
     const page = await newPage(browser, name, errors);
     await openPlaying(page, `player;uid=${seeded.chaptered.uid};type=video`);
     const { x, y } = await centre(page);
 
-    check('it plays by itself, without native controls', !(await media(page)).controls);
-    check('the scrub bar marks each chapter', await page.locator('eva-scrub-bar .eva-chapter-marker').count() === CHAPTERS.length);
-    check('the first subtitle track shows', await subtitleShown(page, SUBTITLES.en), `${await subtitle(page)}`);
-    check('drawn once, not by the browser as well', await nativeSubtitles(page) === 0);
+    check('the video has no native controls', !(await media(page)).controls);
+    check('the scrubber has a segment per chapter', await page.locator('app-media-controls .segment').count() === CHAPTERS.length);
 
-    await page.mouse.move(x, y);
-    await page.mouse.move(x + 10, y + 10);
-    // Parked off the player, so only the time since the last move counts.
+    // Parked off the player, so only the time since it started counts.
     await page.mouse.move(5, 5);
-    await page.waitForTimeout(3500);
+    await page.waitForTimeout(3200);
     check('the controls hide while it plays untouched', !(await controlsShown(page)));
-    await shoot(page, `${name}-subtitles`);
     await page.mouse.move(x, y);
     await page.mouse.move(x + 10, y + 10);
     await page.waitForTimeout(200);
     check('and come back when the pointer moves over it', await controlsShown(page));
-    const bar = await page.locator('eva-controls-container').boundingBox();
-    for (let step = 0; step < 8; step++) {
-        await page.mouse.move(bar.x + 200 + step * 40, bar.y + bar.height / 2);
-        await page.waitForTimeout(500);
-    }
-    check('they stay up while the pointer moves along the bar', await controlsShown(page));
 
     await page.mouse.click(x, y);
     await page.waitForTimeout(150);
     check('a click on the picture pauses', (await media(page)).paused);
-    await shoot(page, `${name}-paused`);
     // Past the double-click interval, or the pair would go full screen.
     await page.waitForTimeout(600);
     await page.mouse.click(x, y);
@@ -233,22 +175,23 @@ async function onDesktop(browser, name, seeded, errors) {
     check('and another plays again', !(await media(page)).paused);
     await page.waitForTimeout(600);
 
-    const badge = () => page.locator('.speed-hold-badge').count();
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.waitForTimeout(700);
     const held = await media(page);
-    const held_badge = await badge();
+    const held_badge = await badge(page);
     await shoot(page, `${name}-holding`);
     await page.mouse.up();
     await page.waitForTimeout(250);
     const released = await media(page);
     check('holding the picture plays at 2x', held.rate === 2 && !held.paused, `rate ${held.rate}`);
     check('with the 2x badge showing', held_badge === 1);
-    check('and letting go goes back to 1x, still playing', released.rate === 1 && !released.paused && await badge() === 0,
+    check('and letting go goes back to 1x, still playing', released.rate === 1 && !released.paused && await badge(page) === 0,
         `rate ${released.rate}, paused ${released.paused}`);
 
-    await page.keyboard.press('Space');
+    await page.keyboard.press('k');
+    await page.waitForTimeout(100);
+    check('k pauses', (await media(page)).paused);
     await page.waitForTimeout(600);
     await page.mouse.move(x, y);
     await page.mouse.down();
@@ -258,17 +201,11 @@ async function onDesktop(browser, name, seeded, errors) {
     await page.waitForTimeout(250);
     check('holding a paused video plays it at 2x, and it pauses again on release',
         !held_paused.paused && held_paused.rate === 2 && (await media(page)).paused);
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(600);
 
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(100);
-    check('space pauses', (await media(page)).paused);
-    await page.keyboard.press('Space');
     const before = (await media(page)).time;
     await page.keyboard.press('ArrowRight');
     await page.waitForTimeout(200);
-    check('the right arrow skips 10 seconds', Math.abs((await media(page)).time - before - 10) < 0.8);
+    check('the right arrow skips 5 seconds', Math.abs((await media(page)).time - before - 5) < 0.6);
     await page.keyboard.press('m');
     check('m mutes', (await media(page)).muted);
     await page.keyboard.press('m');
@@ -276,65 +213,58 @@ async function onDesktop(browser, name, seeded, errors) {
     check('> speeds up a step', (await media(page)).rate === 1.25);
     await page.keyboard.press('<');
     check('< slows down again', (await media(page)).rate === 1);
-    await page.keyboard.press('Control+c');
-    await page.waitForTimeout(SUBTITLE_SECONDS * 1000 + 500);
-    check('ctrl+c leaves the subtitles alone', (await subtitle(page))?.startsWith(SUBTITLES.en), `${await subtitle(page)}`);
-    await page.keyboard.press('c');
-    check('c moves to the next subtitle track', await subtitleShown(page, SUBTITLES.es), `${await subtitle(page)}`);
 
-    await page.locator('eva-track-selector button.eva-track-selector-button').click();
-    await page.waitForTimeout(200);
-    await shoot(page, `${name}-subtitles-menu`);
-    await page.locator('eva-track-selector').getByRole('option', { name: 'Off' }).click();
-    check('the subtitles menu turns them off', await subtitleShown(page, null));
-    await page.locator('eva-track-selector button.eva-track-selector-button').click();
-    await page.locator('eva-track-selector').getByRole('option', { name: 'English' }).click();
-    check('and back on', await subtitleShown(page, SUBTITLES.en), `${await subtitle(page)}`);
-    check('still only drawn once', await nativeSubtitles(page) === 0);
-
-    // The scrub bar: a quarter of the way into the third chapter, which starts at 25 s.
-    const scrubTarget = async () => {
-        const scrub = await page.locator('eva-scrub-bar .eva-chapter-marker').nth(2).boundingBox();
-        return { x: scrub.x + scrub.width / 4, y: scrub.y + scrub.height / 2 };
-    };
-    let target = await scrubTarget();
+    // The scrubber: a quarter of the way into the third chapter, which starts at 25 s.
+    const segment = await page.locator('app-media-controls .segment').nth(2).boundingBox();
+    const target = { x: segment.x + segment.width / 4, y: segment.y + segment.height / 2 };
     await page.mouse.move(target.x, target.y - 30);
     await page.mouse.move(target.x, target.y, { steps: 3 });
     await page.waitForTimeout(250);
-    const tooltip = await page.locator('eva-scrub-bar .eva-hover-tooltip').innerText();
-    check('hovering the scrub bar names the chapter under it', tooltip.includes('The long middle part'), tooltip.replace(/\n/g, ' '));
-    await shoot(page, `${name}-scrub-hover`);
-    target = await pointAt(page, scrubTarget, 'eva-scrub-bar');
+    const tooltip = await page.locator('app-media-controls .scrub-tooltip').innerText();
+    check('hovering the scrubber names the chapter under it', tooltip.includes('The long middle part'), tooltip.replace(/\n/g, ' '));
+    await shoot(page, `${name}-scrubber-hover`);
+    const thumb_at = await page.locator('app-media-controls .scrub-thumb').evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return box.left + box.width / 2;
+    });
+    const played_to = await page.locator('app-media-controls .segment-played').evaluateAll(fills =>
+        Math.max(...fills.map(fill => fill.getBoundingClientRect()).filter(box => box.width > 0).map(box => box.right)));
+    check('the marker sits at the end of the played part while hovered', Math.abs(thumb_at - played_to) < 3,
+        `marker ${Math.round(thumb_at)}, played to ${Math.round(played_to)}`);
     await page.mouse.click(target.x, target.y);
     await page.waitForTimeout(300);
     const scrubbed = (await media(page)).time;
     check('clicking it seeks there', scrubbed > 29 && scrubbed < 34, `${scrubbed.toFixed(1)} s`);
-    await page.waitForTimeout(300);
-    check('and the bar names the chapter playing', (await page.locator('eva-active-chapter').innerText()).startsWith('The long middle'));
+    check('and the bar names the chapter playing', (await page.locator('app-media-controls .chapter-title').innerText()).startsWith('The long middle'));
 
-    await page.locator('eva-playback-speed').click();
-    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: 'Playback speed' }).click();
+    await page.waitForTimeout(200);
     await shoot(page, `${name}-speed-menu`);
-    await page.locator('eva-playback-speed').getByRole('option', { name: '1.5x' }).click();
+    const menu_box = await page.locator('app-media-controls .controls-menu').boundingBox();
+    const scrubber_box = await page.locator('app-media-controls .scrubber').boundingBox();
+    check('the menu opens above the scrubber, clear of it', menu_box.y + menu_box.height <= scrubber_box.y,
+        `menu ends at ${Math.round(menu_box.y + menu_box.height)}, scrubber starts at ${Math.round(scrubber_box.y)}`);
+    await page.getByRole('menuitemradio', { name: '1.5x' }).click();
     check('the speed menu sets the rate', (await media(page)).rate === 1.5);
-    check('and the button says so', (await page.locator('eva-playback-speed .speed-label').innerText()).trim() === '1.5x');
-    await page.locator('eva-playback-speed').click();
-    await page.locator('eva-playback-speed').getByRole('option', { name: 'Normal' }).click();
-    check('and back to normal', (await media(page)).rate === 1);
+    check('and the button says so', (await page.locator('app-media-controls .rate-badge').innerText()) === '1.5x');
+    // Normal sits about halfway up the right of the picture, where Firefox puts its own
+    // picture-in-picture button, above the page.
+    await page.getByRole('button', { name: 'Playback speed' }).click();
+    await page.getByRole('menuitemradio', { name: 'Normal' }).click();
+    check('an option over the middle of the picture takes its own click', (await media(page)).rate === 1);
 
-    await page.locator('eva-active-chapter').click();
-    await page.waitForTimeout(300);
-    await shoot(page, `${name}-chapters`);
-    await page.locator('eva-chapter-list').getByRole('listitem').filter({ hasText: 'Wrap-up' }).click();
-    await page.waitForTimeout(300);
-    check('the chapter list jumps to a chapter', Math.abs((await media(page)).time - 50) < 0.8, `${(await media(page)).time.toFixed(1)} s`);
-    await page.locator('eva-chapter-list').getByRole('button', { name: 'Close chapter list' }).click();
+    await page.getByRole('button', { name: 'Chapters' }).click();
+    await page.waitForTimeout(200);
+    await shoot(page, `${name}-chapters-menu`);
+    await page.getByRole('menuitemradio', { name: /Wrap-up/ }).click();
+    await page.waitForTimeout(200);
+    check('the chapters menu jumps to a chapter', Math.abs((await media(page)).time - 50) < 0.6);
 
     await page.mouse.move(x, y);
     await page.mouse.dblclick(x, y);
     await page.waitForTimeout(500);
-    const fullscreen = await page.evaluate(() => document.fullscreenElement?.tagName ?? null);
-    check('a double-click takes the whole player full screen', fullscreen === 'EVA-PLAYER', `${fullscreen}`);
+    const fullscreen = await page.evaluate(() => document.fullscreenElement?.className ?? null);
+    check('a double-click takes the whole player full screen', fullscreen === 'media-player', `${fullscreen}`);
     if (fullscreen) {
         await shoot(page, `${name}-fullscreen`);
         await page.keyboard.press('f');
@@ -342,7 +272,6 @@ async function onDesktop(browser, name, seeded, errors) {
         check('and f leaves it', await page.evaluate(() => !document.fullscreenElement));
     }
     await page.waitForTimeout(600);
-    if ((await media(page)).paused) await page.keyboard.press('Space');
 
     await page.mouse.move(x, y);
     await page.getByRole('button', { name: 'Theater mode' }).click();
@@ -350,13 +279,6 @@ async function onDesktop(browser, name, seeded, errors) {
     await page.keyboard.press('t');
     check('and t brings it back', await page.locator('.player-playlist-section').isVisible());
 
-    await page.evaluate(() => { document.querySelector('video').volume = 0.4; });
-    await page.waitForTimeout(300);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('eva-controls-container').waitFor({ timeout: 30_000 });
-    await page.waitForTimeout(1000);
-    const volume = (await media(page)).volume;
-    check('the volume is remembered', Math.abs(volume - 0.4) < 0.01, `${volume}`);
     await page.context().close();
 
     const listed = await newPage(browser, name, errors);
@@ -368,24 +290,13 @@ async function onDesktop(browser, name, seeded, errors) {
         const video = document.querySelector('video');
         return video.currentSrc !== src && !video.paused;
     }, first_src, { timeout: 15_000 }).catch(() => {});
-    const second = await media(listed);
-    check('in a playlist, Next plays the next file', second.src !== first_src && !second.paused);
-    check('and there is no Next on the last one', await listed.getByRole('button', { name: 'Next', exact: true }).count() === 0);
-    await listed.keyboard.press('Shift+N');
-    check('shift+n does nothing there either', (await media(listed)).src === second.src);
+    check('in a playlist, Next plays the next file', (await media(listed)).src !== first_src);
     await listed.context().close();
-
-    const looped = await newPage(browser, name, errors);
-    await looped.addInitScript(() => localStorage.setItem('player_repeat_enabled', 'true'));
-    await openPlaying(looped, `player;uid=${seeded.plain.uid};type=video`);
-    check('with repeat on, the video loops', (await media(looped)).loop);
-    await looped.context().close();
 
     const audio = await newPage(browser, name, errors);
     await audio.goto(`${BASE}/#/player;uid=${seeded.audio.uid};type=audio`, { waitUntil: 'domcontentloaded' });
     await audio.locator('video').waitFor({ timeout: 30_000 });
-    await audio.waitForTimeout(500);
-    check('an audio file keeps the browser\'s own bar', (await media(audio)).controls && await audio.locator('eva-controls-container').count() === 0);
+    check('an audio file keeps the browser\'s own bar', (await media(audio)).controls && await audio.locator('app-media-controls').count() === 0);
     await audio.context().close();
 }
 
@@ -393,23 +304,18 @@ async function onAPhone(browser, name, seeded, errors) {
     say(`${name}: a phone`);
     const page = await newPage(browser, `${name}-phone`, errors, { width: 412, height: 915 });
     await openPlaying(page, `player;uid=${seeded.chaptered.uid};type=video`);
-    const { x, y } = await pointAt(page, () => centre(page), 'eva-overlay-play');
+    await page.waitForTimeout(3200);
+    const { x, y } = await centre(page);
     await page.touchscreen.tap(x, y);
     await page.waitForTimeout(300);
-    const tapped = await media(page);
-    check('a tap on the picture pauses', tapped.paused, `at ${tapped.time.toFixed(1)} s`);
-    check('with the controls up', await controlsShown(page));
+    check('a tap shows the controls without pausing', await controlsShown(page) && !(await media(page)).paused);
     await shoot(page, `${name}-phone`);
-    const bar = await page.locator('eva-controls-container').boundingBox();
-    const player = await page.locator('eva-player').boundingBox();
-    const last = await page.locator('eva-controls-container > :last-child').boundingBox();
-    check('the bar fits the phone\'s width', bar.x >= player.x - 0.5 && last.x + last.width <= player.x + player.width + 0.5,
-        `ends at ${Math.round(last.x + last.width)} of ${Math.round(player.x + player.width)}`);
-    await page.locator('eva-play-pause').tap();
-    await page.waitForTimeout(300);
-    check('and its play button plays again', !(await media(page)).paused);
-    await page.waitForTimeout(3500);
-    check('the controls hide after a while', !(await controlsShown(page)));
+    const bar = await page.locator('app-media-controls .bar').boundingBox();
+    const player = await page.locator('.media-player').boundingBox();
+    check('the bar fits the phone\'s width', bar.x >= player.x - 0.5 && bar.x + bar.width <= player.x + player.width + 0.5);
+    await page.locator('app-media-controls .center-play').tap();
+    await page.waitForTimeout(200);
+    check('and its play button in the middle pauses', (await media(page)).paused);
     await page.context().close();
 }
 

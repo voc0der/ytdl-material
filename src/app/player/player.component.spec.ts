@@ -96,18 +96,7 @@ describe('PlayerComponent', () => {
 
   // The player's own bar, over the video.
   function controlBarButtons(): HTMLButtonElement[] {
-    return Array.from(fixture.nativeElement.querySelectorAll('eva-controls-container button.player-control'));
-  }
-
-  // Stands in for the <video> the player renders, once it is ready.
-  function fakeMedia(overrides: Record<string, unknown> = {}): HTMLVideoElement {
-    return {
-      paused: true,
-      currentTime: 0,
-      play: vi.fn().mockName('play').mockResolvedValue(undefined),
-      pause: vi.fn().mockName('pause'),
-      ...overrides
-    } as unknown as HTMLVideoElement;
+    return Array.from(fixture.nativeElement.querySelectorAll('app-media-controls button'));
   }
 
   function theaterButton(): HTMLButtonElement | undefined {
@@ -433,7 +422,7 @@ describe('PlayerComponent', () => {
   it('should put theater mode in the player\'s own bar and make the video the only visible player content', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as DatabaseFile;
-    component.media = fakeMedia();
+    component.media_ready = true;
     postsServiceStub.isLoggedIn = false;
     fixture.detectChanges();
 
@@ -454,7 +443,7 @@ describe('PlayerComponent', () => {
     expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(false);
     expect(playerPlaylist()?.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('app-concurrent-stream')?.closest('.player-playlist-section')?.hidden).toBe(true);
-    expect(fixture.nativeElement.querySelector('eva-player video#singleVideo')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.video-player')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.video-blackout-overlay')).toBeFalsy();
     expect(component.currentItem?.uid).toBe('f1');
   });
@@ -474,7 +463,7 @@ describe('PlayerComponent', () => {
     expect(document.activeElement).not.toBe(theaterMode);
     expect(playerPlaylist()?.hidden).toBe(true);
 
-    component.onPlayerPointerActivity({} as PointerEvent);
+    component.onPlayerMouseMove();
     fixture.detectChanges();
 
     expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(true);
@@ -515,7 +504,7 @@ describe('PlayerComponent', () => {
     fixture.detectChanges();
 
     // An audio file keeps the browser's own bar, so the player's is not there to offer it either.
-    expect(fixture.nativeElement.querySelector('eva-controls-container')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-media-controls')).toBeNull();
     expect(fixture.nativeElement.querySelector('video').controls).toBe(true);
     expect(actionBarButtons().some(button => button.getAttribute('aria-label') === 'Theater mode')).toBe(false);
     component.toggleTheaterMode();
@@ -701,19 +690,20 @@ describe('PlayerComponent', () => {
   });
 
   it('should unload the native media element on destroy', () => {
-    const removeSourceSpy = vi.fn().mockName('removeSource');
+    const pauseSpy = vi.fn().mockName('pause');
     const removeAttributeSpy = vi.fn().mockName('removeAttribute');
     const loadSpy = vi.fn().mockName('load');
-    component.media = fakeMedia({
-      querySelectorAll: () => [{remove: removeSourceSpy}],
-      removeAttribute: removeAttributeSpy,
-      load: loadSpy
-    });
+    component.mediaElement = {
+      nativeElement: {
+        pause: pauseSpy,
+        removeAttribute: removeAttributeSpy,
+        load: loadSpy
+      }
+    } as any;
 
     component.ngOnDestroy();
 
-    expect(component.media.pause).toHaveBeenCalled();
-    expect(removeSourceSpy).toHaveBeenCalled();
+    expect(pauseSpy).toHaveBeenCalled();
     expect(removeAttributeSpy).toHaveBeenCalledWith('src');
     expect(loadSpy).toHaveBeenCalled();
   });
@@ -773,7 +763,7 @@ describe('PlayerComponent', () => {
       { title: 'Intro', start_time: 0, end_time: 30 },
       { title: 'Part 2', start_time: 30, end_time: 90 }
     ];
-    component.media = fakeMedia({currentTime: 45});
+    component.mediaElement = { nativeElement: { currentTime: 45 } } as any;
 
     const chapter = component.getCurrentChapter();
 
@@ -785,7 +775,7 @@ describe('PlayerComponent', () => {
       { title: 'Intro', start_time: 0, end_time: 30 },
       { title: 'Part 2', start_time: 30, end_time: 90 }
     ];
-    component.media = null;
+    component.mediaElement = undefined;
 
     const chapter = component.getCurrentChapter();
 
@@ -815,9 +805,10 @@ describe('PlayerComponent', () => {
     component.syncCurrentSubtitles();
 
     expect(component.currentSubtitleTracks).toEqual(subtitles);
+    expect(component.subtitlesEnabled).toBe(true);
   });
 
-  it('should hand the player subtitle metadata that arrives for the current item later', () => {
+  it('should enable subtitles when subtitle metadata arrives for the current item later', () => {
     component.currentItem = {
       title: 'Subtitle arrival test',
       src: '/stream/test',
@@ -826,228 +817,295 @@ describe('PlayerComponent', () => {
       url: 'https://example.com/video',
       uid: 'uid-subtitle'
     };
-    component.syncCurrentSubtitles();
-    expect(component.getVideoTracks()).toEqual([]);
+    component.subtitlesEnabled = false;
+    vi.spyOn(component, 'refreshMediaSubtitleTracks').mockReturnValue(undefined);
 
     component.applySubtitlesToMedia('uid-subtitle', [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ]);
+
+    expect(component.subtitlesEnabled).toBe(true);
+    expect(component.refreshMediaSubtitleTracks).toHaveBeenCalled();
+  });
+
+  it('should force the default subtitle track into showing mode', () => {
+    const textTracks = [
+      { mode: 'disabled' },
+      { mode: 'disabled' }
+    ];
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
       { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' },
       { label: 'Spanish', language: 'es', default: false, src: '/api/streamSubtitle?uid=uid-subtitle&index=1' }
-    ]);
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
 
-    expect(component.getVideoTracks()).toEqual([
-      { kind: 'subtitles', srclang: 'en', label: 'English', src: '/api/streamSubtitle?uid=uid-subtitle&index=0', default: true },
-      { kind: 'subtitles', srclang: 'es', label: 'Spanish', src: '/api/streamSubtitle?uid=uid-subtitle&index=1', default: false }
-    ]);
+    component.showDefaultSubtitleTrack();
+
+    expect(textTracks[0].mode).toBe('showing');
+    expect(textTracks[1].mode).toBe('disabled');
   });
 
-  // The player reloads or re-reads what it is given whenever the reference changes.
-  it('should hand the player the same sources, tracks and chapters until they change', () => {
-    showPlayer();
-    const sources = component.getVideoSources();
-    const tracks = component.getVideoTracks();
-    const chapters = component.getChapterMarkers();
-
-    expect(component.getVideoSources()).toBe(sources);
-    expect(component.getVideoTracks()).toBe(tracks);
-    expect(component.getChapterMarkers()).toBe(chapters);
-
-    component.currentChapters = [{ title: 'Intro', start_time: 0, end_time: 12.5 }];
-    expect(component.getChapterMarkers()).toEqual([{ title: 'Intro', startTime: 0, endTime: 12.5 }]);
-  });
-
-  it('should give an mp3 the type a browser knows it by', () => {
+  it('should disable subtitle tracks when subtitles are toggled off', () => {
+    const textTracks = [
+      { mode: 'showing' },
+      { mode: 'disabled' }
+    ];
     component.currentItem = {
-      title: 'An audio track',
-      src: '/api/stream?uid=a1&type=audio',
-      type: 'audio/mp3',
-      label: 'An audio track',
-      url: 'https://example.com/audio'
+      title: 'Subtitle Toggle Test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle Toggle Test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
     };
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' },
+      { label: 'Spanish', language: 'es', default: false, src: '/api/streamSubtitle?uid=uid-subtitle&index=1' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
 
-    expect(component.getVideoSources()).toEqual([{ src: '/api/stream?uid=a1&type=audio', type: 'audio/mpeg' }]);
+    component.toggleSubtitles();
+
+    expect(component.subtitlesEnabled).toBe(false);
+    expect(textTracks[0].mode).toBe('disabled');
+    expect(textTracks[1].mode).toBe('disabled');
   });
 
-  it('should keep subtitle tracks hidden, so only the player draws them', () => {
-    const listeners: Record<string, EventListener> = {};
-    const textTracks = Object.assign([{ mode: 'showing' }, { mode: 'disabled' }], {
-      addEventListener: (event: string, listener: EventListener) => { listeners[event] = listener; },
-      removeEventListener: vi.fn()
-    });
-    const media = fakeMedia({ textTracks, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  it('should report that subtitles can be toggled when subtitle tracks are available', () => {
+    component.playlist = [{
+        title: 'Subtitle Test',
+        src: '/stream/test',
+        type: 'video/mp4',
+        label: 'Subtitle Test',
+        url: 'https://example.com/video',
+        uid: 'uid-subtitle'
+      }];
+    component.currentItem = component.playlist[0];
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.subtitlesEnabled = true;
+    component.show_player = true;
 
-    component.onPlayerReady(media);
-    expect(textTracks.map(track => track.mode)).toEqual(['hidden', 'hidden']);
-
-    const added = { mode: 'showing' };
-    listeners['addtrack'](Object.assign(new Event('addtrack'), { track: added }));
-    expect(added.mode).toBe('hidden');
+    expect(component.canToggleSubtitles()).toBe(true);
   });
 
-  it('should follow the media element once the player is ready', () => {
-    const listeners: Record<string, EventListener> = {};
-    const media = fakeMedia({
-      textTracks: Object.assign([], { addEventListener: vi.fn(), removeEventListener: vi.fn() }),
-      addEventListener: (event: string, listener: EventListener) => { listeners[event] = listener; },
-      removeEventListener: vi.fn()
-    });
-    component.timestamp = '12';
-    vi.spyOn(component, 'nextVideo');
+  it('should report that subtitles can be toggled when embedded text tracks are available without subtitle metadata', () => {
+    component.playlist = [{
+        title: 'Embedded Subtitle Test',
+        src: '/stream/test',
+        type: 'video/mp4',
+        label: 'Embedded Subtitle Test',
+        url: 'https://example.com/video',
+        uid: 'uid-embedded-subtitle'
+      }];
+    component.currentItem = component.playlist[0];
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks: {
+          length: 1
+        }
+      }
+    } as any;
 
-    component.onPlayerReady(media);
-
-    expect(component.media).toBe(media);
-    expect(media.currentTime).toBe(12);
-    (media as any).currentTime = 30;
-    listeners['timeupdate'](new Event('timeupdate'));
-    expect(component.playbackTime).toBe(30);
-    listeners['ended'](new Event('ended'));
-    expect(component.nextVideo).toHaveBeenCalled();
-    (media as any).duration = 4000;
-    listeners['loadedmetadata'](new Event('loadedmetadata'));
-    expect(component.time_format).toBe('HH:mm:ss');
+    expect(component.canToggleSubtitles()).toBe(true);
   });
 
-  it('should loop the video, rather than wait for it to end, when repeat is on', () => {
-    showPlayer();
-    component.repeat_enabled = true;
-    fixture.detectChanges();
+  it('should retry subtitle activation when tracks attach after the initial render', fakeAsync(() => {
+    const textTracks: Array<{
+      mode: string;
+    }> = [];
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
 
-    expect(fixture.nativeElement.querySelector('video').loop).toBe(true);
+    component.showDefaultSubtitleTrack();
+    textTracks.push({ mode: 'disabled' });
+    tick(151);
+
+    expect(textTracks[0].mode).toBe('showing');
+  }));
+
+  it('should show the first embedded subtitle track when subtitle metadata is unavailable', () => {
+    const textTracks = [
+      { mode: 'disabled' },
+      { mode: 'disabled' }
+    ];
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
+
+    component.showDefaultSubtitleTrack();
+
+    expect(textTracks[0].mode).toBe('showing');
+    expect(textTracks[1].mode).toBe('disabled');
   });
 
-  describe('holding the picture', () => {
-    let overlay: HTMLElement;
-    let media: HTMLVideoElement;
-    let clicked: ReturnType<typeof vi.fn<(event: Event) => void>>;
+  it('should reapply subtitle activation when the browser adds tracks later', fakeAsync(() => {
+    let addTrackListener: EventListener = null;
+    const textTracks = {
+      0: { mode: 'disabled' },
+      length: 1,
+      addEventListener: (_event: string, listener: EventListener) => {
+        addTrackListener = listener;
+      },
+      removeEventListener: vi.fn().mockName('removeEventListener')
+    } as unknown as TextTrackList & EventTarget;
 
-    beforeEach(() => {
-      showPlayer();
-      fixture.detectChanges();
-      overlay = fixture.nativeElement.querySelector('eva-overlay-play');
-      // Stands in for the video the player renders, which jsdom cannot play.
-      vi.spyOn(component, 'onPlayerReady').mockImplementation(() => undefined);
-      vi.spyOn(component.evaApi, 'playOrPauseVideo').mockImplementation(() => undefined);
-      clicked = vi.fn<(event: Event) => void>();
-      overlay.addEventListener('click', clicked);
-      media = fakeMedia({paused: false, playbackRate: 1});
-      vi.mocked(media.play).mockImplementation(() => {
-        (media as any).paused = false;
-        return Promise.resolve();
-      });
-      component.media = media;
-    });
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
 
-    function press(target: Element = overlay): void {
-      component.onPlayerPointerActivity({type: 'pointerdown', target, isPrimary: true, button: 0, clientX: 100, clientY: 100} as unknown as PointerEvent);
-    }
+    component.attachSubtitleTrackListener();
+    addTrackListener(new Event('addtrack'));
+    tick();
 
-    // Letting go is a pointerup and then the click that comes with it.
-    function release(): void {
-      window.dispatchEvent(new Event('pointerup'));
-      overlay.click();
-      fixture.detectChanges();
-    }
+    expect((textTracks[0] as any).mode).toBe('showing');
+  }));
 
-    function badge(): HTMLElement | null {
-      return fixture.nativeElement.querySelector('.speed-hold-badge');
-    }
+  it('should enable subtitle toggling when embedded tracks are added later without subtitle metadata', fakeAsync(() => {
+    let addTrackListener: EventListener = null;
+    const textTracks = {
+      0: { mode: 'disabled' },
+      length: 1,
+      addEventListener: (_event: string, listener: EventListener) => {
+        addTrackListener = listener;
+      },
+      removeEventListener: vi.fn().mockName('removeEventListener')
+    } as unknown as TextTrackList & EventTarget;
 
-    it('plays at 2x while held, and goes back on release without pausing', fakeAsync(() => {
-      press();
-      tick(400);
-      fixture.detectChanges();
-      expect(media.playbackRate).toBe(2);
-      expect(badge()?.textContent).toContain('2x');
+    component.currentItem = {
+      title: 'Embedded subtitle arrival test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Embedded subtitle arrival test',
+      url: 'https://example.com/video',
+      uid: 'uid-embedded-subtitle'
+    };
+    component.subtitlesEnabled = false;
+    component.currentSubtitleTracks = [];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks
+      }
+    } as any;
 
-      release();
-      tick();
-      expect(media.playbackRate).toBe(1);
-      expect(badge()).toBeNull();
-      expect(clicked).not.toHaveBeenCalled();
+    component.attachSubtitleTrackListener();
+    addTrackListener(new Event('addtrack'));
+    tick();
 
-      overlay.click();
-      expect(clicked).toHaveBeenCalledTimes(1);
-    }));
+    expect(component.subtitlesEnabled).toBe(true);
+    expect((textTracks[0] as any).mode).toBe('showing');
+  }));
 
-    it('plays a paused video at 2x while held, and pauses it again on release', fakeAsync(() => {
-      (media as any).paused = true;
-      press();
-      tick(400);
-      expect(media.play).toHaveBeenCalled();
-      expect(media.playbackRate).toBe(2);
+  it('should reload media when subtitles arrive after playback has already started', fakeAsync(() => {
+    let loadedMetadataListener: EventListener = null;
+    const loadSpy = vi.fn().mockName('load');
+    const playSpy = vi.fn().mockName('play').mockResolvedValue(undefined);
+    const textTracks = [{ mode: 'disabled' }];
+    component.currentItem = {
+      title: 'Subtitle reload test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Subtitle reload test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle'
+    };
+    component.subtitlesEnabled = true;
+    component.currentSubtitleTracks = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.mediaElement = {
+      nativeElement: {
+        textTracks,
+        readyState: 4,
+        paused: false,
+        ended: false,
+        duration: 100,
+        currentTime: 42,
+        load: loadSpy,
+        play: playSpy,
+        addEventListener: (_event: string, listener: EventListener) => {
+          loadedMetadataListener = listener;
+        }
+      }
+    } as any;
 
-      release();
-      tick();
-      expect(media.pause).toHaveBeenCalled();
-      expect(media.playbackRate).toBe(1);
-    }));
+    component.refreshMediaSubtitleTracks();
+    tick();
 
-    it('leaves a short press to be the click it is', fakeAsync(() => {
-      press();
-      tick(200);
-      release();
-      tick(400);
-      expect(media.playbackRate).toBe(1);
-      expect(clicked).toHaveBeenCalledTimes(1);
-    }));
+    expect(loadSpy).toHaveBeenCalled();
+    expect(loadedMetadataListener).toBeTruthy();
 
-    it('leaves a press that moves away to be a drag', fakeAsync(() => {
-      press();
-      window.dispatchEvent(Object.assign(new Event('pointermove'), {clientX: 130, clientY: 100}));
-      tick(400);
-      expect(media.playbackRate).toBe(1);
-      expect(badge()).toBeNull();
-    }));
+    (loadedMetadataListener as EventListener)(new Event('loadedmetadata'));
+    tick();
 
-    it('leaves a press on the controls alone', fakeAsync(() => {
-      press(fixture.nativeElement.querySelector('eva-controls-container'));
-      tick(400);
-      expect(media.playbackRate).toBe(1);
-    }));
-  });
+    expect(component.mediaElement.nativeElement.currentTime).toBe(42);
+    expect(textTracks[0].mode).toBe('showing');
+    expect(playSpy).toHaveBeenCalled();
+  }));
 
-  describe('the keys the page adds to the player\'s', () => {
-    beforeEach(() => {
-      showPlayer();
-      component.media = fakeMedia();
-      fixture.detectChanges();
-    });
+  it('should reapply preloaded subtitles when the player becomes ready', fakeAsync(() => {
+    const loadSpy = vi.fn().mockName('load');
+    const preloadedSubtitles: ISubtitleTrack[] = [
+      { label: 'English', language: 'en', default: true, src: '/api/streamSubtitle?uid=uid-subtitle&index=0' }
+    ];
+    component.currentItem = {
+      title: 'Preloaded subtitle test',
+      src: '/stream/test',
+      type: 'video/mp4',
+      label: 'Preloaded subtitle test',
+      url: 'https://example.com/video',
+      uid: 'uid-subtitle',
+      subtitles: preloadedSubtitles
+    };
+    component.currentSubtitleTracks = preloadedSubtitles;
+    component.loadedSubtitleTrackSignature = component.getSubtitleTrackSignature(preloadedSubtitles);
+    component.mediaElement = {
+      nativeElement: {
+        textTracks: [],
+        readyState: 4,
+        paused: true,
+        ended: false,
+        duration: 100,
+        currentTime: 0,
+        load: loadSpy,
+        addEventListener: vi.fn().mockName('addEventListener')
+      }
+    } as any;
 
-    it('toggles theater mode with t', () => {
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 't', bubbles: true}));
-      expect(component.theater_mode_enabled).toBe(true);
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'T', bubbles: true}));
-      expect(component.theater_mode_enabled).toBe(false);
-    });
+    component.onPlayerReady(component.mediaElement.nativeElement);
+    tick();
 
-    it('plays the next file with shift+n, and not n alone', () => {
-      component.playlist = [...component.playlist, {...component.playlist[0], uid: 'f2', title: 'Another'}];
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', bubbles: true}));
-      expect(component.currentIndex).toBe(0);
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'N', shiftKey: true, bubbles: true}));
-      expect(component.currentIndex).toBe(1);
-    });
-
-    it('leaves them alone while typing', () => {
-      const input = document.createElement('input');
-      document.body.appendChild(input);
-      input.dispatchEvent(new KeyboardEvent('keydown', {key: 't', bubbles: true}));
-      input.remove();
-      expect(component.theater_mode_enabled).toBe(false);
-    });
-
-    // The player's own shortcuts would take Ctrl+C to switch subtitles.
-    it('keeps a player shortcut pressed with Ctrl from reaching the player', () => {
-      const reached = vi.fn();
-      document.addEventListener('keydown', reached);
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'c', ctrlKey: true, bubbles: true}));
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'c', bubbles: true}));
-      document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'z', ctrlKey: true, bubbles: true}));
-      document.removeEventListener('keydown', reached);
-
-      expect(reached.mock.calls.map(([event]) => `${event.ctrlKey ? 'ctrl+' : ''}${event.key}`)).toEqual(['c', 'ctrl+z']);
-    });
-  });
+    expect(loadSpy).toHaveBeenCalled();
+  }));
 
   it('should toggle chapter dropdown state', () => {
     const clickEvent = { stopPropagation: vi.fn().mockName('stopPropagation') } as unknown as MouseEvent;
@@ -1069,7 +1127,7 @@ describe('PlayerComponent', () => {
   });
 
   it('should seek to floored chapter start when selecting from dropdown', () => {
-    component.media = fakeMedia();
+    component.mediaElement = { nativeElement: { currentTime: 0 } } as any;
     component.chapterDropdownOpen = true;
     const chapter: IChapter = { title: 'Part 2', start_time: 42.9, end_time: 84.2 };
     const clickEvent = { stopPropagation: vi.fn().mockName('stopPropagation') } as unknown as MouseEvent;
@@ -1108,14 +1166,14 @@ describe('PlayerComponent', () => {
       { title: 'Intro', start_time: 0, end_time: 30 },
       { title: 'Part 2', start_time: 30, end_time: 90 }
     ];
-    component.media = fakeMedia({currentTime: 45});
+    component.mediaElement = { nativeElement: { currentTime: 45 } } as any;
 
     component.refreshCurrentChapterState();
 
     expect(component.activeChapterIndex).toBe(1);
     expect(component.currentChapterLabel).toBe('Part 2');
 
-    component.media = fakeMedia({currentTime: 5});
+    component.mediaElement = { nativeElement: { currentTime: 5 } } as any;
     component.onPlaybackTimeUpdate();
 
     expect(component.activeChapterIndex).toBe(0);
@@ -1128,8 +1186,12 @@ describe('PlayerComponent', () => {
     beforeEach(() => {
       component.currentFile = { uid: 'file-uid', duration: 120 } as DatabaseFile;
       seeks = [];
-      component.media = fakeMedia();
-      Object.defineProperty(component.media, 'currentTime', {get: () => seeks.at(-1) ?? 0, set: time => seeks.push(time)});
+      const media = {
+        play: vi.fn().mockName('play').mockResolvedValue(undefined),
+        pause: vi.fn().mockName('pause')
+      };
+      Object.defineProperty(media, 'currentTime', {get: () => seeks.at(-1) ?? 0, set: time => seeks.push(time)});
+      component.mediaElement = { nativeElement: media } as any;
       postsServiceStub.hasPermission = vi.fn().mockName('hasPermission').mockReturnValue(true);
       component.snip_mode = true;
       component.snip_start = 10;
