@@ -1052,8 +1052,19 @@ exports.pathIsWithin = (candidate_path, container_path) => {
  * a download still in flight, a record whose file
  * has already been removed -- so those fall back
  * to the lexical answer, which still refuses '..'.
+ *
+ * A dangling symlink is the exception. realpath
+ * fails on it as if nothing were there, but
+ * something is: opening it for writing creates its
+ * target, wherever that is. So it is followed by
+ * hand to where the write would land.
  ************************************************/
-function realPathOrResolved(target_path) {
+
+// The OS stops following after about this many links in one lookup (40 on Linux, 32 on
+// macOS), so nothing can be opened through a longer chain -- a loop included.
+const MAX_SYMLINK_HOPS = 40;
+
+function realPathOrResolved(target_path, symlink_hops = 0) {
     const resolved_path = path.resolve(target_path);
     const trailing_segments = [];
     let candidate_path = resolved_path;
@@ -1068,12 +1079,28 @@ function realPathOrResolved(target_path) {
             if (!trailing_segments.length) return real_path;
             return path.join(real_path, ...trailing_segments.slice().reverse());
         } catch {
+            const link_target = symlinkTargetOrNull(candidate_path);
+            if (link_target !== null && symlink_hops < MAX_SYMLINK_HOPS) {
+                return realPathOrResolved(path.join(link_target, ...trailing_segments.slice().reverse()), symlink_hops + 1);
+            }
             const parent_path = path.dirname(candidate_path);
             // Reached the filesystem root without finding anything that exists.
             if (parent_path === candidate_path) return resolved_path;
             trailing_segments.push(path.basename(candidate_path));
             candidate_path = parent_path;
         }
+    }
+}
+
+// Where a symlink points, resolved the way the OS would: a relative target is relative to
+// the real directory holding the link, not to whatever path was used to reach it.
+function symlinkTargetOrNull(link_path) {
+    try {
+        const link_target = fs.readlinkSync(link_path);
+        return path.resolve(fs.realpathSync(path.dirname(link_path)), link_target);
+    } catch {
+        // Not a symlink, or not there at all.
+        return null;
     }
 }
 
