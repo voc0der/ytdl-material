@@ -1129,9 +1129,20 @@ exports.getMediaRootsForUser = (user_uid) => {
     if (!users_base_path) return roots;
 
     const shared_users_root = realPathOrResolved(users_base_path);
-    const own_directory = realPathOrResolved(path.join(users_base_path, user_uid));
+    const other_roots = roots.filter(root => root !== shared_users_root);
 
-    return [...roots.filter(root => root !== shared_users_root), own_directory];
+    // A uid names one directory inside users/. One that walks out of it ('..' makes the
+    // parent of users/ a root, and every account's media with it) names nothing this user
+    // owns -- which is settled on paper, before anything on disk is consulted.
+    const users_directory = path.resolve(users_base_path);
+    const own_path = path.resolve(path.join(users_base_path, user_uid));
+    if (!own_path.startsWith(withTrailingSeparator(users_directory))) return other_roots;
+
+    return [...other_roots, realPathOrResolved(own_path)];
+}
+
+function withTrailingSeparator(directory_path) {
+    return directory_path.endsWith(path.sep) ? directory_path : directory_path + path.sep;
 }
 
 /*************************************************
@@ -1340,9 +1351,17 @@ exports.sanitizeCustomOutput = (custom_output, folder_path) => {
         return null;
     }
 
-    // realpath rather than resolve: a directory inside the folder can be a symlink, and
-    // a lexical check walks straight through it.
-    const joined_path = realPathOrResolved(path.join(folder_path, custom_output));
+    // On paper first, so a template that walks out of the folder is refused before anything
+    // on disk is consulted. A template naming the folder itself names no file to write.
+    const lexical_path = path.resolve(path.join(folder_path, custom_output));
+    if (!lexical_path.startsWith(withTrailingSeparator(path.resolve(folder_path)))) {
+        logger.error(`Ignoring a custom output that escapes its download folder: ${custom_output}`);
+        return null;
+    }
+
+    // Then with links followed: a directory inside the folder can be a symlink, and a
+    // lexical check walks straight through it.
+    const joined_path = realPathOrResolved(lexical_path);
     if (!exports.pathIsWithin(joined_path, realPathOrResolved(folder_path))) {
         logger.error(`Ignoring a custom output that escapes its download folder: ${custom_output}`);
         return null;

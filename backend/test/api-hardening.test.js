@@ -914,6 +914,15 @@ describe('Custom output containment', function() {
         assert.strictEqual(utils.sanitizeCustomOutput('/etc/cron.d/x', '/media/video'), null);
     });
 
+    it('refuses one that names the download folder itself', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('.', '/media/video'), null);
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/..', '/media/video'), null);
+    });
+
+    it('accepts one that wanders but lands back inside', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/../%(title)s', '/media/video'), 'shows/../%(title)s');
+    });
+
     it('treats an empty template as nothing to check', function() {
         assert.strictEqual(utils.sanitizeCustomOutput('', '/media/video'), null);
         assert.strictEqual(utils.sanitizeCustomOutput(null, '/media/video'), null);
@@ -959,6 +968,21 @@ describe('Containment against the record owner', function() {
 
     it('falls back to the shared roots when there is no owner', function() {
         assert(utils.isServableMediaFile(bob_file, null));
+    });
+
+    it('gives a uid that walks out of users/ no directory of its own', async function() {
+        // '..' would otherwise make the parent of users/ a root -- and every account with it.
+        const beside_users = path.join(media.base, 'beside-users.mp4');
+        await fs.outputFile(beside_users, 'not in any media root');
+
+        assert(!utils.isServableMediaFile(bob_file, '..'));
+        assert(!utils.isServableMediaFile(beside_users, '..'));
+        assert(!utils.isServableMediaFile(beside_users, 'alice/../..'));
+        assert(!utils.getMediaRootsForUser('..').includes(fs.realpathSync(media.base)));
+    });
+
+    it('still gives a uid its own directory when it only wanders inside users/', function() {
+        assert(utils.isServableMediaFile(alice_file, 'bob/../alice'));
     });
 
     /*************************************************
