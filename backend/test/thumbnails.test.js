@@ -425,6 +425,24 @@ describe('Cover art generation', function() {
             assert.deepStrictEqual(frame_grabs, []);
         });
 
+        it('will not create a file outside the media roots through a planted symlink', async function() {
+            // The link's target does not exist yet, so realpath fails on it -- but ffmpeg -y
+            // follows it and creates the target all the same.
+            const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-outside-'));
+            try {
+                const target = path.join(outside, 'created.webp');
+                const file_obj = await addVideo('dangling');
+                fs.symlinkSync(target, webpFor(file_obj));
+
+                assert.strictEqual(await thumbnails_api.generateThumbnailForFile(file_obj), null);
+
+                assert.deepStrictEqual(frame_grabs, []);
+                assert(!fs.existsSync(target));
+            } finally {
+                fs.removeSync(outside);
+            }
+        });
+
         it('will not overwrite a file outside the media roots through a planted symlink', async function() {
             const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-outside-'));
             try {

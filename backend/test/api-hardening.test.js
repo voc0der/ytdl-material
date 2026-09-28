@@ -914,6 +914,15 @@ describe('Custom output containment', function() {
         assert.strictEqual(utils.sanitizeCustomOutput('/etc/cron.d/x', '/media/video'), null);
     });
 
+    it('refuses one that names the download folder itself', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('.', '/media/video'), null);
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/..', '/media/video'), null);
+    });
+
+    it('accepts one that wanders but lands back inside', function() {
+        assert.strictEqual(utils.sanitizeCustomOutput('shows/../%(title)s', '/media/video'), 'shows/../%(title)s');
+    });
+
     it('treats an empty template as nothing to check', function() {
         assert.strictEqual(utils.sanitizeCustomOutput('', '/media/video'), null);
         assert.strictEqual(utils.sanitizeCustomOutput(null, '/media/video'), null);
@@ -959,6 +968,21 @@ describe('Containment against the record owner', function() {
 
     it('falls back to the shared roots when there is no owner', function() {
         assert(utils.isServableMediaFile(bob_file, null));
+    });
+
+    it('gives a uid that walks out of users/ no directory of its own', async function() {
+        // '..' would otherwise make the parent of users/ a root -- and every account with it.
+        const beside_users = path.join(media.base, 'beside-users.mp4');
+        await fs.outputFile(beside_users, 'not in any media root');
+
+        assert(!utils.isServableMediaFile(bob_file, '..'));
+        assert(!utils.isServableMediaFile(beside_users, '..'));
+        assert(!utils.isServableMediaFile(beside_users, 'alice/../..'));
+        assert(!utils.getMediaRootsForUser('..').includes(fs.realpathSync(media.base)));
+    });
+
+    it('still gives a uid its own directory when it only wanders inside users/', function() {
+        assert(utils.isServableMediaFile(alice_file, 'bob/../alice'));
     });
 
     /*************************************************
@@ -1315,6 +1339,70 @@ describe('Custom output through a symlink', function() {
     it('still accepts an ordinary template naming a file that does not exist', function() {
         assert.strictEqual(utils.sanitizeCustomOutput('%(title)s', root), '%(title)s');
         assert.strictEqual(utils.sanitizeCustomOutput('shows/%(title)s', root), 'shows/%(title)s');
+    });
+
+    /*************************************************
+     * A symlink whose target does not exist yet makes
+     * realpath fail exactly as a missing file does,
+     * but writing to it creates the target -- so it
+     * has to be followed, not treated as absent.
+     ************************************************/
+    describe('whose target does not exist yet', function() {
+        let links = [];
+
+        function link(name, target) {
+            const link_path = path.join(root, name);
+            fs.symlinkSync(target, link_path);
+            links.push(link_path);
+        }
+
+        afterEach(function() {
+            for (const link_path of links) fs.removeSync(link_path);
+            links = [];
+        });
+
+        it('refuses a destination that is itself such a link', function() {
+            link('dangling-file', path.join(base, 'outside', 'created-on-write.mp4'));
+
+            assert.strictEqual(utils.sanitizeCustomOutput('dangling-file', root), null);
+        });
+
+        it('refuses a destination inside a directory link like that', function() {
+            link('dangling-dir', path.join(base, 'outside', 'not-yet'));
+
+            assert.strictEqual(utils.sanitizeCustomOutput('dangling-dir/new-file', root), null);
+        });
+
+        it('follows a chain of links to where it ends', function() {
+            link('hop-2', path.join(base, 'outside', 'far'));
+            link('hop-1', 'hop-2');
+
+            assert.strictEqual(utils.sanitizeCustomOutput('hop-1', root), null);
+        });
+
+        it('reads a relative target from the directory the link is really in', function() {
+            // root/link points to outside/, so '../elsewhere' there is a sibling of outside/,
+            // not of the link -- read lexically, it would look like root/elsewhere.
+            const relative_link = path.join(base, 'outside', 'relative');
+            fs.symlinkSync(path.join('..', 'elsewhere'), relative_link);
+            links.push(relative_link);
+
+            assert.strictEqual(utils.sanitizeCustomOutput('link/relative', root), null);
+        });
+
+        it('accepts one that stays inside the folder', function() {
+            link('pending', path.join(root, 'later.mp4'));
+
+            assert.strictEqual(utils.sanitizeCustomOutput('pending', root), 'pending');
+        });
+
+        it('gives up on a loop rather than hanging', function() {
+            // Nothing can be opened through a loop, so all that matters is that the check ends.
+            link('loop-a', 'loop-b');
+            link('loop-b', 'loop-a');
+
+            assert.strictEqual(utils.sanitizeCustomOutput('loop-a/file', root), 'loop-a/file');
+        });
     });
 });
 
