@@ -58,7 +58,7 @@ into the README. Nothing about this runs in CI — see the note at the end.
 Everything else counts, including `main.ts`, the environment files, and every
 untested component and backend module.
 
-### Two things that make the number wrong if you ignore them
+### Three things that make the number wrong if you ignore them
 
 **Start the LDAP server first.** `backend/test/ldap.test.js` skips itself when there is no
 directory listening, so `authentication/ldap.js` reads as almost entirely uncovered without
@@ -73,6 +73,12 @@ output is not counted as uncovered, it is not counted at all, which inflates the
 language they are, so it parses them as JavaScript and fails on `implements`. Any untested
 component can fall out of the report the same way, which makes the printed figure higher than
 the true one. A spec that loads the file puts it back.
+
+**Name the script when a test loads a module through `vm`.** Some backend tests run a
+module's source in `vm.runInNewContext` to hand it stub dependencies. Without a `filename`
+option, V8 reports that code as `evalmachine.<anonymous>`, so the module reads as 0% however
+thoroughly the test exercises it. Pass `{filename: path.join(root, 'module.js')}` and c8
+attributes it to the file on disk.
 
 ### Expect the last digit to move
 

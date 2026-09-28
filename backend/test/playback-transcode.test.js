@@ -32,7 +32,7 @@ describe('Playback transcodes', function() {
             exports, __dirname: dir,
             require: name => name === './transcoding' ? transcoding
                 : name.startsWith('./') ? require(path.join(root, name)) : require(name)
-        });
+        }, {filename: path.join(root, 'playback-transcode.js')});
         return exports;
     }
 

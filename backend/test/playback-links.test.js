@@ -60,7 +60,7 @@ describe('Playback links', function() {
             exports, URLSearchParams, Date: {now: () => state.now},
             require: name => ({'./db': db, './files': files, './config': config, './utils': utils,
                 './playback-transcode': transcode}[name] || require(name))
-        });
+        }, {filename: path.join(root, 'playback-links.js')});
         function request(owner = 'alice', body = {youtube_id: ID}) {
             return {user: owner ? {uid: owner} : undefined, isAuthenticated: () => !!owner, body};
         }
