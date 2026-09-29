@@ -20,12 +20,35 @@ const VOLUME_STEP = 0.05;
 // HTMLMediaElement.HAVE_FUTURE_DATA, which jsdom does not define.
 const HAVE_FUTURE_DATA = 3;
 export const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+// Chrome opens its cast picker only within five seconds of a click. A source swap that takes
+// longer than this leaves the picker to a second click.
+const CAST_PROMPT_WINDOW_MS = 4000;
+// One black frame of H.264, which every cast device plays. Whether it could be cast says a device
+// is around even while the file itself is in a codec the device cannot take, such as AV1 on
+// Android, where the file's own availability never turns true.
+const CAST_PROBE_SRC = 'assets/cast-probe.mp4';
 
 const MEDIA_EVENTS = [
   'play', 'pause', 'playing', 'waiting', 'ended', 'timeupdate', 'durationchange', 'loadedmetadata', 'progress',
   'volumechange', 'ratechange', 'seeking', 'seeked', 'canplay', 'emptied', 'error', 'enterpictureinpicture',
   'leavepictureinpicture'
 ];
+const CAST_EVENTS = ['connecting', 'connect', 'disconnect'];
+
+/**
+ * Whether the loaded file may go to a cast device, which fetches it itself (Chrome on Android,
+ * AirPlay) rather than through the browser:
+ * - ready: as it is.
+ * - needs-link: its URL carries the viewer's login, so the player swaps in a playback link first.
+ * - preparing: the player is getting one, or waiting on a copy the device can play.
+ * - unavailable: no link can be had for it.
+ */
+export type CastSource = 'ready' | 'needs-link' | 'preparing' | 'unavailable';
+
+export interface CastRequest {
+  // A device is around, but it cannot play the file as it is.
+  transcode: boolean;
+}
 
 export interface ScrubSegment {
   start: number;
@@ -49,6 +72,16 @@ interface SpeedHold {
 }
 
 type Menu = 'speed' | 'chapters';
+
+// The Remote Playback API's methods reject rather than throw, but a browser that throws anyway
+// must not take the rest of the controls down with it.
+function attempt<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return call();
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
 
 export function formatMediaTime(total_seconds: number): string {
   const safe_seconds = Math.max(0, Math.floor(total_seconds || 0));
@@ -75,10 +108,13 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   @Input() theaterAvailable = false;
   @Input() theaterEnabled = false;
   @Input() hasNext = false;
+  @Input() castSource: CastSource = 'ready';
 
   @Output() toggleSubtitles = new EventEmitter<void>();
   @Output() toggleTheater = new EventEmitter<void>();
   @Output() playNext = new EventEmitter<void>();
+  // Asks the player for a source a cast device can fetch; castSource says when it has one.
+  @Output() prepareCast = new EventEmitter<CastRequest>();
 
   @ViewChild('scrubber') scrubber?: ElementRef<HTMLElement>;
   @ViewChild('scrubTooltip') scrubTooltip?: ElementRef<HTMLElement>;
@@ -99,6 +135,10 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   fullscreen = false;
   pip = false;
   pip_supported = false;
+  // Chrome and Edge cast to a Chromecast, and Safari to AirPlay, through the Remote Playback API.
+  // Firefox has none, so it never shows the button.
+  cast_supported = false;
+  cast_state: RemotePlaybackState = 'disconnected';
 
   segments: ScrubSegment[] = [{start: 0, end: 1, title: null}];
   scrubbing = false;
@@ -126,6 +166,15 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   private speed_hold: SpeedHold | null = null;
   private suppress_click = false;
   private segments_changed = false;
+  // A device can take the loaded file as it is.
+  private cast_source_available = false;
+  // A device is around that can take the H.264 copy.
+  private cast_device_available = false;
+  private cast_watch: number | null = null;
+  private cast_probe: HTMLVideoElement | null = null;
+  private cast_probe_watch: number | null = null;
+  // When the cast button last asked the player for a source, for opening the picker once it has.
+  private cast_requested_at: number | null = null;
 
   constructor(private host: ElementRef<HTMLElement>, private cdr: ChangeDetectorRef, private zone: NgZone) {}
 
@@ -141,6 +190,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
       this.attachMedia();
     }
     if (changes['chapters']) this.buildSegments();
+    if (changes['castSource']) this.onCastSourceChange();
   }
 
   ngOnDestroy(): void {
@@ -157,6 +207,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     for (const type of MEDIA_EVENTS) media.addEventListener(type, this.onMediaEvent);
     this.pip_supported = !!document.pictureInPictureEnabled && typeof media.requestPictureInPicture === 'function'
       && !media.disablePictureInPicture;
+    this.attachCast(media);
     this.sync();
     if (!media.paused) this.startProgressLoop();
   }
@@ -164,6 +215,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   private detachMedia(media: HTMLVideoElement | null | undefined): void {
     if (!media) return;
     for (const type of MEDIA_EVENTS) media.removeEventListener(type, this.onMediaEvent);
+    this.detachCast(media);
   }
 
   private readonly onMediaEvent = (event: Event): void => {
@@ -264,6 +316,23 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   readonly fullscreenLabel = $localize`Full screen`;
   readonly exitFullscreenLabel = $localize`Exit full screen`;
   readonly chaptersLabel = $localize`Chapters`;
+  readonly castReadyLabel = $localize`Ready to cast`;
+  readonly castUnsupportedLabel = $localize`This file can't be cast`;
+
+  get castAvailable(): boolean {
+    if (!this.cast_supported || this.castSource === 'unavailable') return false;
+    return this.cast_state !== 'disconnected' || this.castSource === 'preparing'
+      || this.cast_source_available || this.cast_device_available;
+  }
+
+  get castIcon(): string {
+    return this.cast_state === 'connected' ? 'cast_connected' : 'cast';
+  }
+
+  get castLabel(): string {
+    if (this.castSource === 'preparing') return $localize`Getting the file ready to cast`;
+    return this.cast_state === 'disconnected' ? $localize`Cast` : $localize`Casting`;
+  }
 
   get rateLabel(): string {
     return `${this.rate}x`;
@@ -682,6 +751,119 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     } else {
       this.media.requestPictureInPicture().catch(() => undefined);
     }
+  }
+
+  // Casting
+
+  cast(): void {
+    // The button says it is getting the file ready already.
+    if (this.castSource === 'preparing') return;
+    // Once connected, the browser's own picker is where the cast is stopped or moved.
+    if (this.cast_state !== 'disconnected' || (this.castSource === 'ready' && this.cast_source_available)) {
+      this.promptCast();
+      return;
+    }
+    this.cast_requested_at = Date.now();
+    this.prepareCast.emit({transcode: !this.cast_source_available});
+  }
+
+  // The player has swapped in the source the button asked for. The click still counts for
+  // opening the picker for a few seconds; after that it takes another.
+  private onCastSourceChange(): void {
+    if (this.castSource === 'preparing') return;
+    const requested_at = this.cast_requested_at;
+    this.cast_requested_at = null;
+    if (this.castSource !== 'ready' || requested_at === null) return;
+    if (Date.now() - requested_at <= CAST_PROMPT_WINDOW_MS) this.promptCast();
+    else this.showFlash('cast', this.castReadyLabel);
+  }
+
+  private promptCast(): void {
+    attempt(() => this.media.remote.prompt()).catch((error: DOMException) => this.zone.run(() => {
+      // Closing the picker, or not picking anything, is not a failure.
+      if (error?.name === 'NotSupportedError') this.showFlash('cast', this.castUnsupportedLabel);
+      // The click that asked for the swap no longer counts, so the next one opens the picker.
+      if (error?.name === 'InvalidAccessError') this.showFlash('cast', this.castReadyLabel);
+    }));
+  }
+
+  private attachCast(media: HTMLVideoElement): void {
+    const remote = media.remote;
+    this.cast_supported = typeof remote?.watchAvailability === 'function' && !media.disableRemotePlayback;
+    if (!this.cast_supported) return;
+    this.cast_state = remote.state;
+    for (const type of CAST_EVENTS) remote.addEventListener(type, this.onCastStateChange);
+    this.watchCastAvailability();
+    this.startCastProbe();
+  }
+
+  private detachCast(media: HTMLVideoElement): void {
+    const remote = media.remote;
+    if (typeof remote?.watchAvailability !== 'function') return;
+    for (const type of CAST_EVENTS) remote.removeEventListener(type, this.onCastStateChange);
+    if (this.cast_watch !== null) attempt(() => remote.cancelWatchAvailability(this.cast_watch)).catch(() => undefined);
+    this.cast_watch = null;
+    this.cast_source_available = false;
+    this.cast_state = 'disconnected';
+    this.stopCastProbe();
+  }
+
+  // Called again after a session ends, since a page can only end one by switching the API off,
+  // and that drops every watch.
+  private watchCastAvailability(): void {
+    const remote = this.media.remote;
+    if (this.cast_watch !== null) attempt(() => remote.cancelWatchAvailability(this.cast_watch)).catch(() => undefined);
+    this.cast_watch = null;
+    attempt(() => remote.watchAvailability(available => this.zone.run(() => {
+      this.cast_source_available = available;
+      this.cdr.markForCheck();
+    }))).then(id => {
+      this.cast_watch = id;
+    }, (error: DOMException) => this.zone.run(() => {
+      // A browser that cannot look for devices in the background, as on low-end Android phones,
+      // still finds them once its picker is open.
+      if (error?.name === 'NotSupportedError') this.cast_source_available = true;
+      this.cdr.markForCheck();
+    }));
+  }
+
+  private readonly onCastStateChange = (): void => {
+    this.cast_state = this.media.remote.state;
+    if (this.cast_state === 'disconnected') this.watchCastAvailability();
+    this.cdr.markForCheck();
+  };
+
+  protected createCastProbe(): HTMLVideoElement {
+    const probe = document.createElement('video');
+    probe.muted = true;
+    probe.preload = 'metadata';
+    probe.src = CAST_PROBE_SRC;
+    return probe;
+  }
+
+  private startCastProbe(): void {
+    if (this.cast_probe) return;
+    const probe = this.createCastProbe();
+    if (typeof probe.remote?.watchAvailability !== 'function') return;
+    this.cast_probe = probe;
+    attempt(() => probe.remote.watchAvailability(available => this.zone.run(() => {
+      this.cast_device_available = available;
+      this.cdr.markForCheck();
+    }))).then(id => {
+      if (this.cast_probe === probe) this.cast_probe_watch = id;
+      else attempt(() => probe.remote.cancelWatchAvailability(id)).catch(() => undefined);
+    }, () => undefined);
+  }
+
+  private stopCastProbe(): void {
+    const probe = this.cast_probe;
+    if (!probe) return;
+    this.cast_probe = null;
+    if (this.cast_probe_watch !== null) attempt(() => probe.remote.cancelWatchAvailability(this.cast_probe_watch)).catch(() => undefined);
+    this.cast_probe_watch = null;
+    this.cast_device_available = false;
+    probe.removeAttribute('src');
+    probe.load();
   }
 
   @HostListener('document:fullscreenchange')

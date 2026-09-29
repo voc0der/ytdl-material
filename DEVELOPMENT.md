@@ -512,8 +512,11 @@ dev/screenshots/controls.sh --keep        # leave the backend running on :17461 
 ```
 
 It plays a minute-long clip cut into four chapters and checks the video has no native controls
-and the scrubber a segment per chapter, that the controls hide while it plays untouched and come
-back when the pointer moves, that a click on the picture pauses and plays, and that holding it
+and the scrubber a segment per chapter. With no cast device to answer, it checks only that
+Chrome's own cast button is kept off the picture, that no cast button shows, and that Chromium
+fetches the clip it finds devices with while Firefox fetches nothing. It checks that the
+controls hide while it plays untouched and come back when the pointer moves, that a click on the
+picture pauses and plays, and that holding it
 plays at 2x with the badge showing, paused or not, and puts back the rate and the paused state
 on release. It tries the keyboard shortcuts, hovers the scrubber for the chapter's name, checks
 the marker stays at the end of the played part, and clicks it to seek, sets the speed from its

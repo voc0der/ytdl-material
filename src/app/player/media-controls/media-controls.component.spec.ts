@@ -339,4 +339,160 @@ describe('MediaControlsComponent', () => {
       expect(media.play).not.toHaveBeenCalled();
     });
   });
+
+  describe('casting', () => {
+    // The Remote Playback API as Chrome has it: devices come and go through the availability
+    // callbacks, and a session through its state.
+    class FakeRemote extends EventTarget {
+      state: RemotePlaybackState = 'disconnected';
+      private callbacks = new Map<number, (available: boolean) => void>();
+      private next_id = 1;
+      watchAvailability = vi.fn().mockName('watchAvailability').mockImplementation((callback: (available: boolean) => void) => {
+        const id = this.next_id++;
+        this.callbacks.set(id, callback);
+        return Promise.resolve(id);
+      });
+      cancelWatchAvailability = vi.fn().mockName('cancelWatchAvailability').mockImplementation((id: number) => {
+        this.callbacks.delete(id);
+        return Promise.resolve();
+      });
+      prompt = vi.fn().mockName('prompt').mockResolvedValue(undefined);
+
+      setAvailable(available: boolean): void {
+        this.callbacks.forEach(callback => callback(available));
+      }
+
+      setState(state: RemotePlaybackState, type: string): void {
+        this.state = state;
+        this.dispatchEvent(new Event(type));
+      }
+    }
+
+    let remote: FakeRemote;
+    // Stands in for the H.264 clip the controls watch to find a device the file cannot go to.
+    let probe_remote: FakeRemote;
+
+    beforeEach(() => {
+      remote = new FakeRemote();
+      probe_remote = new FakeRemote();
+      vi.spyOn(component as any, 'createCastProbe').mockReturnValue({
+        remote: probe_remote,
+        removeAttribute: vi.fn(),
+        load: vi.fn()
+      });
+      const castable = new FakeMedia();
+      (castable as any).remote = remote;
+      fixture.componentRef.setInput('media', castable as unknown as HTMLVideoElement);
+      fixture.detectChanges();
+    });
+
+    const castButton = (): HTMLButtonElement => host().querySelector('.cast-button');
+
+    function devices(file: boolean, copy = file): void {
+      remote.setAvailable(file);
+      probe_remote.setAvailable(copy);
+      fixture.detectChanges();
+    }
+
+    function source(value: string): void {
+      fixture.componentRef.setInput('castSource', value);
+      fixture.detectChanges();
+    }
+
+    it('offers nothing where the browser has no Remote Playback API, as in Firefox', () => {
+      fixture.componentRef.setInput('media', new FakeMedia() as unknown as HTMLVideoElement);
+      fixture.detectChanges();
+      expect(castButton()).toBeNull();
+    });
+
+    it('shows the button only while a device is around, and opens the browser\'s picker', () => {
+      expect(castButton()).toBeNull();
+      devices(true);
+      expect(castButton().getAttribute('aria-label')).toBe('Cast');
+
+      castButton().click();
+      expect(remote.prompt).toHaveBeenCalled();
+
+      devices(false);
+      expect(castButton()).toBeNull();
+    });
+
+    it('asks the player for a link first when the URL carries the login, then opens the picker', () => {
+      const requests: unknown[] = [];
+      component.prepareCast.subscribe(request => requests.push(request));
+      source('needs-link');
+      devices(true);
+
+      castButton().click();
+      expect(requests).toEqual([{transcode: false}]);
+      expect(remote.prompt).not.toHaveBeenCalled();
+
+      source('preparing');
+      expect(castButton().getAttribute('aria-label')).toBe('Getting the file ready to cast');
+      expect(castButton().classList).toContain('pending');
+      castButton().click();
+      expect(requests.length).toBe(1);
+
+      source('ready');
+      expect(remote.prompt).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for the H.264 copy when the device around cannot play the file as it is', () => {
+      const requests: unknown[] = [];
+      component.prepareCast.subscribe(request => requests.push(request));
+      devices(false, true);
+
+      castButton().click();
+      expect(requests).toEqual([{transcode: true}]);
+      expect(remote.prompt).not.toHaveBeenCalled();
+    });
+
+    it('leaves the picker to a second click once the click that asked is too old to open it', () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+      source('needs-link');
+      devices(true);
+      castButton().click();
+      source('preparing');
+
+      now.mockReturnValue(1000 + 60000);
+      source('ready');
+      expect(remote.prompt).not.toHaveBeenCalled();
+      expect(host().querySelector('.flash-label').textContent).toBe('Ready to cast');
+
+      castButton().click();
+      expect(remote.prompt).toHaveBeenCalled();
+    });
+
+    it('says when it is casting, and opens the picker to stop it', () => {
+      devices(true);
+      remote.setState('connected', 'connect');
+      fixture.detectChanges();
+      expect(castButton().getAttribute('aria-label')).toBe('Casting');
+      expect(castButton().getAttribute('aria-pressed')).toBe('true');
+      expect(castButton().querySelector('mat-icon').textContent).toBe('cast_connected');
+
+      castButton().click();
+      expect(remote.prompt).toHaveBeenCalled();
+    });
+
+    it('watches for devices again once a session ends, since ending one drops the watch', () => {
+      devices(true);
+      remote.setState('connected', 'connect');
+      const watches = remote.watchAvailability.mock.calls.length;
+      remote.setState('disconnected', 'disconnect');
+      expect(remote.watchAvailability.mock.calls.length).toBe(watches + 1);
+    });
+
+    it('hides the button for a file that cannot be cast', () => {
+      devices(true);
+      source('unavailable');
+      expect(castButton()).toBeNull();
+    });
+
+    it('stops watching when the video goes', () => {
+      component.ngOnDestroy();
+      expect(remote.cancelWatchAvailability).toHaveBeenCalled();
+      expect(probe_remote.cancelWatchAvailability).toHaveBeenCalled();
+    });
+  });
 });

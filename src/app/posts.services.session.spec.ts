@@ -363,5 +363,34 @@ describe('PostsService session lifecycle', () => {
         expect(snackBar.open).not.toHaveBeenCalled();
       }
     });
+
+    // A playback link is a credential for one file, so its being refused says nothing about the
+    // session, and the player needs the status to tell a refusal from a busy server.
+    it('leaves the session alone when a playback link is refused, and passes on the status', () => {
+      start({ token: 'saved-token' }).flush({ config_file: { YtdlMaterial: configuration(false) } });
+      let status: number = null;
+      service.createPlaybackLink('f1', true).subscribe({ error: error => status = error.status });
+      const request = http.expectOne(API + 'createPlaybackLink');
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ uid: 'f1', transcode: true });
+      request.flush({}, { status: 401, statusText: 'Unauthorized' });
+
+      expect(status).toBe(401);
+      expect(localStorage.getItem('jwt_token')).toBe('saved-token');
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('asks a transcoding link whether its copy is made without sending the login along', () => {
+      start({ token: 'saved-token' }).flush({ config_file: { YtdlMaterial: configuration(false) } });
+      const url = 'http://localhost/api/stream?uid=f1&playback_token=secret';
+      let status: number = null;
+      service.checkPlaybackLink(url).subscribe({ error: error => status = error.status });
+      const request = http.expectOne(url);
+      expect(request.request.method).toBe('HEAD');
+      expect(request.request.params.keys()).toEqual([]);
+      request.flush(null, { status: 503, statusText: 'Service Unavailable' });
+
+      expect(status).toBe(503);
+    });
   });
 });

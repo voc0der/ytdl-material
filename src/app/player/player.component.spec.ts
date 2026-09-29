@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angul
 import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IChapter, IMedia, ISubtitleTrack, PlayerComponent } from './player.component';
@@ -1275,5 +1275,238 @@ describe('PlayerComponent', () => {
       component.currentFile = { uid: 'file-uid', duration: 0.5 } as DatabaseFile;
       expect(component.canSnipCurrentFile()).toBe(false);
     });
+  });
+
+  // A cast device such as a Chromecast under Chrome on Android fetches the file itself, so what
+  // matters is the URL in the <video> when it is handed over.
+  describe('casting', () => {
+    let remote: EventTarget & {state: RemotePlaybackState};
+    // Every value the player set disableRemotePlayback to, which is how it ends a session.
+    let disable_toggles: boolean[];
+
+    function showTwo(overrides: Partial<DatabaseFile>[] = []): void {
+      component.playlist_id = 'playlist-1';
+      component.db_playlist = {id: 'playlist-1', name: 'Space Station', uids: ['f1', 'f2']} as any;
+      component.file_objs = [
+        {uid: 'f1', title: 'First video', isAudio: false, url: 'https://example.com/first', ...overrides[0]} as DatabaseFile,
+        {uid: 'f2', title: 'Second video', isAudio: false, url: 'https://example.com/second', ...overrides[1]} as DatabaseFile
+      ];
+      component.uids = ['f1', 'f2'];
+      component.parseFileNames();
+      fixture.detectChanges();
+      tick();
+    }
+
+    function logIn(permissions = ['sharing']): void {
+      postsServiceStub.isLoggedIn = true;
+      postsServiceStub.token = 'session-jwt';
+      postsServiceStub.permissions = permissions;
+      postsServiceStub.hasPermission = vi.fn().mockName('hasPermission')
+        .mockImplementation((permission: string) => permissions.includes(permission));
+    }
+
+    function linkFor(uid: string, extra: object = {}) {
+      return {uid, stream_path: `/api/stream?uid=${uid}&playback_token=token-${uid}`, expires_at: 0, ...extra};
+    }
+
+    function video(): HTMLVideoElement {
+      return fixture.nativeElement.querySelector('video');
+    }
+
+    function src(): string {
+      fixture.detectChanges();
+      return video().getAttribute('src');
+    }
+
+    function makeCastable(): void {
+      remote = Object.assign(new EventTarget(), {state: 'disconnected' as RemotePlaybackState});
+      disable_toggles = [];
+      Object.defineProperty(video(), 'remote', {value: remote, configurable: true});
+      Object.defineProperty(video(), 'disableRemotePlayback', {
+        configurable: true,
+        get: () => false,
+        set: (value: boolean) => disable_toggles.push(value)
+      });
+    }
+
+    // The player plays from the new source, and only then says it can be cast.
+    function load(): void {
+      tick();
+      fixture.detectChanges();
+      video().dispatchEvent(new Event('loadedmetadata'));
+      fixture.detectChanges();
+    }
+
+    it('lets the file\'s own URL go as it is when it carries no login', fakeAsync(() => {
+      showTwo();
+      expect(component.castSource).toBe('ready');
+      expect(src()).toBe('/api/stream?uid=f1&type=video&playlist_id=playlist-1');
+    }));
+
+    it('keeps Chrome\'s own cast button off the picture, since the controls have one', fakeAsync(() => {
+      showTwo();
+      expect(video().getAttribute('controlslist')).toBe('noremoteplayback');
+    }));
+
+    it('swaps in a playback link from where it had got to before casting a URL with the login in it', fakeAsync(() => {
+      logIn();
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink').mockReturnValue(of(linkFor('f1')));
+      showTwo();
+      makeCastable();
+      expect(component.castSource).toBe('needs-link');
+      expect(src()).toContain('jwt=session-jwt');
+      video().currentTime = 42;
+
+      component.prepareCast({transcode: false});
+      expect(component.castSource).toBe('preparing');
+      load();
+
+      expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f1', false);
+      expect(src()).toMatch(/^https?:\/\/[^/]+\/api\/stream\?uid=f1&playback_token=token-f1$/);
+      expect(video().currentTime).toBe(42);
+      expect(component.castSource).toBe('ready');
+    }));
+
+    it('waits out a transcoding link until its copy is made, then swaps the copy in', fakeAsync(() => {
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink')
+        .mockReturnValue(of(linkFor('f1', {transcode: true, ready: false})));
+      let checks = 0;
+      postsServiceStub.checkPlaybackLink = vi.fn().mockName('checkPlaybackLink')
+        .mockImplementation(() => ++checks < 3 ? throwError(() => ({status: 503})) : of({status: 200}));
+      showTwo();
+
+      component.prepareCast({transcode: true});
+      tick();
+      expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f1', true);
+      expect(component.castSource).toBe('preparing');
+      tick(10000);
+      expect(src()).not.toContain('playback_token');
+      tick(10000);
+      load();
+
+      expect(checks).toBe(3);
+      expect(src()).toContain('playback_token=token-f1');
+      expect(component.castSource).toBe('ready');
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Ready to cast.');
+    }));
+
+    it('stops polling for a copy once another file is playing', fakeAsync(() => {
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink')
+        .mockReturnValue(of(linkFor('f1', {transcode: true, ready: false})));
+      postsServiceStub.checkPlaybackLink = vi.fn().mockName('checkPlaybackLink').mockReturnValue(throwError(() => ({status: 503})));
+      showTwo();
+
+      component.prepareCast({transcode: true});
+      tick();
+      component.advanceToNextVideo();
+      tick(30000);
+
+      expect(postsServiceStub.checkPlaybackLink).toHaveBeenCalledTimes(1);
+      expect(src()).toBe('/api/stream?uid=f2&type=video&playlist_id=playlist-1');
+    }));
+
+    it('keeps a cast going onto the next file through that file\'s own link', fakeAsync(() => {
+      logIn();
+      const next_link = new Subject<ReturnType<typeof linkFor>>();
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink')
+        .mockImplementation((uid: string) => uid === 'f1' ? of(linkFor('f1')) : next_link);
+      showTwo();
+      makeCastable();
+      component.prepareCast({transcode: false});
+      load();
+      remote.state = 'connected';
+
+      component.advanceToNextVideo();
+      tick();
+      // Until the next file's link is in, the <video> stays on the last file's.
+      expect(src()).toContain('playback_token=token-f1');
+      expect(component.castSource).toBe('preparing');
+
+      next_link.next(linkFor('f2'));
+      next_link.complete();
+      load();
+
+      expect(src()).toContain('playback_token=token-f2');
+      expect(src()).not.toContain('jwt');
+      expect(disable_toggles).toEqual([]);
+    }));
+
+    it('ends the cast before a URL with the login in it loads, when the next file gets no link', fakeAsync(() => {
+      logIn();
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink')
+        .mockImplementation((uid: string) => uid === 'f1' ? of(linkFor('f1')) : throwError(() => ({status: 404})));
+      showTwo();
+      makeCastable();
+      component.prepareCast({transcode: false});
+      load();
+      remote.state = 'connected';
+
+      component.advanceToNextVideo();
+      tick();
+
+      expect(disable_toggles).toEqual([true, false]);
+      expect(src()).toContain('uid=f2&type=video&jwt=session-jwt');
+      expect(component.castSource).toBe('unavailable');
+    }));
+
+    it('stops the cast rather than move it to an AV1 file whose copy is not made yet', fakeAsync(() => {
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink')
+        .mockReturnValue(of(linkFor('f2', {transcode: true, ready: false})));
+      showTwo([{}, {vcodec: 'av1'}]);
+      makeCastable();
+      remote.state = 'connected';
+
+      component.advanceToNextVideo();
+      expect(src()).toBe('/api/stream?uid=f1&type=video&playlist_id=playlist-1');
+      tick();
+
+      expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f2', true);
+      expect(disable_toggles).toEqual([true, false]);
+      expect(src()).toBe('/api/stream?uid=f2&type=video&playlist_id=playlist-1');
+    }));
+
+    it('goes back to the file\'s own URL, from where it stopped, once a playback link stops working', fakeAsync(() => {
+      logIn();
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink').mockReturnValue(of(linkFor('f1')));
+      showTwo();
+      makeCastable();
+      component.prepareCast({transcode: false});
+      load();
+      video().currentTime = 30;
+
+      video().dispatchEvent(new Event('error'));
+      load();
+
+      expect(src()).toContain('jwt=session-jwt');
+      expect(video().currentTime).toBe(30);
+      expect(component.castSource).toBe('needs-link');
+    }));
+
+    it('offers no cast where no link can be had: without the sharing permission, or in someone else\'s library', fakeAsync(() => {
+      logIn([]);
+      showTwo();
+      expect(component.castSource).toBe('unavailable');
+
+      postsServiceStub.hasPermission.mockReturnValue(true);
+      component.library = 'someone-else';
+      component.advanceToNextVideo();
+      expect(component.castSource).toBe('unavailable');
+    }));
+
+    it('says why a link was refused, and hides the button only when it will be refused again', fakeAsync(() => {
+      logIn();
+      postsServiceStub.createPlaybackLink = vi.fn().mockName('createPlaybackLink').mockReturnValue(throwError(() => ({status: 503})));
+      showTwo();
+
+      component.prepareCast({transcode: false});
+      tick();
+      expect(component.castSource).toBe('needs-link');
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Too many playback links are active. Try again later.');
+
+      postsServiceStub.createPlaybackLink.mockReturnValue(throwError(() => ({status: 403})));
+      component.prepareCast({transcode: false});
+      tick();
+      expect(component.castSource).toBe('unavailable');
+    }));
   });
 });
