@@ -23,9 +23,13 @@ export const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 // Chrome opens its cast picker only within five seconds of a click. A source swap that takes
 // longer than this leaves the picker to a second click.
 const CAST_PROMPT_WINDOW_MS = 4000;
-// One black frame of H.264, which every cast device plays. Whether it could be cast says a device
-// is around even while the file itself is in a codec the device cannot take, such as AV1 on
-// Android, where the file's own availability never turns true.
+// Chrome does not look for cast devices at all for media this short or shorter.
+const CAST_MIN_DURATION_S = 15;
+// A picker that is turned down sooner than this never opened: nobody closes one that fast.
+const CAST_PICKER_REFUSED_MS = 500;
+// Black H.264, which every cast device plays, and longer than CAST_MIN_DURATION_S. Whether it
+// could be cast says a device is around even while the file itself is in a codec the device
+// cannot take, such as AV1 on Android, where the file's own availability never turns true.
 const CAST_PROBE_SRC = 'assets/cast-probe.mp4';
 
 const MEDIA_EVENTS = [
@@ -115,6 +119,8 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   @Output() playNext = new EventEmitter<void>();
   // Asks the player for a source a cast device can fetch; castSource says when it has one.
   @Output() prepareCast = new EventEmitter<CastRequest>();
+  // Why a cast did not start, for the player to show.
+  @Output() castMessage = new EventEmitter<string>();
 
   @ViewChild('scrubber') scrubber?: ElementRef<HTMLElement>;
   @ViewChild('scrubTooltip') scrubTooltip?: ElementRef<HTMLElement>;
@@ -175,6 +181,11 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   private cast_probe_watch: number | null = null;
   // When the cast button last asked the player for a source, for opening the picker once it has.
   private cast_requested_at: number | null = null;
+  // Counts the reports that a device can take the loaded file, so the picker waits for one about
+  // the source the player swapped in rather than the one before it.
+  private cast_available_reports = 0;
+  private cast_reports_at_request = 0;
+  private cast_prompt_timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private host: ElementRef<HTMLElement>, private cdr: ChangeDetectorRef, private zone: NgZone) {}
 
@@ -316,11 +327,12 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   readonly fullscreenLabel = $localize`Full screen`;
   readonly exitFullscreenLabel = $localize`Exit full screen`;
   readonly chaptersLabel = $localize`Chapters`;
-  readonly castReadyLabel = $localize`Ready to cast`;
-  readonly castUnsupportedLabel = $localize`This file can't be cast`;
+  readonly castAgainLabel = $localize`Select the cast button again to pick a device.`;
+  readonly castRefusedLabel = $localize`Your browser did not open its cast picker.`;
 
   get castAvailable(): boolean {
     if (!this.cast_supported || this.castSource === 'unavailable') return false;
+    if (this.cast_state === 'disconnected' && this.duration > 0 && this.duration <= CAST_MIN_DURATION_S) return false;
     return this.cast_state !== 'disconnected' || this.castSource === 'preparing'
       || this.cast_source_available || this.cast_device_available;
   }
@@ -763,28 +775,77 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
       this.promptCast();
       return;
     }
+    this.endCastRequest();
     this.cast_requested_at = Date.now();
+    this.cast_reports_at_request = this.cast_available_reports;
     this.prepareCast.emit({transcode: !this.cast_source_available});
   }
 
-  // The player has swapped in the source the button asked for. The click still counts for
-  // opening the picker for a few seconds; after that it takes another.
+  // The player has swapped in the source the button asked for.
   private onCastSourceChange(): void {
-    if (this.castSource === 'preparing') return;
+    if (this.castSource === 'preparing' || this.cast_requested_at === null) return;
+    if (this.castSource !== 'ready') {
+      this.endCastRequest();
+      return;
+    }
+    this.promptForNewSource();
+    if (this.cast_requested_at === null) return;
+    // Whether or not the browser reports on the new source in time, the click stops counting.
+    this.cast_prompt_timer = setTimeout(() => this.zone.run(() => {
+      this.cast_prompt_timer = null;
+      this.promptForNewSource();
+    }), Math.max(0, this.cast_requested_at + CAST_PROMPT_WINDOW_MS - Date.now()));
+  }
+
+  // Asked before the browser has taken in the new source, Chrome turns the picker down unseen,
+  // so it waits for a report that a device can take that source. The click that asked still
+  // counts for a few seconds; after that it takes another.
+  private promptForNewSource(): void {
     const requested_at = this.cast_requested_at;
+    if (requested_at === null || this.castSource !== 'ready') return;
+    const expired = Date.now() - requested_at >= CAST_PROMPT_WINDOW_MS;
+    if (expired) {
+      this.endCastRequest();
+      this.castMessage.emit(this.castAgainLabel);
+    } else if (this.cast_available_reports !== this.cast_reports_at_request) {
+      this.endCastRequest();
+      this.promptCast();
+    }
+  }
+
+  private endCastRequest(): void {
     this.cast_requested_at = null;
-    if (this.castSource !== 'ready' || requested_at === null) return;
-    if (Date.now() - requested_at <= CAST_PROMPT_WINDOW_MS) this.promptCast();
-    else this.showFlash('cast', this.castReadyLabel);
+    if (this.cast_prompt_timer) clearTimeout(this.cast_prompt_timer);
+    this.cast_prompt_timer = null;
   }
 
   private promptCast(): void {
+    const started = Date.now();
     attempt(() => this.media.remote.prompt()).catch((error: DOMException) => this.zone.run(() => {
-      // Closing the picker, or not picking anything, is not a failure.
-      if (error?.name === 'NotSupportedError') this.showFlash('cast', this.castUnsupportedLabel);
-      // The click that asked for the swap no longer counts, so the next one opens the picker.
-      if (error?.name === 'InvalidAccessError') this.showFlash('cast', this.castReadyLabel);
+      const message = this.castFailure(error, Date.now() - started);
+      if (message) this.castMessage.emit(message);
     }));
+  }
+
+  private castFailure(error: DOMException, elapsed_ms: number): string | null {
+    switch (error?.name) {
+      // Closing the picker is not a failure. Turning it down before anyone could have seen it
+      // is how Chrome answers when it has no picker to show.
+      case 'NotAllowedError':
+        return elapsed_ms < CAST_PICKER_REFUSED_MS ? this.castRefusedLabel : null;
+      // The picker asked for last time never answered, so it never showed either.
+      case 'OperationError':
+        return this.castRefusedLabel;
+      case 'NotFoundError':
+        return $localize`No cast device found.`;
+      case 'NotSupportedError':
+        return $localize`This file can't be cast.`;
+      // The click that asked for the swap no longer counts.
+      case 'InvalidAccessError':
+        return this.castAgainLabel;
+      default:
+        return $localize`Couldn't start casting.`;
+    }
   }
 
   private attachCast(media: HTMLVideoElement): void {
@@ -805,6 +866,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     this.cast_watch = null;
     this.cast_source_available = false;
     this.cast_state = 'disconnected';
+    this.endCastRequest();
     this.stopCastProbe();
   }
 
@@ -816,6 +878,10 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     this.cast_watch = null;
     attempt(() => remote.watchAvailability(available => this.zone.run(() => {
       this.cast_source_available = available;
+      if (available) {
+        this.cast_available_reports += 1;
+        this.promptForNewSource();
+      }
       this.cdr.markForCheck();
     }))).then(id => {
       this.cast_watch = id;

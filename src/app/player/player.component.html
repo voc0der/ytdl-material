@@ -25,7 +25,8 @@
                   [hasNext]="currentIndex + 1 < playlist.length"
                   (playNext)="advanceToNextVideo()"
                   [castSource]="castSource"
-                  (prepareCast)="prepareCast($event)"></app-media-controls>
+                  (prepareCast)="prepareCast($event)"
+                  (castMessage)="postsService.openSnackBar($event)"></app-media-controls>
               }
             </div>
             @if (snip_mode && !theater_mode_enabled) {
