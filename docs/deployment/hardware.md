@@ -45,7 +45,7 @@ For AMD AMF, set `amf` and provide a compatible host runtime. AMF is encode-only
 
 ## Playback copies
 
-External players that cannot decode AV1 can ask `POST /api/createPlaybackLink` for `"transcode": true`. The link then streams an H.264/AAC MP4 copy, made once through the same GPU-then-CPU fallback as cropping and stored in `appdata/transcodes`. The copy is always MP4, so it can use the GPU whatever the source container. Copies are made one at a time. Until a copy is ready, its stream answers `503` with `Retry-After`. Later links for the same file reuse the copy unless the file has changed since.
+External players that cannot decode AV1 can ask `POST /api/createPlaybackLink` for `"transcode": true`. The link then streams an H.264/AAC MP4 copy, made once through the same GPU-then-CPU fallback as cropping and stored in `appdata/transcodes`. The copy is always MP4, so it can use the GPU whatever the source container. Copies are made one at a time. Until a copy is ready, its stream answers `503` with `Retry-After`. Later links for the same file reuse the copy unless the file has changed since. The player's [cast button](../usage/player.md#cast-to-a-tv) asks for a copy the same way when the cast device cannot play the file.
 
 The **Delete old playback transcodes** task runs daily by default. It deletes copies that are over six hours old and not used by an unexpired link, queued or in progress. Lite server backups skip `appdata/transcodes`.
 

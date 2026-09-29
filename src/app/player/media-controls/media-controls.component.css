@@ -275,6 +275,11 @@
     right: 11px;
 }
 
+/* Casting: getting the file ready, or reaching the device. */
+.control.pending mat-icon {
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
 .control[data-tip]::before {
     background: var(--controls-surface);
     border-radius: 6px;
@@ -686,6 +691,10 @@
     to { transform: rotate(360deg); }
 }
 
+@keyframes pulse {
+    50% { opacity: 0.35; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .flash {
         animation-name: fade-out;
@@ -693,6 +702,11 @@
 
     .controls-menu {
         animation: none;
+    }
+
+    .control.pending mat-icon {
+        animation: none;
+        opacity: 0.6;
     }
 }
 

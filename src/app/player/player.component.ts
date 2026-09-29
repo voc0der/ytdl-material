@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
-import { PostsService } from 'app/posts.services';
+import { PlaybackLink, PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray, CdkDropList, CdkDrag } from '@angular/cdk/drag-drop';
@@ -11,7 +11,7 @@ import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.com
 import { saveBlob } from '../utils/save-blob';
 import { fileThumbnailURL, formatDuration } from '../utils/file-display';
 import { filesize } from 'filesize';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { NgClass } from '@angular/common';
 import { MatDrawerContainer, MatDrawer } from '@angular/material/sidenav';
@@ -23,7 +23,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
-import { MediaControlsComponent } from './media-controls/media-controls.component';
+import { CastRequest, CastSource, MediaControlsComponent } from './media-controls/media-controls.component';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
 
@@ -40,7 +40,11 @@ export interface IMedia {
   thumbnail?: string | null;
   duration?: string;
   uploader?: string;
+  vcodec?: string | null;
 }
+
+// A transcoding playback link answers 503 with Retry-After: 10 until its copy is made.
+const CAST_TRANSCODE_POLL_MS = 10000;
 
 export interface ISubtitleTrack {
   label: string;
@@ -90,6 +94,14 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   // Whether the <video> below has been set up: its saved volume, and what follows it.
   media_ready = false;
   private ready_media: HTMLVideoElement | null = null;
+
+  // Casting. A device such as a Chromecast under Chrome on Android fetches the file itself, so
+  // it gets a playback link rather than the item's own URL, which carries the viewer's login.
+  // The <video> plays cast_src in its place once the cast button has asked for one.
+  cast_src: string | null = null;
+  castSource: CastSource = 'ready';
+  // Moves on with the item, so a link or copy asked for an earlier one is dropped.
+  private cast_token = 0;
 
   // params
   uids: string[];
@@ -232,6 +244,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    this.cast_token += 1;
     this.setTheaterMode(false);
     this.playlistDownloadSubscription?.unsubscribe();
     this.playlistDownloadSubscription = null;
@@ -421,6 +434,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       });
       media.addEventListener('ended', () => this.nextVideo());
       media.addEventListener('timeupdate', () => this.onPlaybackTimeUpdate());
+      media.addEventListener('error', () => this.onMediaError());
 
       if (this.timestamp) {
         media.currentTime = +this.timestamp;
@@ -461,18 +475,171 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       this.subtitleToggleStateKey = null;
       this.subtitlesEnabled = false;
     }
-    if (this.currentItem?.uid !== newCurrentItem?.uid) {
+    const file_changed = this.currentItem?.uid !== newCurrentItem?.uid;
+    if (file_changed) {
       this.subtitleTrackRefreshToken += 1;
       this.loadedSubtitleTrackSignature = '';
     }
+    const was_casting = this.isCasting();
+    const previous_src = this.cast_src ?? this.currentItem?.src ?? null;
     this.currentItem  = newCurrentItem;
     this.currentIndex = newCurrentIndex;
     this.playbackTime = 0;
+    // A rebuilt queue hands back the file already playing, whose cast source still holds.
+    if (file_changed) this.resetCastSource(was_casting, previous_src);
     this.syncCurrentSingleFileMetadata();
     this.syncCurrentFileMetadata();
     this.syncCurrentChapters();
     this.syncCurrentSubtitles();
     this.updatePageTitleForCurrentItem();
+  }
+
+  // Casting
+
+  prepareCast(request: CastRequest): void {
+    const item = this.currentItem;
+    if (!item || this.castSource === 'preparing' || this.castSource === 'unavailable') return;
+    this.castSource = 'preparing';
+    void this.requestCastSource(item, request.transcode, this.cast_token, true);
+  }
+
+  private castSourceFor(item: IMedia | null): CastSource {
+    if (!item || item.type === 'audio/mp3') return 'unavailable';
+    // Without a login in it, as in single-user mode or on a share link, the URL can go as it is.
+    if (!this.postsService.isLoggedIn) return 'ready';
+    // A playback link only covers the viewer's own files, and takes the sharing permission.
+    if (this.library || !this.postsService.hasPermission('sharing')) return 'unavailable';
+    return 'needs-link';
+  }
+
+  private isCasting(): boolean {
+    const state = this.media?.remote?.state;
+    return state === 'connecting' || state === 'connected';
+  }
+
+  // A new file starts from its own URL. A cast in progress only goes on to it on a source its
+  // device can fetch and play, so a URL with the login in it is never handed over, and the
+  // <video> stays on the last file's source until the new one's link is in.
+  private resetCastSource(was_casting: boolean, previous_src: string | null): void {
+    const item = this.currentItem;
+    const token = ++this.cast_token;
+    const source = this.castSourceFor(item);
+    // The codec Chrome on Android will not cast, and the one yt-dlp prefers when it is offered.
+    const transcode = item?.vcodec === 'av1';
+    if (!was_casting || (source === 'ready' && !transcode)) {
+      this.cast_src = null;
+      this.castSource = source;
+      return;
+    }
+    if (source === 'unavailable') {
+      this.stopCasting();
+      this.castSource = source;
+      return;
+    }
+    this.cast_src = previous_src;
+    this.castSource = 'preparing';
+    void this.requestCastSource(item, transcode, token, false);
+  }
+
+  private async requestCastSource(item: IMedia, transcode: boolean, token: number, same_file: boolean): Promise<void> {
+    const current = () => token === this.cast_token && !this.destroyed;
+    let link: PlaybackLink;
+    try {
+      link = await firstValueFrom(this.postsService.createPlaybackLink(item.uid, transcode));
+    } catch (error) {
+      if (current()) this.castSourceFailed(item, error?.status, same_file);
+      return;
+    }
+    if (!current()) return;
+    // Absolute, since it is the device that fetches it.
+    const url = new URL(link.stream_path, new URL(this.baseStreamPath, document.baseURI)).href;
+    if (link.transcode && !link.ready) {
+      if (!same_file) {
+        // A cast going on to the next file cannot wait out a transcode.
+        this.stopCasting();
+        this.castSource = this.castSourceFor(item);
+        this.postsService.openSnackBar($localize`Casting stopped: a copy of this file that your cast device can play is being made. Cast it again in a while.`);
+        return;
+      }
+      this.postsService.openSnackBar($localize`Making a copy of this file that your cast device can play. This can take a while.`);
+      const ready = await this.waitForTranscode(url, current);
+      if (!current()) return;
+      if (!ready) {
+        this.castSource = this.castSourceFor(item);
+        this.postsService.openSnackBar($localize`Couldn't make a copy of this file that your cast device can play.`);
+        return;
+      }
+      this.postsService.openSnackBar($localize`Ready to cast.`);
+    }
+    this.swapCastSource(url, token, same_file);
+  }
+
+  private castSourceFailed(item: IMedia, status: number | undefined, same_file: boolean): void {
+    if (!same_file) this.stopCasting();
+    // Refused for this file, rather than the server being busy or out of reach.
+    const refused = status === 401 || status === 403 || status === 404;
+    this.castSource = refused ? 'unavailable' : this.castSourceFor(item);
+    this.postsService.openSnackBar(status === 503
+      ? $localize`Too many playback links are active. Try again later.`
+      : refused ? $localize`This file can't be cast.` : $localize`Couldn't get this file ready to cast.`);
+  }
+
+  // Asks the link, as an external player would, until its copy is made.
+  private async waitForTranscode(url: string, current: () => boolean): Promise<boolean> {
+    while (current()) {
+      try {
+        await firstValueFrom(this.postsService.checkPlaybackLink(url));
+        return true;
+      } catch (error) {
+        if (error?.status !== 503) return false;
+      }
+      await new Promise(resolve => setTimeout(resolve, CAST_TRANSCODE_POLL_MS));
+    }
+    return false;
+  }
+
+  // For the same file it carries on from where it had got to, and stays paused if it was,
+  // since the player plays every file it loads.
+  private swapCastSource(url: string, token: number, same_file: boolean): void {
+    const media = this.media;
+    const resume_time = same_file && Number.isFinite(media?.currentTime) ? media.currentTime : 0;
+    const was_paused = same_file && !!media?.paused;
+    media?.addEventListener('loadedmetadata', () => {
+      if (token !== this.cast_token) return;
+      if (resume_time > 0) media.currentTime = Math.min(resume_time, media.duration || resume_time);
+      if (was_paused) media.pause();
+      // Only now, loaded, does the browser know whether the source can be cast.
+      this.castSource = 'ready';
+    }, {once: true});
+    this.cast_src = url;
+    if (!media) this.castSource = 'ready';
+  }
+
+  // The Remote Playback API has no call that ends a session, but switching it off does.
+  private stopCasting(): void {
+    const media = this.media;
+    if (media?.remote && media.remote.state !== 'disconnected') {
+      media.disableRemotePlayback = true;
+      media.disableRemotePlayback = false;
+    }
+    this.cast_src = null;
+  }
+
+  // A playback link dies with a server restart, and after six hours, while its file is still
+  // there. The file's own URL takes over from where it stopped, with any cast ended first,
+  // since that URL has the login in it.
+  private onMediaError(): void {
+    if (!this.cast_src) return;
+    const token = ++this.cast_token;
+    const media = this.media;
+    const resume_time = Number.isFinite(media?.currentTime) ? media.currentTime : 0;
+    this.stopCasting();
+    this.castSource = this.castSourceFor(this.currentItem);
+    if (media && resume_time > 0) {
+      media.addEventListener('loadedmetadata', () => {
+        if (token === this.cast_token) media.currentTime = Math.min(resume_time, media.duration || resume_time);
+      }, {once: true});
+    }
   }
 
   updatePageTitleForCurrentItem(): void {
@@ -983,7 +1150,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       subtitles: normalizedSubtitles,
       thumbnail: fileThumbnailURL(file_obj, this.baseStreamPath, this.postsService.isLoggedIn ? this.postsService.token : null, this.library),
       duration: formatDuration(file_obj.duration),
-      uploader: file_obj.uploader || ''
+      uploader: file_obj.uploader || '',
+      vcodec: file_obj.vcodec ?? null
     };
     return mediaObject;
   }

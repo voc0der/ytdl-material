@@ -1,5 +1,5 @@
-import {Injectable, isDevMode, Inject, DOCUMENT} from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import {Injectable, isDevMode, Inject, DOCUMENT, inject} from '@angular/core';
+import { HttpBackend, HttpClient, HttpParams } from '@angular/common/http';
 import { THEMES_CONFIG } from '../themes';
 import { Router, ActivatedRouteSnapshot } from '@angular/router';
 
@@ -186,6 +186,17 @@ export interface OIDCStatus {
 // Pages that only ever show your own things, never a library someone shared with you.
 export const OWN_LIBRARY_PAGES = ['subscriptions', 'subscription', 'downloads', 'duplicates'];
 
+// A stream URL for one video that carries no login, for a player that fetches the file itself.
+export interface PlaybackLink {
+    uid: string;
+    // Relative to the server, and its playback_token is a credential.
+    stream_path: string;
+    expires_at: number;
+    transcode?: boolean;
+    // Only with transcode: false while the H.264 copy is still being made.
+    ready?: boolean;
+}
+
 @Injectable()
 export class PostsService {
     path = '';
@@ -245,6 +256,11 @@ export class PostsService {
     sidenav = null;
     locale = isoLangs['en'];
     version_info = null;
+
+    // Skips the 401 interceptor, which turns a failure into its message, so the caller cannot
+    // tell a refused link from a busy server, and which logs out on any 401, although a playback
+    // link being refused says nothing about the session.
+    private readonly http_without_interceptors = new HttpClient(inject(HttpBackend));
 
     constructor(private http: HttpClient, private router: Router, @Inject(DOCUMENT) private document: Document,
                 public snackBar: MatSnackBar, private titleService: Title) {
@@ -588,6 +604,16 @@ export class PostsService {
         const body: DownloadFileRequest = {uuid: uuid, sub_id: sub_id};
         return this.http.post(this.path + 'downloadFileFromServer', body, {responseType: 'blob', params: this.httpOptions.params});
 
+    }
+
+    createPlaybackLink(uid: string, transcode = false) {
+        return this.http_without_interceptors.post<PlaybackLink>(this.path + 'createPlaybackLink', {uid: uid, transcode: transcode}, this.httpOptions);
+    }
+
+    // A transcoding link answers 503 until its copy is made. No login goes with it: the stream
+    // refuses a playback token that comes with one.
+    checkPlaybackLink(url: string) {
+        return this.http_without_interceptors.head(url, {observe: 'response'});
     }
 
     checkConcurrentStream(uid) {

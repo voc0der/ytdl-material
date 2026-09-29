@@ -150,11 +150,26 @@ async function centre(page) {
 async function onDesktop(browser, name, seeded, errors) {
     say(`${name}: the picture, the scrubber, the menus and the keyboard`);
     const page = await newPage(browser, name, errors);
+    const probe_requests = [];
+    page.on('request', request => {
+        if (request.url().includes('/assets/cast-probe.mp4')) probe_requests.push(request.url());
+    });
     await openPlaying(page, `player;uid=${seeded.chaptered.uid};type=video`);
     const { x, y } = await centre(page);
 
     check('the video has no native controls', !(await media(page)).controls);
     check('the scrubber has a segment per chapter', await page.locator('app-media-controls .segment').count() === CHAPTERS.length);
+
+    // No cast device answers here, so the button itself cannot be seen. What can be: Chrome's own
+    // is kept off the picture, and only a browser with the Remote Playback API looks for devices.
+    check('Chrome\'s own cast button is kept off the picture',
+        await page.locator('video').getAttribute('controlslist') === 'noremoteplayback');
+    check('no cast button shows without a cast device', await page.locator('app-media-controls .cast-button').count() === 0);
+    if (name === 'chromium') {
+        check('Chromium fetches the clip it finds cast devices with', probe_requests.length > 0);
+    } else {
+        check('Firefox, which has no Remote Playback API, fetches nothing for casting', probe_requests.length === 0);
+    }
 
     // Parked off the player, so only the time since it started counts.
     await page.mouse.move(5, 5);

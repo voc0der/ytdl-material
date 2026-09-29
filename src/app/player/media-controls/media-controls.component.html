@@ -147,6 +147,12 @@
             <span class="rate-badge">{{rateLabel}}</span>
           }
         </button>
+        @if (castAvailable) {
+          <button class="control cast-button" type="button" [class.on]="cast_state === 'connected'" [class.pending]="castSource === 'preparing' || cast_state === 'connecting'"
+                  [attr.aria-pressed]="cast_state === 'connected'" (click)="cast()" [attr.aria-label]="castLabel" [attr.data-tip]="castLabel">
+            <mat-icon>{{castIcon}}</mat-icon>
+          </button>
+        }
         @if (pip_supported) {
           <button class="control" type="button" [class.on]="pip" (click)="togglePictureInPicture()"
                   aria-label="Picture-in-picture" i18n-aria-label="Picture-in-picture button label" data-tip="Picture-in-picture" i18n-data-tip="Picture-in-picture button tip">

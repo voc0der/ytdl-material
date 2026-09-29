@@ -13,6 +13,15 @@ Open a downloaded file or playlist from the library. The browser plays the saved
 
 Autoplay preference is remembered in your browser. The separate **Force autoplay** setting applies to the Home download flow's autoplay choice. Browsers may still require a user gesture before playing with sound.
 
+## Cast to a TV
+
+In Chrome, Edge, and Safari, the player's bar shows a cast button while a Chromecast or AirPlay device is on your network. Firefox cannot cast.
+
+- Desktop Chrome and Edge stream the video from the browser. Everywhere else, including Chrome on Android, the device fetches the file from the server itself. It has to reach the address you open ytdl-material at, so `localhost` will not work, and a login page in front of the app, such as a reverse proxy's, stops it.
+- In multi-user mode the device gets a six-hour [playback link](../deployment/hardware.md#playback-copies) for that one file, never your login. Casting then needs the sharing permission and works only for files in your own library.
+- Chrome on Android cannot cast AV1, which is often what yt-dlp picks. When the device cannot play the file as it is, the server makes an H.264 copy first. The player says when the copy is ready; select the cast button again to start.
+- A cast carries on through Autoplay when the next file can be cast straight away, and stops otherwise. Leaving the player ends it.
+
 The information dialog shows the file's metadata and available actions. Expand the description for longer source notes.
 
 ## Save a snip
