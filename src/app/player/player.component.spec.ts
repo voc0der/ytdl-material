@@ -1344,10 +1344,105 @@ describe('PlayerComponent', () => {
       expect(src()).toBe('/api/stream?uid=f1&type=video&playlist_id=playlist-1');
     }));
 
-    it('keeps Chrome\'s own cast button off the picture, since the controls have one', fakeAsync(() => {
+    it('keeps the custom controls and cast button on desktop', fakeAsync(() => {
       showTwo();
+      expect(video().controls).toBe(false);
       expect(video().getAttribute('controlslist')).toBe('noremoteplayback');
+      expect(fixture.nativeElement.querySelector('app-media-controls')).not.toBeNull();
     }));
+
+    describe('Android native controls', () => {
+      beforeEach(() => {
+        fixture.destroy();
+        vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 14) Vivaldi/7.9');
+        fixture = TestBed.createComponent(PlayerComponent);
+        component = fixture.componentInstance;
+        fixture.detectChanges();
+      });
+
+      afterEach(() => vi.restoreAllMocks());
+
+      const prepareButton = (): HTMLButtonElement | null =>
+        fixture.nativeElement.querySelector('button[aria-label="Prepare casting"]');
+
+      it('exposes the browser controls without a covering custom player or requiring the script casting API', fakeAsync(() => {
+        showTwo();
+        expect(video().remote).toBeUndefined();
+        expect(video().controls).toBe(true);
+        expect(video().getAttribute('controlslist')).toBeNull();
+        expect(video().hasAttribute('disableremoteplayback')).toBe(false);
+        expect(fixture.nativeElement.querySelector('app-media-controls')).toBeNull();
+        expect(prepareButton()).toBeNull();
+      }));
+
+      it('prepares an authenticated file before enabling native casting, without calling the script picker', fakeAsync(() => {
+        logIn();
+        postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(of(linkFor('f1')));
+        showTwo();
+        const original_video = video();
+        const prompt = vi.fn();
+        Object.defineProperty(original_video, 'remote', {value: {state: 'disconnected', prompt}, configurable: true});
+        original_video.currentTime = 42;
+        expect(original_video.hasAttribute('disableremoteplayback')).toBe(true);
+
+        prepareButton().click();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('button[aria-label="Getting the file ready to cast"]').disabled).toBe(true);
+        load();
+
+        expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f1', false);
+        expect(video()).toBe(original_video);
+        expect(video().currentTime).toBe(42);
+        expect(src()).toContain('playback_token=token-f1');
+        expect(src()).not.toContain('jwt=');
+        expect(video().hasAttribute('disableremoteplayback')).toBe(false);
+        expect(prepareButton()).toBeNull();
+        expect(prompt).not.toHaveBeenCalled();
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith("Ready to cast. Use the cast button in the video's controls to pick a device.");
+
+        component.advanceToNextVideo();
+        fixture.detectChanges();
+        expect(src()).toContain('uid=f2');
+        expect(video().hasAttribute('disableremoteplayback')).toBe(true);
+        expect(prepareButton()).not.toBeNull();
+      }));
+
+      it('offers a compatible copy for AV1 even without a Remote Playback availability watcher', fakeAsync(() => {
+        postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(of(linkFor('f1', {transcode: true, ready: true})));
+        showTwo([{vcodec: 'av1'}]);
+
+        prepareButton().click();
+        load();
+
+        expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f1', true);
+        expect(src()).toContain('playback_token=token-f1');
+        expect(video().controls).toBe(true);
+        expect(video().hasAttribute('disableremoteplayback')).toBe(false);
+        expect(prepareButton()).toBeNull();
+      }));
+
+      it('keeps native casting disabled when a playback link is refused', fakeAsync(() => {
+        logIn();
+        postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(throwError(() => ({status: 403})));
+        showTwo();
+        prepareButton().click();
+        tick();
+        fixture.detectChanges();
+
+        expect(video().controls).toBe(true);
+        expect(video().hasAttribute('disableremoteplayback')).toBe(true);
+        expect(prepareButton()).toBeNull();
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith("This file can't be cast.");
+      }));
+
+      it('disables native casting for a library without permission to issue playback links', fakeAsync(() => {
+        logIn([]);
+        showTwo();
+        expect(video().controls).toBe(true);
+        expect(video().hasAttribute('disableremoteplayback')).toBe(true);
+        expect(prepareButton()).toBeNull();
+      }));
+    });
 
     it('swaps in a playback link from where it had got to before casting a URL with the login in it', fakeAsync(() => {
       logIn();
