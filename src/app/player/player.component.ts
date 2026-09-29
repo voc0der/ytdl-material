@@ -94,6 +94,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   // Whether the <video> below has been set up: its saved volume, and what follows it.
   media_ready = false;
   private ready_media: HTMLVideoElement | null = null;
+  // Android's browser controls expose the native cast picker. Keep the video uncovered so
+  // those controls receive taps, including in browsers whose script API cannot open it.
+  readonly native_video_controls = /Android/i.test(navigator.userAgent)
+    || (navigator as Navigator & {userAgentData?: {platform: string}}).userAgentData?.platform === 'Android';
 
   // Casting. A device such as a Chromecast under Chrome on Android fetches the file itself, so
   // it gets a playback link rather than the item's own URL, which carries the viewer's login.
@@ -496,6 +500,21 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   // Casting
 
+  get nativeCastNeedsPreparation(): boolean {
+    return this.native_video_controls && this.currentItem?.type !== 'audio/mp3'
+      && this.castSource !== 'unavailable'
+      && (this.castSource !== 'ready' || (this.currentItem?.vcodec === 'av1' && !this.cast_src));
+  }
+
+  get nativeCastPreparationLabel(): string {
+    return this.castSource === 'preparing'
+      ? $localize`Getting the file ready to cast` : $localize`Prepare casting`;
+  }
+
+  prepareNativeCast(): void {
+    this.prepareCast({transcode: this.currentItem?.vcodec === 'av1'});
+  }
+
   prepareCast(request: CastRequest): void {
     const item = this.currentItem;
     if (!item || this.castSource === 'preparing' || this.castSource === 'unavailable') return;
@@ -609,6 +628,9 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       if (was_paused) media.pause();
       // Only now, loaded, does the browser know whether the source can be cast.
       this.castSource = 'ready';
+      if (same_file && this.native_video_controls) {
+        this.postsService.openSnackBar($localize`Ready to cast. Use the cast button in the video's controls to pick a device.`);
+      }
     }, {once: true});
     this.cast_src = url;
     if (!media) this.castSource = 'ready';

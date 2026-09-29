@@ -5,14 +5,17 @@
         <mat-drawer-container style="height: 100%" class="example-container" autosize>
           <div class="theater-video-stage" style="height: fit-content" [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-col' : 'video-col'">
             <div class="media-player" style="height: fit-content; max-height: 75vh" (mousemove)="onPlayerMouseMove()" [style.background-color]="(currentItem.type === 'audio/mp3') ? postsService.theme.drawer_color : 'black'">
-              <!-- An audio file keeps the browser's own bar; a video gets the player's controls,
-                   whose cast button stands in for the one Chrome would lay over the picture. -->
-              <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [src]="cast_src ?? currentItem.src" id="singleVideo" preload="auto" [controls]="currentItem.type === 'audio/mp3'" [attr.controlslist]="currentItem.type === 'audio/mp3' ? null : 'noremoteplayback'" playsinline>
+              <!-- Android uses the browser's controls, including its native cast picker.
+                   An authenticated source must first be replaced with a playback link. -->
+              <video [ngClass]="(currentItem.type === 'audio/mp3') ? 'audio-styles' : 'video-styles'" #media class="video-player" [src]="cast_src ?? currentItem.src" id="singleVideo" preload="auto"
+                     [controls]="native_video_controls || currentItem.type === 'audio/mp3'"
+                     [attr.controlslist]="native_video_controls || currentItem.type === 'audio/mp3' ? null : 'noremoteplayback'"
+                     [attr.disableremoteplayback]="native_video_controls && currentItem.type !== 'audio/mp3' && castSource !== 'ready' && !cast_src ? '' : null" playsinline>
                 @for (subtitle of currentSubtitleTracks; track subtitle.src ?? subtitle.language ?? $index) {
                   <track [attr.kind]="subtitle.kind || 'subtitles'" [attr.label]="subtitle.label" [attr.srclang]="subtitle.language" [attr.src]="subtitle.src" [attr.default]="subtitle.default ? '' : null">
                 }
               </video>
-              @if (currentItem.type !== 'audio/mp3') {
+              @if (currentItem.type !== 'audio/mp3' && !native_video_controls) {
                 <app-media-controls
                   [media]="media"
                   [chapters]="currentChapters"
@@ -56,6 +59,11 @@
           </div>
           <div class="player-toolbar-section" [class.theater-toolbar-visible]="theater_mode_enabled && theater_toolbar_visible" (mouseenter)="onTheaterToolbarMouseEnter()" (mouseleave)="onTheaterToolbarMouseLeave()">
             <div class="container-fluid player-toolbar-container">
+              @if (nativeCastNeedsPreparation) {
+                <button type="button" (click)="prepareNativeCast()" [disabled]="castSource === 'preparing'" [matTooltip]="nativeCastPreparationLabel" [attr.aria-label]="nativeCastPreparationLabel" mat-button>
+                  <mat-icon>cast</mat-icon>{{nativeCastPreparationLabel}}
+                </button>
+              }
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
                   @if (currentFile) {

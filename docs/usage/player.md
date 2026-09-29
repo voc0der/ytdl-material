@@ -15,7 +15,11 @@ Autoplay preference is remembered in your browser. The separate **Force autoplay
 
 ## Cast to a TV
 
-In Chrome, Edge, and Safari, the player's bar shows a cast button while a Chromecast or AirPlay device is on your network. Firefox cannot cast.
+On Android, videos use the browser's own playback controls so its native cast button can open the device picker directly. Tap the video to show those controls. Casting availability depends on the browser, file, and devices on your network.
+
+If **Prepare casting** appears below the video, select it first to get a playback link or make a compatible copy. Once the file is ready, use the cast button in the video's controls to choose a device.
+
+On desktop, the custom player's bar uses the browser's Remote Playback API to offer casting when available. Safari uses AirPlay; support varies between browsers.
 
 - Desktop Chrome and Edge stream the video from the browser. Everywhere else, including Chrome on Android, the device fetches the file from the server itself. It has to reach the address you open ytdl-material at, so `localhost` will not work, and a login page in front of the app, such as a reverse proxy's, stops it.
 - In multi-user mode the device gets a six-hour [playback link](../deployment/hardware.md#playback-copies) for that one file, never your login. Casting then needs the sharing permission and works only for files in your own library.
