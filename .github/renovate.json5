@@ -1,7 +1,9 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended', 'group:allNonMajor'],
-  // Dependabot alerts are off for this repo, so vulnerabilities come from OSV instead.
+  // Vulnerabilities come from two sources: this repository's Dependabot alerts, and
+  // osv.dev, which also carries advisories that never reach GitHub's database. A fix
+  // flagged by both still arrives as one PR.
   osvVulnerabilityAlerts: true,
   // main has no branch protection, so GitHub's auto-merge is unavailable. Renovate merges
   // on its own next run, and only once every check on the PR has passed.
