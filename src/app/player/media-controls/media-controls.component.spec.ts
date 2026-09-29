@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 import { configureTestBed } from '../../../testing/test-bed';
 import { MediaControlsComponent, formatMediaTime } from './media-controls.component';
 
@@ -417,7 +417,7 @@ describe('MediaControlsComponent', () => {
       expect(castButton()).toBeNull();
     });
 
-    it('asks the player for a link first when the URL carries the login, then opens the picker', () => {
+    it('asks the player for a link first when the URL carries the login, then opens the picker once the browser has taken it in', fakeAsync(() => {
       const requests: unknown[] = [];
       component.prepareCast.subscribe(request => requests.push(request));
       source('needs-link');
@@ -433,9 +433,28 @@ describe('MediaControlsComponent', () => {
       castButton().click();
       expect(requests.length).toBe(1);
 
+      // Loaded, but until the browser reports on the new source Chrome would turn the picker
+      // down before it showed.
+      source('ready');
+      expect(remote.prompt).not.toHaveBeenCalled();
+      tick(500);
+      remote.setAvailable(true);
+      expect(remote.prompt).toHaveBeenCalledTimes(1);
+      flush();
+    }));
+
+    it('opens the picker as soon as the player is done when the browser reported on the new source first', fakeAsync(() => {
+      source('needs-link');
+      devices(true);
+      castButton().click();
+      source('preparing');
+      remote.setAvailable(true);
+      expect(remote.prompt).not.toHaveBeenCalled();
+
       source('ready');
       expect(remote.prompt).toHaveBeenCalledTimes(1);
-    });
+      flush();
+    }));
 
     it('asks for the H.264 copy when the device around cannot play the file as it is', () => {
       const requests: unknown[] = [];
@@ -447,20 +466,74 @@ describe('MediaControlsComponent', () => {
       expect(remote.prompt).not.toHaveBeenCalled();
     });
 
-    it('leaves the picker to a second click once the click that asked is too old to open it', () => {
-      const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    it('leaves the picker to a second click once the click that asked is too old to open it', fakeAsync(() => {
+      const messages: string[] = [];
+      component.castMessage.subscribe(message => messages.push(message));
       source('needs-link');
       devices(true);
       castButton().click();
       source('preparing');
 
-      now.mockReturnValue(1000 + 60000);
+      // A copy that took a minute to make.
+      tick(60000);
       source('ready');
       expect(remote.prompt).not.toHaveBeenCalled();
-      expect(host().querySelector('.flash-label').textContent).toBe('Ready to cast');
+      expect(messages).toEqual(['Select the cast button again to pick a device.']);
 
       castButton().click();
       expect(remote.prompt).toHaveBeenCalled();
+      flush();
+    }));
+
+    it('stops waiting for the browser to report on the new source once the click no longer counts', fakeAsync(() => {
+      const messages: string[] = [];
+      component.castMessage.subscribe(message => messages.push(message));
+      source('needs-link');
+      devices(true);
+      castButton().click();
+      source('preparing');
+      tick(1000);
+      source('ready');
+
+      tick(2999);
+      expect(messages).toEqual([]);
+      tick(1);
+      expect(messages).toEqual(['Select the cast button again to pick a device.']);
+      remote.setAvailable(true);
+      expect(remote.prompt).not.toHaveBeenCalled();
+    }));
+
+    it('says so when the browser turns its picker down unseen, and not when the picker is closed', fakeAsync(() => {
+      const messages: string[] = [];
+      component.castMessage.subscribe(message => messages.push(message));
+      devices(true);
+
+      remote.prompt.mockRejectedValueOnce(new DOMException('The prompt was dismissed.', 'NotAllowedError'));
+      castButton().click();
+      flush();
+      expect(messages).toEqual(['Your browser did not open its cast picker.']);
+
+      remote.prompt.mockImplementationOnce(() => new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new DOMException('The prompt was dismissed.', 'NotAllowedError')), 3000)));
+      castButton().click();
+      tick(3000);
+      expect(messages.length).toBe(1);
+
+      // A picker asked for earlier that never answered did not show either.
+      remote.prompt.mockRejectedValueOnce(new DOMException('A prompt is already being shown for this media element.', 'OperationError'));
+      castButton().click();
+      flush();
+      expect(messages).toEqual(['Your browser did not open its cast picker.', 'Your browser did not open its cast picker.']);
+    }));
+
+    it('offers no cast for a file too short for Chrome to look for devices for', () => {
+      devices(true);
+      expect(castButton()).not.toBeNull();
+      const castable = (component as any).media as FakeMedia;
+      castable.duration = 12;
+      castable.dispatchEvent(new Event('durationchange'));
+      fixture.detectChanges();
+      expect(castButton()).toBeNull();
     });
 
     it('says when it is casting, and opens the picker to stop it', () => {

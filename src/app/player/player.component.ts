@@ -569,7 +569,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
         this.postsService.openSnackBar($localize`Couldn't make a copy of this file that your cast device can play.`);
         return;
       }
-      this.postsService.openSnackBar($localize`Ready to cast.`);
     }
     this.swapCastSource(url, token, same_file);
   }

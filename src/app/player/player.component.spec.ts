@@ -7,6 +7,7 @@ import { Observable, Subject, of, throwError } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IChapter, IMedia, ISubtitleTrack, PlayerComponent } from './player.component';
+import { MediaControlsComponent } from './media-controls/media-controls.component';
 import { configureTestBed } from '../../testing/test-bed';
 
 describe('PlayerComponent', () => {
@@ -1387,7 +1388,14 @@ describe('PlayerComponent', () => {
       expect(checks).toBe(3);
       expect(src()).toContain('playback_token=token-f1');
       expect(component.castSource).toBe('ready');
-      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Ready to cast.');
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Making a copy of this file that your cast device can play. This can take a while.');
+    }));
+
+    it('shows why a cast did not start', fakeAsync(() => {
+      showTwo();
+      const controls = fixture.debugElement.query(By.directive(MediaControlsComponent)).componentInstance as MediaControlsComponent;
+      controls.castMessage.emit('Your browser did not open its cast picker.');
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Your browser did not open its cast picker.');
     }));
 
     it('stops polling for a copy once another file is playing', fakeAsync(() => {
