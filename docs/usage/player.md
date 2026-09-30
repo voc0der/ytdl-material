@@ -15,15 +15,15 @@ Autoplay preference is remembered in your browser. The separate **Force autoplay
 
 ## Cast to a TV
 
-On Android, videos use the browser's own playback controls so its native cast button can open the device picker directly. Tap the video to show those controls. Casting availability depends on the browser, file, and devices on your network.
+On Android, videos use the browser's own playback controls. Tap the video to show them: **Cast** is in their **⋮** menu, listed once the browser has found a cast device on your network for the file.
 
-If **Prepare casting** appears below the video, select it first to get a playback link or make a compatible copy. Once the file is ready, use the cast button in the video's controls to choose a device.
+If **Prepare casting** appears below the video, select it first to get a playback link or make a compatible copy. The player then says whether your browser has found a device for it.
 
 On desktop, the custom player's bar uses the browser's Remote Playback API to offer casting when available. Safari uses AirPlay; support varies between browsers.
 
 - Desktop Chrome and Edge stream the video from the browser. Everywhere else, including Chrome on Android, the device fetches the file from the server itself. It has to reach the address you open ytdl-material at, so `localhost` will not work, and a login page in front of the app, such as a reverse proxy's, stops it.
 - In multi-user mode the device gets a six-hour [playback link](../deployment/hardware.md#playback-copies) for that one file, never your login. Casting then needs the sharing permission and works only for files in your own library.
-- Chrome on Android cannot cast AV1, which is often what yt-dlp picks. When the device cannot play the file as it is, the server makes an H.264 copy first. The player says when the copy is ready; select the cast button again to start.
+- Chrome on Android cannot cast AV1, which is often what yt-dlp picks. When the browser will not cast the file as it is, the server makes an H.264 copy first, and the player says when it is ready. Other codecs, HEVC included, go as they are, so the device itself has to be able to play them.
 - A cast carries on through Autoplay when the next file can be cast straight away, and stops otherwise. Leaving the player ends it.
 
 The information dialog shows the file's metadata and available actions. Expand the description for longer source notes.
