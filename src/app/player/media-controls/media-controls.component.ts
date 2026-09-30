@@ -79,7 +79,7 @@ type Menu = 'speed' | 'chapters';
 
 // The Remote Playback API's methods reject rather than throw, but a browser that throws anyway
 // must not take the rest of the controls down with it.
-function attempt<T>(call: () => Promise<T>): Promise<T> {
+export function attempt<T>(call: () => Promise<T>): Promise<T> {
   try {
     return call();
   } catch (error) {

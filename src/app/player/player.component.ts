@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, HostListener, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ChangeDetectorRef, ElementRef, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { PlaybackLink, PostsService } from 'app/posts.services';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -23,7 +23,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
-import { CastRequest, CastSource, MediaControlsComponent } from './media-controls/media-controls.component';
+import { CastRequest, CastSource, MediaControlsComponent, attempt } from './media-controls/media-controls.component';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
 
@@ -45,6 +45,9 @@ export interface IMedia {
 
 // A transcoding playback link answers 503 with Retry-After: 10 until its copy is made.
 const CAST_TRANSCODE_POLL_MS = 10000;
+// How long the player waits for the browser to find a cast device for a prepared source before
+// saying it has not. The browser goes on looking, and lists Cast once it does.
+const CAST_DEVICE_WAIT_MS = 5000;
 
 export interface ISubtitleTrack {
   label: string;
@@ -281,7 +284,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   constructor(public postsService: PostsService, private route: ActivatedRoute, private dialog: MatDialog, private router: Router,
-              private cdr: ChangeDetectorRef) {
+              private cdr: ChangeDetectorRef, private zone: NgZone) {
 
   }
 
@@ -433,6 +436,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       this.save_volume_timer = setInterval(() => this.saveVolume(media), 2000)
 
       media.addEventListener('loadedmetadata', () => {
+        this.lookForCastDevices(media);
         this.showDefaultSubtitleTrack();
         this.playVideo();
       });
@@ -500,19 +504,25 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   // Casting
 
-  get nativeCastNeedsPreparation(): boolean {
-    return this.native_video_controls && this.currentItem?.type !== 'audio/mp3'
-      && this.castSource !== 'unavailable'
-      && (this.castSource !== 'ready' || (this.currentItem?.vcodec === 'av1' && !this.cast_src));
+  // On Android the browser's own controls cast, from their ⋮ menu. The glyph beside Download
+  // gets the file ready for them first when it needs a playback link or a copy, then says
+  // whether the browser has found a device.
+  get nativeCastAvailable(): boolean {
+    return this.native_video_controls && this.currentItem?.type !== 'audio/mp3' && this.castSource !== 'unavailable';
   }
 
-  get nativeCastPreparationLabel(): string {
-    return this.castSource === 'preparing'
-      ? $localize`Getting the file ready to cast` : $localize`Prepare casting`;
+  get nativeCastLabel(): string {
+    return this.castSource === 'preparing' ? $localize`Getting the file ready to cast` : $localize`Cast`;
   }
 
-  prepareNativeCast(): void {
-    this.prepareCast({transcode: this.currentItem?.vcodec === 'av1'});
+  castNatively(): void {
+    // The codec Chrome on Android will not cast.
+    const needs_copy = this.currentItem?.vcodec === 'av1' && !this.cast_src;
+    if (this.castSource === 'needs-link' || needs_copy) {
+      this.prepareCast({transcode: needs_copy});
+    } else if (this.media) {
+      this.announceNativeCast(this.media, this.cast_token);
+    }
   }
 
   prepareCast(request: CastRequest): void {
@@ -628,12 +638,58 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       if (was_paused) media.pause();
       // Only now, loaded, does the browser know whether the source can be cast.
       this.castSource = 'ready';
-      if (same_file && this.native_video_controls) {
-        this.postsService.openSnackBar($localize`Ready to cast. Use the cast button in the video's controls to pick a device.`);
-      }
+      if (same_file && this.native_video_controls) this.announceNativeCast(media, token);
     }, {once: true});
     this.cast_src = url;
     if (!media) this.castSource = 'ready';
+  }
+
+  // The browser's controls list Cast, in their ⋮ menu, only once it has found a device that can
+  // play the source, and for a new source that comes some time after it has loaded. Saying the
+  // file was ready before then sent people looking for an item that was not there yet.
+  private announceNativeCast(media: HTMLVideoElement, token: number): void {
+    const remote = media.remote;
+    const ready = $localize`Ready to cast. Select Cast in the video's ⋮ menu.`;
+    const unconfirmed = $localize`Select Cast in the video's ⋮ menu, if your browser has it.`;
+    if (typeof remote?.watchAvailability !== 'function') {
+      this.postsService.openSnackBar(unconfirmed);
+      return;
+    }
+    let watch: number | null = null;
+    let settled = false;
+    const settle = (message: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (watch !== null) attempt(() => remote.cancelWatchAvailability(watch)).catch(() => undefined);
+      if (token === this.cast_token && !this.destroyed) this.zone.run(() => this.postsService.openSnackBar(message));
+    };
+    const timer = setTimeout(() => settle(
+      $localize`No cast device found yet. Cast appears in the video's ⋮ menu once your browser finds one.`), CAST_DEVICE_WAIT_MS);
+    attempt(() => remote.watchAvailability(available => {
+      if (available) settle(ready);
+    })).then(id => {
+      watch = id;
+      if (settled) attempt(() => remote.cancelWatchAvailability(id)).catch(() => undefined);
+    }, (error: DOMException) => {
+      // A phone that does not look for devices in the background lists Cast for every source,
+      // and looks once its picker is open.
+      settle(error?.name === 'NotSupportedError' ? ready : unconfirmed);
+    });
+  }
+
+  // Chromium hands a source's codecs to Remote Playback before it knows the duration, and only
+  // builds the URL it looks for devices with once it hears them again with the duration: when
+  // the element first plays unmuted. A source loaded into an element that already has, such as
+  // a playback link swapped in or the next file in the queue, never lists Cast, and prompt() is
+  // turned down. Switching disableremoteplayback on and off makes Chromium hear them again.
+  // Only the attribute, since the property also drops every availability watch.
+  private lookForCastDevices(media: HTMLVideoElement): void {
+    if (this.currentItem?.type === 'audio/mp3' || media.hasAttribute('disableremoteplayback')) return;
+    // A cast is left alone, since switching remote playback off can end it.
+    if (media.remote && media.remote.state !== 'disconnected') return;
+    media.setAttribute('disableremoteplayback', '');
+    media.removeAttribute('disableremoteplayback');
   }
 
   // The Remote Playback API has no call that ends a session, but switching it off does.
