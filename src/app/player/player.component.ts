@@ -504,19 +504,25 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   // Casting
 
-  get nativeCastNeedsPreparation(): boolean {
-    return this.native_video_controls && this.currentItem?.type !== 'audio/mp3'
-      && this.castSource !== 'unavailable'
-      && (this.castSource !== 'ready' || (this.currentItem?.vcodec === 'av1' && !this.cast_src));
+  // On Android the browser's own controls cast, from their ⋮ menu. The glyph beside Download
+  // gets the file ready for them first when it needs a playback link or a copy, then says
+  // whether the browser has found a device.
+  get nativeCastAvailable(): boolean {
+    return this.native_video_controls && this.currentItem?.type !== 'audio/mp3' && this.castSource !== 'unavailable';
   }
 
-  get nativeCastPreparationLabel(): string {
-    return this.castSource === 'preparing'
-      ? $localize`Getting the file ready to cast` : $localize`Prepare casting`;
+  get nativeCastLabel(): string {
+    return this.castSource === 'preparing' ? $localize`Getting the file ready to cast` : $localize`Cast`;
   }
 
-  prepareNativeCast(): void {
-    this.prepareCast({transcode: this.currentItem?.vcodec === 'av1'});
+  castNatively(): void {
+    // The codec Chrome on Android will not cast.
+    const needs_copy = this.currentItem?.vcodec === 'av1' && !this.cast_src;
+    if (this.castSource === 'needs-link' || needs_copy) {
+      this.prepareCast({transcode: needs_copy});
+    } else if (this.media) {
+      this.announceNativeCast(this.media, this.cast_token);
+    }
   }
 
   prepareCast(request: CastRequest): void {

@@ -59,11 +59,6 @@
           </div>
           <div class="player-toolbar-section" [class.theater-toolbar-visible]="theater_mode_enabled && theater_toolbar_visible" (mouseenter)="onTheaterToolbarMouseEnter()" (mouseleave)="onTheaterToolbarMouseLeave()">
             <div class="container-fluid player-toolbar-container">
-              @if (nativeCastNeedsPreparation) {
-                <button type="button" (click)="prepareNativeCast()" [disabled]="castSource === 'preparing'" [matTooltip]="nativeCastPreparationLabel" [attr.aria-label]="nativeCastPreparationLabel" mat-button>
-                  <mat-icon>cast</mat-icon>{{nativeCastPreparationLabel}}
-                </button>
-              }
               <div class="row media-info-row mx-0">
                 <div class="col-auto view-column">
                   @if (currentFile) {
@@ -107,6 +102,14 @@
                 </div>
                 <div class="col-auto action-column">
                   <span class="action-buttons-row">
+                    @if (nativeCastAvailable) {
+                      <span class="buttons">
+                        <button (click)="castNatively()" [disabled]="castSource === 'preparing'" [matTooltip]="nativeCastLabel" [attr.aria-label]="nativeCastLabel" mat-icon-button><mat-icon>cast</mat-icon></button>
+                        @if (castSource === 'preparing') {
+                          <mat-spinner class="spinner" [diameter]="36"></mat-spinner>
+                        }
+                      </span>
+                    }
                     <!-- Someone else's library is only watched: nothing is downloaded, shared or synced from it. -->
                     @if (db_playlist && !library) {
                       <span class="buttons">

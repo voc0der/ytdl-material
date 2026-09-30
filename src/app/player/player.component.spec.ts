@@ -1406,17 +1406,21 @@ describe('PlayerComponent', () => {
 
       afterEach(() => vi.restoreAllMocks());
 
-      const prepareButton = (): HTMLButtonElement | null =>
-        fixture.nativeElement.querySelector('button[aria-label="Prepare casting"]');
+      const castButton = (): HTMLButtonElement | null =>
+        fixture.nativeElement.querySelector('.action-buttons-row button[aria-label="Cast"]');
 
-      it('exposes the browser controls without a covering custom player or requiring the script casting API', fakeAsync(() => {
+      it('exposes the browser controls without a covering custom player, and puts the cast glyph first in the row below', fakeAsync(() => {
         showTwo();
         expect(video().remote).toBeUndefined();
         expect(video().controls).toBe(true);
         expect(video().getAttribute('controlslist')).toBeNull();
         expect(video().hasAttribute('disableremoteplayback')).toBe(false);
         expect(fixture.nativeElement.querySelector('app-media-controls')).toBeNull();
-        expect(prepareButton()).toBeNull();
+        const row = Array.from(fixture.nativeElement.querySelectorAll('.action-buttons-row button') as NodeListOf<HTMLButtonElement>)
+          .map(button => button.getAttribute('aria-label'));
+        expect(row[0]).toBe('Cast');
+        expect(row).toContain('Download the whole playlist as a zip');
+        expect(castButton().textContent.trim()).toBe('cast');
       }));
 
       const READY = "Ready to cast. Select Cast in the video's ⋮ menu.";
@@ -1440,7 +1444,7 @@ describe('PlayerComponent', () => {
         postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(of(linkFor('f1')));
         showTwo([{vcodec: 'hevc', acodec: 'aac'}]);
         const cast = watchable();
-        prepareButton().click();
+        castButton().click();
         load();
         tick();
         return cast;
@@ -1455,9 +1459,10 @@ describe('PlayerComponent', () => {
         original_video.currentTime = 42;
         expect(original_video.hasAttribute('disableremoteplayback')).toBe(true);
 
-        prepareButton().click();
+        castButton().click();
         fixture.detectChanges();
         expect(fixture.nativeElement.querySelector('button[aria-label="Getting the file ready to cast"]').disabled).toBe(true);
+        expect(fixture.nativeElement.querySelector('.action-buttons-row .spinner')).not.toBeNull();
         load();
         tick();
 
@@ -1467,7 +1472,8 @@ describe('PlayerComponent', () => {
         expect(src()).toContain('playback_token=token-f1');
         expect(src()).not.toContain('jwt=');
         expect(video().hasAttribute('disableremoteplayback')).toBe(false);
-        expect(prepareButton()).toBeNull();
+        expect(castButton().disabled).toBe(false);
+        expect(fixture.nativeElement.querySelector('.action-buttons-row .spinner')).toBeNull();
         expect(remote.prompt).not.toHaveBeenCalled();
         // Loaded is not found: the browser has yet to say it has a device for the new source.
         report(false);
@@ -1483,7 +1489,31 @@ describe('PlayerComponent', () => {
         fixture.detectChanges();
         expect(src()).toContain('uid=f2');
         expect(video().hasAttribute('disableremoteplayback')).toBe(true);
-        expect(prepareButton()).not.toBeNull();
+        expect(castButton()).not.toBeNull();
+      }));
+
+      it('gives the instructions again from the glyph, without asking for another link', fakeAsync(() => {
+        const {remote, report} = prepareHevc();
+        report(true);
+        castButton().click();
+        tick();
+        report(true);
+
+        expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledOnce();
+        expect(remote.watchAvailability).toHaveBeenCalledTimes(2);
+        expect(postsServiceStub.openSnackBar.mock.calls).toEqual([[READY], [READY]]);
+      }));
+
+      it('gives the instructions straight away for a file that needs nothing done', fakeAsync(() => {
+        postsServiceStub.createPlaybackLink = vi.fn();
+        showTwo([{vcodec: 'hevc', acodec: 'aac'}]);
+        const {report} = watchable();
+        castButton().click();
+        tick();
+        report(true);
+
+        expect(postsServiceStub.createPlaybackLink).not.toHaveBeenCalled();
+        expect(postsServiceStub.openSnackBar.mock.calls).toEqual([[READY]]);
       }));
 
       it('never lifts disableremoteplayback off a URL with the login in it, and has the browser look for devices for the link', fakeAsync(() => {
@@ -1495,7 +1525,7 @@ describe('PlayerComponent', () => {
         expect(toggles).toEqual([]);
         expect(video().hasAttribute('disableremoteplayback')).toBe(true);
 
-        prepareButton().click();
+        castButton().click();
         load();
         // Lifted with the link swapped in, then switched on and off once it has loaded.
         expect(toggles).toEqual(['off', 'on', 'off']);
@@ -1533,7 +1563,7 @@ describe('PlayerComponent', () => {
         const {remote} = watchable();
         remote.watchAvailability.mockImplementation(() =>
           Promise.reject(new DOMException('Availability monitoring is not supported on this device.', 'NotSupportedError')));
-        prepareButton().click();
+        castButton().click();
         load();
         tick();
 
@@ -1544,28 +1574,31 @@ describe('PlayerComponent', () => {
         postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(of(linkFor('f1', {transcode: true, ready: true})));
         showTwo([{vcodec: 'av1'}]);
 
-        prepareButton().click();
+        castButton().click();
         load();
 
         expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledWith('f1', true);
         expect(src()).toContain('playback_token=token-f1');
         expect(video().controls).toBe(true);
         expect(video().hasAttribute('disableremoteplayback')).toBe(false);
-        expect(prepareButton()).toBeNull();
         expect(postsServiceStub.openSnackBar.mock.calls).toEqual([[UNCONFIRMED]]);
+
+        castButton().click();
+        expect(postsServiceStub.createPlaybackLink).toHaveBeenCalledOnce();
+        expect(postsServiceStub.openSnackBar.mock.calls).toEqual([[UNCONFIRMED], [UNCONFIRMED]]);
       }));
 
       it('keeps native casting disabled when a playback link is refused', fakeAsync(() => {
         logIn();
         postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(throwError(() => ({status: 403})));
         showTwo();
-        prepareButton().click();
+        castButton().click();
         tick();
         fixture.detectChanges();
 
         expect(video().controls).toBe(true);
         expect(video().hasAttribute('disableremoteplayback')).toBe(true);
-        expect(prepareButton()).toBeNull();
+        expect(castButton()).toBeNull();
         expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith("This file can't be cast.");
       }));
 
@@ -1574,7 +1607,7 @@ describe('PlayerComponent', () => {
         showTwo();
         expect(video().controls).toBe(true);
         expect(video().hasAttribute('disableremoteplayback')).toBe(true);
-        expect(prepareButton()).toBeNull();
+        expect(castButton()).toBeNull();
       }));
     });
 

@@ -17,7 +17,7 @@ Autoplay preference is remembered in your browser. The separate **Force autoplay
 
 On Android, videos use the browser's own playback controls. Tap the video to show them: **Cast** is in their **⋮** menu, listed once the browser has found a cast device on your network for the file.
 
-If **Prepare casting** appears below the video, select it first to get a playback link or make a compatible copy. The player then says whether your browser has found a device for it.
+To cast, select the cast button at the start of the row below the video. When the file needs a playback link or a compatible copy it gets one first, then the player says whether your browser has found a device for it.
 
 On desktop, the custom player's bar uses the browser's Remote Playback API to offer casting when available. Safari uses AirPlay; support varies between browsers.
 
