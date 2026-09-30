@@ -436,6 +436,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       this.save_volume_timer = setInterval(() => this.saveVolume(media), 2000)
 
       media.addEventListener('loadedmetadata', () => {
+        this.lookForCastDevices(media);
         this.showDefaultSubtitleTrack();
         this.playVideo();
       });
@@ -669,6 +670,20 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       // and looks once its picker is open.
       settle(error?.name === 'NotSupportedError' ? ready : unconfirmed);
     });
+  }
+
+  // Chromium hands a source's codecs to Remote Playback before it knows the duration, and only
+  // builds the URL it looks for devices with once it hears them again with the duration: when
+  // the element first plays unmuted. A source loaded into an element that already has, such as
+  // a playback link swapped in or the next file in the queue, never lists Cast, and prompt() is
+  // turned down. Switching disableremoteplayback on and off makes Chromium hear them again.
+  // Only the attribute, since the property also drops every availability watch.
+  private lookForCastDevices(media: HTMLVideoElement): void {
+    if (this.currentItem?.type === 'audio/mp3' || media.hasAttribute('disableremoteplayback')) return;
+    // A cast is left alone, since switching remote playback off can end it.
+    if (media.remote && media.remote.state !== 'disconnected') return;
+    media.setAttribute('disableremoteplayback', '');
+    media.removeAttribute('disableremoteplayback');
   }
 
   // The Remote Playback API has no call that ends a session, but switching it off does.

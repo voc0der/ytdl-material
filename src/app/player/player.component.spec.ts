@@ -1338,6 +1338,50 @@ describe('PlayerComponent', () => {
       fixture.detectChanges();
     }
 
+    // Every time disableremoteplayback goes on or off the <video>, whoever sets it.
+    function attributeToggles(): string[] {
+      const toggles: string[] = [];
+      const media = video();
+      const set_attribute = media.setAttribute.bind(media);
+      const remove_attribute = media.removeAttribute.bind(media);
+      vi.spyOn(media, 'setAttribute').mockImplementation((name: string, value: string) => {
+        if (name === 'disableremoteplayback') toggles.push('on');
+        set_attribute(name, value);
+      });
+      vi.spyOn(media, 'removeAttribute').mockImplementation((name: string) => {
+        if (name === 'disableremoteplayback') toggles.push('off');
+        remove_attribute(name);
+      });
+      return toggles;
+    }
+
+    it('has the browser look for cast devices for every video it loads, the next in the queue too', fakeAsync(() => {
+      showTwo();
+      const toggles = attributeToggles();
+      load();
+      expect(toggles).toEqual(['on', 'off']);
+      expect(video().hasAttribute('disableremoteplayback')).toBe(false);
+
+      component.advanceToNextVideo();
+      load();
+      expect(toggles).toEqual(['on', 'off', 'on', 'off']);
+    }));
+
+    it('leaves remote playback alone during a cast, and for audio', fakeAsync(() => {
+      showTwo([{}, {isAudio: true}]);
+      makeCastable();
+      const toggles = attributeToggles();
+      remote.state = 'connected';
+      load();
+      expect(toggles).toEqual([]);
+
+      remote.state = 'disconnected';
+      component.advanceToNextVideo();
+      load();
+      expect(component.currentItem.type).toBe('audio/mp3');
+      expect(toggles).toEqual([]);
+    }));
+
     it('lets the file\'s own URL go as it is when it carries no login', fakeAsync(() => {
       showTwo();
       expect(component.castSource).toBe('ready');
@@ -1440,6 +1484,22 @@ describe('PlayerComponent', () => {
         expect(src()).toContain('uid=f2');
         expect(video().hasAttribute('disableremoteplayback')).toBe(true);
         expect(prepareButton()).not.toBeNull();
+      }));
+
+      it('never lifts disableremoteplayback off a URL with the login in it, and has the browser look for devices for the link', fakeAsync(() => {
+        logIn();
+        postsServiceStub.createPlaybackLink = vi.fn().mockReturnValue(of(linkFor('f1')));
+        showTwo();
+        const toggles = attributeToggles();
+        load();
+        expect(toggles).toEqual([]);
+        expect(video().hasAttribute('disableremoteplayback')).toBe(true);
+
+        prepareButton().click();
+        load();
+        // Lifted with the link swapped in, then switched on and off once it has loaded.
+        expect(toggles).toEqual(['off', 'on', 'off']);
+        expect(video().hasAttribute('disableremoteplayback')).toBe(false);
       }));
 
       it('says no device has been found when the browser reports none in time', fakeAsync(() => {
