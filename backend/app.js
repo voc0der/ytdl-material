@@ -153,6 +153,7 @@ function getServerRuntime() {
     const {value: trust_proxy} = getFirstDefinedEnvValue(['ytdl_trust_proxy', 'YTDL_TRUST_PROXY']);
     return {
         trust_proxy: typeof trust_proxy === 'string' && trust_proxy.trim() !== '' ? trust_proxy.trim() : null,
+        log_level: logger.getEnvLogLevelOverride(),
         ...runtime_permissions
     };
 }

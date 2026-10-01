@@ -35,4 +35,20 @@ describe('Logger', function() {
         process.env.YTDL_LOGGER_LEVEL = 'warn';
         assert.strictEqual(logger.hasEnvLogLevelOverride(), true);
     });
+
+    it('getEnvLogLevelOverride is null when no log level env vars are set', function() {
+        assert.strictEqual(logger.getEnvLogLevelOverride(), null);
+    });
+
+    it('getEnvLogLevelOverride names the variable in force and the level it sets', function() {
+        process.env.ytdl_logger_level = 'error';
+        process.env.ytdl_log_level = ' WARNING ';
+        assert.deepStrictEqual(logger.getEnvLogLevelOverride(), {level: 'warn', variable: 'ytdl_log_level'});
+    });
+
+    it('getEnvLogLevelOverride passes over an empty variable, and reports the info fallback for an invalid one', function() {
+        process.env.ytdl_log_level = '';
+        process.env.YTDL_LOGGER_LEVEL = 'loud';
+        assert.deepStrictEqual(logger.getEnvLogLevelOverride(), {level: 'info', variable: 'YTDL_LOGGER_LEVEL'});
+    });
 });

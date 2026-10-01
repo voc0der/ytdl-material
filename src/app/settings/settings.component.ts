@@ -283,6 +283,12 @@ export class SettingsComponent implements OnInit {
     ].filter(row => row.value !== '');
   }
 
+  // The log level an environment variable holds the server at. The saved one has no effect while
+  // it is set, so the picker shows this instead, without changing what is saved.
+  get logLevelOverride(): { level: string, variable: string } | null {
+    return this.postsService.serverRuntime?.log_level ?? null;
+  }
+
   /** Who the server runs as, and so who owns what it writes. Always shown, default or not. */
   get runtimePermissions(): { label: string, variable: string, value: string }[] {
     const runtime = this.postsService.serverRuntime;

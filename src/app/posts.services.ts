@@ -170,6 +170,8 @@ export interface TranscodingStatus {
 // How the server was started, from /api/config. Signed-in callers only, so null otherwise.
 export interface ServerRuntime {
     trust_proxy: string | null;
+    // Set while an environment variable holds the log level, and the saved one has no effect.
+    log_level: { level: string, variable: string } | null;
     uid: number | null;
     gid: number | null;
     umask: number | null;
