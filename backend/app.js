@@ -4142,3 +4142,34 @@ app.use(function(req, res, next) {
 let public_dir = path.join(__dirname, 'public');
 
 app.use(express.static(public_dir));
+
+/*************************************************
+ * The answer for any error a route or middleware
+ * passes on. Express's own carries the stack trace
+ * -- every file path and dependency on the way --
+ * unless NODE_ENV is production, which nothing
+ * sets, and it made every refused upload a 500.
+ *
+ * Only messages that describe the request are sent
+ * back: multer's, and body-parser's for a body it
+ * could not read. Anything else gets its status
+ * text, and a server error is logged in full.
+ ************************************************/
+app.use(function(err, req, res, next) {
+    if (res.headersSent) return next(err);
+
+    let status = 500;
+    let message = null;
+    if (err instanceof multer.MulterError) {
+        status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+        message = err.message;
+    } else if (Number.isInteger(err.status) && err.status >= 400 && err.status < 600) {
+        status = err.status;
+        if (status < 500 && typeof err.type === 'string' && err.type.startsWith('entity.')) message = err.message;
+    }
+
+    if (status >= 500) logger.error(err);
+    // Set outright: a route may have named another type before it failed, and json() keeps
+    // one that is already there.
+    res.status(status).type('json').send({success: false, error: message || http.STATUS_CODES[status]});
+});

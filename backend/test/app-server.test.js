@@ -102,9 +102,18 @@ describe('The server as it runs', function() {
             assert.strictEqual(res.body.new_category.name, 'From a form');
         });
 
-        it('refuses a malformed JSON body and keeps serving', async function() {
-            await app.api.post('/api/createCategory').set('Content-Type', 'application/json').send('{not json').expect(400);
+        it('refuses a malformed JSON body, saying why, and keeps serving', async function() {
+            const res = await app.api.post('/api/createCategory').set('Content-Type', 'application/json').send('{not json').expect(400);
+            assert.strictEqual(res.body.success, false);
+            assert.match(res.body.error, /JSON/);
+            assert(!res.text.includes(BACKEND), 'the response names a path on the server');
             await app.api.get('/healthz').expect(200);
+        });
+
+        it('answers a route that fails with a 500 and nothing about the server', async function() {
+            // updateCategory reads category.uid from a body that has no category.
+            const res = await app.api.post('/api/updateCategory').send({}).expect(500);
+            assert.deepStrictEqual(res.body, {success: false, error: 'Internal Server Error'});
         });
 
         it('answers an API route that does not exist with a 404', async function() {
@@ -188,17 +197,16 @@ describe('The server as it runs', function() {
             await app.api.post('/api/uploadCookies').expect(400);
         });
 
-        it('refuses a file over the size limit and keeps none of it', async function() {
+        it('refuses a file over the size limit as too large, and keeps none of it', async function() {
             const res = await app.api.post('/api/uploadCookies')
-                .attach('cookies', Buffer.alloc(2 * 1024 * 1024 + 1, 'a'), 'cookies.txt');
-            assert(res.status >= 400, `expected a refusal, got ${res.status}`);
-            assert.match(res.text, /too large/i);
+                .attach('cookies', Buffer.alloc(2 * 1024 * 1024 + 1, 'a'), 'cookies.txt').expect(413);
+            assert.deepStrictEqual(res.body, {success: false, error: 'File too large'});
         });
 
-        it('refuses a file sent under another field name', async function() {
-            const res = await app.api.post('/api/uploadCookies').attach('not_cookies', Buffer.from('x'), 'cookies.txt');
-            assert(res.status >= 400, `expected a refusal, got ${res.status}`);
-            assert.match(res.text, /unexpected/i);
+        it('refuses a file sent under another field name as a bad request', async function() {
+            const res = await app.api.post('/api/uploadCookies').attach('not_cookies', Buffer.from('x'), 'cookies.txt').expect(400);
+            assert.strictEqual(res.body.success, false);
+            assert.match(res.body.error, /unexpected/i);
         });
 
         it('stores an upload as cookies.txt', async function() {
