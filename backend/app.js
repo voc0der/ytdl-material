@@ -946,13 +946,6 @@ function getOrigin() {
 }
 
 const VALID_RELEASE_TAG_PATTERN = /^v[0-9A-Za-z][0-9A-Za-z._-]*$/;
-const XML_ENTITY_MAP = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&apos;'
-};
 
 function getValidatedReleaseTag(tag) {
     return (typeof tag === 'string' && VALID_RELEASE_TAG_PATTERN.test(tag)) ? tag : null;
@@ -967,11 +960,6 @@ function getSafeReleaseZipPath(tag) {
     if (relativeOutputPath.startsWith('..') || path.isAbsolute(relativeOutputPath)) return null;
 
     return resolvedOutputPath;
-}
-
-function escapeXmlEntities(value) {
-    if (value === undefined || value === null) return value;
-    return String(value).replace(/[&<>"']/g, char => XML_ENTITY_MAP[char]);
 }
 
 function isEnvConfigItemDefined(key) {
@@ -3391,17 +3379,32 @@ app.post('/api/cancelDownload', optionalJwt, requirePermission('downloads_manage
 
 // tasks
 
+/*************************************************
+ * The task as the tasks page shows it: the record,
+ * plus when it next runs if it is scheduled.
+ *
+ * A copy. The local database hands out its live
+ * records, so the next run used to be written onto
+ * the stored task, and an unscheduled one went on
+ * showing it. A next run an older version saved
+ * that way is dropped here too.
+ ************************************************/
+function taskWithNextRun(task) {
+    if (!task) return task;
+    const task_with_next_run = {...task};
+    delete task_with_next_run['next_invocation'];
+    if (!tasks_api.TASKS[task['key']]) {
+        logger.verbose(`Task ${task['key']} does not exist!`);
+        return task_with_next_run;
+    }
+    const next_invocation = tasks_api.getNextRun(task['key']);
+    if (task['schedule'] && next_invocation) task_with_next_run['next_invocation'] = next_invocation.getTime();
+    return task_with_next_run;
+}
+
 app.post('/api/getTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const tasks = await db_api.getRecords('tasks');
-    for (let task of tasks) {
-        if (!tasks_api.TASKS[task['key']]) {
-            logger.verbose(`Task ${task['key']} does not exist!`);
-            continue;
-        }
-        const next_invocation = tasks_api.getNextRun(task['key']);
-        if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
-    }
-    res.send({tasks: tasks});
+    res.send({tasks: tasks.map(taskWithNextRun)});
 });
 
 app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
@@ -3418,9 +3421,7 @@ app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), asy
 app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
-    const next_invocation = tasks_api.getNextRun(task_key);
-    if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
-    res.send({task: task});
+    res.send({task: taskWithNextRun(task) || null});
 });
 
 app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
@@ -4066,11 +4067,15 @@ app.get('/api/rss', optionalJwt, requireAuthenticated, async function (req, res)
                 }
             ],
             contributor: [],
-            date: file.timestamp,
-            // https://stackoverflow.com/a/45415677/8088021
-            image: escapeXmlEntities(file.thumbnailURL)
+            // When it joined the library, which is also what the feed is sorted by. This read
+            // a 'timestamp' that file records have never had, so no item carried a date.
+            date: Number.isFinite(file.registered) ? new Date(file.registered) : undefined,
+            // feed escapes it. Escaping it here as well, as older versions of feed needed,
+            // turned every & in a thumbnail URL into &amp;amp;.
+            image: file.thumbnailURL
         });
       });
+    res.type('application/rss+xml');
     res.send(feed.rss2());
 });
 
@@ -4130,10 +4135,44 @@ app.use(function(req, res, next) {
 
     res.setHeader('Content-Type', 'text/html');
 
-    fs.createReadStream(index_path).pipe(res);
+    // A failed read has to go somewhere. Unhandled, it was an uncaught exception that took
+    // the server down, for any page request while there is no index.html: a backend run
+    // without a frontend build, or an update that has removed public/ to replace it.
+    fs.createReadStream(index_path).on('error', next).pipe(res);
 
 });
 
 let public_dir = path.join(__dirname, 'public');
 
 app.use(express.static(public_dir));
+
+/*************************************************
+ * The answer for any error a route or middleware
+ * passes on. Express's own carries the stack trace
+ * -- every file path and dependency on the way --
+ * unless NODE_ENV is production, which nothing
+ * sets, and it made every refused upload a 500.
+ *
+ * Only messages that describe the request are sent
+ * back: multer's, and body-parser's for a body it
+ * could not read. Anything else gets its status
+ * text, and a server error is logged in full.
+ ************************************************/
+app.use(function(err, req, res, next) {
+    if (res.headersSent) return next(err);
+
+    let status = 500;
+    let message = null;
+    if (err instanceof multer.MulterError) {
+        status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+        message = err.message;
+    } else if (Number.isInteger(err.status) && err.status >= 400 && err.status < 600) {
+        status = err.status;
+        if (status < 500 && typeof err.type === 'string' && err.type.startsWith('entity.')) message = err.message;
+    }
+
+    if (status >= 500) logger.error(err);
+    // Set outright: a route may have named another type before it failed, and json() keeps
+    // one that is already there.
+    res.status(status).type('json').send({success: false, error: message || http.STATUS_CODES[status]});
+});

@@ -68,7 +68,7 @@ exports.sendNotification = async (notification) => {
         sendGenericNotification(webhook_data);
     }
     if (config_api.getConfigItem('ytdl_discord_webhook_url')) {
-        sendDiscordNotification(data);
+        settleSend('Discord', sendDiscordNotification(data));
     }
     if (config_api.getConfigItem('ytdl_slack_webhook_url')) {
         sendSlackNotification(data);
@@ -176,20 +176,43 @@ function applyCustomWebhookTemplate(notification, payload) {
     });
 }
 
+/*************************************************
+ * Notifications go out to the services without
+ * waiting on them, so each send settles its own
+ * failure. A rejection left unhandled ends the
+ * process: an ntfy server that could not be reached
+ * took the whole backend down with the first
+ * notification it should have received, and a
+ * deleted Discord webhook did the same.
+ ************************************************/
+function settleSend(service, sending) {
+    return Promise.resolve(sending)
+        .then(response => {
+            if (response && response.ok === false) logger.warn(`The ${service} notification was refused: HTTP ${response.status}`);
+        })
+        .catch(err => {
+            const cause = err && err.cause && err.cause.message ? ` (${err.cause.message})` : '';
+            logger.warn(`Failed to send the ${service} notification: ${err && err.message ? err.message : err}${cause}`);
+        });
+}
+
 // ntfy
 
 function sendNtfyNotification({body, title, type, url, thumbnail}) {
     logger.verbose('Sending notification to ntfy');
-    fetch(config_api.getConfigItem('ytdl_ntfy_topic_url'), {
+    const headers = {
+        'Title': title,
+        'Tags': type,
+        'Click': url
+    };
+    // Only when there is one: fetch sends a null header as the text "null", which is not
+    // an attachment URL, on every event that has no thumbnail.
+    if (thumbnail) headers['Attach'] = thumbnail;
+    settleSend('ntfy', fetch(config_api.getConfigItem('ytdl_ntfy_topic_url'), {
         method: 'POST',
         body: body,
-        headers: {
-            'Title': title,
-            'Tags': type,
-            'Click': url,
-            'Attach': thumbnail
-        }
-    });
+        headers: headers
+    }));
 }
 
 // Gotify
@@ -220,18 +243,6 @@ async function sendGotifyNotification({body, title, url, thumbnail}) {
 }
 
 // Telegram
-
-setupTelegramBot();
-config_api.config_updated.subscribe(change => {
-    const use_telegram_api = config_api.getConfigItem('ytdl_use_telegram_API');
-    const bot_token = config_api.getConfigItem('ytdl_telegram_bot_token');
-    if (!use_telegram_api || !bot_token) return;
-    if (!change) return;
-    if (change['key'] === 'ytdl_use_telegram_API' || change['key'] === 'ytdl_telegram_bot_token' || change['key'] === 'ytdl_telegram_webhook_proxy') {
-        logger.debug('Telegram bot setting up');
-        setupTelegramBot();
-    }
-});
 
 /*************************************************
  * Telegram will send a secret of our choosing back
@@ -314,6 +325,31 @@ function createTelegramBot(bot_token) {
     };
 }
 
+/*************************************************
+ * Below everything it uses, on purpose. Started from
+ * the top of this section, the setup ran before
+ * ensureTelegramWebhookSecret was assigned, and the
+ * rejection stopped any server that already had
+ * Telegram switched on from starting at all. A
+ * failure is logged rather than left unhandled,
+ * which would end the process the same way.
+ ************************************************/
+function startTelegramBot() {
+    setupTelegramBot().catch(err => logger.error(`Failed to set up the Telegram bot: ${err.message}`));
+}
+
+startTelegramBot();
+config_api.config_updated.subscribe(change => {
+    const use_telegram_api = config_api.getConfigItem('ytdl_use_telegram_API');
+    const bot_token = config_api.getConfigItem('ytdl_telegram_bot_token');
+    if (!use_telegram_api || !bot_token) return;
+    if (!change) return;
+    if (change['key'] === 'ytdl_use_telegram_API' || change['key'] === 'ytdl_telegram_bot_token' || change['key'] === 'ytdl_telegram_webhook_proxy') {
+        logger.debug('Telegram bot setting up');
+        startTelegramBot();
+    }
+});
+
 // Discord
 
 async function sendDiscordNotification({body, title, type, url, thumbnail}) {
@@ -391,13 +427,13 @@ function sendSlackNotification({body, title, type, url, thumbnail}) {
         }
     );
 
-    fetch(slack_webhook_url, {
+    settleSend('Slack', fetch(slack_webhook_url, {
         method: 'POST',
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(data),
-    });
+    }));
 }
 
 // Generic
@@ -499,11 +535,11 @@ function sendGenericNotification(data) {
     const request_url = webhook_info ? webhook_info['request_url'] : webhook_url;
     logger.verbose(`Sending generic notification to ${request_url}`);
     const payload = getWebhookPayload(webhook_info, data);
-    fetch(request_url, {
+    settleSend('webhook', fetch(request_url, {
         method: 'POST',
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(payload),
-    });
+    }));
 }

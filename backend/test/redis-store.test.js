@@ -64,8 +64,6 @@ describe('Redis rate-limit helpers', function() {
     });
 
     it('returns the connection error when Redis testing fails', async function() {
-        let destroyed = false;
-
         redis_store.__setCreateRedisClient(() => {
             const client = {
                 isOpen: false,
@@ -74,8 +72,9 @@ describe('Redis rate-limit helpers', function() {
                     throw new Error('ECONNREFUSED');
                 },
                 close: async () => {},
+                // What redis does when a client that has already closed itself is destroyed.
                 destroy: () => {
-                    destroyed = true;
+                    throw new Error('The client is closed');
                 }
             };
             return client;
@@ -85,6 +84,30 @@ describe('Redis rate-limit helpers', function() {
 
         assert.strictEqual(result.success, false);
         assert.match(result.error, /ECONNREFUSED/);
+    });
+
+    it('destroys a client that failed after it had opened', async function() {
+        let destroyed = false;
+
+        redis_store.__setCreateRedisClient(() => {
+            const client = {
+                isOpen: true,
+                on: () => client,
+                connect: async () => {
+                    throw new Error('WRONGPASS invalid username-password pair');
+                },
+                close: async () => {},
+                destroy: () => {
+                    destroyed = true;
+                    client.isOpen = false;
+                }
+            };
+            return client;
+        });
+
+        const result = await redis_store.testConnectionString('redis://cache.example.com:6379/0');
+
+        assert.match(result.error, /WRONGPASS/);
         assert.strictEqual(destroyed, true);
     });
 });
