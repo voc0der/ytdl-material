@@ -1,5 +1,5 @@
 import { waitForAsync, ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { NOTIFICATION_ROW_HEIGHT } from '../notifications-list/notifications-list.component';
 
@@ -76,6 +76,7 @@ describe('NotificationsComponent before anybody logs in', () => {
       initialized: true,
       service_initialized: of(true),
       hasSession: () => false,
+      notifications_changed: new Subject<void>(),
       getNotifications: vi.fn().mockName('getNotifications').mockReturnValue(of({ notifications: [] }))
     };
     const component = new NotificationsComponent(posts_service, {} as any, {} as any);
@@ -83,5 +84,32 @@ describe('NotificationsComponent before anybody logs in', () => {
     component.ngOnInit();
 
     expect(posts_service.getNotifications).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotificationsComponent after playback', () => {
+  it('refreshes the list and unread count without opening the bell, and stops on destroy', () => {
+    const notifications_changed = new Subject<void>();
+    const note = {uid: 'played', type: 'download_complete', read: false, timestamp: 1, data: {file_uid: 'file-1'}};
+    const posts_service: any = {
+      initialized: true,
+      hasSession: () => true,
+      notifications_changed,
+      getNotifications: vi.fn().mockReturnValueOnce(of({notifications: [note]})).mockReturnValue(of({notifications: []}))
+    };
+    const component = new NotificationsComponent(posts_service, {} as any, {} as any);
+    const count = vi.fn();
+    component.notificationCount.subscribe(count);
+    component.ngOnInit();
+    expect(count).toHaveBeenLastCalledWith(1);
+
+    notifications_changed.next();
+    expect(component.notifications).toEqual([]);
+    expect(component.filtered_notifications).toEqual([]);
+    expect(count).toHaveBeenLastCalledWith(0);
+
+    component.ngOnDestroy();
+    notifications_changed.next();
+    expect(posts_service.getNotifications).toHaveBeenCalledTimes(2);
   });
 });

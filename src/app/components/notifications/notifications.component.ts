@@ -1,9 +1,10 @@
-import { Component, ElementRef, EventEmitter, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnInit, OnDestroy, Output, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { PostsService } from 'app/posts.services';
 import { Notification, NotificationType } from 'api-types';
 import { NotificationAction } from 'api-types/models/NotificationAction';
 import { filter, take } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { NotificationsListComponent, NOTIFICATION_ROW_HEIGHT } from '../notifications-list/notifications-list.component';
 import { MatIcon } from '@angular/material/icon';
 import { KeyValuePipe } from '@angular/common';
@@ -15,11 +16,12 @@ import { KeyValuePipe } from '@angular/common';
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [NotificationsListComponent, MatIcon, KeyValuePipe]
 })
-export class NotificationsComponent implements OnInit {
+export class NotificationsComponent implements OnInit, OnDestroy {
 
   notifications: Notification[] = null;
   filtered_notifications: Notification[] = null;
   list_height = '65vh';
+  private notificationsSubscription: Subscription;
 
   @Output() notificationCount = new EventEmitter<number>();
 
@@ -45,6 +47,7 @@ export class NotificationsComponent implements OnInit {
   constructor(public postsService: PostsService, private router: Router, private elRef: ElementRef) { }
 
   ngOnInit(): void {
+    this.notificationsSubscription = this.postsService.notifications_changed.subscribe(() => this.getNotifications());
     // wait for init
     if (this.postsService.initialized) {
       this.getNotifications();
@@ -53,6 +56,10 @@ export class NotificationsComponent implements OnInit {
         .pipe(filter(Boolean), take(1))
         .subscribe(() => this.getNotifications());
     }
+  }
+
+  ngOnDestroy(): void {
+    this.notificationsSubscription?.unsubscribe();
   }
 
   getNotifications(): void {

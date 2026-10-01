@@ -43,6 +43,7 @@ describe('PlayerComponent', () => {
       getFile: vi.fn().mockName('getFile').mockReturnValue({
         subscribe: () => ({ unsubscribe() { } })
       }),
+      incrementViewCount: vi.fn().mockReturnValue(of({success: true})),
       service_initialized: {
         pipe: () => ({
           subscribe: () => ({ unsubscribe() { } })
@@ -115,6 +116,37 @@ describe('PlayerComponent', () => {
   function playerPage(): HTMLElement | null {
     return fixture.nativeElement.querySelector('.player-page');
   }
+
+  it('records playback only when a video starts, once across pause and resume', async () => {
+    postsServiceStub.getFile.mockReturnValue(of({file: {uid: 'f1', title: 'A video', isAudio: false, url: 'https://example.com/video'}}));
+    component.uid = 'f1';
+    component.getFile();
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(postsServiceStub.incrementViewCount).not.toHaveBeenCalled();
+
+    const media = fixture.nativeElement.querySelector('video') as HTMLVideoElement;
+    media.dispatchEvent(new Event('playing'));
+    media.dispatchEvent(new Event('pause'));
+    media.dispatchEvent(new Event('playing'));
+
+    expect(postsServiceStub.incrementViewCount).toHaveBeenCalledExactlyOnceWith('f1', null, null, null);
+  });
+
+  it('records each played queue item while leaving queued items alone', () => {
+    component.playlist_id = 'playlist-1';
+    component.file_objs = [{uid: 'f1', title: 'First'}, {uid: 'f2', title: 'Second'}] as DatabaseFile[];
+    component.uids = ['f1', 'f2'];
+    component.parseFileNames();
+    component.onPlaybackStarted();
+    expect(postsServiceStub.incrementViewCount).toHaveBeenCalledExactlyOnceWith('f1', null, null, 'playlist-1');
+
+    component.updateCurrentItem(component.playlist[1], 1);
+    expect(postsServiceStub.incrementViewCount).toHaveBeenCalledTimes(1);
+    component.onPlaybackStarted();
+    expect(postsServiceStub.incrementViewCount).toHaveBeenLastCalledWith('f2', null, null, 'playlist-1');
+    expect(postsServiceStub.incrementViewCount).toHaveBeenCalledTimes(2);
+  });
 
   function playlistRows(): HTMLElement[] {
     return Array.from(fixture.nativeElement.querySelectorAll('.playlist-row'));
@@ -663,6 +695,7 @@ describe('PlayerComponent', () => {
       component.uid = 'f1';
 
       component.getFile();
+      component.onPlaybackStarted();
 
       expect(postsServiceStub.getFile).toHaveBeenLastCalledWith('f1', null, 'bob');
       expect(postsServiceStub.incrementViewCount).not.toHaveBeenCalled();

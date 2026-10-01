@@ -322,6 +322,24 @@ describe('PostsService requests', () => {
     expect(changed).toHaveBeenCalledWith(true);
   });
 
+  it('refreshes notifications only after a view is saved successfully', () => {
+    start();
+    const changed = vi.fn();
+    service.notifications_changed.subscribe(changed);
+    service.incrementViewCount('file-1', null, null).subscribe();
+    expect(changed).not.toHaveBeenCalled();
+    http.expectOne(API + 'incrementViewCount').flush({success: true});
+    expect(changed).toHaveBeenCalledTimes(1);
+
+    service.incrementViewCount('file-2', null, null).subscribe();
+    http.expectOne(API + 'incrementViewCount').flush({success: false});
+    expect(changed).toHaveBeenCalledTimes(1);
+
+    service.incrementViewCount('missing', null, null).subscribe({error: () => {}});
+    http.expectOne(API + 'incrementViewCount').flush(null, {status: 404, statusText: 'Not Found'});
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the subscriptions it reloads', () => {
     start();
     service.reloadSubscriptions();
