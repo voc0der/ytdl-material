@@ -946,13 +946,6 @@ function getOrigin() {
 }
 
 const VALID_RELEASE_TAG_PATTERN = /^v[0-9A-Za-z][0-9A-Za-z._-]*$/;
-const XML_ENTITY_MAP = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&apos;'
-};
 
 function getValidatedReleaseTag(tag) {
     return (typeof tag === 'string' && VALID_RELEASE_TAG_PATTERN.test(tag)) ? tag : null;
@@ -967,11 +960,6 @@ function getSafeReleaseZipPath(tag) {
     if (relativeOutputPath.startsWith('..') || path.isAbsolute(relativeOutputPath)) return null;
 
     return resolvedOutputPath;
-}
-
-function escapeXmlEntities(value) {
-    if (value === undefined || value === null) return value;
-    return String(value).replace(/[&<>"']/g, char => XML_ENTITY_MAP[char]);
 }
 
 function isEnvConfigItemDefined(key) {
@@ -4066,11 +4054,15 @@ app.get('/api/rss', optionalJwt, requireAuthenticated, async function (req, res)
                 }
             ],
             contributor: [],
-            date: file.timestamp,
-            // https://stackoverflow.com/a/45415677/8088021
-            image: escapeXmlEntities(file.thumbnailURL)
+            // When it joined the library, which is also what the feed is sorted by. This read
+            // a 'timestamp' that file records have never had, so no item carried a date.
+            date: Number.isFinite(file.registered) ? new Date(file.registered) : undefined,
+            // feed escapes it. Escaping it here as well, as older versions of feed needed,
+            // turned every & in a thumbnail URL into &amp;amp;.
+            image: file.thumbnailURL
         });
       });
+    res.type('application/rss+xml');
     res.send(feed.rss2());
 });
 

@@ -8,7 +8,8 @@ const { startApp, addSampleMedia, BACKEND } = require('./helpers/app-process');
 // Served by its extension, so the bytes only have to be recognizable.
 const THUMBNAIL_BYTES = Buffer.from('thumbnail bytes');
 const VERSION_INFO = {type: 'docker', tag: 'v0.0.0-test', commit: 'abc1234', date: '2026-01-01'};
-const THUMBNAIL_URL = 'https://example.com/thumb.jpg';
+// The & has to be escaped exactly once in the RSS feed.
+const THUMBNAIL_URL = 'https://example.com/thumb.jpg?w=1&h=2';
 
 // supertest only buffers bodies it knows how to parse, and media is not one of them.
 function collectBytes(res, callback) {
@@ -262,6 +263,7 @@ describe('The server as it runs', function() {
 
         it('lists every file as an RSS 2.0 item', async function() {
             const res = await app.api.get('/api/rss').expect(200);
+            assert.match(res.headers['content-type'], /^application\/rss\+xml/);
             assert(res.text.startsWith('<?xml'));
             assert(res.text.includes('<rss version="2.0">'));
             assert.strictEqual(res.text.split('<item>').length - 1, 2);
@@ -269,11 +271,17 @@ describe('The server as it runs', function() {
             assert(res.text.includes(`/#/player;uid=${files.audio.uid}`));
         });
 
-        it('describes each file by its title, uploader and thumbnail', async function() {
+        it('describes each file by its title, uploader and when it was added', async function() {
             const res = await app.api.get('/api/rss').expect(200);
             assert(res.text.includes(`<title><![CDATA[${files.video.title}]]></title>`));
             assert(res.text.includes(`<author>${files.video.uploader}</author>`));
-            assert(res.text.includes(`<enclosure url="${THUMBNAIL_URL}"`));
+            assert(res.text.includes(`<pubDate>${new Date(files.video.registered).toUTCString()}</pubDate>`));
+        });
+
+        it('escapes a thumbnail URL exactly once', async function() {
+            const res = await app.api.get('/api/rss').expect(200);
+            assert(res.text.includes('<enclosure url="https://example.com/thumb.jpg?w=1&amp;h=2"'));
+            assert(!res.text.includes('&amp;amp;'));
         });
 
         it('is refused while switched off in the settings', async function() {
