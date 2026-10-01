@@ -47,8 +47,11 @@ describe('Notification services', function() {
     let axios_response;
     let config_listener;
     let logged;
+    let unhandled;
     let original_make_request;
     let original_adapter;
+
+    const keepUnhandled = reason => unhandled.push(reason);
 
     function load() {
         const dependencies = {
@@ -94,8 +97,10 @@ describe('Notification services', function() {
         discord_requests = [];
         axios_requests = [];
         logged = [];
+        unhandled = [];
         config_listener = null;
         axios_response = config => ({data: {ok: true, result: true}, status: 200, statusText: 'OK', headers: {}, config, request: {}});
+        process.on('unhandledRejection', keepUnhandled);
 
         original_make_request = DefaultRestOptions.makeRequest;
         DefaultRestOptions.makeRequest = async (url, init) => {
@@ -110,6 +115,7 @@ describe('Notification services', function() {
     });
 
     afterEach(function() {
+        process.removeListener('unhandledRejection', keepUnhandled);
         DefaultRestOptions.makeRequest = original_make_request;
         axios.defaults.adapter = original_adapter;
     });
@@ -204,12 +210,11 @@ describe('Notification services', function() {
     });
 
     /*************************************************
-     * Switched on the way Settings does it, after the
-     * module has loaded. Starting with Telegram
-     * already on in the saved config is a separate
-     * case: setupTelegramBot runs before
-     * ensureTelegramWebhookSecret is defined, and the
-     * rejection stops the server.
+     * Most of these switch the bot on the way Settings
+     * does, after the module has loaded. The first one
+     * starts with it already on, as a restart does: the
+     * setup ran before ensureTelegramWebhookSecret was
+     * defined then, and the server never came up.
      ************************************************/
     describe('Telegram', function() {
         const telegram = method => axios_requests.filter(request => request.url.endsWith(`/${method}`));
@@ -225,6 +230,19 @@ describe('Notification services', function() {
             config_listener({key: 'ytdl_use_telegram_API'});
             await until(() => telegram('setWebhook').length === registered + 1, 'setWebhook');
         }
+
+        it('sets the bot up as it loads when Telegram is already on', async function() {
+            Object.assign(settings, {ytdl_use_telegram_API: true, ytdl_telegram_bot_token: '123:bot-token', ytdl_telegram_chat_id: '42'});
+            load();
+            await until(() => telegram('setWebhook').length === 1, 'setWebhook');
+
+            assert.match(JSON.parse(telegram('setWebhook')[0].data).secret_token, /^[0-9a-f]{32}$/);
+            await new Promise(resolve => setImmediate(resolve));
+            assert.deepEqual(unhandled, []);
+
+            await notifications.sendTaskNotification({key: 'backup_local_db', title: 'Backup DB'}, false);
+            await until(() => telegram('sendMessage').length === 1, 'sendMessage');
+        });
 
         it('registers its webhook with a new secret when the bot is set up', async function() {
             await enableTelegram();

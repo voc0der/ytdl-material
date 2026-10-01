@@ -221,18 +221,6 @@ async function sendGotifyNotification({body, title, url, thumbnail}) {
 
 // Telegram
 
-setupTelegramBot();
-config_api.config_updated.subscribe(change => {
-    const use_telegram_api = config_api.getConfigItem('ytdl_use_telegram_API');
-    const bot_token = config_api.getConfigItem('ytdl_telegram_bot_token');
-    if (!use_telegram_api || !bot_token) return;
-    if (!change) return;
-    if (change['key'] === 'ytdl_use_telegram_API' || change['key'] === 'ytdl_telegram_bot_token' || change['key'] === 'ytdl_telegram_webhook_proxy') {
-        logger.debug('Telegram bot setting up');
-        setupTelegramBot();
-    }
-});
-
 /*************************************************
  * Telegram will send a secret of our choosing back
  * on every webhook delivery, in the
@@ -313,6 +301,31 @@ function createTelegramBot(bot_token) {
         }
     };
 }
+
+/*************************************************
+ * Below everything it uses, on purpose. Started from
+ * the top of this section, the setup ran before
+ * ensureTelegramWebhookSecret was assigned, and the
+ * rejection stopped any server that already had
+ * Telegram switched on from starting at all. A
+ * failure is logged rather than left unhandled,
+ * which would end the process the same way.
+ ************************************************/
+function startTelegramBot() {
+    setupTelegramBot().catch(err => logger.error(`Failed to set up the Telegram bot: ${err.message}`));
+}
+
+startTelegramBot();
+config_api.config_updated.subscribe(change => {
+    const use_telegram_api = config_api.getConfigItem('ytdl_use_telegram_API');
+    const bot_token = config_api.getConfigItem('ytdl_telegram_bot_token');
+    if (!use_telegram_api || !bot_token) return;
+    if (!change) return;
+    if (change['key'] === 'ytdl_use_telegram_API' || change['key'] === 'ytdl_telegram_bot_token' || change['key'] === 'ytdl_telegram_webhook_proxy') {
+        logger.debug('Telegram bot setting up');
+        startTelegramBot();
+    }
+});
 
 // Discord
 
