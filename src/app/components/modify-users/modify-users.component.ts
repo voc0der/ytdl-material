@@ -101,6 +101,8 @@ export class ModifyUsersComponent implements OnInit {
   }
 
   openAddUserDialog() {
+    if (this.postsService.isOIDCEnabled()) return;
+
     const dialogRef = this.dialog.open(AddUserDialogComponent, {
       panelClass: 'kit-dialog-panel',
       width: '440px',

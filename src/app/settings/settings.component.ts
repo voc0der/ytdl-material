@@ -161,6 +161,10 @@ export class SettingsComponent implements OnInit {
     { value: 'ldap', label: $localize`LDAP` }
   ];
 
+  readonly oidcAuthMethodOptions: PickerOption[] = [
+    { value: 'oidc', label: $localize`OIDC / SSO` }
+  ];
+
   // The three kinds a notification can be, as chips rather than a multiple select.
   readonly notificationTypes: { key: string, label: string }[] = [
     { key: 'download_complete', label: $localize`Download complete` },
@@ -243,14 +247,15 @@ export class SettingsComponent implements OnInit {
 
   // Everything else, carrying the same fallback the backend applies to a blank value, so the
   // page says what is in force rather than what happens to be written down.
-  get oidcDetails(): { label: string, value: string }[] {
+  get oidcDetails(): { label: string, value: string, hint?: string }[] {
     const oidc = this.oidcSettings;
     if (!oidc) return [];
     const unset = $localize`Not set`;
     return [
       { label: $localize`Redirect URI`, value: this.oidcText(oidc['redirect_uri']) || unset },
       { label: $localize`Scope`, value: this.oidcText(oidc['scope']) || 'openid profile email' },
-      { label: $localize`Register users on first sign-in`, value: oidc['auto_register'] === false ? $localize`No` : $localize`Yes` },
+      { label: $localize`Register users on first sign-in`, value: oidc['auto_register'] === false ? $localize`No` : $localize`Yes`,
+        hint: $localize`Creates app accounts for accepted SSO identities. Existing matching accounts can still sign in when this is off.` },
       { label: $localize`Username claim`, value: this.oidcText(oidc['username_claim']) || 'preferred_username' },
       { label: $localize`Display name claim`, value: this.oidcText(oidc['display_name_claim']) || 'preferred_username' },
       { label: $localize`Admin claim`, value: `${this.oidcText(oidc['admin_claim']) || 'groups'} = ${this.oidcText(oidc['admin_value']) || 'admin'}` },

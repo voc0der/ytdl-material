@@ -1065,37 +1065,47 @@
               <div class="settings-rows">
                 <div class="settings-row">
                   <span class="settings-row-text">
-                    <span class="settings-row-title" id="settings-allow-registration" i18n="Allow registration setting">Allow user registration</span>
+                    <span class="settings-row-title" id="settings-allow-registration" i18n="Allow local registration setting">Allow local account self-registration</span>
+                    @if (oidcSettings) {
+                      <span class="settings-row-hint" id="settings-local-registration-hint" i18n="Local registration disabled by OIDC hint">Local registration is disabled while OIDC is enabled. New SSO accounts are controlled by “Register users on first sign-in”.</span>
+                    }
                   </span>
-                  <mat-slide-toggle [(ngModel)]="new_config['Users']['allow_registration']" aria-labelledby="settings-allow-registration"></mat-slide-toggle>
+                  <!-- Show the effective state without changing the saved local preference. -->
+                  <mat-slide-toggle [checked]="!oidcSettings && new_config['Users']['allow_registration']" [disabled]="!!oidcSettings"
+                    (change)="new_config['Users']['allow_registration'] = $event.checked" aria-labelledby="settings-allow-registration"
+                    [aria-describedby]="oidcSettings ? 'settings-local-registration-hint' : null"></mat-slide-toggle>
                 </div>
                 <div class="settings-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Auth method">Auth method</span>
+                    @if (oidcSettings) {
+                      <span class="settings-row-hint" i18n="Local sign-in disabled by OIDC hint">Local password sign-in and LDAP are disabled while OIDC is enabled.</span>
+                    }
                   </span>
-                  <app-picker [title]="authMethodLabel" [options]="authMethodOptions" [value]="new_config['Users']['auth_method']"
+                  <app-picker [title]="authMethodLabel" [options]="oidcSettings ? oidcAuthMethodOptions : authMethodOptions"
+                    [value]="oidcSettings ? 'oidc' : new_config['Users']['auth_method']" [disabled]="!!oidcSettings"
                     (valueChange)="new_config['Users']['auth_method'] = $any($event)"></app-picker>
                 </div>
                 @if (new_config['Users']['auth_method'] === 'ldap') {
                   <label class="settings-row settings-field-row">
                     <span class="settings-row-text"><span class="settings-row-title" i18n="LDAP URL">LDAP URL</span></span>
-                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['url']"></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['url']" [disabled]="!!oidcSettings"></span>
                   </label>
                   <label class="settings-row settings-field-row">
                     <span class="settings-row-text"><span class="settings-row-title" i18n="Bind DN">Bind DN</span></span>
-                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindDN']"></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindDN']" [disabled]="!!oidcSettings"></span>
                   </label>
                   <label class="settings-row settings-field-row">
                     <span class="settings-row-text"><span class="settings-row-title" i18n="Bind Credentials">Bind Credentials</span></span>
-                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindCredentials']"></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['bindCredentials']" [disabled]="!!oidcSettings"></span>
                   </label>
                   <label class="settings-row settings-field-row">
                     <span class="settings-row-text"><span class="settings-row-title" i18n="Search Base">Search Base</span></span>
-                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchBase']"></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchBase']" [disabled]="!!oidcSettings"></span>
                   </label>
                   <label class="settings-row settings-field-row">
                     <span class="settings-row-text"><span class="settings-row-title" i18n="Search Filter">Search Filter</span></span>
-                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchFilter']"></span>
+                    <span class="kit-field"><input [(ngModel)]="new_config['Users']['ldap_config']['searchFilter']" [disabled]="!!oidcSettings"></span>
                   </label>
                 }
               </div>
@@ -1136,7 +1146,12 @@
                   }
                   @for (detail of oidcDetails; track detail.label) {
                     <div class="settings-row">
-                      <span class="settings-row-text"><span class="settings-row-title">{{detail.label}}</span></span>
+                      <span class="settings-row-text">
+                        <span class="settings-row-title">{{detail.label}}</span>
+                        @if (detail.hint) {
+                          <span class="settings-row-hint">{{detail.hint}}</span>
+                        }
+                      </span>
                       <span class="settings-row-value settings-row-wrap">{{detail.value}}</span>
                     </div>
                   }

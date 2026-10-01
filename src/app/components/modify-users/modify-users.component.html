@@ -11,7 +11,8 @@
           placeholder="Search users" i18n-placeholder="Search users placeholder">
       </label>
       <div class="kit-rail kit-rail-wrap">
-        <button type="button" class="kit-chip kit-primary" (click)="openAddUserDialog()">
+        <button type="button" class="kit-chip kit-primary" (click)="openAddUserDialog()" [disabled]="postsService.isOIDCEnabled()"
+          [attr.aria-describedby]="postsService.isOIDCEnabled() ? 'users-local-registration-hint' : null">
           <mat-icon>person_add</mat-icon><span i18n="Add users button">Add Users</span>
         </button>
         <button type="button" class="kit-chip" [matMenuTriggerFor]="edit_roles_menu" [disabled]="!roles">
@@ -19,6 +20,10 @@
         </button>
       </div>
     </div>
+
+    @if (postsService.isOIDCEnabled()) {
+      <p class="settings-section-hint" id="users-local-registration-hint" i18n="Local user creation disabled by OIDC hint">Local user creation is disabled while OIDC is enabled. New SSO accounts are controlled by “Register users on first sign-in”.</p>
+    }
 
     @if (visibleUsers.length === 0) {
       <p class="settings-empty" i18n="No users match text">No user matches that search.</p>
