@@ -7,11 +7,16 @@ function normalizeLogLevel(logLevel) {
     return Object.prototype.hasOwnProperty.call(winston.config.npm.levels, normalized) ? normalized : null;
 }
 
+// In the order they are read. The first one that is set and not empty is the one in force.
+const ENV_LOG_LEVEL_VARIABLES = ['ytdl_log_level', 'YTDL_LOG_LEVEL', 'ytdl_logger_level', 'YTDL_LOGGER_LEVEL'];
+
+function getEnvLogLevelVariable() {
+    return ENV_LOG_LEVEL_VARIABLES.find(variable => process.env[variable]) || null;
+}
+
 function getRawEnvLogLevel() {
-    return process.env.ytdl_log_level
-        || process.env.YTDL_LOG_LEVEL
-        || process.env.ytdl_logger_level
-        || process.env.YTDL_LOGGER_LEVEL;
+    const variable = getEnvLogLevelVariable();
+    return variable ? process.env[variable] : undefined;
 }
 
 function hasEnvLogLevelOverride() {
@@ -58,6 +63,21 @@ if (invalidRawLogLevel) {
     logger.warn(`Invalid log level '${invalidRawLogLevel}' from environment. Falling back to 'info'.`);
 }
 
+/*************************************************
+ * The level an environment variable holds the
+ * logger at, and which variable, or null when the
+ * saved setting decides. While one is set the saved
+ * setting has no effect, so the settings page shows
+ * this in its place. ytdl_log_level is not a config
+ * key, so it never reaches the saved setting.
+ ************************************************/
+function getEnvLogLevelOverride() {
+    const variable = getEnvLogLevelVariable();
+    if (!variable) return null;
+    return {level: resolveLogLevelFromEnv().logLevel, variable};
+}
+
 logger.hasEnvLogLevelOverride = hasEnvLogLevelOverride;
+logger.getEnvLogLevelOverride = getEnvLogLevelOverride;
 
 module.exports = logger;

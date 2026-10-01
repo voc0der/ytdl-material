@@ -969,8 +969,15 @@
                 <div class="settings-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Log Level label">Log Level</span>
+                    @if (logLevelOverride) {
+                      <span class="settings-row-hint" i18n="Setting set by an environment variable hint">Set with <code>{{logLevelOverride.variable}}</code>.</span>
+                    }
                   </span>
-                  <app-picker [title]="loggerLevelLabel" [options]="loggerLevelOptions" [value]="new_config['Advanced']['logger_level']"
+                  <!-- Show the level in force without changing the saved one. The placeholder names a level the
+                       environment can set but the picker does not offer, such as silly. -->
+                  <app-picker [title]="loggerLevelLabel" [options]="loggerLevelOptions"
+                    [value]="logLevelOverride ? logLevelOverride.level : new_config['Advanced']['logger_level']"
+                    [disabled]="!!logLevelOverride" [placeholder]="logLevelOverride?.level || '—'"
                     (valueChange)="new_config['Advanced']['logger_level'] = $any($event)"></app-picker>
                 </div>
                 <div class="settings-row">

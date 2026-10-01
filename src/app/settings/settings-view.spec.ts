@@ -184,6 +184,38 @@ describe('Settings page controls', () => {
     expect(root.querySelector('.settings-savebar')).not.toBeNull();
   });
 
+  describe('Log level', () => {
+    const logLevelPicker = () => fixture.debugElement.queryAll(By.directive(PickerComponent))
+      .find(element => (element.componentInstance as PickerComponent).title === 'Log level');
+    const trigger = (): HTMLButtonElement => logLevelPicker().nativeElement.querySelector('button');
+    const hint = (): HTMLElement => logLevelPicker().nativeElement.closest('.settings-row').querySelector('.settings-row-hint');
+
+    // silly is a level the environment can set but the picker does not offer.
+    it.each([['debug', 'Debug'], ['silly', 'silly']])('shows the %s level the environment sets, read only, and keeps the saved one', async (level, shown) => {
+      posts.config.Advanced.logger_level = 'info';
+      posts.serverRuntime = { trust_proxy: null, log_level: { level, variable: 'ytdl_log_level' }, uid: 1000, gid: 1000, umask: 0o22 };
+      await render();
+      await switchTab('advanced');
+      expect(trigger().textContent).toContain(shown);
+      expect(trigger().disabled).toBe(true);
+      expect(hint().textContent.trim()).toBe('Set with ytdl_log_level.');
+      expect(component.new_config.Advanced.logger_level).toBe('info');
+    });
+
+    it('shows the saved level, and lets it change, when the environment sets none', async () => {
+      posts.config.Advanced.logger_level = 'warn';
+      await render();
+      await switchTab('advanced');
+      expect(trigger().textContent).toContain('Warn');
+      expect(trigger().disabled).toBe(false);
+      expect(hint()).toBeNull();
+      (logLevelPicker().componentInstance as PickerComponent).choose('debug');
+      await render();
+      expect(component.new_config.Advanced.logger_level).toBe('debug');
+      expect(trigger().textContent).toContain('Debug');
+    });
+  });
+
   it.each([true, false])('shows cookie test progress, logs, and result (success: %s)', async success => {
     const response = new Subject<any>();
     posts.testCookies.mockReturnValue(response);
