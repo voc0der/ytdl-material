@@ -4,7 +4,7 @@ import { THEMES_CONFIG } from '../themes';
 import { Router, ActivatedRouteSnapshot } from '@angular/router';
 
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { filter, take } from 'rxjs/operators';
+import { filter, take, tap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
     ChangeRolePermissionsRequest,
@@ -236,6 +236,7 @@ export class PostsService {
     files_changed = new Subject<boolean>();
     playlists_changed = new Subject<boolean>();
     categories_changed = new Subject<boolean>();
+    notifications_changed = new Subject<void>();
 
     // Someone else's library the home page is showing, read only. Null while it shows your own.
     // It lasts until you switch back, log out or log in again, and is never stored: a reload
@@ -750,7 +751,11 @@ export class PostsService {
 
     incrementViewCount(file_uid, sub_id, uuid, playlist_id = null) {
         const body: IncrementViewCountRequest = {file_uid: file_uid, sub_id: sub_id, uuid: uuid, playlist_id: playlist_id};
-        return this.http.post<SuccessObject>(this.path + 'incrementViewCount', body, this.httpOptions);
+        return this.http.post<SuccessObject>(this.path + 'incrementViewCount', body, this.httpOptions).pipe(
+            tap(res => {
+                if (res.success) this.notifications_changed.next();
+            })
+        );
     }
 
     updatePlaylist(playlist: Playlist) {

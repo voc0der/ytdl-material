@@ -97,6 +97,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   // Whether the <video> below has been set up: its saved volume, and what follows it.
   media_ready = false;
   private ready_media: HTMLVideoElement | null = null;
+  private counted_view_uid: string | null = null;
   // Android's browser controls expose the native cast picker. Keep the video uncovered so
   // those controls receive taps, including in browsers whose script API cannot open it.
   readonly native_video_controls = /Android/i.test(navigator.userAgent)
@@ -327,16 +328,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
         this.postsService.openSnackBar($localize`Failed to get file information from the server.`, 'Dismiss');
         return;
       }
-      // playlist_id is sent so a file played through a shared playlist can be counted:
-      // the server accepts membership of a shared playlist as the capability, and the
-      // file itself is often not shared on its own. A view of someone else's library is
-      // not counted: the count is theirs, and nothing in their library is changed.
-      if (!this.library) {
-        this.postsService.incrementViewCount(this.db_file['uid'], null, this.uuid, this.playlist_id).subscribe(() => undefined, err => {
-          console.error('Failed to increment view count');
-          console.error(err);
-        });
-      }
       // regular video/audio file (not playlist)
       this.uids = [this.db_file['uid']];
       this.type = this.db_file['isAudio'] ? 'audio' as FileType : 'video' as FileType;
@@ -441,12 +432,27 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
         this.playVideo();
       });
       media.addEventListener('ended', () => this.nextVideo());
+      media.addEventListener('playing', () => this.onPlaybackStarted());
       media.addEventListener('timeupdate', () => this.onPlaybackTimeUpdate());
       media.addEventListener('error', () => this.onMediaError());
 
       if (this.timestamp) {
         media.currentTime = +this.timestamp;
       }
+  }
+
+  onPlaybackStarted(): void {
+    const uid = this.currentItem?.uid;
+    if (this.destroyed || this.library || this.url || !uid || this.counted_view_uid === uid) return;
+    this.counted_view_uid = uid;
+    // Count actual playback once per item and dismiss its download alert. Playlist
+    // membership also authorizes counting a file played through a shared playlist.
+    this.postsService.incrementViewCount(uid, this.sub_id, this.uuid, this.playlist_id).subscribe({
+      error: err => {
+        if (this.counted_view_uid === uid) this.counted_view_uid = null;
+        console.error('Failed to increment view count', err);
+      }
+    });
   }
 
   saveVolume(media: HTMLVideoElement): void {
@@ -485,6 +491,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }
     const file_changed = this.currentItem?.uid !== newCurrentItem?.uid;
     if (file_changed) {
+      this.counted_view_uid = null;
       this.subtitleTrackRefreshToken += 1;
       this.loadedSubtitleTrackSignature = '';
     }

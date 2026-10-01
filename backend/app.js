@@ -1802,6 +1802,15 @@ app.post('/api/incrementViewCount', resolveJwtIfPresent, async (req, res) => {
 
     await db_api.setVideoProperty(file_uid, {local_view_count: new_view_count}, file_obj['user_uid']);
 
+    // A shared-link viewer must not dismiss the owner's notifications.
+    if (authenticated_uid || !multi_user_mode) {
+        await db_api.removeAllRecords('notifications', {
+            type: 'download_complete',
+            user_uid: authenticated_uid,
+            'data.file_uid': file_uid
+        });
+    }
+
     res.send({
         success: true
     });
