@@ -654,6 +654,11 @@
   text-decoration: underline;
 }
 
+// Standing in for a row's text, it keeps to its own width, so only the words take the click.
+.settings-row-text > .settings-row-link {
+  align-self: flex-start;
+}
+
 .settings-row-link:focus-visible {
   outline: 2px solid var(--kit-accent);
   outline-offset: 2px;
