@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of, Subject } from 'rxjs';
@@ -33,6 +34,8 @@ describe('Settings page controls', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await render();
   };
+  const registrationSwitch = (): HTMLButtonElement => root.querySelector('#settings-allow-registration')
+    .closest('.settings-row').querySelector('button[role="switch"]');
 
   beforeEach(async () => {
     await configureTestBed({ imports: [SettingsComponent] }).compileComponents();
@@ -58,6 +61,9 @@ describe('Settings page controls', () => {
       getVersionInfo: vi.fn().mockReturnValue(of({})),
       getLatestGithubRelease: vi.fn().mockReturnValue(of({})),
       getOIDCStatus: vi.fn().mockReturnValue(of({ initialized: true })),
+      isOIDCEnabled: PostsService.prototype.isOIDCEnabled,
+      getUsers: vi.fn().mockReturnValue(of({ users: [] })),
+      getRoles: vi.fn().mockReturnValue(of({ roles: [] })),
       setConfig: vi.fn().mockReturnValue(of({ success: true })),
       testCookies: vi.fn(),
       testConnectionString: vi.fn(),
@@ -247,6 +253,8 @@ describe('Settings page controls', () => {
 
   it.each([null, true, false])('shows provider status without rendering secrets (initialized: %s)', async initialized => {
     posts.config.Advanced.multi_user_mode = true;
+    posts.config.Users.allow_registration = true;
+    posts.config.Users.auth_method = 'ldap';
     posts.config.Users.oidc = {
       enabled: true, issuer_url: 'https://private-id.example.test', client_id: 'private-client', client_secret: 'private-secret'
     };
@@ -264,6 +272,77 @@ describe('Settings page controls', () => {
       expect(root.innerHTML).not.toContain(secret);
     }
     expect(panel.textContent.includes('Sign-in through the provider will fail')).toBe(initialized === false);
+
+    // OIDC blocks local authentication even when discovery fails or its status is unknown.
+    const dialog = vi.spyOn(TestBed.inject(MatDialog), 'open');
+    const registration = registrationSwitch();
+    expect(registration.disabled).toBe(true);
+    expect(registration.getAttribute('aria-checked')).toBe('false');
+    expect(root.querySelector(`#${registration.getAttribute('aria-describedby')}`).textContent)
+      .toContain('New SSO accounts are controlled by “Register users on first sign-in”');
+    registration.click();
+    expect(component.new_config.Users.allow_registration).toBe(true);
+    expect(button('OIDC / SSO').disabled).toBe(true);
+    expect(component.new_config.Users.auth_method).toBe('ldap');
+    const ldapInputs = Array.from(root.querySelectorAll<HTMLInputElement>('.settings-field-row input'));
+    expect(ldapInputs).toHaveLength(5);
+    expect(ldapInputs.every(input => input.disabled)).toBe(true);
+    const addUsers = button('Add Users');
+    expect(addUsers.disabled).toBe(true);
+    expect(root.querySelector(`#${addUsers.getAttribute('aria-describedby')}`).textContent)
+      .toContain('Local user creation is disabled while OIDC is enabled');
+    addUsers.click();
+    expect(dialog).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])('preserves local preferences through saving under OIDC and restores them when OIDC is off (registration: %s)', async allowRegistration => {
+    posts.config.Advanced.multi_user_mode = true;
+    Object.assign(posts.config.Users, {
+      allow_registration: allowRegistration,
+      auth_method: 'ldap',
+      ldap_config: {
+        url: 'ldaps://directory.example.test', bindDN: 'cn=reader', bindCredentials: 'saved-credential',
+        searchBase: 'ou=people', searchFilter: '(uid={{username}})'
+      },
+      oidc: { enabled: true, auto_register: false }
+    });
+    const savedUsers = JSON.parse(JSON.stringify(posts.config.Users));
+    await render();
+    await switchTab('users');
+    expect(registrationSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(root.querySelector('.settings-savebar')).toBeNull();
+    const autoRegister = Array.from(root.querySelectorAll('.settings-row'))
+      .find(row => row.querySelector('.settings-row-title')?.textContent === 'Register users on first sign-in');
+    expect(autoRegister.querySelector('.settings-row-value').textContent).toBe('No');
+    expect(autoRegister.querySelector('.settings-row-hint').textContent)
+      .toContain('Existing matching accounts can still sign in when this is off');
+    expect(autoRegister.querySelector('input, button')).toBeNull();
+
+    await switchTab('main');
+    await editInput(root.querySelector('input'), 'https://changed.example.test');
+    button('Save', root.querySelector('.settings-savebar')).click();
+    await render();
+    expect(posts.setConfig).toHaveBeenCalledWith({ YtdlMaterial: expect.objectContaining({ Users: savedUsers }) });
+
+    // Model a refreshed server configuration after OIDC is disabled externally.
+    posts.config.Users.oidc.enabled = false;
+    component.getConfig();
+    await switchTab('users');
+    const registration = registrationSwitch();
+    expect(registration.disabled).toBe(false);
+    expect(registration.getAttribute('aria-checked')).toBe(String(allowRegistration));
+    expect(button('LDAP').disabled).toBe(false);
+    const ldapInputs = Array.from(root.querySelectorAll<HTMLInputElement>('.settings-field-row input'));
+    expect(ldapInputs.every(input => !input.disabled)).toBe(true);
+    expect(ldapInputs.map(input => input.value)).toEqual(Object.values(savedUsers.ldap_config));
+    registration.click();
+    await render();
+    expect(component.new_config.Users.allow_registration).toBe(!allowRegistration);
+
+    const dialog = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => of(null) } as any);
+    expect(button('Add Users').disabled).toBe(false);
+    button('Add Users').click();
+    expect(dialog).toHaveBeenCalledOnce();
   });
 
   it('renders the hardware fallback warning from the server status', async () => {
