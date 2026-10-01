@@ -56,7 +56,7 @@ Keep metadata and thumbnails alongside the media for library details and later i
 
 ## Cookies and browser impersonation
 
-For sources requiring a signed-in session, upload a Netscape-format `cookies.txt` in **Settings → Advanced**, enable cookies, and use the cookie test with the failing URL. Cookies grant access as the account they came from; replace expired cookies when testing reports a login failure.
+For sources requiring a signed-in session, upload a Netscape-format `cookies.txt` in **Settings → Advanced**, enable cookies, and use the cookie test with the failing URL. One way to export a `cookies.txt` is the [Get cookies.txt LOCALLY](https://github.com/kairi003/Get-cookies.txt-LOCALLY) browser extension. Cookies grant access as the account they came from; replace expired cookies when testing reports a login failure.
 
 Browser impersonation requires startup dependencies. Set `ytdl_enable_ytdlp_impersonation_dependencies: 'true'`, recreate the container, then check the option under **Downloader**. Existing configurations may still need **Use browser impersonation** enabled. This is separate from cookies and does not guarantee access to every source.
 

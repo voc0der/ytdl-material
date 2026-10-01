@@ -1001,7 +1001,12 @@
                   </span>
                   <mat-slide-toggle [(ngModel)]="new_config['Advanced']['use_cookies']" aria-labelledby="settings-use-cookies"></mat-slide-toggle>
                 </div>
-                <div class="settings-row settings-row-actions">
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <a class="settings-row-link" target="_blank" rel="noopener"
+                      href="https://voc0der.github.io/ytdl-material/usage/downloads/#cookies-and-browser-impersonation"
+                      i18n="Cookies help link">How can I get my cookies.txt?</a>
+                  </span>
                   <button type="button" class="kit-chip" (click)="openCookiesUploaderDialog()">
                     <mat-icon>cookie</mat-icon><span i18n="Set cookies button">Set Cookies</span>
                   </button>

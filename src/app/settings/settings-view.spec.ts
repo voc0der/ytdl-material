@@ -243,6 +243,18 @@ describe('Settings page controls', () => {
     expect(status.classList.contains(success ? 'is-good' : 'is-warning')).toBe(true);
   });
 
+  it('links the Set Cookies row to the docs on getting a cookies.txt', async () => {
+    await render();
+    await switchTab('advanced');
+    const link = Array.from(root.querySelectorAll<HTMLAnchorElement>('a'))
+      .find(candidate => candidate.textContent.trim() === 'How can I get my cookies.txt?');
+    expect(link, 'cookies help link').toBeDefined();
+    expect(link.href).toBe('https://voc0der.github.io/ytdl-material/usage/downloads/#cookies-and-browser-impersonation');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener');
+    expect(link.closest('.settings-row').contains(button('Set Cookies'))).toBe(true);
+  });
+
   it('shows a database empty state when no information is returned', async () => {
     posts.getDBInfo.mockReturnValue(of(null));
     await render();
