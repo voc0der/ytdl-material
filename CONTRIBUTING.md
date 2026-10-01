@@ -105,3 +105,7 @@ trade than a job on every PR. Update the badge in the same PR as whatever moved 
 - Frontend tests run on Vitest in a jsdom environment, so no browser install is needed.
 - Component specs call `configureTestBed()` from `src/testing/test-bed.ts` rather than
   `TestBed.configureTestingModule` directly, which is what supplies the shared service stubs.
+- Backend tests that need the server itself, not one module, boot `app.js` with `startApp()`
+  from `backend/test/helpers/app-process.js` and send it real requests. It runs in a child
+  process with its own working directory, config and media folders, so nothing it writes
+  outlives the test, and c8 follows the child, so `app.js` counts toward coverage.

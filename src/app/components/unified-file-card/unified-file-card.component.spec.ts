@@ -104,6 +104,20 @@ describe('UnifiedFileCardComponent', () => {
     expect(component.playlistsToAddTo).toEqual([]);
   });
 
+  // The placeholders are content-loader's, drawn in the theme's ghost colours.
+  it.each(['grid', 'list'] as const)('draws placeholders while it loads, in the %s layout', layout => {
+    component.loading = true;
+    component.layout = layout;
+    fixture.detectChanges();
+
+    const loaders = fixture.nativeElement.querySelectorAll('content-loader svg');
+    expect(loaders.length).toBeGreaterThan(0);
+    const colours = Array.from<Element>(fixture.nativeElement.querySelectorAll('content-loader stop'))
+      .map(stop => stop.getAttribute('stop-color'));
+    expect(new Set(colours)).toEqual(new Set(['#000000', '#111111']));
+    expect(fixture.nativeElement.querySelector('img')).toBeNull();
+  });
+
   it('should create', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
