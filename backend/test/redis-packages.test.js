@@ -54,22 +54,30 @@ describe('Redis packages behind the rate limiters', function() {
         it('gives up on a server that is not there after the initial retries', async function() {
             const port = await closedPort();
             const errors = [];
+            // The reason, not the "client is closed" that destroying the closed client threw.
             await assert.rejects(redis_store.createConnection(`redis://127.0.0.1:${port}`, {
                 connectTimeoutMs: 500,
                 initialReconnectDelayMs: 10,
                 maxInitialRetries: 2,
                 onError: error => errors.push(error)
-            }));
+            }), {code: 'ECONNREFUSED'});
             assert.deepStrictEqual(errors.map(error => error.code), ['ECONNREFUSED', 'ECONNREFUSED', 'ECONNREFUSED']);
         });
 
-        it('reports a failed connection test in one attempt', async function() {
+        it('reports why a connection test failed, after one attempt', async function() {
             const port = await closedPort();
             const errors = [];
             const result = await redis_store.testConnectionString(`redis://127.0.0.1:${port}`, {onError: error => errors.push(error)});
             assert.strictEqual(result.success, false);
-            assert(typeof result.error === 'string' && result.error.length > 0);
+            assert.match(result.error, /ECONNREFUSED/);
             assert.strictEqual(errors.length, 1);
+        });
+
+        it('closes a client that never opened, or that gave up, without throwing', async function() {
+            await redis_store.closeConnection(null);
+            const client = createClient({url: 'redis://127.0.0.1:6379'});
+            assert.strictEqual(client.isOpen, false);
+            await redis_store.closeConnection(client);
         });
 
         it('refuses a connection string that is not a Redis URL before connecting', async function() {

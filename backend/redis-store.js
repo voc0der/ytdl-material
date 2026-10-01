@@ -81,20 +81,19 @@ async function createConnection(connectionString, options = {}) {
         hasConnectedOnce = true;
         return client;
     } catch (error) {
-        client.destroy();
+        // A client that has given up retrying has closed itself, and redis throws "The
+        // client is closed" when it is destroyed again -- which replaced the reason it
+        // failed, so the settings page reported that instead of, say, ECONNREFUSED.
+        if (client.isOpen) client.destroy();
         throw error;
     }
 }
 
 async function closeConnection(client) {
-    if (!client) return;
-
-    if (client.isOpen) {
-        await client.close();
-        return;
-    }
-
-    client.destroy();
+    // One that never opened, or gave up reconnecting, is closed already. Destroying it
+    // again would only throw.
+    if (!client || !client.isOpen) return;
+    await client.close();
 }
 
 async function testConnectionString(connectionString, options = {}) {
