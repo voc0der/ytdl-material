@@ -1544,6 +1544,21 @@ describe('Subscriptions', function() {
         }));
     }
 
+    // What is logged as a warning or an error while fn runs, in order.
+    async function captureWarningsAndErrors(fn) {
+        const logger = require('../logger');
+        const originals = {warn: logger.warn, error: logger.error};
+        const logged = [];
+        logger.warn = message => logged.push(`warn: ${message}`);
+        logger.error = message => logged.push(`error: ${message}`);
+        try {
+            await fn();
+        } finally {
+            Object.assign(logger, originals);
+        }
+        return logged;
+    }
+
     it('Keeps the channel id and avatar from the channel record', async function () {
         const axios = require('axios');
         const original_get = axios.get;
@@ -1938,13 +1953,16 @@ describe('Subscriptions', function() {
             return {child_process: {pid: 4321}, callback: Promise.resolve({err: new Error('yt-dlp process exited with code 1')})};
         };
 
+        let logged;
         try {
             await subscriptions_api.subscribe(failing_sub, null, true);
             await subscriptions_api.subscribe(dated_sub, null, true);
-            error_line = 'ERROR: [youtube:tab] nope: This channel does not exist.';
-            await checkAndWait(failing_sub.id);
-            error_line = 'ERROR: [youtube] recent-video: This live event will begin in a few moments.';
-            await checkAndWait(dated_sub.id);
+            logged = await captureWarningsAndErrors(async () => {
+                error_line = 'ERROR: [youtube:tab] nope: This channel does not exist.';
+                await checkAndWait(failing_sub.id);
+                error_line = 'ERROR: [youtube] recent-video: This live event will begin in a few moments.';
+                await checkAndWait(dated_sub.id);
+            });
         } finally {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
         }
@@ -1954,6 +1972,59 @@ describe('Subscriptions', function() {
         assert.strictEqual(failed.error, '[youtube:tab] nope: This channel does not exist.');
         // Its uploads were listed a moment before, so the channel itself answers.
         assert.strictEqual((await db_api.getRecord('subscriptions', {id: dated_sub.id})).refresh_status.phase, 'complete');
+        // The log says so too, once each, in yt-dlp's words rather than as its exit code.
+        assert.deepStrictEqual(logged, [
+            "error: Subscription check for 'failing_sub' failed: [youtube:tab] nope: This channel does not exist.",
+            "warn: Subscription check for 'one_bad_upload_sub' could not read an upload: [youtube] recent-video: This live event will begin in a few moments."
+        ]);
+    });
+
+    it('Queues what a check found, and names once what it could not read', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'some_bad_uploads_sub', source_info_checked_at: Date.now()});
+        const upload = id => JSON.stringify({webpage_url: `https://www.youtube.com/watch?v=${id}`, title: id, extractor: 'youtube', id: id});
+        let lines = [];
+        let exit_error = null;
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, handlers) => {
+            for (const line of lines) {
+                if (line.startsWith('ERROR:')) handlers.onStderrLine(line);
+                else handlers.onStdoutLine(line);
+            }
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: exit_error})};
+        };
+
+        let logged;
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            logged = await captureWarningsAndErrors(async () => {
+                // yt-dlp goes on past an upload it cannot read, and exits with an error once done.
+                lines = [
+                    'ERROR: [youtube] private-one: Video unavailable. This video is private.',
+                    upload('new-upload'),
+                    'ERROR: [youtube] upcoming-one: This live event will begin in 5 hours.'
+                ];
+                exit_error = new Error('yt-dlp process exited with code 1');
+                await checkAndWait(sub.id);
+
+                // With no error line, as when it is killed, it may have stopped partway.
+                lines = [upload('another-upload')];
+                exit_error = new Error('yt-dlp process exited with code null (signal: SIGKILL)');
+                await checkAndWait(sub.id);
+            });
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        const queued = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.deepStrictEqual(queued.map(download => download.url).sort(), [
+            'https://www.youtube.com/watch?v=another-upload',
+            'https://www.youtube.com/watch?v=new-upload'
+        ]);
+        assert.strictEqual((await db_api.getRecord('subscriptions', {id: sub.id})).refresh_status.phase, 'queued');
+        assert.deepStrictEqual(logged, [
+            "warn: Subscription check for 'some_bad_uploads_sub' could not read 2 uploads, the last: [youtube] upcoming-one: This live event will begin in 5 hours.",
+            "warn: Subscription check for 'some_bad_uploads_sub' may not have finished: Error: yt-dlp process exited with code null (signal: SIGKILL)"
+        ]);
     });
 
     it('Fresh uploads', async function() {
