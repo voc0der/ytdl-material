@@ -3379,17 +3379,32 @@ app.post('/api/cancelDownload', optionalJwt, requirePermission('downloads_manage
 
 // tasks
 
+/*************************************************
+ * The task as the tasks page shows it: the record,
+ * plus when it next runs if it is scheduled.
+ *
+ * A copy. The local database hands out its live
+ * records, so the next run used to be written onto
+ * the stored task, and an unscheduled one went on
+ * showing it. A next run an older version saved
+ * that way is dropped here too.
+ ************************************************/
+function taskWithNextRun(task) {
+    if (!task) return task;
+    const task_with_next_run = {...task};
+    delete task_with_next_run['next_invocation'];
+    if (!tasks_api.TASKS[task['key']]) {
+        logger.verbose(`Task ${task['key']} does not exist!`);
+        return task_with_next_run;
+    }
+    const next_invocation = tasks_api.getNextRun(task['key']);
+    if (task['schedule'] && next_invocation) task_with_next_run['next_invocation'] = next_invocation.getTime();
+    return task_with_next_run;
+}
+
 app.post('/api/getTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const tasks = await db_api.getRecords('tasks');
-    for (let task of tasks) {
-        if (!tasks_api.TASKS[task['key']]) {
-            logger.verbose(`Task ${task['key']} does not exist!`);
-            continue;
-        }
-        const next_invocation = tasks_api.getNextRun(task['key']);
-        if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
-    }
-    res.send({tasks: tasks});
+    res.send({tasks: tasks.map(taskWithNextRun)});
 });
 
 app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
@@ -3406,9 +3421,7 @@ app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), asy
 app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
-    const next_invocation = tasks_api.getNextRun(task_key);
-    if (task['schedule'] && next_invocation) task['next_invocation'] = next_invocation.getTime();
-    res.send({task: task});
+    res.send({task: taskWithNextRun(task) || null});
 });
 
 app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {

@@ -424,7 +424,25 @@ describe('The server as it runs', function() {
 
         it('unschedules a task', async function() {
             await app.api.post('/api/updateTaskSchedule').send({task_key: 'missing_files_check', new_schedule: null}).expect(200);
-            assert.strictEqual((await getTask('missing_files_check')).schedule, null);
+            const task = await getTask('missing_files_check');
+            assert.strictEqual(task.schedule, null);
+            assert.strictEqual(task.next_invocation, undefined);
+            const listed = (await app.api.post('/api/getTasks').send({}).expect(200)).body.tasks;
+            assert.strictEqual(listed.find(item => item.key === 'missing_files_check').next_invocation, undefined);
+        });
+
+        it('keeps the next run out of the stored task', async function() {
+            await getTask('duplicate_files_check');
+            await app.api.post('/api/getTasks').send({}).expect(200);
+            // Any write saves the whole local database, as it stands in memory.
+            await app.api.post('/api/dismissTaskError').send({task_key: 'duplicate_files_check'}).expect(200);
+            const stored = fs.readJSONSync(path.join(app.root, 'appdata', 'local_db.json')).tasks;
+            assert(stored.every(task => task.next_invocation === undefined));
+        });
+
+        it('says there is no such task', async function() {
+            const res = await app.api.post('/api/getTask').send({task_key: 'no_such_task'}).expect(200);
+            assert.deepStrictEqual(res.body, {task: null});
         });
 
         it('keeps each task\'s options and data, and dismisses its error', async function() {
