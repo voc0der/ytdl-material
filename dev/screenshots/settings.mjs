@@ -461,7 +461,10 @@ async function theOIDCPanel(browser, errors) {
         !text.includes('a-secret-that-must-not-be-printed') && !text.includes('id.example.com') && !text.includes('ytdl-material'));
     check('it fills in the value the backend falls back to', text.includes('openid profile email') && text.includes('preferred_username'));
     check('and the values that were set', text.includes('groups = media-admins') && text.includes('roles') && text.includes('Any group'));
-    check('auto-registration is reported as it was left', /Register users on first sign-in\s*No/.test(text), text.includes('sign-in\nNo') ? 'No' : '');
+    // Off its own row, since a hint sits between the row's name and its value.
+    const auto_register = (await panel.locator('.settings-row', { hasText: 'Register users on first sign-in' })
+        .locator('.settings-row-value').innerText()).trim();
+    check('auto-registration is reported as it was left', auto_register === 'No', auto_register);
     check('nothing in the panel can be typed into', await panel.locator('input, textarea, mat-slide-toggle').count() === 0);
 
     await shoot(page, 'settings-users-oidc-desktop');
