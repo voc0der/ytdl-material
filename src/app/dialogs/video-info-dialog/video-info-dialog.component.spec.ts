@@ -88,6 +88,21 @@ describe('VideoInfoDialogComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  // Formatted by filesize, whose default units are what the dialog shows.
+  it('shows the file size in decimal units, or N/A without one', () => {
+    const fileSize = () => Array.from<HTMLElement>(fixture.nativeElement.querySelectorAll('dt'))
+      .find(term => term.textContent.includes('File size')).nextElementSibling.textContent.trim();
+    expect(fileSize()).toBe('116.66 MB');
+
+    component.new_file = {...component.new_file, size: 2538};
+    fixture.detectChanges();
+    expect(fileSize()).toBe('2.54 kB');
+
+    component.new_file = {...component.new_file, size: null};
+    fixture.detectChanges();
+    expect(fileSize()).toBe('N/A');
+  });
+
   it('should fetch the full file payload on init', () => {
     expect(postsServiceStub.getFile).toHaveBeenCalledWith('uid-1', null, null);
     expect(component.new_file.subtitles?.length).toBe(1);
