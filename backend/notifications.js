@@ -200,15 +200,18 @@ function settleSend(service, sending) {
 
 function sendNtfyNotification({body, title, type, url, thumbnail}) {
     logger.verbose('Sending notification to ntfy');
+    const headers = {
+        'Title': title,
+        'Tags': type,
+        'Click': url
+    };
+    // Only when there is one: fetch sends a null header as the text "null", which is not
+    // an attachment URL, on every event that has no thumbnail.
+    if (thumbnail) headers['Attach'] = thumbnail;
     settleSend('ntfy', fetch(config_api.getConfigItem('ytdl_ntfy_topic_url'), {
         method: 'POST',
         body: body,
-        headers: {
-            'Title': title,
-            'Tags': type,
-            'Click': url,
-            'Attach': thumbnail
-        }
+        headers: headers
     }));
 }
 

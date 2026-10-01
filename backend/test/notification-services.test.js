@@ -211,6 +211,14 @@ describe('Notification services', function() {
             });
         });
 
+        it('attaches nothing to an event without a thumbnail', async function() {
+            await notifications.sendTaskNotification({key: 'backup_local_db', title: 'Backup DB'}, false);
+
+            assert.equal(fetches.length, 1);
+            // A null header went out as the text "null".
+            assert.deepEqual(fetches[0].headers, {Title: 'Task finished', Tags: 'task_finished', Click: `${APP_URL}/#/tasks`});
+        });
+
         it('is not sent without a topic', async function() {
             settings.ytdl_ntfy_topic_url = '';
             await notifications.sendDownloadNotification(FILE, null);
