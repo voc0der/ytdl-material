@@ -45,8 +45,11 @@ describe('Notification services', function() {
     let discord_requests;
     let axios_requests;
     let axios_response;
+    let fetch_response;
+    let discord_response;
     let config_listener;
     let logged;
+    let stored;
     let unhandled;
     let original_make_request;
     let original_adapter;
@@ -64,7 +67,10 @@ describe('Notification services', function() {
                 config_updated: {subscribe(listener) { config_listener = listener; }}
             },
             './db': {
-                insertRecordIntoTable: async () => true,
+                insertRecordIntoTable: async (table, record) => {
+                    stored.push([table, record]);
+                    return true;
+                },
                 removeAllRecords: async () => true
             },
             './utils': {
@@ -82,7 +88,7 @@ describe('Notification services', function() {
             name => dependencies[name] || requireNotificationDependency(name), {
                 fetch: (url, options) => {
                     fetches.push({url, ...options});
-                    return Promise.resolve({ok: true});
+                    return fetch_response(url);
                 }
             });
     }
@@ -97,15 +103,18 @@ describe('Notification services', function() {
         discord_requests = [];
         axios_requests = [];
         logged = [];
+        stored = [];
         unhandled = [];
         config_listener = null;
         axios_response = config => ({data: {ok: true, result: true}, status: 200, statusText: 'OK', headers: {}, config, request: {}});
+        fetch_response = () => Promise.resolve({ok: true, status: 200});
+        discord_response = () => new Response(null, {status: 204});
         process.on('unhandledRejection', keepUnhandled);
 
         original_make_request = DefaultRestOptions.makeRequest;
         DefaultRestOptions.makeRequest = async (url, init) => {
             discord_requests.push({url, init});
-            return new Response(null, {status: 204});
+            return discord_response();
         };
         original_adapter = axios.defaults.adapter;
         axios.defaults.adapter = async config => {
@@ -206,6 +215,72 @@ describe('Notification services', function() {
             settings.ytdl_ntfy_topic_url = '';
             await notifications.sendDownloadNotification(FILE, null);
             assert.deepEqual(fetches, []);
+        });
+    });
+
+    /*************************************************
+     * Each service is sent to without waiting on it,
+     * so a send that fails has to be caught where it
+     * is made. Left to reject, it ended the process:
+     * an ntfy server that could not be reached took
+     * the backend down with the first notification.
+     ************************************************/
+    describe('A send that fails', function() {
+        const settled = async (count) => {
+            await until(() => logged.length >= count, `${count} logged failures`);
+            await new Promise(resolve => setImmediate(resolve));
+            assert.deepEqual(unhandled, []);
+        };
+
+        it('is logged when the service cannot be reached', async function() {
+            Object.assign(settings, {
+                ytdl_use_ntfy_API: true, ytdl_ntfy_topic_url: 'https://ntfy.example.test/downloads',
+                ytdl_slack_webhook_url: 'https://hooks.slack.example.test/services/T/B/X',
+                ytdl_webhook_url: 'https://hooks.example.test/events'
+            });
+            fetch_response = () => Promise.reject(new TypeError('fetch failed', {cause: new Error('connect ECONNREFUSED 127.0.0.1:443')}));
+            load();
+
+            await notifications.sendDownloadNotification(FILE, null);
+            await settled(3);
+
+            assert.deepEqual(logged.slice().sort(), [
+                'Failed to send the Slack notification: fetch failed (connect ECONNREFUSED 127.0.0.1:443)',
+                'Failed to send the ntfy notification: fetch failed (connect ECONNREFUSED 127.0.0.1:443)',
+                'Failed to send the webhook notification: fetch failed (connect ECONNREFUSED 127.0.0.1:443)'
+            ]);
+        });
+
+        it('is logged when the service refuses it', async function() {
+            settings.ytdl_slack_webhook_url = 'https://hooks.slack.example.test/services/T/B/X';
+            fetch_response = () => Promise.resolve({ok: false, status: 404});
+            load();
+
+            await notifications.sendDownloadNotification(FILE, null);
+            await settled(1);
+            assert.deepEqual(logged, ['The Slack notification was refused: HTTP 404']);
+        });
+
+        it('is logged when Discord no longer has the webhook', async function() {
+            settings.ytdl_discord_webhook_url = DISCORD_WEBHOOK;
+            discord_response = () => new Response(JSON.stringify({message: 'Unknown Webhook', code: 10015}),
+                {status: 404, headers: {'content-type': 'application/json'}});
+            load();
+
+            await notifications.sendDownloadNotification(FILE, null);
+            await settled(1);
+            assert.deepEqual(logged, ['Failed to send the Discord notification: Unknown Webhook']);
+        });
+
+        it('still keeps the notification in the app', async function() {
+            settings.ytdl_use_ntfy_API = true;
+            settings.ytdl_ntfy_topic_url = 'https://ntfy.example.test/downloads';
+            fetch_response = () => Promise.reject(new TypeError('fetch failed'));
+            load();
+
+            const notification = await notifications.sendDownloadNotification(FILE, null);
+            await settled(1);
+            assert.deepEqual(stored, [['notifications', notification]]);
         });
     });
 

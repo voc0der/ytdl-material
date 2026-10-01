@@ -68,7 +68,7 @@ exports.sendNotification = async (notification) => {
         sendGenericNotification(webhook_data);
     }
     if (config_api.getConfigItem('ytdl_discord_webhook_url')) {
-        sendDiscordNotification(data);
+        settleSend('Discord', sendDiscordNotification(data));
     }
     if (config_api.getConfigItem('ytdl_slack_webhook_url')) {
         sendSlackNotification(data);
@@ -176,11 +176,31 @@ function applyCustomWebhookTemplate(notification, payload) {
     });
 }
 
+/*************************************************
+ * Notifications go out to the services without
+ * waiting on them, so each send settles its own
+ * failure. A rejection left unhandled ends the
+ * process: an ntfy server that could not be reached
+ * took the whole backend down with the first
+ * notification it should have received, and a
+ * deleted Discord webhook did the same.
+ ************************************************/
+function settleSend(service, sending) {
+    return Promise.resolve(sending)
+        .then(response => {
+            if (response && response.ok === false) logger.warn(`The ${service} notification was refused: HTTP ${response.status}`);
+        })
+        .catch(err => {
+            const cause = err && err.cause && err.cause.message ? ` (${err.cause.message})` : '';
+            logger.warn(`Failed to send the ${service} notification: ${err && err.message ? err.message : err}${cause}`);
+        });
+}
+
 // ntfy
 
 function sendNtfyNotification({body, title, type, url, thumbnail}) {
     logger.verbose('Sending notification to ntfy');
-    fetch(config_api.getConfigItem('ytdl_ntfy_topic_url'), {
+    settleSend('ntfy', fetch(config_api.getConfigItem('ytdl_ntfy_topic_url'), {
         method: 'POST',
         body: body,
         headers: {
@@ -189,7 +209,7 @@ function sendNtfyNotification({body, title, type, url, thumbnail}) {
             'Click': url,
             'Attach': thumbnail
         }
-    });
+    }));
 }
 
 // Gotify
@@ -404,13 +424,13 @@ function sendSlackNotification({body, title, type, url, thumbnail}) {
         }
     );
 
-    fetch(slack_webhook_url, {
+    settleSend('Slack', fetch(slack_webhook_url, {
         method: 'POST',
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(data),
-    });
+    }));
 }
 
 // Generic
@@ -512,11 +532,11 @@ function sendGenericNotification(data) {
     const request_url = webhook_info ? webhook_info['request_url'] : webhook_url;
     logger.verbose(`Sending generic notification to ${request_url}`);
     const payload = getWebhookPayload(webhook_info, data);
-    fetch(request_url, {
+    settleSend('webhook', fetch(request_url, {
         method: 'POST',
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(payload),
-    });
+    }));
 }
