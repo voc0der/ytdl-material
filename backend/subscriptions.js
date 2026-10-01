@@ -799,11 +799,21 @@ function recordSubscriptionRefreshOutput(tracker, output_json) {
     return true;
 }
 
-// yt-dlp's own account of what went wrong, for a check that failed, rather than its exit code.
+// yt-dlp's own account of what went wrong, rather than its exit code.
 function describeSubscriptionCheckError(process_error = null, error_lines = []) {
     const last_error_line = error_lines[error_lines.length - 1];
     if (last_error_line) return last_error_line.replace(/^ERROR:\s*/, '');
     return process_error ? process_error.toString() : 'Subscription check failed.';
+}
+
+// yt-dlp skips an upload it cannot read and goes on, then exits with an error at the end, so a
+// check that still went through its uploads says once what it could not read. With no error
+// line to go on, yt-dlp may instead have stopped partway.
+function describeSubscriptionCheckShortfall(sub_name, process_error = null, error_lines = [], error_count = 0) {
+    const reason = describeSubscriptionCheckError(process_error, error_lines);
+    if (error_count === 0) return `Subscription check for '${sub_name}' may not have finished: ${reason}`;
+    if (error_count === 1) return `Subscription check for '${sub_name}' could not read an upload: ${reason}`;
+    return `Subscription check for '${sub_name}' could not read ${error_count} uploads, the last: ${reason}`;
 }
 
 function isSubscriptionRefreshCancelled(tracker) {
@@ -1032,7 +1042,8 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
         queue_context: null,
         flush_promise: Promise.resolve(),
         flush_error: null,
-        error_lines: []
+        error_lines: [],
+        error_count: 0
     };
 
     const flushOutputBatch = async (output_batch = []) => {
@@ -1072,6 +1083,7 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
         ingestLine(output_line = '') {
             if (stream_state.flush_error || isSubscriptionRefreshCancelled(refresh_tracker)) return;
             if (typeof output_line === 'string' && output_line.startsWith('ERROR:')) {
+                stream_state.error_count += 1;
                 stream_state.error_lines = [...stream_state.error_lines.slice(-4), output_line.trim()];
                 return;
             }
@@ -1115,17 +1127,14 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
             const has_streamed_results = discovered_count > 0 || queued_count > 0;
 
             if (process_error && !has_streamed_results && !source_listed) {
-                logger.error('Subscription check failed!');
-                logger.error(process_error);
-                await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, describeSubscriptionCheckError(process_error, stream_state.error_lines));
+                const reason = describeSubscriptionCheckError(process_error, stream_state.error_lines);
+                logger.error(`Subscription check for '${sub.name}' failed: ${reason}`);
+                await finalizeSubscriptionRefreshWithError(sub.id, refresh_tracker, reason);
                 return null;
             }
 
-            if (process_error && !has_streamed_results) {
-                logger.warn(`Subscription check for '${sub.name}' could not read some uploads: ${describeSubscriptionCheckError(process_error, stream_state.error_lines)}`);
-            } else if (process_error) {
-                logger.warn(`Subscription discovery for '${sub.name}' exited early after streaming ${discovered_count} entries. Queueing the streamed results.`);
-                logger.debug(process_error);
+            if (process_error) {
+                logger.warn(describeSubscriptionCheckShortfall(sub.name, process_error, stream_state.error_lines, stream_state.error_count));
             }
 
             return await finalizeSubscriptionRefreshSuccess(sub, refresh_tracker, stream_state.queue_context);
