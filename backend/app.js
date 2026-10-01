@@ -4135,7 +4135,10 @@ app.use(function(req, res, next) {
 
     res.setHeader('Content-Type', 'text/html');
 
-    fs.createReadStream(index_path).pipe(res);
+    // A failed read has to go somewhere. Unhandled, it was an uncaught exception that took
+    // the server down, for any page request while there is no index.html: a backend run
+    // without a frontend build, or an update that has removed public/ to replace it.
+    fs.createReadStream(index_path).on('error', next).pipe(res);
 
 });
 

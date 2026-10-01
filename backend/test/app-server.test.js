@@ -116,6 +116,18 @@ describe('The server as it runs', function() {
             assert.deepStrictEqual(res.body, {success: false, error: 'Internal Server Error'});
         });
 
+        it('serves the app for a page it routes itself, or says why it cannot, and keeps serving', async function() {
+            const res = await app.api.get('/subscriptions').set('Accept', 'text/html');
+            if (fs.existsSync(path.join(BACKEND, 'public', 'index.html'))) {
+                assert.strictEqual(res.status, 200);
+                assert.match(res.headers['content-type'], /text\/html/);
+            } else {
+                // No frontend build, as in CI: this used to be an uncaught exception.
+                assert.deepStrictEqual([res.status, res.body], [500, {success: false, error: 'Internal Server Error'}]);
+            }
+            await app.api.get('/healthz').expect(200);
+        });
+
         it('answers an API route that does not exist with a 404', async function() {
             await app.api.post('/api/noSuchRoute').set('Accept', 'application/json').send({}).expect(404);
         });
