@@ -419,7 +419,13 @@ opens New playlist from the Playlists tab and checks the editor is there rather 
 dialog, that it is dialog-sized, that only its list scrolls, and that searching narrows the list.
 Then it picks three files, checks the order and the running time, creates the playlist and reads
 it back off the backend. It reopens it with Edit and reorders by dragging and by the arrow keys,
-removes a file, reverses the rest and renames it, then checks the backend has exactly that. On the
+removes a file, reverses the rest and renames it, then checks the backend has exactly that. For
+cover art, it stages one playlist whose first file's art does not decode, kept with the `local`
+placeholder as its cover, and checks the card shows that file's art rather than the placeholder.
+Regenerate cover art in its editor then has to take a frame from the video, record the new art
+rather than the broken `.jpg` beside it, and show it in the editor and on the card without a
+reload. Another playlist's first file has no art at all: its card shows no image until the
+Generate missing cover art task gives the file some, which the playlist then shows. On the
 Duplicates page it checks every duplicated file has a row, the summary counts the extra copies,
 and a row opens onto its copies. Then it cleans up one file keeping the first download and the
 other keeping the latest, checking which records and which files on disk are left each time,
@@ -430,6 +436,8 @@ It downloads nothing, and like the others it is not part of CI.
 
 ## Things worth knowing
 
+- **It needs ffmpeg** for the two short clips it makes cover art from. The other files are empty,
+  as nothing else reads them.
 - **Only a production build shows NG0919.** That is why this builds one rather than pointing
   at `ng serve`, and why its last check is that the page logged no errors at all.
 - **The duplicate copies are real files, however empty.** Cleaning up deletes them from disk,

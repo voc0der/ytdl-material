@@ -176,13 +176,17 @@ exports.generateThumbnailForFile = async (file_obj, {timestamp_seconds = DEFAULT
         // Non-fatal.
     }
 
-    const stored_thumbnail_path = utils.getDownloadedThumbnail(file_path);
+    // The art just written, not whatever getDownloadedThumbnail finds: it looks for a .jpg
+    // first, and the .jpg a download left beside the file is often the art being replaced.
+    // The stamp gives the image a new address, as a browser keeps showing the old one at the old.
+    const thumbnail_updated_at = Date.now();
     await db_api.updateRecord('files', {uid: file_obj.uid}, {
-        thumbnailPath: stored_thumbnail_path,
-        thumbnailURL: file_obj.thumbnailURL || 'local'
+        thumbnailPath: output_path,
+        thumbnailURL: file_obj.thumbnailURL || 'local',
+        thumbnail_updated_at: thumbnail_updated_at
     });
 
-    return {thumbnail_path: stored_thumbnail_path, method: method, seek_seconds: seek_seconds};
+    return {thumbnail_path: output_path, method: method, seek_seconds: seek_seconds, thumbnail_updated_at: thumbnail_updated_at};
 };
 
 /**

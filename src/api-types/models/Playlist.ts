@@ -12,11 +12,16 @@ export type Playlist = {
      */
     thumbnailPath?: string;
     /**
-     * A playlist has no thumbnail of its own -- an automatic one borrows the
-     * thumbnail of a file it contains. This is the uid of that file, and it is what
-     * the thumbnail endpoint expects.
+     * A playlist has no thumbnail of its own -- it borrows the thumbnail of a file it
+     * contains, the one it plays first, or for an automatic one a file of its category.
+     * This is the uid of that file, and it is what the thumbnail endpoint expects.
+     * Absent when that file has no thumbnail on the server.
      */
     thumbnailFileUid?: string;
+    /**
+     * The thumbnail_updated_at of the file the thumbnail is borrowed from.
+     */
+    thumbnail_updated_at?: number;
     registered: number;
     duration: number;
     /**

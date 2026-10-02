@@ -2,6 +2,7 @@ interface ThumbnailSource {
   uid?: string;
   thumbnailPath?: string;
   thumbnailURL?: string;
+  thumbnail_updated_at?: number;
 }
 
 /**
@@ -10,7 +11,8 @@ interface ThumbnailSource {
  *
  * The endpoint takes the uid of the file, never its path -- a path says nothing about who owns
  * it -- and the token goes in the query, because an <img> cannot send a header. So does the
- * owner of a shared library the file is being shown from.
+ * owner of a shared library the file is being shown from, and when the art was last made: a
+ * browser shows an image it has already loaded from the same address, so new art needs a new one.
  */
 export function fileThumbnailURL(file: ThumbnailSource | null | undefined, base_path: string, jwt: string | null = null, library: string | null = null): string | null {
   if (!file) return null;
@@ -18,7 +20,8 @@ export function fileThumbnailURL(file: ThumbnailSource | null | undefined, base_
     const base = base_path.endsWith('/') ? base_path.slice(0, -1) : base_path;
     const query = [
       jwt ? `jwt=${jwt}` : null,
-      library ? `library=${encodeURIComponent(library)}` : null
+      library ? `library=${encodeURIComponent(library)}` : null,
+      file.thumbnail_updated_at ? `v=${file.thumbnail_updated_at}` : null
     ].filter(Boolean).join('&');
     return `${base}/thumbnail/${encodeURIComponent(file.uid)}${query ? '?' + query : ''}`;
   }

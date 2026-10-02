@@ -157,7 +157,14 @@
 </mat-dialog-content>
 
 <mat-dialog-actions class="dialog-actions">
-  @if (saving) {
+  @if (can_regenerate_cover) {
+    <button type="button" class="kit-chip" [disabled]="regenerating_cover || saving" (click)="regenerateCover()"
+      matTooltip="Makes the cover art of the file that plays first again, which the playlist is shown with: the art published with the original where it can, and a frame from the video otherwise"
+      i18n-matTooltip="Regenerate playlist cover art tooltip">
+      <mat-icon>image</mat-icon><ng-container i18n="Regenerate cover art button">Regenerate cover art</ng-container>
+    </button>
+  }
+  @if (saving || regenerating_cover) {
     <mat-spinner [diameter]="20"></mat-spinner>
   }
   <button type="button" class="kit-chip dialog-actions-end" mat-dialog-close i18n="Cancel">Cancel</button>

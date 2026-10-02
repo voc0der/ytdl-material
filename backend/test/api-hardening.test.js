@@ -1808,7 +1808,7 @@ describe('Category playlists', function() {
     const CATEGORY = {uid: 'category_uid', name: 'Music'};
     const ALICE_FILE = {uid: 'alice_file', user_uid: 'alice', duration: 10,
         thumbnailURL: 'https://example.invalid/alice.jpg', thumbnailPath: 'users/alice/alice_file.jpg',
-        category: {uid: 'category_uid'}};
+        thumbnail_updated_at: 7, category: {uid: 'category_uid'}};
     const BOB_FILE = {uid: 'bob_private_file', user_uid: 'bob', duration: 500,
         thumbnailURL: 'https://example.invalid/bob.jpg', thumbnailPath: 'users/bob/bob_private_file.jpg',
         category: {uid: 'category_uid'}};
@@ -1851,6 +1851,8 @@ describe('Category playlists', function() {
             'the borrowed uid is what the thumbnail endpoint takes -- it must be a file the caller owns');
         assert.strictEqual(category_playlist.thumbnailPath, ALICE_FILE.thumbnailPath);
         assert.strictEqual(category_playlist.thumbnailURL, ALICE_FILE.thumbnailURL);
+        // So art made again for that file is fetched again rather than shown from the cache.
+        assert.strictEqual(category_playlist.thumbnail_updated_at, 7);
         assert.strictEqual(category_playlist.duration, 10,
             'a duration totalled over media the caller cannot see reports the size of somebody else\'s library');
     });

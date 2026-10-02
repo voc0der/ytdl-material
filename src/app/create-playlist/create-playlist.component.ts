@@ -74,6 +74,7 @@ export class CreatePlaylistComponent implements OnInit {
   playlist: Playlist | null = null;
   playlist_failed = false;
   saving = false;
+  regenerating_cover = false;
   view: PlaylistDialogView;
 
   // The library the files are picked from.
@@ -346,6 +347,42 @@ export class CreatePlaylistComponent implements OnInit {
     }, () => {
       this.saving = false;
       this.postsService.openSnackBar($localize`:Playlist update failed:Failed to update playlist.`);
+    });
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Cover art
+
+  /**
+   * A playlist is shown with the cover art of the file it plays first, so that is the art made
+   * again -- the same action the file's own info offers, under the same permission.
+   */
+  get can_regenerate_cover(): boolean {
+    return !this.create_mode && !!this.playlist && this.selected.length > 0 && this.postsService.hasPermission('filemanager');
+  }
+
+  regenerateCover(): void {
+    const first = this.selected[0];
+    if (!first || this.regenerating_cover) return;
+    this.regenerating_cover = true;
+    this.postsService.generateThumbnail(first.uid, null).subscribe(res => {
+      this.regenerating_cover = false;
+      if (!res?.['success']) {
+        this.postsService.openSnackBar($localize`Could not generate cover art for this playlist.`);
+        return;
+      }
+      // The new stamp gives the art a new address, so a row shows it rather than the old. The
+      // playlist and the library each hold their own copy of the file.
+      const art = {thumbnailPath: res['thumbnailPath'], thumbnail_updated_at: res['thumbnail_updated_at']};
+      for (const file of [first, ...this.files.filter(file => file.uid === first.uid)]) Object.assign(file, art);
+      this.postsService.openSnackBar(res['method'] === 'frame'
+        ? $localize`Cover art taken from the video.`
+        : $localize`Cover art fetched from the original.`);
+      // The library's card for the playlist follows once it reads the playlists again.
+      this.postsService.playlists_changed.next(true);
+    }, () => {
+      this.regenerating_cover = false;
+      this.postsService.openSnackBar($localize`Could not generate cover art for this playlist.`);
     });
   }
 

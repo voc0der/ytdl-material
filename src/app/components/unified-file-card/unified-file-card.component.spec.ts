@@ -287,6 +287,40 @@ describe('UnifiedFileCardComponent', () => {
     expect(badges[0].nativeElement.textContent.trim()).toBe('3 items');
   });
 
+  it('should show a playlist with the art of the file it borrows, at an address that changes with the art', () => {
+    component.loading = false;
+    component.is_playlist = true;
+    component.baseStreamPath = '/api/';
+    component.jwtString = 'token';
+    component.file_obj = {
+      id: 'p1', name: 'Road trip', uids: ['f1'], duration: 5, registered: Date.now(),
+      thumbnailURL: 'local', thumbnailPath: 'video/f1.webp', thumbnailFileUid: 'f1', thumbnail_updated_at: 1700000000000
+    } as any;
+    fixture.detectChanges();
+
+    expect(component.thumbnailBlobURL).toBe('/api/thumbnail/f1?jwt=token&v=1700000000000');
+    expect(fixture.debugElement.query(By.css('img')).nativeElement.getAttribute('src')).toBe(component.thumbnailBlobURL);
+  });
+
+  it('should follow new art when the library hands the same card a refreshed playlist', () => {
+    // The library tracks its cards by id, so a refresh changes the input of the card it has.
+    component.loading = false;
+    component.is_playlist = true;
+    component.baseStreamPath = '/api';
+    fixture.componentRef.setInput('file_obj', {
+      id: 'p1', name: 'Road trip', uids: ['f1'], duration: 5, registered: Date.now(), thumbnailURL: 'https://example.com/stale.jpg'
+    });
+    fixture.detectChanges();
+    expect(component.thumbnailBlobURL).toBeNull();
+
+    fixture.componentRef.setInput('file_obj', {
+      id: 'p1', name: 'Road trip', uids: ['f1'], duration: 5, registered: Date.now(),
+      thumbnailURL: 'local', thumbnailPath: 'video/f1.webp', thumbnailFileUid: 'f1', thumbnail_updated_at: 2
+    });
+    fixture.detectChanges();
+    expect(component.thumbnailBlobURL).toBe('/api/thumbnail/f1?v=2');
+  });
+
   it('should badge the count on a playlist with no thumbnail', () => {
     component.loading = false;
     component.is_playlist = true;

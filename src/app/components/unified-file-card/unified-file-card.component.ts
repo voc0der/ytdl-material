@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy, HostBinding } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy, HostBinding } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
@@ -48,7 +48,7 @@ export function getListCardHeight(card_width: number): number {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatIcon, ContentLoaderModule, MatMenuTrigger, MatIconButton, MatMenu, MatMenuItem, MatDivider, MatCard, MatRipple, MatTooltip, NgClass, AppDatePipe]
 })
-export class UnifiedFileCardComponent implements OnInit {
+export class UnifiedFileCardComponent implements OnInit, OnChanges {
 
   // required info
   file_title = '';
@@ -209,19 +209,34 @@ export class UnifiedFileCardComponent implements OnInit {
     if (!this.loading) {
       this.file_length = fancyTimeFormat(this.file_obj.duration);
     }
+    this.updateThumbnailURL();
+  }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    // The library keeps a card for the same file or playlist across a refresh, so new art, or
+    // a playlist's new first file, arrives here rather than as a new card.
+    if (changes['file_obj'] || changes['jwtString'] || changes['library'] || changes['baseStreamPath']) {
+      this.updateThumbnailURL();
+    }
+  }
+
+  private updateThumbnailURL(): void {
     // The endpoint takes the uid of the file the thumbnail belongs to, never its path:
     // a path says nothing about who owns it, and the media folders are shared.
-    // A category borrows a thumbnail from one of its files and names that file instead.
+    // A playlist borrows a thumbnail from one of its files and names that file instead.
     const thumbnailFileUid = this.file_obj?.thumbnailFileUid ?? (this.is_playlist ? null : this.file_obj?.uid);
-    if (this.file_obj && this.file_obj.thumbnailPath && thumbnailFileUid) {
-      const query = [
-        this.jwtString ? `jwt=${this.jwtString}` : null,
-        this.library ? `library=${encodeURIComponent(this.library)}` : null
-      ].filter(Boolean).join('&');
-      this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(thumbnailFileUid)}${query ? '?' + query : ''}`;
+    if (!this.file_obj?.thumbnailPath || !thumbnailFileUid) {
+      this.thumbnailBlobURL = null;
+      return;
     }
-
+    const query = [
+      this.jwtString ? `jwt=${this.jwtString}` : null,
+      this.library ? `library=${encodeURIComponent(this.library)}` : null,
+      // A browser shows an image it has already loaded from the same address, so art made
+      // again needs a new one.
+      this.file_obj.thumbnail_updated_at ? `v=${this.file_obj.thumbnail_updated_at}` : null
+    ].filter(Boolean).join('&');
+    this.thumbnailBlobURL = `${this.normalizedBaseStreamPath}/thumbnail/${encodeURIComponent(thumbnailFileUid)}${query ? '?' + query : ''}`;
   }
 
   emitDeleteFile(blacklistMode = false) {
