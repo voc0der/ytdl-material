@@ -52,6 +52,10 @@ See the [install and build guide](./install-and-build.md).
 
 Review [CONTRIBUTING.md](./CONTRIBUTING.md) for contributor guidelines; pull requests and issues for bugs or feature requests are welcome.
 
+<a href="https://github.com/voc0der/ytdl-material/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=voc0der/ytdl-material&columns=24" width="610" alt="Contributors" />
+</a>
+
 ## Legal Disclaimer
 
 This project is in no way affiliated with Google LLC, Alphabet Inc. or YouTube (or their subsidiaries) nor endorsed by them.

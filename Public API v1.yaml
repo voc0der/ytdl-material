@@ -5,8 +5,7 @@ info:
   description: "Available API endpoints for ytdl-material.\n\n### Authentication\n\nIn multi-user mode, generate an API token from Your Profile and send it as `Authorization: Bearer <token>`. A JWT returned by `/api/auth/login` is also supported through the `jwt` query parameter. RSS tokens work only with `/api/rss`. In single-user mode, no credential is required."
   contact:
     name: voc0der
-    url: https://github.com/voc0der/ytdl-material
-    email: contact@netspace.in
+    url: https://github.com/voc0der/ytdl-material/issues
 servers:
   - url: 'http://localhost:17442'
 paths:
