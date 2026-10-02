@@ -1917,6 +1917,46 @@ exports.getPlaylist = async (playlist_id, user_uid = null, require_sharing = fal
 }
 
 /*************************************************
+ * A playlist is shown with the cover art of the
+ * file it plays first. It used to keep a copy of
+ * that file's thumbnail URL from the day it was
+ * made: the site's address, which can stop
+ * working, or the 'local' a file with generated
+ * art carries, which is no address at all. Neither
+ * followed a change of order or new art.
+ *
+ * So the cover is borrowed when playlists are read,
+ * the way a category's is: the file's uid names it
+ * and the thumbnail endpoint serves that file's own
+ * art. The stored URL is left for a first file with
+ * no art of its own.
+ ************************************************/
+exports.withPlaylistCovers = async (playlists = [], user_uid = null) => {
+    if (!Array.isArray(playlists) || playlists.length === 0) return [];
+    const firstUid = playlist => Array.isArray(playlist?.uids) ? playlist.uids[0] : null;
+    const first_files = await exports.getVideosByUIDs([...new Set(playlists.map(firstUid).filter(Boolean))], user_uid);
+    const file_by_uid = new Map(first_files.map(file_obj => [file_obj.uid, file_obj]));
+    const isAddress = url => typeof url === 'string' && url !== '' && url !== 'local';
+
+    return playlists.map(playlist => {
+        // A copy: the local database hands out the records it stores.
+        const shown = {...playlist};
+        const first_file = file_by_uid.get(firstUid(playlist));
+        if (first_file && first_file.thumbnailPath) {
+            shown.thumbnailPath = first_file.thumbnailPath;
+            shown.thumbnailFileUid = first_file.uid;
+            shown.thumbnail_updated_at = first_file.thumbnail_updated_at;
+            // A card shows art only when there is a URL, then loads the endpoint instead.
+            shown.thumbnailURL = first_file.thumbnailURL || shown.thumbnailURL || 'local';
+        } else {
+            const url = first_file && isAddress(first_file.thumbnailURL) ? first_file.thumbnailURL : shown.thumbnailURL;
+            shown.thumbnailURL = isAddress(url) ? url : '';
+        }
+        return shown;
+    });
+}
+
+/*************************************************
  * Fields the playlist editor may change. The whole
  * client object used to be written straight to the
  * record, so a caller could set user_uid,

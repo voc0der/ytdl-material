@@ -277,6 +277,13 @@ describe('Cover art generation', function() {
         return thumbnails_api.getGeneratedThumbnailPath(file_obj.path);
     }
 
+    // The time it was made, which a case that is not about it has no fixed value for.
+    function unstamped(result) {
+        const rest = {...result};
+        delete rest.thumbnail_updated_at;
+        return rest;
+    }
+
     describe('generateThumbnailForFile', function() {
         it('prefers the thumbnail the source publishes', async function() {
             sourceReports({thumbnail: `${server_url}/thumb.jpg`});
@@ -284,7 +291,7 @@ describe('Cover art generation', function() {
 
             const result = await thumbnails_api.generateThumbnailForFile(file_obj);
 
-            assert.deepStrictEqual(result, {thumbnail_path: webpFor(file_obj), method: 'source', seek_seconds: null});
+            assert.deepStrictEqual(unstamped(result), {thumbnail_path: webpFor(file_obj), method: 'source', seek_seconds: null});
             assert.deepStrictEqual(info_calls, [{url: file_obj.url, args: ['--skip-download']}]);
             assert.deepStrictEqual(frame_grabs, []);
             assert.deepStrictEqual(fs.readFileSync(webpFor(file_obj)), SOURCE_BYTES);
@@ -293,6 +300,34 @@ describe('Cover art generation', function() {
             const record = await db_api.getRecord('files', {uid: file_obj.uid});
             assert.strictEqual(record.thumbnailPath, webpFor(file_obj));
             assert.strictEqual(record.thumbnailURL, 'local');
+        });
+
+        it('records the art it wrote, not an older one beside the file', async function() {
+            // A download's own thumbnail is often a .jpg, and getDownloadedThumbnail finds a
+            // .jpg before a .webp, so the art being replaced is the one it would hand back.
+            sourceReports({thumbnail: `${server_url}/thumb.jpg`});
+            const file_obj = await addVideo('older-jpg');
+            const older_jpg = file_obj.path.replace(/\.mp4$/, '.jpg');
+            fs.writeFileSync(older_jpg, 'truncated');
+            await db_api.updateRecord('files', {uid: file_obj.uid}, {thumbnailPath: older_jpg});
+
+            const result = await thumbnails_api.generateThumbnailForFile(file_obj);
+
+            assert.strictEqual(result.thumbnail_path, webpFor(file_obj));
+            const record = await db_api.getRecord('files', {uid: file_obj.uid});
+            assert.strictEqual(record.thumbnailPath, webpFor(file_obj));
+            assert.deepStrictEqual(fs.readFileSync(webpFor(file_obj)), SOURCE_BYTES);
+        });
+
+        it('stamps the record each time, so the art is fetched again rather than cached', async function() {
+            const file_obj = await addVideo('stamped');
+
+            const before = Date.now();
+            const result = await thumbnails_api.generateThumbnailForFile(file_obj);
+
+            const record = await db_api.getRecord('files', {uid: file_obj.uid});
+            assert(record.thumbnail_updated_at >= before, `${record.thumbnail_updated_at} < ${before}`);
+            assert.strictEqual(result.thumbnail_updated_at, record.thumbnail_updated_at);
         });
 
         it('keeps the thumbnail URL a record already has', async function() {
@@ -333,7 +368,7 @@ describe('Cover art generation', function() {
 
             const result = await thumbnails_api.generateThumbnailForFile(file_obj);
 
-            assert.deepStrictEqual(result, {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 30});
+            assert.deepStrictEqual(unstamped(result), {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 30});
             assert.deepStrictEqual(server_hits, ['/gone.jpg']);
             assert(warnings.some(message => message.includes(`${server_url}/gone.jpg`)), warnings.join('\n'));
             assert.deepStrictEqual(fs.readFileSync(webpFor(file_obj)), FRAME_BYTES);
@@ -355,7 +390,7 @@ describe('Cover art generation', function() {
 
             const result = await thumbnails_api.generateThumbnailForFile(file_obj, {allow_source_fetch: false, timestamp_seconds: 12});
 
-            assert.deepStrictEqual(result, {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 12});
+            assert.deepStrictEqual(unstamped(result), {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 12});
             assert.deepStrictEqual(info_calls, []);
             assert.strictEqual(frame_grabs.length, 1);
             assert.strictEqual(seekOf(frame_grabs[0]), '12');
@@ -560,7 +595,7 @@ describe('Cover art generation', function() {
 
             const result = await thumbnails_api.generateThumbnailForFile(file_obj, {allow_source_fetch: false});
 
-            assert.deepStrictEqual(result, {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 0.5});
+            assert.deepStrictEqual(unstamped(result), {thumbnail_path: webpFor(file_obj), method: 'frame', seek_seconds: 0.5});
             const written = fs.readFileSync(webpFor(file_obj));
             assert.strictEqual(written.toString('ascii', 0, 4), 'RIFF');
             assert.strictEqual(written.toString('ascii', 8, 12), 'WEBP');

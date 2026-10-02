@@ -222,6 +222,19 @@ describe('The library through the server', function() {
             assert.deepStrictEqual(res.body.playlist.uids, [files.song.uid, files.first.uid]);
         });
 
+        it('lists it with the cover art of the file it plays first', async function() {
+            // The reordered playlist plays the song first, so the song's art is its cover.
+            const art_path = files.song.path.replace(/\.[^.]+$/, '.jpg');
+            await fs.writeFile(art_path, 'cover art');
+            await app.api.post('/api/updateFile').send({uid: files.song.uid, change_obj: {thumbnailPath: art_path}}).expect(200);
+
+            const res = await app.api.post('/api/getPlaylists').send({}).expect(200);
+            const listed = res.body.playlists.find(item => item.id === playlist.id);
+            assert.strictEqual(listed.thumbnailFileUid, files.song.uid);
+            const cover = await app.api.get(`/api/thumbnail/${encodeURIComponent(listed.thumbnailFileUid)}`).expect(200);
+            assert.strictEqual(cover.body.toString(), 'cover art');
+        });
+
         it('lists playlists, with categories alongside when asked', async function() {
             const category = (await app.api.post('/api/createCategory').send({name: 'As a playlist'}).expect(200)).body.new_category;
             try {

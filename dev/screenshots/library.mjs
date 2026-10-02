@@ -1,4 +1,4 @@
-// Drives the playlist editor and the Duplicates page, end to end.
+// Drives the playlist editor, a playlist's cover art and the Duplicates page, end to end.
 //
 // Both are the library's own tools and both only show what they do against a library: the
 // editor picks from every file there is and puts them in order, and the duplicates page deletes
@@ -13,17 +13,20 @@
 // browser catches that class of bug, so that is what this runs.
 //
 // Nothing is mocked: the frontend is built from the working tree and the backend runs from a
-// throwaway copy (see stage.mjs). It downloads nothing. Screenshots at a desktop and a phone
-// width, light and dark, are left in the shots folder it prints.
+// throwaway copy (see stage.mjs). It downloads nothing, and needs ffmpeg for the two clips it
+// makes cover art from. Screenshots at a desktop and a phone width, light and dark, are left in
+// the shots folder it prints.
 //
 // Usage: node library.mjs [--skip-build] [--keep]
 //   --keep leaves the backend running with everything in place.
 
 import { chromium } from 'playwright';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import {
     CACHE, HERE, buildFrontend, copyBackend, hasFrontendBuild, isListening, releaseBackend, say,
     startBackend, writeMigrationFlags
@@ -46,6 +49,12 @@ const DEVICES = {
 // first download and the other keeping the latest, so both directions are checked.
 const DOWNLOADED_AGAIN = { 'apollo-11-moonwalk': 2, 'jupiter-great-red-spot': 1 };
 
+// The first files of two playlists, whose cover art goes wrong the two ways #583 describes. Space
+// Station's has art that does not decode, and the playlist kept the 'local' a file with generated
+// art carries as its cover, which is no address. Planetary Science's has no art at all. Making
+// art takes a frame from the video, as neither has a URL to fetch it from, so both are real clips.
+const COVER_ART = { corrupted: 'sts-129-launch', missing: 'perseverance-descent-and-touchdown' };
+
 const results = [];
 function check(name, ok, detail = '') {
     results.push({ name, ok: !!ok });
@@ -64,6 +73,10 @@ async function api(route, body = {}) {
     });
     if (!response.ok) throw new Error(`/api/${route} answered ${response.status}`);
     return response.json();
+}
+
+async function ffmpeg(args) {
+    await promisify(execFile)('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args]);
 }
 
 const storedPlaylists = async () => (await api('getPlaylists'))['playlists'] ?? [];
@@ -117,6 +130,19 @@ async function seed() {
         };
     });
 
+    for (const id of Object.values(COVER_ART)) {
+        await ffmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=10:duration=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+            join(videoDir, `${id}.mp4`)]);
+    }
+    await writeFile(join(videoDir, `${COVER_ART.corrupted}.jpg`), 'not an image');
+    const missing = byId.get(COVER_ART.missing);
+    await rm(join(RUN_DIR, missing.thumbnailPath));
+    delete missing.thumbnailPath;
+    missing.thumbnailURL = '';
+    for (const playlist of playlists) {
+        if (Object.values(COVER_ART).some(id => playlist.uids[0] === byId.get(id).uid)) playlist.thumbnailURL = 'local';
+    }
+
     await writeFile(join(RUN_DIR, 'appdata', 'local_db.json'), JSON.stringify({ files, playlists }, null, 2));
     await writeMigrationFlags(RUN_DIR);
     return { library, files, playlists };
@@ -150,8 +176,10 @@ const editor = page => page.locator('app-create-playlist');
 const fileRow = (page, title) => editor(page).locator('.file-row', { hasText: title }).first();
 const orderTitles = page => editor(page).locator('.order-row .file-title').allInnerTexts();
 
-async function goToPlaylists(page) {
+async function goToPlaylists(page, { reload = false } = {}) {
     await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    // Already there, going to the same address is no navigation, so nothing is read again.
+    if (reload) await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('.library-switch', { hasText: 'Playlists' }).click();
     await page.locator('app-unified-file-card').first().waitFor({ timeout: 30_000 });
@@ -294,6 +322,68 @@ async function editingOne(page, seeded, created) {
     check('and the new order', JSON.stringify(stored?.uids.map(titleOf)) === JSON.stringify(reversed));
 }
 
+const cardFor = (page, name) => page.locator('app-unified-file-card', { hasText: name }).first();
+const decoded = image => image.evaluate(element => element.complete && element.naturalWidth > 0);
+
+// Art made again is asked for at a new address, so the wait is for that address to load.
+async function waitForDecoded(page, image) {
+    await page.waitForFunction(element => element?.complete && element.naturalWidth > 0 && element.src.includes('v='),
+        await image.elementHandle(), { timeout: 15_000 }).catch(() => {});
+}
+
+async function coverArt(page, seeded) {
+    say('Making a playlist\'s cover art again');
+    const fileOf = id => seeded.files.find(file => file.id === id && !file.path.includes(' ('));
+    const station = fileOf(COVER_ART.corrupted);
+    await goToPlaylists(page);
+
+    const card_image = cardFor(page, 'Space Station').locator('img').first();
+    const before = await card_image.getAttribute('src');
+    check('a playlist is shown with the art of the file it plays first, not the "local" it kept',
+        before?.includes(`/thumbnail/${station.uid}`), before);
+    check('which here does not decode, as #583 describes', !(await decoded(card_image)));
+    await shoot(page, 'playlist-cover-corrupted-desktop');
+
+    await cardFor(page, 'Space Station').locator('button[aria-label="More actions"]').click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    await editor(page).locator('.order-row').first().waitFor({ timeout: 10_000 });
+    const regenerate = editor(page).getByRole('button', { name: 'Regenerate cover art' });
+    check('the editor offers to make it again', await regenerate.isVisible());
+    await regenerate.click();
+    // first(): the snack bar keeps a second copy of its message for screen readers.
+    const told = await page.locator('.mat-mdc-snack-bar-label', { hasText: 'Cover art taken from the video.' }).first()
+        .waitFor({ timeout: 30_000 }).then(() => true, () => false);
+    check('which takes a frame from the video, there being no URL to fetch it from', told);
+
+    const stored = (await storedFiles()).find(file => file.uid === station.uid);
+    check('the backend records the new art, not the broken .jpg beside it',
+        stored?.thumbnailPath?.endsWith('.webp') && stored?.thumbnail_updated_at > 0, stored?.thumbnailPath);
+    const row_image = editor(page).locator('.order-row img').first();
+    await waitForDecoded(page, row_image);
+    check('the first row shows it', await decoded(row_image) && (await row_image.getAttribute('src')).includes('v='));
+    check('and nothing else changed, so there is still nothing to save', await editor(page).locator('.dialog-actions .kit-primary').isDisabled());
+    await shoot(page, 'playlist-cover-regenerated-editor-desktop');
+
+    await editor(page).getByRole('button', { name: 'Cancel' }).click();
+    await editor(page).waitFor({ state: 'detached', timeout: 10_000 });
+    await waitForDecoded(page, card_image);
+    check('the library\'s card shows it without a reload', await decoded(card_image), await card_image.getAttribute('src'));
+    await shoot(page, 'playlist-cover-regenerated-desktop');
+
+    say('Filling in missing cover art with the task');
+    const landing = fileOf(COVER_ART.missing);
+    const planetary = cardFor(page, 'Planetary Science');
+    check('a playlist whose first file has no art shows none, rather than a broken image',
+        await planetary.locator('img').count() === 0 && await planetary.locator('.thumbnail-fallback').count() === 1);
+    await api('runTask', { task_key: 'generate_missing_thumbnails' });
+    const listed = (await storedPlaylists()).find(playlist => playlist.name === 'Planetary Science');
+    check('the task gives that file art, which the playlist borrows', listed?.thumbnailFileUid === landing.uid, listed?.thumbnailFileUid);
+    await goToPlaylists(page, { reload: true });
+    const filled = cardFor(page, 'Planetary Science').locator('img').first();
+    await waitForDecoded(page, filled);
+    check('and the card shows it', await decoded(filled) && (await filled.getAttribute('src')).includes(`/thumbnail/${landing.uid}`));
+}
+
 async function editorOnAPhone(browser, errors, theme) {
     const page = await newPage(browser, 'phone', errors, theme);
     await openNewPlaylist(page);
@@ -408,6 +498,7 @@ async function main() {
         const page = await newPage(browser, 'desktop', errors);
         const created = await creatingOne(page, seeded);
         if (created) await editingOne(page, seeded, created);
+        await coverArt(page, seeded);
 
         say('Checking a phone width, and the light theme');
         check('the editor fits on a phone', await editorOnAPhone(browser, errors, 'dark'));

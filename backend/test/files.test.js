@@ -970,3 +970,97 @@ describe('Files', function() {
         });
     });
 });
+
+describe('Playlist covers', function() {
+    const PLAYLIST_ID = 'playlist_cover_test';
+    const OWNER = 'cover_owner';
+    const OTHER = 'cover_other';
+    const original_getConfigItem = config_api.getConfigItem;
+    const files = {
+        with_art: {uid: 'cover_with_art', thumbnailPath: 'video/with-art.webp', thumbnailURL: 'local', thumbnail_updated_at: 5},
+        other_art: {uid: 'cover_other_art', thumbnailPath: 'video/other-art.jpg', thumbnailURL: 'https://images.example.test/other.jpg'},
+        site_only: {uid: 'cover_site_only', thumbnailURL: 'https://images.example.test/site.jpg'},
+        placeholder: {uid: 'cover_placeholder', thumbnailURL: 'local'},
+        foreign: {uid: 'cover_foreign', thumbnailPath: 'video/foreign.webp', thumbnailURL: 'local', user_uid: OTHER}
+    };
+
+    async function storePlaylist(fields) {
+        await db_api.insertRecordIntoTable('playlists', {id: PLAYLIST_ID, name: 'Covers', registered: 1, duration: 0, ...fields});
+        return db_api.getRecords('playlists', {id: PLAYLIST_ID});
+    }
+
+    async function shown(fields, user_uid = null) {
+        const [playlist] = await files_api.withPlaylistCovers(await storePlaylist(fields), user_uid);
+        return playlist;
+    }
+
+    beforeEach(async function() {
+        await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+        for (const file_obj of Object.values(files)) {
+            await db_api.removeAllRecords('files', {uid: file_obj.uid});
+            await db_api.insertRecordIntoTable('files', {user_uid: OWNER, duration: 10, ...file_obj});
+        }
+    });
+
+    afterEach(async function() {
+        config_api.getConfigItem = original_getConfigItem;
+        await db_api.removeAllRecords('playlists', {id: PLAYLIST_ID});
+        for (const file_obj of Object.values(files)) await db_api.removeAllRecords('files', {uid: file_obj.uid});
+    });
+
+    it('borrows the art of the file it plays first', async function() {
+        const playlist = await shown({uids: [files.with_art.uid, files.site_only.uid], thumbnailURL: 'https://images.example.test/stale.jpg'});
+
+        assert.strictEqual(playlist.thumbnailFileUid, files.with_art.uid);
+        assert.strictEqual(playlist.thumbnailPath, files.with_art.thumbnailPath);
+        assert.strictEqual(playlist.thumbnail_updated_at, 5);
+        // A card shows art only when there is a URL, then loads it from the endpoint.
+        assert.ok(playlist.thumbnailURL);
+    });
+
+    it('follows a change of order', async function() {
+        const playlist = await shown({uids: [files.other_art.uid, files.with_art.uid], thumbnailURL: 'local'});
+
+        assert.strictEqual(playlist.thumbnailFileUid, files.other_art.uid);
+        assert.strictEqual(playlist.thumbnailPath, files.other_art.thumbnailPath);
+        assert.strictEqual(playlist.thumbnailURL, files.other_art.thumbnailURL);
+    });
+
+    it('shows the site\'s art for a first file with none of its own, not the one stored when it was made', async function() {
+        const playlist = await shown({uids: [files.site_only.uid], thumbnailURL: 'https://images.example.test/stale.jpg'});
+
+        assert.strictEqual(playlist.thumbnailURL, files.site_only.thumbnailURL);
+        assert.strictEqual(playlist.thumbnailFileUid, undefined);
+    });
+
+    it('shows no cover rather than the placeholder a file with generated art carries', async function() {
+        // 'local' is no address: a card given it as one shows a broken image.
+        const playlist = await shown({uids: [files.placeholder.uid], thumbnailURL: 'local'});
+
+        assert.strictEqual(playlist.thumbnailURL, '');
+        assert.strictEqual(playlist.thumbnailFileUid, undefined);
+    });
+
+    it('keeps the stored cover when the first file is gone', async function() {
+        const playlist = await shown({uids: ['cover_deleted'], thumbnailURL: 'https://images.example.test/kept.jpg'});
+
+        assert.strictEqual(playlist.thumbnailURL, 'https://images.example.test/kept.jpg');
+    });
+
+    it('leaves the stored record alone', async function() {
+        await shown({uids: [files.with_art.uid], thumbnailURL: 'local'});
+
+        const stored = await db_api.getRecord('playlists', {id: PLAYLIST_ID});
+        assert.strictEqual(stored.thumbnailFileUid, undefined);
+        assert.strictEqual(stored.thumbnailPath, undefined);
+    });
+
+    it('borrows only from a file of the playlist owner\'s in multi-user mode', async function() {
+        config_api.getConfigItem = (key) => key === 'ytdl_multi_user_mode' ? true : original_getConfigItem(key);
+
+        const playlist = await shown({uids: [files.foreign.uid], thumbnailURL: 'https://images.example.test/kept.jpg', user_uid: OWNER}, OWNER);
+
+        assert.strictEqual(playlist.thumbnailFileUid, undefined);
+        assert.strictEqual(playlist.thumbnailURL, 'https://images.example.test/kept.jpg');
+    });
+});

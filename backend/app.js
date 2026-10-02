@@ -1598,6 +1598,7 @@ app.post('/api/generateThumbnail', optionalJwt, requirePermission('filemanager')
     res.send({
         success: true,
         thumbnailPath: generated.thumbnail_path,
+        thumbnail_updated_at: generated.thumbnail_updated_at,
         method: generated.method,
         seek_seconds: generated.seek_seconds
     });
@@ -2153,7 +2154,7 @@ app.post('/api/getPlaylists', optionalJwt, requireAuthenticated, resolveLibraryO
     const include_categories = req.body.include_categories;
     const filter_obj = getScopedFilterByUser(uuid);
 
-    let playlists = await db_api.getRecords('playlists', filter_obj);
+    let playlists = await files_api.withPlaylistCovers(await db_api.getRecords('playlists', filter_obj), uuid);
     if (include_categories) {
         const categories = await categories_api.getCategoriesAsPlaylists(uuid);
         if (categories) {

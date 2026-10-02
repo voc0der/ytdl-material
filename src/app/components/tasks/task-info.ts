@@ -25,7 +25,7 @@ const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
   [TaskType.BACKUP_LOCAL_DB]: $localize`Writes a copy of the database to appdata/db_backup, which is what Restore reads back.`,
   [TaskType.MISSING_FILES_CHECK]: $localize`Finds files the database still lists that are no longer on disk.`,
   [TaskType.MISSING_DB_RECORDS]: $localize`Finds media on disk that the database has no record of, and imports it.`,
-  [TaskType.GENERATE_MISSING_THUMBNAILS]: $localize`Gives files with no cover art one, from the source where it can and from the video itself otherwise.`,
+  [TaskType.GENERATE_MISSING_THUMBNAILS]: $localize`Gives files with no cover art one, from the source where it can and from the video itself otherwise. A playlist shows the art of the file it plays first, so this fills in its cover too.`,
   [TaskType.DUPLICATE_FILES_CHECK]: $localize`Finds more than one database record pointing at the same file.`,
   [TaskType.YOUTUBEDL_UPDATE_CHECK]: $localize`Checks whether a newer release of the downloader is available.`,
   [TaskType.DELETE_OLD_FILES]: $localize`Deletes downloads older than the age set in its options.`,

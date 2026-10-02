@@ -3342,6 +3342,12 @@ components:
             Where the downloaded thumbnail sits on the server. Informational only: the
             image is served by the thumbnail endpoint, which is keyed on this file's uid,
             because a path does not say who owns it.
+        thumbnail_updated_at:
+          type: number
+          description: >-
+            When this server last made the file's cover art, in epoch ms. Clients add it to
+            the thumbnail endpoint's address, so new art is not shown from a cache of the old.
+            Absent for art that came with the download.
         isAudio:
           type: boolean
         duration:
@@ -3416,9 +3422,13 @@ components:
         thumbnailFileUid:
           type: string
           description: >-
-            A playlist has no thumbnail of its own -- an automatic one borrows the
-            thumbnail of a file it contains. This is the uid of that file, and it is what
-            the thumbnail endpoint expects.
+            A playlist has no thumbnail of its own -- it borrows the thumbnail of a file it
+            contains, the one it plays first, or for an automatic one a file of its category.
+            This is the uid of that file, and it is what the thumbnail endpoint expects.
+            Absent when that file has no thumbnail on the server.
+        thumbnail_updated_at:
+          type: number
+          description: The thumbnail_updated_at of the file the thumbnail is borrowed from.
         registered:
           type: number
         duration:

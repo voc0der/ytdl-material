@@ -17,6 +17,12 @@ export type DatabaseFile = {
      * because a path does not say who owns it.
      */
     thumbnailPath?: string;
+    /**
+     * When this server last made the file's cover art, in epoch ms. Clients add it to
+     * the thumbnail endpoint's address, so new art is not shown from a cache of the old.
+     * Absent for art that came with the download.
+     */
+    thumbnail_updated_at?: number;
     isAudio: boolean;
     /**
      * In seconds

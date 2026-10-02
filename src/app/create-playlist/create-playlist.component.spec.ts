@@ -51,18 +51,23 @@ describe('CreatePlaylistComponent', () => {
       path: '/api/',
       isLoggedIn: false,
       token: '',
-      getAllFiles: vi.fn().mockName('getAllFiles').mockReturnValue(of({ files: library, file_count: library.length })),
+      // Copies, as a response is: what one case writes on a file must not reach the next.
+      getAllFiles: vi.fn().mockName('getAllFiles').mockImplementation(() => of({ files: library.map(item => ({...item})), file_count: library.length })),
       getAllSubscriptions: vi.fn().mockName('getAllSubscriptions').mockReturnValue(of({
         subscriptions: [{ id: 'sub-1', name: 'A channel' }]
       })),
-      getPlaylist: vi.fn().mockName('getPlaylist').mockReturnValue(of({
+      getPlaylist: vi.fn().mockName('getPlaylist').mockImplementation(() => of({
         playlist: { id: 'playlist-1', name: 'Space', uids: ['c', 'a'] },
-        file_objs: [library[2], library[0]],
+        file_objs: [{...library[2]}, {...library[0]}],
         success: true
       })),
       createPlaylist: vi.fn().mockName('createPlaylist').mockReturnValue(of({ success: true })),
       updatePlaylist: vi.fn().mockName('updatePlaylist').mockReturnValue(of({ success: true })),
       openSnackBar: vi.fn().mockName('openSnackBar'),
+      hasPermission: vi.fn().mockName('hasPermission').mockReturnValue(true),
+      generateThumbnail: vi.fn().mockName('generateThumbnail').mockReturnValue(of({
+        success: true, thumbnailPath: 'video/c.webp', thumbnail_updated_at: 1_800_000_000_000, method: 'source'
+      })),
       playlists_changed: { next: vi.fn().mockName('playlists_changed.next') }
     };
     dialogRefStub = { close: vi.fn().mockName('close') };
@@ -264,5 +269,71 @@ describe('CreatePlaylistComponent', () => {
       expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Failed to update playlist.');
       expect(dialogRefStub.close).not.toHaveBeenCalled();
     });
+
+    describe('cover art', () => {
+      const regenerateButton = (): HTMLButtonElement | undefined => Array.from<HTMLButtonElement>(
+        fixture.nativeElement.querySelectorAll('.dialog-actions button')).find(button => button.textContent.includes('Regenerate cover art'));
+
+      it('makes the art of the file that plays first again, and shows the new art', () => {
+        regenerateButton().click();
+        fixture.detectChanges();
+
+        expect(postsServiceStub.generateThumbnail).toHaveBeenCalledWith('c', null);
+        expect(component.selected[0].thumbnail_updated_at).toBe(1_800_000_000_000);
+        const first_row_image: HTMLImageElement = fixture.nativeElement.querySelector('.order-row img');
+        expect(first_row_image.getAttribute('src')).toBe('/api/thumbnail/c?v=1800000000000');
+        // The library's copy of the same file too, for its row on the other tab.
+        expect(component.files.find(item => item.uid === 'c').thumbnail_updated_at).toBe(1_800_000_000_000);
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Cover art fetched from the original.');
+        expect(postsServiceStub.playlists_changed.next).toHaveBeenCalledWith(true);
+        // Nothing else about the playlist changed, so there is still nothing to save.
+        expect(component.can_save).toBe(false);
+        expect(dialogRefStub.close).not.toHaveBeenCalled();
+      });
+
+      it('follows the order shown, saved or not', () => {
+        component.reverse();
+        fixture.detectChanges();
+
+        regenerateButton().click();
+
+        expect(postsServiceStub.generateThumbnail).toHaveBeenCalledWith('a', null);
+      });
+
+      it('says when the art came from a frame of the video', () => {
+        postsServiceStub.generateThumbnail.mockReturnValue(of({ success: true, thumbnailPath: 'video/c.webp', thumbnail_updated_at: 1, method: 'frame', seek_seconds: 30 }));
+
+        regenerateButton().click();
+
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Cover art taken from the video.');
+      });
+
+      it('says so when it could not, and leaves the art as it was', () => {
+        postsServiceStub.generateThumbnail.mockReturnValue(of({ success: false }));
+
+        regenerateButton().click();
+
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Could not generate cover art for this playlist.');
+        expect(component.selected[0].thumbnail_updated_at).toBeUndefined();
+        expect(postsServiceStub.playlists_changed.next).not.toHaveBeenCalled();
+        expect(component.regenerating_cover).toBe(false);
+      });
+
+      it('is offered only to those who may manage files', () => {
+        postsServiceStub.hasPermission.mockReturnValue(false);
+        fixture.detectChanges();
+
+        expect(regenerateButton()).toBeUndefined();
+        expect(postsServiceStub.hasPermission).toHaveBeenCalledWith('filemanager');
+      });
+    });
+  });
+
+  it('offers no cover art to make while creating, as there is no playlist yet', async () => {
+    await create({ create_mode: true });
+    component.toggle(library[0]);
+    fixture.detectChanges();
+
+    expect(component.can_regenerate_cover).toBe(false);
   });
 });
