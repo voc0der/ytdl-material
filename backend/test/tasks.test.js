@@ -360,6 +360,19 @@ describe('Tasks', function() {
         await tasks_api.updateTaskSchedule('dummy_task', null);
     });
 
+    it('stops a job it is told to drop', async function() {
+        // How Reset tasks drops each task's job. The job went on firing regardless.
+        this.timeout(5000);
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'timestamp', data: {timestamp: Date.now() + 1000}});
+
+        tasks_api.TASKS['dummy_task']['job'] = null;
+        await utils.wait(2000);
+
+        const task = await getTask('dummy_task');
+        assert.strictEqual(task['running'], false);
+        assert.strictEqual(task['last_ran'], null);
+    });
+
     it('keeps the schedule it had when given one that can never run', async function() {
         // These were saved anyway, and the task was shown as scheduled with nothing to run it.
         const daily = {type: 'recurring', data: {hour: 3, minute: 30}};

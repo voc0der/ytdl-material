@@ -114,4 +114,22 @@ describe('Tasks on the server as it runs', function() {
             await app.api.post('/api/updateTaskSchedule').send({task_key: 'backup_local_db', new_schedule: null}).expect(200);
         }
     });
+
+    // Last: a reset puts every task back the way it started.
+    it('stops the schedules a reset removes', async function() {
+        // A reset dropped each task's job without stopping it, so each went on firing at
+        // its old time. The subscription check, which a reset schedules again, ran then as
+        // well as at the midnight the reset gave it.
+        await app.api.post('/api/updateTaskSchedule').send({
+            task_key: 'subscriptions_check',
+            new_schedule: {type: 'timestamp', data: {timestamp: Date.now() + 2000}}
+        }).expect(200);
+        await app.api.post('/api/resetTasks').send({}).expect(200);
+
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const task = await getTask('subscriptions_check');
+        assert.strictEqual(task.last_ran, null, 'the check ran at the time the reset removed');
+        assert.strictEqual(task.schedule.type, 'recurring');
+    });
 });

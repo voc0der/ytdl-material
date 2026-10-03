@@ -110,6 +110,11 @@ function ensureTaskJobAccessor(taskKey) {
             return TASK_JOBS.get(taskKey) || null;
         },
         set(value) {
+            // Dropped without being stopped, a job went on firing. Reset tasks drops every
+            // job this way, so each task went on running at the time it had been scheduled
+            // for, beside any default schedule the reset gave it.
+            const existing_job = TASK_JOBS.get(taskKey);
+            if (existing_job && existing_job !== value) existing_job.stop();
             if (!value) {
                 TASK_JOBS.delete(taskKey);
                 return;
