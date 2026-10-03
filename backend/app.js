@@ -3530,6 +3530,9 @@ app.post('/api/restoreDBBackup', optionalJwt, requireAdmin, async (req, res) => 
     const file_name = req.body.file_name;
 
     const success = await db_api.restoreDB(file_name);
+    // The restored tasks bring their own schedules, which nothing ran until a restart, while
+    // the jobs of the tasks they replaced went on firing.
+    if (success) await tasks_api.setupTasks();
 
     res.send({success: success});
 });

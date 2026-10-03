@@ -287,7 +287,9 @@ async function setupTasks() {
                 schedule: default_schedule,
                 options: mergedDefaultOptions
             });
-            if (default_schedule) scheduleTaskJob(task_key, default_schedule);
+            // A job the task already has belongs to a record that is gone, which a restore
+            // from a backup without this task leaves behind.
+            scheduleTaskJob(task_key, default_schedule);
         } else {
             // verify all options exist in task
             for (const key of Object.keys(mergedDefaultOptions)) {

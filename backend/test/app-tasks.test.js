@@ -115,6 +115,36 @@ describe('Tasks on the server as it runs', function() {
         }
     });
 
+    it('runs the schedules a restore brings back, and only those', async function() {
+        // Nothing rescheduled the tasks a restore brought back until the next restart. A
+        // restored schedule never ran, and the jobs of the schedules it replaced went on.
+        const schedule = (task_key, new_schedule) => app.api.post('/api/updateTaskSchedule').send({task_key, new_schedule}).expect(200);
+        const at_half_past_four = {type: 'recurring', data: {hour: 4, minute: 30}};
+        await schedule('missing_files_check', at_half_past_four);
+        await schedule('duplicate_files_check', {type: 'recurring', data: {hour: 5, minute: 0}});
+        await app.api.post('/api/runTask').send({task_key: 'backup_local_db'}).expect(200);
+        const [backup] = (await app.api.post('/api/getDBBackups').send({}).expect(200)).body.db_backups;
+
+        const replaced_run_at = Date.now() + 60 * 60 * 1000;
+        await schedule('missing_files_check', null);
+        await schedule('duplicate_files_check', {type: 'timestamp', data: {timestamp: replaced_run_at}});
+
+        const restored = await app.api.post('/api/restoreDBBackup').send({file_name: backup.name}).expect(200);
+        assert.strictEqual(restored.body.success, true);
+
+        const missing_files_check = await getTask('missing_files_check');
+        assert.deepStrictEqual(missing_files_check.schedule, at_half_past_four);
+        assert(missing_files_check.next_invocation > Date.now(), 'expected the restored schedule to run');
+
+        // What runs next is the restored 05:00, not the single run it replaced.
+        const next_run = (await getTask('duplicate_files_check')).next_invocation;
+        assert.notStrictEqual(next_run, replaced_run_at, 'the replaced schedule is still the one that runs');
+        assert.deepStrictEqual([new Date(next_run).getHours(), new Date(next_run).getMinutes()], [5, 0]);
+
+        await schedule('missing_files_check', null);
+        await schedule('duplicate_files_check', null);
+    });
+
     // Last: a reset puts every task back the way it started.
     it('stops the schedules a reset removes', async function() {
         // A reset dropped each task's job without stopping it, so each went on firing at

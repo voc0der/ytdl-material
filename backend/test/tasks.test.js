@@ -360,6 +360,17 @@ describe('Tasks', function() {
         await tasks_api.updateTaskSchedule('dummy_task', null);
     });
 
+    it('drops the job of a task whose record is gone when it sets the record up again', async function() {
+        // Which is how a restore from a backup without the task leaves it.
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30}});
+        await db_api.removeRecord('tasks', {key: 'dummy_task'});
+
+        await tasks_api.setupTasks();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], null);
+    });
+
     it('stops a job it is told to drop', async function() {
         // How Reset tasks drops each task's job. The job went on firing regardless.
         this.timeout(5000);
