@@ -89,7 +89,9 @@ function getPresentedApiToken(req) {
 exports.getPresentedApiToken = getPresentedApiToken;
 
 function allowedApiTokenTypes(req) {
-    return req.path === '/api/rss'
+    // Match the feed route as Express does, including links the dialog previously
+    // generated with a trailing slash. Prefixes and child paths are not feed routes.
+    return /^\/api\/rss\/?$/i.test(req.path)
         ? [api_tokens_api.TOKEN_TYPES.API, api_tokens_api.TOKEN_TYPES.RSS]
         : [api_tokens_api.TOKEN_TYPES.API];
 }

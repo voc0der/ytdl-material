@@ -28,7 +28,7 @@ export class GenerateRssUrlComponent {
   itemLimit = null;
   favoriteFilter = false;
   url = '';
-  baseURL = `${this.postsService.config.Host.url}:${this.postsService.config.Host.port}/api/rss`
+  baseURL = `${this.postsService.config.Host.url}:${this.postsService.config.Host.port}`
   sortProperty = 'registered'
   descendingMode = true
   apiToken = null;
@@ -118,7 +118,7 @@ export class GenerateRssUrlComponent {
       params['sort'] = encodeURIComponent(JSON.stringify({by: this.sortProperty, order: this.descendingMode ? -1 : 1}));
     }
 
-    const tree = this.router.createUrlTree(['..'], { queryParams: params });
+    const tree = this.router.createUrlTree(['/api/rss'], { queryParams: params });
 
     this.url = `${this.baseURL}${this.serializer.serialize(tree)}`;
   }
