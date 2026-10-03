@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs-extra');
+const path = require('path');
 
 const { startApp, addSampleMedia } = require('./helpers/app-process');
 
@@ -143,6 +144,25 @@ describe('Tasks on the server as it runs', function() {
 
         await schedule('missing_files_check', null);
         await schedule('duplicate_files_check', null);
+    });
+
+    it('lists every backup, including one taken on the second exactly', async function() {
+        // Its name has one dot fewer than the rest, and counting dots left it out.
+        const backup_dir = path.join(app.root, 'appdata', 'db_backup');
+        const names = ['local_db.json.1700000000.bak', 'remote_db.json.1700000100.25.bak', 'local_db.json.bak', 'notes.bak'];
+        await fs.ensureDir(backup_dir);
+        for (const name of names) await fs.writeJSON(path.join(backup_dir, name), {});
+
+        try {
+            const {db_backups} = (await app.api.post('/api/getDBBackups').send({}).expect(200)).body;
+            const ours = db_backups.filter(backup => names.includes(backup.name)).map(({name, timestamp, source}) => ({name, timestamp, source}));
+            assert.deepStrictEqual(ours, [
+                {name: 'remote_db.json.1700000100.25.bak', timestamp: 1700000100, source: 'remote'},
+                {name: 'local_db.json.1700000000.bak', timestamp: 1700000000, source: 'local'}
+            ]);
+        } finally {
+            for (const name of names) await fs.remove(path.join(backup_dir, name));
+        }
     });
 
     // Last: a reset puts every task back the way it started.

@@ -3503,6 +3503,11 @@ app.post('/api/updateTaskOptions', optionalJwt, requirePermission('tasks_manager
     res.send({success: success});
 });
 
+// <local|remote>_db.json.<seconds since the epoch>.bak, the seconds with a fraction unless the
+// backup was taken on the second exactly. Counting the dots in the name, as this used to,
+// left those out, so about one backup in a thousand could never be restored from here.
+const DB_BACKUP_NAME = /^([a-z]+)_db\.json\.(\d+)(?:\.\d+)?\.bak$/;
+
 app.post('/api/getDBBackups', optionalJwt, requireAdmin, async (req, res) => {
     const backup_dir = path.join('appdata', 'db_backup');
     fs.ensureDirSync(backup_dir);
@@ -3511,14 +3516,13 @@ app.post('/api/getDBBackups', optionalJwt, requireAdmin, async (req, res) => {
     const candidate_backups = await utils.recFindByExt(backup_dir, 'bak', null, [], false);
     for (let i = 0; i < candidate_backups.length; i++) {
         const candidate_backup = candidate_backups[i];
+        const name = path.basename(candidate_backup);
+        const name_parts = name.match(DB_BACKUP_NAME);
+        if (!name_parts) continue;
 
-        // must have specific format
-        if (candidate_backup.split('.').length - 1 !== 4) continue;
+        const stats = fs.statSync(candidate_backup);
 
-        const candidate_backup_path = candidate_backup;
-        const stats = fs.statSync(candidate_backup_path);
-
-        db_backups.push({ name: path.basename(candidate_backup), timestamp: parseInt(candidate_backup.split('.')[2]), size: stats.size, source: candidate_backup.includes('local') ? 'local' : 'remote' });
+        db_backups.push({ name: name, timestamp: parseInt(name_parts[2]), size: stats.size, source: name_parts[1] === 'local' ? 'local' : 'remote' });
     }
 
     db_backups.sort((a,b) => b.timestamp - a.timestamp);
