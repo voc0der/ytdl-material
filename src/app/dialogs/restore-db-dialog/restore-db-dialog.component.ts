@@ -21,6 +21,9 @@ export class RestoreDbDialogComponent implements OnInit {
   // One backup, held as the one-item list the restore request is built from.
   selected_backup: string[] = null;
   restoring = false;
+  loading = true;
+  // Why the list could not be had. Without it, a failed request read as having no backups.
+  load_error: string = null;
 
   readonly backupsLabel = $localize`Backups`;
 
@@ -44,8 +47,20 @@ export class RestoreDbDialogComponent implements OnInit {
   }
 
   getDBBackups(): void {
-    this.postsService.getDBBackups().subscribe(res => {
-      this.db_backups = res['db_backups'];
+    this.postsService.getDBBackups().subscribe({
+      next: res => {
+        this.db_backups = res['db_backups'] ?? [];
+        this.loading = false;
+      },
+      error: err => {
+        // Anyone who manages tasks can open this from the tasks page, but only an admin can
+        // list the backups or restore one.
+        this.load_error = err?.status === 403
+          ? $localize`Only an admin can restore the database.`
+          : $localize`Couldn't load the backups.`;
+        this.loading = false;
+        console.error(err);
+      }
     });
   }
 

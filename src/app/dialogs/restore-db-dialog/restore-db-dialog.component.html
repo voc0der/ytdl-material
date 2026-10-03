@@ -20,6 +20,10 @@
         </button>
       }
     </div>
+  } @else if (loading) {
+    <div class="list-loading" aria-busy="true"><mat-spinner [diameter]="32"></mat-spinner></div>
+  } @else if (load_error) {
+    <p class="dialog-text">{{load_error}}</p>
   } @else {
     <p class="dialog-text" i18n="No DB backups text">There are no backups to restore from yet.</p>
   }
