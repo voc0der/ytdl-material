@@ -533,6 +533,19 @@ describe('Tasks', function() {
 
             assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: true, [OLD_SUBSCRIPTION_FILE]: true});
         });
+
+        it('refuses an age that is not a number of days above zero', async function() {
+            // A negative age put the cutoff in the future, which every file is older than,
+            // so a typo in the age was enough to delete the whole library.
+            for (const threshold_days of [-30, '-30', '0', 'soon']) {
+                await setTaskOptions('delete_old_files', {threshold_days});
+                await tasks_api.executeRun('delete_old_files');
+
+                const task = await getTask('delete_old_files');
+                assert.strictEqual(task['data'], null, `expected nothing to delete for ${JSON.stringify(threshold_days)}`);
+                assert.match(task['error'], /not a number of days above zero/);
+            }
+        });
     });
 
     describe('Acting on findings without asking', function() {

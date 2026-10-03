@@ -57,7 +57,11 @@
     <label class="settings-row settings-field-row">
       <span class="settings-row-text">
         <span class="settings-row-title" i18n="Delete files older than">Delete files older than</span>
-        <span class="settings-row-hint" i18n="Delete files older than hint">In days. Nothing is deleted until this is set.</span>
+        @if (thresholdInvalid) {
+          <span class="settings-row-hint hint-invalid" i18n="Delete files older than invalid hint">Has to be more than zero days.</span>
+        } @else {
+          <span class="settings-row-hint" i18n="Delete files older than hint">In days. Nothing is deleted until this is set.</span>
+        }
       </span>
       <span class="kit-field threshold-field">
         <input type="number" min="1" step="1" inputmode="numeric" name="thresholdDays" [ngModel]="options['threshold_days']"
@@ -123,5 +127,5 @@
 
 <div class="settings-actions">
   <button type="button" class="kit-text-button" (click)="cancel()" [disabled]="saving" i18n="Cancel button">Cancel</button>
-  <button type="button" class="kit-chip kit-primary" (click)="save()" [disabled]="!changed || incomplete || saving" i18n="Save button">Save</button>
+  <button type="button" class="kit-chip kit-primary" (click)="save()" [disabled]="!changed || incomplete || thresholdInvalid || saving" i18n="Save button">Save</button>
 </div>

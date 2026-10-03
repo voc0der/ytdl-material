@@ -468,13 +468,18 @@ async function removeDuplicates(data) {
 
 async function checkForAutoDeleteFiles() {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
-    if (!task_obj['options'] || !task_obj['options']['threshold_days']) {
-        const error_message = 'Failed to do delete check because no limit was set!';
+    const threshold = task_obj['options'] ? task_obj['options']['threshold_days'] : null;
+    // A negative age put the cutoff in the future, and every file in the library is older than that.
+    const threshold_days = Number(threshold);
+    if (!threshold || !(threshold_days > 0)) {
+        const error_message = threshold
+            ? `Failed to do delete check because '${threshold}' is not a number of days above zero!`
+            : 'Failed to do delete check because no limit was set!';
         logger.error(error_message);
         await db_api.updateRecord('tasks', {key: 'delete_old_files'}, {error: error_message})
         return null;
     }
-    const delete_older_than_timestamp = Date.now() - task_obj['options']['threshold_days']*86400*1000;
+    const delete_older_than_timestamp = Date.now() - threshold_days*86400*1000;
     const files = (await db_api.getRecords('files', {registered: {$lt: delete_older_than_timestamp}}))
     const files_to_remove = files.map(file => {return {uid: file.uid, sub_id: file.sub_id}});
     return {files_to_remove: files_to_remove};

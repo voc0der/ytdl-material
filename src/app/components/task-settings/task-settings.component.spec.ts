@@ -132,6 +132,31 @@ describe('TaskSettingsComponent', () => {
     expect(component.options['blacklist_subscription_files']).toBe(false);
   });
 
+  it('will not save an age to delete files after that is not more than zero days', () => {
+    // A negative age put the cutoff in the future, and every file in the library is older.
+    openOn(task({ key: TaskType.DELETE_OLD_FILES, options: { threshold_days: '' } }));
+    expect(component.thresholdInvalid).toBe(false);
+
+    component.setOption('threshold_days', -30);
+    fixture.detectChanges();
+
+    const saveButton = () => [...fixture.nativeElement.querySelectorAll('button')].find(button => button.textContent.trim() === 'Save');
+    expect(component.thresholdInvalid).toBe(true);
+    expect(saveButton().disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.hint-invalid').textContent).toContain('more than zero days');
+    component.save();
+    expect(postsService.updateTaskOptions).not.toHaveBeenCalled();
+
+    component.setOption('threshold_days', 0);
+    expect(component.thresholdInvalid).toBe(true);
+
+    component.setOption('threshold_days', 30);
+    fixture.detectChanges();
+    expect(saveButton().disabled).toBe(false);
+    component.save();
+    expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.DELETE_OLD_FILES, { threshold_days: 30 });
+  });
+
   it('offers its own options only to the task that has them', () => {
     expect(component.hasOwnOptions).toBe(false);
 

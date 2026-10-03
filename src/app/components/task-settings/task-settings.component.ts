@@ -99,6 +99,17 @@ export class TaskSettingsComponent implements OnChanges {
     return this.task?.key === TaskType.CODEC_DISCOVERY;
   }
 
+  /**
+   * Blank leaves the age unset, and the task deletes nothing. Anything else has to be more
+   * than zero days: a negative age puts the cutoff in the future, and every file is older.
+   */
+  get thresholdInvalid(): boolean {
+    if (!this.hasOwnOptions) return false;
+    const threshold = this.options['threshold_days'];
+    if (threshold === '' || threshold === null || threshold === undefined) return false;
+    return !(Number(threshold) > 0);
+  }
+
   /** Blank reads as no limit, the same as 0. */
   setMaxConversions(value: unknown): void {
     const parsed = Math.floor(Number(value));
@@ -143,7 +154,7 @@ export class TaskSettingsComponent implements OnChanges {
   }
 
   save(): void {
-    if (this.saving || !this.task || this.incomplete) return;
+    if (this.saving || !this.task || this.incomplete || this.thresholdInvalid) return;
 
     const schedule = this.buildSchedule();
     const schedule_changed = JSON.stringify(schedule) !== this.saved_schedule;

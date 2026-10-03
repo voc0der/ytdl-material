@@ -16,6 +16,10 @@
   gap: 4px;
 }
 
+.hint-invalid {
+  color: var(--kit-danger);
+}
+
 .field-suffix {
   flex-shrink: 0;
   font-size: 14px;
