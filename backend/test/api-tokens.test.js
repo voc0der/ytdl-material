@@ -203,11 +203,15 @@ describe('Per-user API tokens', function() {
             const {token} = await api_tokens_api.generateTokenForUser(
                 OWNER, 'feed', api_tokens_api.TOKEN_TYPES.RSS);
 
-            await request(appUsing()).get('/api/whoami')
-                .set('Authorization', `Bearer ${token}`).expect(401);
-            const res = await request(appUsing()).get('/api/rss')
-                .set('Authorization', `Bearer ${token}`).expect(200);
-            assert.strictEqual(res.body.uid, OWNER);
+            for (const route of ['/api/whoami', '/api/rss-extra', '/api/rss/extra', '/api/rss//']) {
+                await request(appUsing()).get(route)
+                    .set('Authorization', `Bearer ${token}`).expect(401);
+            }
+            for (const route of ['/api/rss', '/api/rss/', '/API/RSS', '/API/RSS/']) {
+                const res = await request(appUsing()).get(route)
+                    .set('Authorization', `Bearer ${token}`).expect(200);
+                assert.strictEqual(res.body.uid, OWNER);
+            }
         });
 
         it('does not let one API token mint or manage another', async function() {
