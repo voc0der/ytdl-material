@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { Schedule, Task, TaskType } from 'api-types';
 
 import { TaskSettingsComponent } from './task-settings.component';
@@ -260,6 +260,65 @@ describe('TaskSettingsComponent', () => {
 
     expect(component.time).toBe('09:15');
     expect(component.repeat).toBe('daily');
+  });
+
+  it('picks days for a weekly schedule in order, and lets go of one picked again', () => {
+    component.chooseRepeat('weekly');
+    expect(component.days_of_week).toEqual([0]);
+
+    component.toggleDay(4);
+    component.toggleDay(2);
+    expect(component.days_of_week).toEqual([0, 2, 4]);
+
+    component.toggleDay(0);
+    expect(component.days_of_week).toEqual([2, 4]);
+    expect(component.isDaySelected(0)).toBe(false);
+  });
+
+  it('just closes when saved with nothing changed', () => {
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+
+    component.save();
+
+    expect(postsService.updateTaskSchedule).not.toHaveBeenCalled();
+    expect(postsService.updateTaskOptions).not.toHaveBeenCalled();
+    expect(closed).toHaveBeenCalled();
+  });
+
+  it('stays open and says so when the settings could not be saved', () => {
+    // The server turns down a schedule that could never run.
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+    postsService.updateTaskSchedule.mockReturnValue(of({ success: false }));
+
+    component.chooseRepeat('daily');
+    component.save();
+
+    expect(component.saving).toBe(false);
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't save the task settings.");
+    expect(closed).not.toHaveBeenCalled();
+
+    postsService.openSnackBar.mockClear();
+    postsService.updateTaskSchedule.mockReturnValue(throwError(() => new Error('offline')));
+    component.save();
+
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't save the task settings.");
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('saves a schedule without a timezone when the browser cannot name its own', () => {
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => { throw new RangeError('no timezone data'); });
+
+    try {
+      expect(component.timeZone).toBeNull();
+      component.chooseRepeat('daily');
+      component.save();
+
+      expect(postsService.updateTaskSchedule.mock.lastCall[1].data.tz).toBeNull();
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it('closes without saving when cancelled', () => {

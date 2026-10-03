@@ -1,13 +1,15 @@
 import { fakeAsync, tick } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { Schedule, Task, TaskType } from 'api-types';
 
 import { TasksComponent } from './tasks.component';
+import { RestoreDbDialogComponent } from 'app/dialogs/restore-db-dialog/restore-db-dialog.component';
 
 describe('TasksComponent', () => {
   let component: TasksComponent;
   let postsService: any;
   let dialog: any;
+  let clipboard: any;
 
   const task = (overrides: Partial<Task> = {}): Task => ({
     key: TaskType.BACKUP_LOCAL_DB,
@@ -40,13 +42,40 @@ describe('TasksComponent', () => {
       openSnackBar: vi.fn().mockName('openSnackBar')
     };
     dialog = { open: vi.fn().mockName('open').mockReturnValue({ afterClosed: () => of(true) }) };
+    clipboard = { copy: vi.fn().mockName('copy').mockReturnValue(true) };
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    component = new TasksComponent(postsService, dialog, { copy: () => true } as any);
+    component = new TasksComponent(postsService, dialog, clipboard);
   });
 
   afterEach(() => {
     component.ngOnDestroy();
     vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('waits for the app to be ready before asking for the tasks', () => {
+    const ready = new BehaviorSubject(false);
+    postsService.initialized = false;
+    postsService.service_initialized = ready;
+
+    component.ngOnInit();
+    expect(postsService.getTasks).not.toHaveBeenCalled();
+
+    ready.next(true);
+    expect(postsService.getTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops waiting for the app once it is gone', () => {
+    const ready = new BehaviorSubject(false);
+    postsService.initialized = false;
+    postsService.service_initialized = ready;
+
+    component.ngOnInit();
+    component.ngOnDestroy();
+    ready.next(true);
+
+    expect(postsService.getTasks).not.toHaveBeenCalled();
   });
 
   it('says so when the list could not be loaded', () => {
@@ -189,4 +218,121 @@ describe('TasksComponent', () => {
 
     expect(postsService.getTasks).toHaveBeenCalledTimes(2);
   }));
+
+  it('says so when a run could not be started', () => {
+    postsService.runTask.mockReturnValueOnce(of({ success: false }));
+    component.runTask(TaskType.BACKUP_LOCAL_DB);
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to run task!');
+
+    postsService.openSnackBar.mockClear();
+    postsService.runTask.mockReturnValueOnce(throwError(() => new Error('offline')));
+    component.runTask(TaskType.BACKUP_LOCAL_DB);
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to run task!');
+  });
+
+  it('does not rebuild the database when that is called off', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    component.runTask(TaskType.REBUILD_DATABASE);
+
+    expect(postsService.runTask).not.toHaveBeenCalled();
+  });
+
+  it('acts on what a run found, and reloads straight away', () => {
+    listReturns(task({ key: TaskType.MISSING_FILES_CHECK, data: { uids: ['a'] } }));
+    component.ngOnInit();
+
+    component.confirmTask(TaskType.MISSING_FILES_CHECK);
+
+    expect(postsService.confirmTask).toHaveBeenCalledWith(TaskType.MISSING_FILES_CHECK);
+    expect(postsService.getTasks).toHaveBeenCalledTimes(2);
+    expect(postsService.openSnackBar).not.toHaveBeenCalled();
+  });
+
+  it('says so when what a run found could not be acted on', () => {
+    postsService.confirmTask.mockReturnValueOnce(of({ success: false }));
+    component.confirmTask(TaskType.MISSING_FILES_CHECK);
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to confirm task!');
+
+    postsService.openSnackBar.mockClear();
+    postsService.confirmTask.mockReturnValueOnce(throwError(() => new Error('offline')));
+    component.confirmTask(TaskType.MISSING_FILES_CHECK);
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to confirm task!');
+  });
+
+  it('opens the backups to restore from', () => {
+    component.openRestoreDBBackupDialog();
+
+    expect(dialog.open).toHaveBeenCalledWith(RestoreDbDialogComponent, expect.objectContaining({ autoFocus: 'dialog' }));
+  });
+
+  it('resets the tasks once that is confirmed, closing any open settings', () => {
+    component.toggleSettings(task());
+
+    component.resetTasks();
+
+    expect(dialog.open.mock.lastCall[1].data.warnSubmitColor).toBe(true);
+    expect(postsService.resetTasks).toHaveBeenCalledTimes(1);
+    expect(postsService.openSnackBar).toHaveBeenCalledWith('Tasks successfully reset!');
+    expect(component.open_settings_key).toBeNull();
+    expect(postsService.getTasks).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the tasks alone when a reset is called off', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    component.resetTasks();
+
+    expect(postsService.resetTasks).not.toHaveBeenCalled();
+  });
+
+  it('says so when the tasks could not be reset', () => {
+    postsService.resetTasks.mockReturnValueOnce(of({ success: false }));
+    component.resetTasks();
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to reset tasks!');
+
+    postsService.openSnackBar.mockClear();
+    postsService.resetTasks.mockReturnValueOnce(throwError(() => new Error('offline')));
+    component.resetTasks();
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Failed to reset tasks!');
+  });
+
+  it('says so when dismissing an error failed outright', () => {
+    postsService.dismissTaskError.mockReturnValue(throwError(() => new Error('offline')));
+
+    component.dismissError(task({ error: 'boom' }));
+
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't dismiss the error.");
+  });
+
+  it('shows the whole of an error, and copies it when asked', () => {
+    const failed = task({ title: 'Backup DB', error: 'Disk full\n    at write (db.js:1)' });
+
+    component.showError(failed);
+
+    const { data } = dialog.open.mock.lastCall[1];
+    expect(data.dialogTitle).toBe('Error for: Backup DB');
+    expect(data.dialogText).toBe(failed.error);
+    expect(clipboard.copy).not.toHaveBeenCalled();
+
+    data.doneEmitter.emit(true);
+
+    expect(clipboard.copy).toHaveBeenCalledWith(failed.error);
+    expect(postsService.openSnackBar).toHaveBeenCalledWith('Copied to clipboard!');
+  });
+
+  it('sums an error up by its first line', () => {
+    expect(component.errorSummary(task({ error: '\n  Disk full\n    at write (db.js:1)' }))).toBe('Disk full');
+    expect(component.errorSummary(task({ error: '   ' }))).toBe('Something went wrong.');
+    expect(component.errorSummary(task({ error: { code: 'EIO' } as any }))).toBe('Something went wrong.');
+  });
+
+  it('describes each task, and counts what it found', () => {
+    const found = task({ key: TaskType.DELETE_OLD_FILES, data: { files_to_remove: [{ uid: 'a' }, { uid: 'b' }] } });
+
+    expect(component.icon(found)).toBe('auto_delete');
+    expect(component.description(found)).toContain('older than');
+    expect(component.pendingCount(found)).toBe(2);
+    expect(component.confirmLabel(found)).toBe('Delete 2 files');
+  });
 });

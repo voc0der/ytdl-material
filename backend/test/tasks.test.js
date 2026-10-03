@@ -1,4 +1,5 @@
-const { assert, fs, os, path, uuid, db_api, utils, files_api, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
+const { assert, fs, os, path, uuid, db_api, utils, files_api, subscriptions_api, generateEmptyVideoFile, useTemporaryMediaRoots, CONSTS } = require('./test-shared');
+const bcrypt = require('bcryptjs');
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
@@ -409,6 +410,89 @@ describe('Tasks', function() {
         }
     });
 
+    it('replaces a job, stopping the one it had', async function() {
+        const stopped = [];
+        const job = (name) => ({nextRun: () => null, stop: () => stopped.push(name)});
+
+        tasks_api.TASKS['dummy_task']['job'] = job('first');
+        tasks_api.TASKS['dummy_task']['job'] = job('second');
+
+        assert.deepStrictEqual(stopped, ['first']);
+        tasks_api.TASKS['dummy_task']['job'] = null;
+        assert.deepStrictEqual(stopped, ['first', 'second']);
+    });
+
+    it('clears a single run once it fires, and runs the task', async function() {
+        const run_at = Date.now() + 60 * 60 * 1000;
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'timestamp', data: {timestamp: run_at}});
+
+        await tasks_api.TASKS['dummy_task']['job'].trigger();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['last_ran']));
+    });
+
+    it('skips a scheduled run while the task is still busy', async function() {
+        let runs = 0;
+        tasks_api.TASKS['dummy_task'].run = async () => { runs++; };
+        const daily = {type: 'recurring', data: {hour: 3, minute: 30}};
+        await tasks_api.updateTaskSchedule('dummy_task', daily);
+
+        for (const busy of [{running: true}, {confirming: true}]) {
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {running: false, confirming: false, ...busy});
+            await tasks_api.TASKS['dummy_task']['job'].trigger();
+        }
+
+        assert.strictEqual(runs, 0);
+        assert.deepStrictEqual((await getTask('dummy_task'))['schedule'], daily);
+    });
+
+    it('drops a single run whose time went by while the server was down', async function() {
+        await db_api.updateRecord('tasks', {key: 'dummy_task'}, {schedule: {type: 'timestamp', data: {timestamp: Date.now() - 1000}}});
+
+        await tasks_api.setupTasks();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], null);
+    });
+
+    it('refuses to run a task that does not exist', async function() {
+        assert.strictEqual(await tasks_api.executeTask('not_a_task'), undefined);
+        assert.strictEqual(await tasks_api.executeRunOnStartup('not_a_task'), false);
+        assert.strictEqual(await tasks_api.updateTaskSchedule('not_a_task', null), false);
+    });
+
+    it('skips its run on startup while the task is still busy', async function() {
+        let runs = 0;
+        tasks_api.TASKS['dummy_task'].run = async () => { runs++; };
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30}});
+        // setupTasks clears a stale running flag, so the task has to be busy past it.
+        const original_setup = tasks_api.setupTasks;
+        tasks_api.setupTasks = async () => {
+            await original_setup();
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {running: true});
+        };
+
+        try {
+            assert.strictEqual(await tasks_api.executeRunOnStartup('dummy_task'), false);
+            assert.strictEqual(runs, 0);
+        } finally {
+            tasks_api.setupTasks = original_setup;
+        }
+    });
+
+    it('finds nothing to remove when no two records share a file', async function() {
+        const original_find = db_api.findDuplicatesByKey;
+        db_api.findDuplicatesByKey = async () => [];
+
+        try {
+            await tasks_api.executeRun('duplicate_files_check');
+            assert.deepStrictEqual((await getTask('duplicate_files_check'))['data'], {uids: []});
+        } finally {
+            db_api.findDuplicatesByKey = original_find;
+        }
+    });
+
     describe('Schedule conversion', function() {
         it('maps a daily schedule onto a cron pattern', function() {
             assert.strictEqual(tasks_api.buildCronPattern({hour: 0, minute: 0}), '0 0 0 * * *');
@@ -455,6 +539,15 @@ describe('Tasks', function() {
 
         it('has no next run for a task that does not exist', function() {
             assert.strictEqual(tasks_api.getNextRun('not_a_task'), null);
+        });
+
+        it("reads the next run off a job that calls it node-schedule's name", function() {
+            const next_run = new Date(Date.now() + 60 * 1000);
+            tasks_api.TASKS['dummy_task']['job'] = {nextInvocation: () => next_run, stop() {}};
+            assert.strictEqual(tasks_api.getNextRun('dummy_task'), next_run);
+
+            tasks_api.TASKS['dummy_task']['job'] = {stop() {}};
+            assert.strictEqual(tasks_api.getNextRun('dummy_task'), null);
         });
     });
 
@@ -528,6 +621,95 @@ describe('Tasks', function() {
             tasks_api.TASKS['dummy_task'].confirm = null;
 
             assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+        });
+    });
+
+    describe('Rebuilding the database', function() {
+        // Names of their own: the shared database holds every other test's records too.
+        const USER = 'rebuild-user';
+        const ROOT_CHANNEL = {id: 'rebuild-root-channel', name: 'Rebuild Root Channel', url: 'https://example.com/@rebuild-root', isPlaylist: false, use_subfolder: true};
+        const ROOT_PLAYLIST = {id: 'rebuild-root-playlist', name: 'Rebuild Root Playlist', url: 'https://example.com/playlist?list=rebuild', isPlaylist: true, use_subfolder: false};
+        const USER_CHANNEL = {id: 'rebuild-user-channel', name: 'Rebuild User Channel', url: 'https://example.com/@rebuild-user', isPlaylist: false, use_subfolder: true, user_uid: USER};
+        const KEPT_CHANNEL = {id: 'rebuild-kept-channel', name: 'Rebuild Kept Channel', url: 'https://example.com/@rebuild-kept', isPlaylist: false, use_subfolder: true};
+        const SUBSCRIPTIONS = [ROOT_CHANNEL, ROOT_PLAYLIST, USER_CHANNEL, KEPT_CHANNEL];
+
+        let roots;
+        let steps;
+        let original_backup;
+        let original_import;
+
+        // What a subscription leaves beside its files, as a Mongo record would have it.
+        const writeBackup = (dir, sub) => fs.outputJSONSync(path.join(dir, CONSTS.SUBSCRIPTION_BACKUP_PATH), {...sub, _id: 'mongo-id', paused: false});
+
+        const cleanUp = async () => {
+            for (const sub of SUBSCRIPTIONS) await db_api.removeAllRecords('subscriptions', {id: sub.id});
+            await db_api.removeAllRecords('users', {uid: USER});
+        };
+
+        beforeEach(async function() {
+            await cleanUp();
+            roots = useTemporaryMediaRoots();
+            steps = [];
+            original_backup = db_api.backupDB;
+            original_import = files_api.importUnregisteredFiles;
+            db_api.backupDB = async () => { steps.push('backup'); };
+            files_api.importUnregisteredFiles = async () => { steps.push('import'); return []; };
+
+            writeBackup(path.join(roots.subscriptions, 'channels', ROOT_CHANNEL.name), ROOT_CHANNEL);
+            writeBackup(path.join(roots.subscriptions, 'playlists', '.metadata', ROOT_PLAYLIST.name), ROOT_PLAYLIST);
+            writeBackup(path.join(roots.users, USER, 'subscriptions', 'channels', USER_CHANNEL.name), USER_CHANNEL);
+            writeBackup(path.join(roots.subscriptions, 'channels', KEPT_CHANNEL.name), KEPT_CHANNEL);
+            // Neither of these has a subscription to bring back.
+            fs.outputFileSync(path.join(roots.subscriptions, 'channels', 'Unreadable', CONSTS.SUBSCRIPTION_BACKUP_PATH), 'not json');
+            fs.ensureDirSync(path.join(roots.subscriptions, 'channels', 'No backup'));
+
+            await db_api.insertRecordIntoTable('subscriptions', {...KEPT_CHANNEL, paused: false});
+        });
+
+        afterEach(async function() {
+            db_api.backupDB = original_backup;
+            files_api.importUnregisteredFiles = original_import;
+            roots.restore();
+            await cleanUp();
+        });
+
+        it('backs up first, then brings back the users and subscriptions it finds, paused', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            assert.strictEqual((await getTask('rebuild_database'))['error'], null);
+            assert.deepStrictEqual(steps, ['backup', 'import']);
+
+            for (const sub of [ROOT_CHANNEL, ROOT_PLAYLIST, USER_CHANNEL]) {
+                const restored = await db_api.getRecord('subscriptions', {id: sub.id});
+                assert(restored, `expected ${sub.name} back`);
+                assert.strictEqual(restored.paused, true, `${sub.name} should wait to be switched back on`);
+                assert.strictEqual(restored._id, undefined);
+            }
+            assert.strictEqual((await db_api.getRecord('subscriptions', {id: USER_CHANNEL.id})).user_uid, USER);
+            assert.strictEqual((await db_api.getRecord('subscriptions', {id: ROOT_PLAYLIST.id})).isPlaylist, true);
+        });
+
+        it('registers a user it finds a folder for, with the password the confirmation warns of', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            const user = await db_api.getRecord('users', {uid: USER});
+            assert(user, 'expected the user whose folder it found');
+            assert(bcrypt.compareSync('password', user.passhash));
+        });
+
+        it('leaves alone a subscription that is already there, and one it cannot read', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            const kept = await db_api.getRecords('subscriptions', {id: KEPT_CHANNEL.id});
+            assert.strictEqual(kept.length, 1);
+            assert.strictEqual(kept[0].paused, false);
+            assert.strictEqual(await db_api.getRecords('subscriptions', {name: 'Unreadable'}, true), 0);
         });
     });
 
