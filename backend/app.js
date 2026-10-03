@@ -3435,12 +3435,18 @@ app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async 
     res.send({task: taskWithNextRun(task) || null});
 });
 
+// A task this version does not have. Running or confirming one failed the request with a 500.
+async function getKnownTask(task_key) {
+    if (typeof task_key !== 'string' || !Object.hasOwn(tasks_api.TASKS, task_key)) return null;
+    return await db_api.getRecord('tasks', {key: task_key});
+}
+
 app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
-    const task = await db_api.getRecord('tasks', {key: task_key});
+    const task = await getKnownTask(task_key);
 
     let success = true;
-    if (task['running'] || task['confirming']) success = false;
+    if (!task || task['running'] || task['confirming']) success = false;
     else if (tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['runInBackground']) {
         // The tasks page polls, so it sees the run start and finish without waiting on this.
         tasks_api.executeRun(task_key).catch(err => logger.error(`Task '${task_key}' failed: ${err.message}`));
@@ -3451,9 +3457,9 @@ app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async 
 
 app.post('/api/confirmTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
-    const task = await db_api.getRecord('tasks', {key: task_key});
+    const task = await getKnownTask(task_key);
 
-    const success = task['running'] || task['confirming'] || !task['data']
+    const success = !task || task['running'] || task['confirming'] || !task['data']
         ? false
         : await tasks_api.executeConfirm(task_key);
 
@@ -3474,9 +3480,9 @@ app.post('/api/updateTaskSchedule', optionalJwt, requirePermission('tasks_manage
     const task_key = req.body.task_key;
     const new_schedule = req.body.new_schedule;
   
-    await tasks_api.updateTaskSchedule(task_key, new_schedule);
+    const success = await tasks_api.updateTaskSchedule(task_key, new_schedule);
 
-    res.send({success: true});
+    res.send({success: success});
 });
 
 app.post('/api/updateTaskData', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {

@@ -83,4 +83,15 @@ describe('Tasks on the server as it runs', function() {
         const ran = await app.api.post('/api/runTask').send({task_key: 'duplicate_files_check'}).expect(200);
         assert.strictEqual(ran.body.success, true);
     });
+
+    it('refuses to run, confirm or schedule a task that does not exist', async function() {
+        // Running or confirming one failed with a 500, and scheduling one said it worked.
+        for (const route of ['/api/runTask', '/api/confirmTask']) {
+            const res = await app.api.post(route).send({task_key: 'no_such_task'}).expect(200);
+            assert.deepStrictEqual(res.body, {success: false}, route);
+        }
+
+        const scheduled = await app.api.post('/api/updateTaskSchedule').send({task_key: 'no_such_task', new_schedule: null}).expect(200);
+        assert.deepStrictEqual(scheduled.body, {success: false});
+    });
 });
