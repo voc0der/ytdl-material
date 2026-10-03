@@ -1456,7 +1456,7 @@ exports.restoreDB = async (file_name) => {
     for (let i = 0; i < tables_list.length; i++) {
         const table = tables_list[i];
         if (!table_to_records[table] || table_to_records[table].length === 0) continue;
-        success &= await exports.bulkInsertRecordsIntoTable(table, table_to_records[table]);
+        success = await exports.bulkInsertRecordsIntoTable(table, table_to_records[table]) && success;
     }
 
     logger.debug('Restore finished!');

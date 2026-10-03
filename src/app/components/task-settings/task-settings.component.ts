@@ -99,6 +99,17 @@ export class TaskSettingsComponent implements OnChanges {
     return this.task?.key === TaskType.CODEC_DISCOVERY;
   }
 
+  /**
+   * Blank leaves the age unset, and the task deletes nothing. Anything else has to be more
+   * than zero days: a negative age puts the cutoff in the future, and every file is older.
+   */
+  get thresholdInvalid(): boolean {
+    if (!this.hasOwnOptions) return false;
+    const threshold = this.options['threshold_days'];
+    if (threshold === '' || threshold === null || threshold === undefined) return false;
+    return !(Number(threshold) > 0);
+  }
+
   /** Blank reads as no limit, the same as 0. */
   setMaxConversions(value: unknown): void {
     const parsed = Math.floor(Number(value));
@@ -118,11 +129,19 @@ export class TaskSettingsComponent implements OnChanges {
     return this.repeat === 'weekly' && this.days_of_week.length === 0;
   }
 
+  /** A single run at a time already gone by would never happen. */
+  get alreadyPassed(): boolean {
+    if (this.repeat !== 'once' || !this.time || !this.date) return false;
+    return onceAt(this.date, this.time).getTime() <= Date.now();
+  }
+
   chooseRepeat(repeat: RepeatChoice): void {
     this.repeat = repeat;
     // Something to start from, so a schedule is never saved half-filled.
     if (repeat !== 'off' && !this.time) this.time = '03:00';
-    if (repeat === 'once' && !this.date) this.date = this.today;
+    // The next time that comes round. Today's 03:00 has gone by for most of the day, and a
+    // run set for it would never happen.
+    if (repeat === 'once' && !this.date) this.date = this.nextDateAt(this.time);
     if (repeat === 'weekly' && this.days_of_week.length === 0) this.days_of_week = [0];
   }
 
@@ -143,7 +162,7 @@ export class TaskSettingsComponent implements OnChanges {
   }
 
   save(): void {
-    if (this.saving || !this.task || this.incomplete) return;
+    if (this.saving || !this.task || this.incomplete || this.thresholdInvalid || this.alreadyPassed) return;
 
     const schedule = this.buildSchedule();
     const schedule_changed = JSON.stringify(schedule) !== this.saved_schedule;
@@ -211,19 +230,31 @@ export class TaskSettingsComponent implements OnChanges {
   private buildSchedule(): Schedule | null {
     if (this.repeat === 'off' || this.incomplete) return null;
 
-    const [hours, minutes] = this.time.split(':').map(part => parseInt(part, 10));
     const time_zone = this.timeZone;
 
     if (this.repeat === 'once') {
-      const [year, month, day] = this.date.split('-').map(part => parseInt(part, 10));
-      const scheduled_at = new Date(year, month - 1, day, hours, minutes, 0, 0);
-      return {type: Schedule.type.TIMESTAMP, data: {timestamp: scheduled_at.getTime(), tz: time_zone}};
+      return {type: Schedule.type.TIMESTAMP, data: {timestamp: onceAt(this.date, this.time).getTime(), tz: time_zone}};
     }
 
+    const [hours, minutes] = this.time.split(':').map(part => parseInt(part, 10));
     const data: Schedule['data'] = {hour: hours, minute: minutes, tz: time_zone};
     if (this.repeat === 'weekly') data.dayOfWeek = [...this.days_of_week];
     return {type: Schedule.type.RECURRING, data: data};
   }
+
+  private nextDateAt(time: string): string {
+    if (onceAt(this.today, time).getTime() > Date.now()) return this.today;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return toDateInput(tomorrow);
+  }
+}
+
+/** The moment a date field and a time field name together, in local time. */
+function onceAt(date: string, time: string): Date {
+  const [year, month, day] = date.split('-').map(part => parseInt(part, 10));
+  const [hours, minutes] = time.split(':').map(part => parseInt(part, 10));
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
 }
 
 function toTimeInput(hours: number, minutes: number): string {

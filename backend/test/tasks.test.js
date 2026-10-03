@@ -1,8 +1,26 @@
-const { assert, fs, os, path, uuid, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
+const { assert, fs, os, path, uuid, db_api, utils, files_api, subscriptions_api, generateEmptyVideoFile, useTemporaryMediaRoots, CONSTS } = require('./test-shared');
+const bcrypt = require('bcryptjs');
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
     const notifications_api = require('../notifications');
+
+    async function waitForCondition(predicate, timeout_ms = 2000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout_ms) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+    }
+
+    const getTask = (task_key) => db_api.getRecord('tasks', {key: task_key});
+
+    // Merged into the options the task already has. Without nested mode the local database
+    // stores 'options.x' as a key of its own, and the task never sees it.
+    const setTaskOptions = (task_key, options) => db_api.updateRecord('tasks', {key: task_key},
+        Object.fromEntries(Object.entries(options).map(([key, value]) => [`options.${key}`, value])), true);
+
     beforeEach(async function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('tasks');
@@ -16,6 +34,9 @@ describe('Tasks', function() {
         tasks_api.TASKS['dummy_task'] = dummy_task;
 
         await tasks_api.setupTasks();
+        // Jobs are kept apart from the task objects, so a job an earlier test scheduled
+        // outlives the dummy task being replaced.
+        await tasks_api.updateTaskSchedule('dummy_task', null);
     });
     it('Backup db', async function() {
         const backups_original = await utils.recFindByExt('appdata', 'bak');
@@ -340,6 +361,138 @@ describe('Tasks', function() {
         await tasks_api.updateTaskSchedule('dummy_task', null);
     });
 
+    it('drops the job of a task whose record is gone when it sets the record up again', async function() {
+        // Which is how a restore from a backup without the task leaves it.
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30}});
+        await db_api.removeRecord('tasks', {key: 'dummy_task'});
+
+        await tasks_api.setupTasks();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], null);
+    });
+
+    it('stops a job it is told to drop', async function() {
+        // How Reset tasks drops each task's job. The job went on firing regardless.
+        this.timeout(5000);
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'timestamp', data: {timestamp: Date.now() + 1000}});
+
+        tasks_api.TASKS['dummy_task']['job'] = null;
+        await utils.wait(2000);
+
+        const task = await getTask('dummy_task');
+        assert.strictEqual(task['running'], false);
+        assert.strictEqual(task['last_ran'], null);
+    });
+
+    it('keeps the schedule it had when given one that can never run', async function() {
+        // These were saved anyway, and the task was shown as scheduled with nothing to run it.
+        const daily = {type: 'recurring', data: {hour: 3, minute: 30}};
+        assert.strictEqual(await tasks_api.updateTaskSchedule('dummy_task', daily), true);
+        const job = tasks_api.TASKS['dummy_task']['job'];
+
+        const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+        const never = [
+            {type: 'timestamp', data: {timestamp: yesterday}},
+            {type: 'timestamp', data: {timestamp: 'not a time'}},
+            {type: 'recurring', data: {hour: 25, minute: 0}},
+            {type: 'fortnightly', data: {}}
+        ];
+        try {
+            for (const schedule of never) {
+                assert.strictEqual(await tasks_api.updateTaskSchedule('dummy_task', schedule), false, JSON.stringify(schedule));
+                assert.deepStrictEqual((await getTask('dummy_task'))['schedule'], daily);
+                assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], job);
+            }
+            assert(tasks_api.getNextRun('dummy_task') instanceof Date);
+        } finally {
+            await tasks_api.updateTaskSchedule('dummy_task', null);
+        }
+    });
+
+    it('replaces a job, stopping the one it had', async function() {
+        const stopped = [];
+        const job = (name) => ({nextRun: () => null, stop: () => stopped.push(name)});
+
+        tasks_api.TASKS['dummy_task']['job'] = job('first');
+        tasks_api.TASKS['dummy_task']['job'] = job('second');
+
+        assert.deepStrictEqual(stopped, ['first']);
+        tasks_api.TASKS['dummy_task']['job'] = null;
+        assert.deepStrictEqual(stopped, ['first', 'second']);
+    });
+
+    it('clears a single run once it fires, and runs the task', async function() {
+        const run_at = Date.now() + 60 * 60 * 1000;
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'timestamp', data: {timestamp: run_at}});
+
+        await tasks_api.TASKS['dummy_task']['job'].trigger();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['last_ran']));
+    });
+
+    it('skips a scheduled run while the task is still busy', async function() {
+        let runs = 0;
+        tasks_api.TASKS['dummy_task'].run = async () => { runs++; };
+        const daily = {type: 'recurring', data: {hour: 3, minute: 30}};
+        await tasks_api.updateTaskSchedule('dummy_task', daily);
+
+        for (const busy of [{running: true}, {confirming: true}]) {
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {running: false, confirming: false, ...busy});
+            await tasks_api.TASKS['dummy_task']['job'].trigger();
+        }
+
+        assert.strictEqual(runs, 0);
+        assert.deepStrictEqual((await getTask('dummy_task'))['schedule'], daily);
+    });
+
+    it('drops a single run whose time went by while the server was down', async function() {
+        await db_api.updateRecord('tasks', {key: 'dummy_task'}, {schedule: {type: 'timestamp', data: {timestamp: Date.now() - 1000}}});
+
+        await tasks_api.setupTasks();
+
+        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
+        assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], null);
+    });
+
+    it('refuses to run a task that does not exist', async function() {
+        assert.strictEqual(await tasks_api.executeTask('not_a_task'), undefined);
+        assert.strictEqual(await tasks_api.executeRunOnStartup('not_a_task'), false);
+        assert.strictEqual(await tasks_api.updateTaskSchedule('not_a_task', null), false);
+    });
+
+    it('skips its run on startup while the task is still busy', async function() {
+        let runs = 0;
+        tasks_api.TASKS['dummy_task'].run = async () => { runs++; };
+        await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30}});
+        // setupTasks clears a stale running flag, so the task has to be busy past it.
+        const original_setup = tasks_api.setupTasks;
+        tasks_api.setupTasks = async () => {
+            await original_setup();
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {running: true});
+        };
+
+        try {
+            assert.strictEqual(await tasks_api.executeRunOnStartup('dummy_task'), false);
+            assert.strictEqual(runs, 0);
+        } finally {
+            tasks_api.setupTasks = original_setup;
+        }
+    });
+
+    it('finds nothing to remove when no two records share a file', async function() {
+        const original_find = db_api.findDuplicatesByKey;
+        db_api.findDuplicatesByKey = async () => [];
+
+        try {
+            await tasks_api.executeRun('duplicate_files_check');
+            assert.deepStrictEqual((await getTask('duplicate_files_check'))['data'], {uids: []});
+        } finally {
+            db_api.findDuplicatesByKey = original_find;
+        }
+    });
+
     describe('Schedule conversion', function() {
         it('maps a daily schedule onto a cron pattern', function() {
             assert.strictEqual(tasks_api.buildCronPattern({hour: 0, minute: 0}), '0 0 0 * * *');
@@ -387,6 +540,15 @@ describe('Tasks', function() {
         it('has no next run for a task that does not exist', function() {
             assert.strictEqual(tasks_api.getNextRun('not_a_task'), null);
         });
+
+        it("reads the next run off a job that calls it node-schedule's name", function() {
+            const next_run = new Date(Date.now() + 60 * 1000);
+            tasks_api.TASKS['dummy_task']['job'] = {nextInvocation: () => next_run, stop() {}};
+            assert.strictEqual(tasks_api.getNextRun('dummy_task'), next_run);
+
+            tasks_api.TASKS['dummy_task']['job'] = {stop() {}};
+            assert.strictEqual(tasks_api.getNextRun('dummy_task'), null);
+        });
     });
 
     describe('Schedule timezones', function() {
@@ -426,6 +588,283 @@ describe('Tasks', function() {
             assert(!!nonsense);
             assert.strictEqual(nonsense.getHours(), 3);
             assert.strictEqual(nonsense.getMinutes(), 30);
+        });
+    });
+
+    describe('Confirming', function() {
+        it('acts on the findings, then clears them', async function() {
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {data: {uids: ['found']}});
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), true);
+
+            const task = await getTask('dummy_task');
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['data'], null);
+            assert(task['last_confirmed']);
+        });
+
+        it('leaves a task whose confirm failed idle, with its error and its findings', async function() {
+            // It stayed confirming, which refused every run after it until a restart.
+            tasks_api.TASKS['dummy_task'].confirm = async () => { throw new Error('Could not act on that'); };
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {data: {uids: ['found']}});
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+
+            const task = await getTask('dummy_task');
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['error'], 'Could not act on that');
+            assert.deepStrictEqual(task['data'], {uids: ['found']});
+            assert.strictEqual(task['last_confirmed'], null);
+        });
+
+        it('says so for a task that has nothing to confirm', async function() {
+            tasks_api.TASKS['dummy_task'].confirm = null;
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+        });
+    });
+
+    describe('Rebuilding the database', function() {
+        // Names of their own: the shared database holds every other test's records too.
+        const USER = 'rebuild-user';
+        const ROOT_CHANNEL = {id: 'rebuild-root-channel', name: 'Rebuild Root Channel', url: 'https://example.com/@rebuild-root', isPlaylist: false, use_subfolder: true};
+        const ROOT_PLAYLIST = {id: 'rebuild-root-playlist', name: 'Rebuild Root Playlist', url: 'https://example.com/playlist?list=rebuild', isPlaylist: true, use_subfolder: false};
+        const USER_CHANNEL = {id: 'rebuild-user-channel', name: 'Rebuild User Channel', url: 'https://example.com/@rebuild-user', isPlaylist: false, use_subfolder: true, user_uid: USER};
+        const KEPT_CHANNEL = {id: 'rebuild-kept-channel', name: 'Rebuild Kept Channel', url: 'https://example.com/@rebuild-kept', isPlaylist: false, use_subfolder: true};
+        const SUBSCRIPTIONS = [ROOT_CHANNEL, ROOT_PLAYLIST, USER_CHANNEL, KEPT_CHANNEL];
+
+        let roots;
+        let steps;
+        let original_backup;
+        let original_import;
+
+        // What a subscription leaves beside its files, as a Mongo record would have it.
+        const writeBackup = (dir, sub) => fs.outputJSONSync(path.join(dir, CONSTS.SUBSCRIPTION_BACKUP_PATH), {...sub, _id: 'mongo-id', paused: false});
+
+        const cleanUp = async () => {
+            for (const sub of SUBSCRIPTIONS) await db_api.removeAllRecords('subscriptions', {id: sub.id});
+            await db_api.removeAllRecords('users', {uid: USER});
+        };
+
+        beforeEach(async function() {
+            await cleanUp();
+            roots = useTemporaryMediaRoots();
+            steps = [];
+            original_backup = db_api.backupDB;
+            original_import = files_api.importUnregisteredFiles;
+            db_api.backupDB = async () => { steps.push('backup'); };
+            files_api.importUnregisteredFiles = async () => { steps.push('import'); return []; };
+
+            writeBackup(path.join(roots.subscriptions, 'channels', ROOT_CHANNEL.name), ROOT_CHANNEL);
+            writeBackup(path.join(roots.subscriptions, 'playlists', '.metadata', ROOT_PLAYLIST.name), ROOT_PLAYLIST);
+            writeBackup(path.join(roots.users, USER, 'subscriptions', 'channels', USER_CHANNEL.name), USER_CHANNEL);
+            writeBackup(path.join(roots.subscriptions, 'channels', KEPT_CHANNEL.name), KEPT_CHANNEL);
+            // Neither of these has a subscription to bring back.
+            fs.outputFileSync(path.join(roots.subscriptions, 'channels', 'Unreadable', CONSTS.SUBSCRIPTION_BACKUP_PATH), 'not json');
+            fs.ensureDirSync(path.join(roots.subscriptions, 'channels', 'No backup'));
+
+            await db_api.insertRecordIntoTable('subscriptions', {...KEPT_CHANNEL, paused: false});
+        });
+
+        afterEach(async function() {
+            db_api.backupDB = original_backup;
+            files_api.importUnregisteredFiles = original_import;
+            roots.restore();
+            await cleanUp();
+        });
+
+        it('backs up first, then brings back the users and subscriptions it finds, paused', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            assert.strictEqual((await getTask('rebuild_database'))['error'], null);
+            assert.deepStrictEqual(steps, ['backup', 'import']);
+
+            for (const sub of [ROOT_CHANNEL, ROOT_PLAYLIST, USER_CHANNEL]) {
+                const restored = await db_api.getRecord('subscriptions', {id: sub.id});
+                assert(restored, `expected ${sub.name} back`);
+                assert.strictEqual(restored.paused, true, `${sub.name} should wait to be switched back on`);
+                assert.strictEqual(restored._id, undefined);
+            }
+            assert.strictEqual((await db_api.getRecord('subscriptions', {id: USER_CHANNEL.id})).user_uid, USER);
+            assert.strictEqual((await db_api.getRecord('subscriptions', {id: ROOT_PLAYLIST.id})).isPlaylist, true);
+        });
+
+        it('registers a user it finds a folder for, with the password the confirmation warns of', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            const user = await db_api.getRecord('users', {uid: USER});
+            assert(user, 'expected the user whose folder it found');
+            assert(bcrypt.compareSync('password', user.passhash));
+        });
+
+        it('leaves alone a subscription that is already there, and one it cannot read', async function() {
+            this.timeout(10000);
+
+            await tasks_api.executeRun('rebuild_database');
+
+            const kept = await db_api.getRecords('subscriptions', {id: KEPT_CHANNEL.id});
+            assert.strictEqual(kept.length, 1);
+            assert.strictEqual(kept[0].paused, false);
+            assert.strictEqual(await db_api.getRecords('subscriptions', {name: 'Unreadable'}, true), 0);
+        });
+    });
+
+    describe('Deleting old files', function() {
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const OLD_FILE = 'delete-old-files-old';
+        const OLD_SUBSCRIPTION_FILE = 'delete-old-files-old-subscription';
+        const NEW_FILE = 'delete-old-files-new';
+        const OURS = [OLD_FILE, OLD_SUBSCRIPTION_FILE, NEW_FILE];
+
+        let deleted;
+        let original_delete_file;
+
+        // The shared database holds other tests' files too, old ones among them.
+        const deletedOfOurs = () => Object.fromEntries(deleted.filter(({uid}) => OURS.includes(uid)).map(({uid, blacklist}) => [uid, blacklist]));
+
+        const deleteOldFiles = async (options) => {
+            await setTaskOptions('delete_old_files', options);
+            await tasks_api.executeRun('delete_old_files');
+            await tasks_api.executeConfirm('delete_old_files');
+        };
+
+        beforeEach(async function() {
+            deleted = [];
+            original_delete_file = files_api.deleteFile;
+            files_api.deleteFile = async (uid, blacklist) => { deleted.push({uid, blacklist}); return true; };
+
+            for (const uid of OURS) await db_api.removeAllRecords('files', {uid});
+            await db_api.insertRecordIntoTable('files', {uid: OLD_FILE, path: 'video/old.mp4', registered: Date.now() - 40 * DAY_MS});
+            await db_api.insertRecordIntoTable('files', {uid: OLD_SUBSCRIPTION_FILE, path: 'subscriptions/channels/Old/old.mp4', sub_id: 'old-subscription', registered: Date.now() - 40 * DAY_MS});
+            await db_api.insertRecordIntoTable('files', {uid: NEW_FILE, path: 'video/new.mp4', registered: Date.now() - DAY_MS});
+        });
+
+        afterEach(async function() {
+            files_api.deleteFile = original_delete_file;
+            for (const uid of OURS) await db_api.removeAllRecords('files', {uid});
+        });
+
+        it('deletes only the files older than the age set', async function() {
+            await deleteOldFiles({threshold_days: 30});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: false});
+        });
+
+        it('blacklists the subscription files it deletes when only those are to be blacklisted', async function() {
+            // Read off the file instead of the task, this was always off, so a deleted video
+            // left its subscription's archive and came back with the subscription's next check.
+            await deleteOldFiles({threshold_days: 30, blacklist_subscription_files: true});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: true});
+        });
+
+        it('blacklists every file it deletes when asked to', async function() {
+            await deleteOldFiles({threshold_days: 30, blacklist_files: true});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: true, [OLD_SUBSCRIPTION_FILE]: true});
+        });
+
+        it('refuses an age that is not a number of days above zero', async function() {
+            // A negative age put the cutoff in the future, which every file is older than,
+            // so a typo in the age was enough to delete the whole library.
+            for (const threshold_days of [-30, '-30', '0', 'soon']) {
+                await setTaskOptions('delete_old_files', {threshold_days});
+                await tasks_api.executeRun('delete_old_files');
+
+                const task = await getTask('delete_old_files');
+                assert.strictEqual(task['data'], null, `expected nothing to delete for ${JSON.stringify(threshold_days)}`);
+                assert.match(task['error'], /not a number of days above zero/);
+            }
+        });
+    });
+
+    describe('Acting on findings without asking', function() {
+        let confirmed;
+        let unhandled;
+        const keepUnhandled = reason => unhandled.push(reason);
+
+        beforeEach(async function() {
+            confirmed = [];
+            unhandled = [];
+            process.on('unhandledRejection', keepUnhandled);
+            tasks_api.TASKS['dummy_task'].confirm = async (data) => { confirmed.push(data); };
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {options: {auto_confirm: true}});
+        });
+
+        afterEach(function() {
+            process.removeListener('unhandledRejection', keepUnhandled);
+        });
+
+        it('acts on what a run turned up', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => ({uids: ['found']});
+
+            await tasks_api.executeRun('dummy_task');
+
+            assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['last_confirmed']));
+            assert.deepStrictEqual(confirmed, [{uids: ['found']}]);
+        });
+
+        it('leaves a run that turned up nothing alone', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => null;
+
+            await tasks_api.executeRun('dummy_task');
+            await utils.wait(100);
+
+            assert.deepStrictEqual(confirmed, []);
+            assert.strictEqual((await getTask('dummy_task'))['last_confirmed'], null);
+        });
+
+        it('does not delete old files when no age is set, and does not throw over it', async function() {
+            // Without an age the run finds nothing to do. Confirming that read a property
+            // of null, and nothing waits on the confirm, so the server died of the rejection.
+            await setTaskOptions('delete_old_files', {auto_confirm: true});
+
+            await tasks_api.executeRun('delete_old_files');
+            await utils.wait(100);
+
+            const task = await getTask('delete_old_files');
+            assert.deepStrictEqual(unhandled, []);
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['last_confirmed'], null);
+            assert.match(task['error'], /no limit was set/);
+        });
+
+        it('keeps a confirm that failed from ending the process', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => ({uids: ['found']});
+            tasks_api.TASKS['dummy_task'].confirm = async () => { throw new Error('Could not act on that'); };
+
+            await tasks_api.executeRun('dummy_task');
+
+            assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['error']));
+            assert.deepStrictEqual(unhandled, []);
+            assert.strictEqual((await getTask('dummy_task'))['confirming'], false);
+        });
+
+        it('does not download yt-dlp a second time after its check updated it', async function() {
+            // The check installs an update itself and returns nothing. Confirming that
+            // anyway downloaded the latest release again and recorded its version as null,
+            // so every later check saw an unknown version and downloaded it once more.
+            const update_task = tasks_api.TASKS['youtubedl_update_check'];
+            const original_run = update_task.run;
+            const original_confirm = update_task.confirm;
+            const updates = [];
+            update_task.run = async () => undefined;
+            update_task.confirm = async (version) => { updates.push(version); };
+
+            try {
+                await setTaskOptions('youtubedl_update_check', {auto_confirm: true});
+                await tasks_api.executeRun('youtubedl_update_check');
+                await utils.wait(100);
+
+                assert.deepStrictEqual(updates, []);
+            } finally {
+                update_task.run = original_run;
+                update_task.confirm = original_confirm;
+            }
         });
     });
 });

@@ -3435,12 +3435,18 @@ app.post('/api/getTask', optionalJwt, requirePermission('tasks_manager'), async 
     res.send({task: taskWithNextRun(task) || null});
 });
 
+// A task this version does not have. Running or confirming one failed the request with a 500.
+async function getKnownTask(task_key) {
+    if (typeof task_key !== 'string' || !Object.hasOwn(tasks_api.TASKS, task_key)) return null;
+    return await db_api.getRecord('tasks', {key: task_key});
+}
+
 app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
-    const task = await db_api.getRecord('tasks', {key: task_key});
+    const task = await getKnownTask(task_key);
 
     let success = true;
-    if (task['running'] || task['confirming']) success = false;
+    if (!task || task['running'] || task['confirming']) success = false;
     else if (tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['runInBackground']) {
         // The tasks page polls, so it sees the run start and finish without waiting on this.
         tasks_api.executeRun(task_key).catch(err => logger.error(`Task '${task_key}' failed: ${err.message}`));
@@ -3451,11 +3457,11 @@ app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async 
 
 app.post('/api/confirmTask', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const task_key = req.body.task_key;
-    const task = await db_api.getRecord('tasks', {key: task_key});
+    const task = await getKnownTask(task_key);
 
-    let success = true;
-    if (task['running'] || task['confirming'] || !task['data']) success = false;
-    else await tasks_api.executeConfirm(task_key);
+    const success = !task || task['running'] || task['confirming'] || !task['data']
+        ? false
+        : await tasks_api.executeConfirm(task_key);
 
     res.send({success: success});
 });
@@ -3474,9 +3480,9 @@ app.post('/api/updateTaskSchedule', optionalJwt, requirePermission('tasks_manage
     const task_key = req.body.task_key;
     const new_schedule = req.body.new_schedule;
   
-    await tasks_api.updateTaskSchedule(task_key, new_schedule);
+    const success = await tasks_api.updateTaskSchedule(task_key, new_schedule);
 
-    res.send({success: true});
+    res.send({success: success});
 });
 
 app.post('/api/updateTaskData', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
@@ -3497,6 +3503,11 @@ app.post('/api/updateTaskOptions', optionalJwt, requirePermission('tasks_manager
     res.send({success: success});
 });
 
+// <local|remote>_db.json.<seconds since the epoch>.bak, the seconds with a fraction unless the
+// backup was taken on the second exactly. Counting the dots in the name, as this used to,
+// left those out, so about one backup in a thousand could never be restored from here.
+const DB_BACKUP_NAME = /^([a-z]+)_db\.json\.(\d+)(?:\.\d+)?\.bak$/;
+
 app.post('/api/getDBBackups', optionalJwt, requireAdmin, async (req, res) => {
     const backup_dir = path.join('appdata', 'db_backup');
     fs.ensureDirSync(backup_dir);
@@ -3505,14 +3516,13 @@ app.post('/api/getDBBackups', optionalJwt, requireAdmin, async (req, res) => {
     const candidate_backups = await utils.recFindByExt(backup_dir, 'bak', null, [], false);
     for (let i = 0; i < candidate_backups.length; i++) {
         const candidate_backup = candidate_backups[i];
+        const name = path.basename(candidate_backup);
+        const name_parts = name.match(DB_BACKUP_NAME);
+        if (!name_parts) continue;
 
-        // must have specific format
-        if (candidate_backup.split('.').length - 1 !== 4) continue;
+        const stats = fs.statSync(candidate_backup);
 
-        const candidate_backup_path = candidate_backup;
-        const stats = fs.statSync(candidate_backup_path);
-
-        db_backups.push({ name: path.basename(candidate_backup), timestamp: parseInt(candidate_backup.split('.')[2]), size: stats.size, source: candidate_backup.includes('local') ? 'local' : 'remote' });
+        db_backups.push({ name: name, timestamp: parseInt(name_parts[2]), size: stats.size, source: name_parts[1] === 'local' ? 'local' : 'remote' });
     }
 
     db_backups.sort((a,b) => b.timestamp - a.timestamp);
@@ -3524,6 +3534,9 @@ app.post('/api/restoreDBBackup', optionalJwt, requireAdmin, async (req, res) => 
     const file_name = req.body.file_name;
 
     const success = await db_api.restoreDB(file_name);
+    // The restored tasks bring their own schedules, which nothing ran until a restart, while
+    // the jobs of the tasks they replaced went on firing.
+    if (success) await tasks_api.setupTasks();
 
     res.send({success: success});
 });

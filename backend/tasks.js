@@ -110,6 +110,11 @@ function ensureTaskJobAccessor(taskKey) {
             return TASK_JOBS.get(taskKey) || null;
         },
         set(value) {
+            // Dropped without being stopped, a job went on firing. Reset tasks drops every
+            // job this way, so each task went on running at the time it had been scheduled
+            // for, beside any default schedule the reset gave it.
+            const existing_job = TASK_JOBS.get(taskKey);
+            if (existing_job && existing_job !== value) existing_job.stop();
             if (!value) {
                 TASK_JOBS.delete(taskKey);
                 return;
@@ -282,7 +287,9 @@ async function setupTasks() {
                 schedule: default_schedule,
                 options: mergedDefaultOptions
             });
-            if (default_schedule) scheduleTaskJob(task_key, default_schedule);
+            // A job the task already has belongs to a record that is gone, which a restore
+            // from a backup without this task leaves behind.
+            scheduleTaskJob(task_key, default_schedule);
         } else {
             // verify all options exist in task
             for (const key of Object.keys(mergedDefaultOptions)) {
@@ -374,8 +381,14 @@ exports.executeRun = async (task_key) => {
     const task_obj = await db_api.getRecord('tasks', {key: task_key});
     if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
 
-    if (task_obj['options'] && task_obj['options']['auto_confirm']) {
-        exports.executeConfirm(task_key);
+    // Only a run that turned something up has anything to act on, the same rule a confirm
+    // by hand follows. Confirming nothing threw in the delete task, and since nothing waits
+    // on this, the throw took the whole server down. It also downloaded yt-dlp a second
+    // time, as its check installs an update itself and leaves nothing behind to confirm.
+    if (task_obj['options'] && task_obj['options']['auto_confirm'] && task_obj['data']) {
+        exports.executeConfirm(task_key).catch(err => {
+            logger.error(`Confirming task '${task_key}' failed: ${err && err.message ? err.message : err}`);
+        });
     }
 }
 
@@ -383,15 +396,25 @@ exports.executeConfirm = async (task_key) => {
     logger.verbose(`Confirming task ${task_key}`);
     await db_api.updateRecord('tasks', {key: task_key}, {error: null})
     if (!TASKS[task_key]['confirm']) {
-        return null;
+        return false;
     }
     await db_api.updateRecord('tasks', {key: task_key}, {confirming: true});
     const task_obj = await db_api.getRecord('tasks', {key: task_key});
     const data = task_obj['data'];
-    await TASKS[task_key].confirm(data);
+    try {
+        await TASKS[task_key].confirm(data);
+    } catch (err) {
+        // Left confirming, the task refused every later run, by hand or on its schedule,
+        // until a restart. Its findings stay, to be confirmed again once the cause is fixed.
+        const error_message = err && err.message ? err.message : String(err);
+        logger.error(`Confirming task '${task_key}' failed: ${error_message}`);
+        await db_api.updateRecord('tasks', {key: task_key}, {confirming: false, error: error_message});
+        return false;
+    }
     await db_api.updateRecord('tasks', {key: task_key}, {confirming: false, last_confirmed: Date.now()/1000, data: null});
     logger.verbose(`Finished confirming task ${task_key}`);
     if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
+    return true;
 }
 
 exports.updateTaskSchedule = async (task_key, schedule) => {
@@ -401,8 +424,14 @@ exports.updateTaskSchedule = async (task_key, schedule) => {
         return false;
     }
     ensureTaskJobAccessor(task_key);
+    // A schedule that can never run, like a single run at a time already gone by, used to
+    // be saved all the same, and the task was shown as scheduled with nothing to run it.
+    // The schedule it had stays instead.
+    const job = schedule ? scheduleJob(task_key, schedule) : null;
+    if (schedule && !job) return false;
     await db_api.updateRecord('tasks', {key: task_key}, {schedule: schedule});
-    scheduleTaskJob(task_key, schedule);
+    cancelTaskJob(task_key);
+    if (job) TASK_JOBS.set(task_key, job);
     return true;
 }
 
@@ -452,13 +481,18 @@ async function removeDuplicates(data) {
 
 async function checkForAutoDeleteFiles() {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
-    if (!task_obj['options'] || !task_obj['options']['threshold_days']) {
-        const error_message = 'Failed to do delete check because no limit was set!';
+    const threshold = task_obj['options'] ? task_obj['options']['threshold_days'] : null;
+    // A negative age put the cutoff in the future, and every file in the library is older than that.
+    const threshold_days = Number(threshold);
+    if (!threshold || !(threshold_days > 0)) {
+        const error_message = threshold
+            ? `Failed to do delete check because '${threshold}' is not a number of days above zero!`
+            : 'Failed to do delete check because no limit was set!';
         logger.error(error_message);
         await db_api.updateRecord('tasks', {key: 'delete_old_files'}, {error: error_message})
         return null;
     }
-    const delete_older_than_timestamp = Date.now() - task_obj['options']['threshold_days']*86400*1000;
+    const delete_older_than_timestamp = Date.now() - threshold_days*86400*1000;
     const files = (await db_api.getRecords('files', {registered: {$lt: delete_older_than_timestamp}}))
     const files_to_remove = files.map(file => {return {uid: file.uid, sub_id: file.sub_id}});
     return {files_to_remove: files_to_remove};
@@ -466,11 +500,15 @@ async function checkForAutoDeleteFiles() {
 
 async function autoDeleteFiles(data) {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
+    const options = task_obj['options'] || {};
     if (data['files_to_remove']) {
         logger.info(`Removing ${data['files_to_remove'].length} old files!`);
         for (let i = 0; i < data['files_to_remove'].length; i++) {
             const file_to_remove = data['files_to_remove'][i];
-            await files_api.deleteFile(file_to_remove['uid'], task_obj['options']['blacklist_files'] || (file_to_remove['sub_id'] && file_to_remove['blacklist_subscription_files']));
+            // The subscription-only option used to be read off the file, which never has it,
+            // so a deleted video left its subscription's archive and came back with the next check.
+            const blacklist = !!(options['blacklist_files'] || (file_to_remove['sub_id'] && options['blacklist_subscription_files']));
+            await files_api.deleteFile(file_to_remove['uid'], blacklist);
         }
     }
 }

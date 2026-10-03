@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { Schedule, Task, TaskType } from 'api-types';
 
 import { TaskSettingsComponent } from './task-settings.component';
@@ -32,6 +32,9 @@ describe('TaskSettingsComponent', () => {
     component.ngOnChanges();
     fixture.detectChanges();
   };
+
+  const saveButton = (): HTMLButtonElement => [...fixture.nativeElement.querySelectorAll('button')]
+    .find((button: HTMLButtonElement) => button.textContent.trim() === 'Save');
 
   beforeEach(async () => {
     postsService = {
@@ -107,6 +110,70 @@ describe('TaskSettingsComponent', () => {
     expect(closed).toHaveBeenCalled();
   });
 
+  describe('a single run', () => {
+    // Only the clock, so the change detection the panel runs on keeps its real timers.
+    const at = (hours: number, minutes = 0) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(2026, 9, 3, hours, minutes));
+    };
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("starts on tomorrow's 03:00 once today's has gone by", () => {
+      // It started on today's, which for most of the day was already past and never ran.
+      at(10);
+
+      component.chooseRepeat('once');
+
+      expect(component.time).toBe('03:00');
+      expect(component.date).toBe('2026-10-04');
+      expect(component.alreadyPassed).toBe(false);
+    });
+
+    it("starts on today's 03:00 while that is still to come", () => {
+      at(1, 30);
+
+      component.chooseRepeat('once');
+
+      expect(component.date).toBe('2026-10-03');
+    });
+
+    it('will not save a time that has already gone by', () => {
+      at(10);
+      component.chooseRepeat('once');
+      component.date = '2026-10-03';
+      component.time = '09:00';
+      fixture.detectChanges();
+
+      expect(component.alreadyPassed).toBe(true);
+      expect(saveButton().disabled).toBe(true);
+      expect(fixture.nativeElement.querySelector('.hint-invalid').textContent).toContain('already gone by');
+      component.save();
+      expect(postsService.updateTaskSchedule).not.toHaveBeenCalled();
+
+      component.time = '11:00';
+      component.save();
+
+      expect(postsService.updateTaskSchedule).toHaveBeenCalledWith(TaskType.BACKUP_LOCAL_DB, {
+        type: Schedule.type.TIMESTAMP,
+        data: { timestamp: new Date(2026, 9, 3, 11, 0).getTime(), tz: component.timeZone }
+      });
+    });
+
+    it('reads a single run back as its date and time', () => {
+      at(10);
+
+      openOn(task({ schedule: { type: Schedule.type.TIMESTAMP, data: { timestamp: new Date(2026, 9, 5, 6, 45).getTime() } } }));
+
+      expect(component.repeat).toBe('once');
+      expect(component.date).toBe('2026-10-05');
+      expect(component.time).toBe('06:45');
+      expect(component.changed).toBe(false);
+    });
+  });
+
   it('turns a schedule off by saving none at all', () => {
     openOn(task({ schedule: { type: Schedule.type.RECURRING, data: { hour: 3, minute: 0 } } }));
 
@@ -130,6 +197,30 @@ describe('TaskSettingsComponent', () => {
     component.setOption('blacklist_files', true);
 
     expect(component.options['blacklist_subscription_files']).toBe(false);
+  });
+
+  it('will not save an age to delete files after that is not more than zero days', () => {
+    // A negative age put the cutoff in the future, and every file in the library is older.
+    openOn(task({ key: TaskType.DELETE_OLD_FILES, options: { threshold_days: '' } }));
+    expect(component.thresholdInvalid).toBe(false);
+
+    component.setOption('threshold_days', -30);
+    fixture.detectChanges();
+
+    expect(component.thresholdInvalid).toBe(true);
+    expect(saveButton().disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('.hint-invalid').textContent).toContain('more than zero days');
+    component.save();
+    expect(postsService.updateTaskOptions).not.toHaveBeenCalled();
+
+    component.setOption('threshold_days', 0);
+    expect(component.thresholdInvalid).toBe(true);
+
+    component.setOption('threshold_days', 30);
+    fixture.detectChanges();
+    expect(saveButton().disabled).toBe(false);
+    component.save();
+    expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.DELETE_OLD_FILES, { threshold_days: 30 });
   });
 
   it('offers its own options only to the task that has them', () => {
@@ -169,6 +260,65 @@ describe('TaskSettingsComponent', () => {
 
     expect(component.time).toBe('09:15');
     expect(component.repeat).toBe('daily');
+  });
+
+  it('picks days for a weekly schedule in order, and lets go of one picked again', () => {
+    component.chooseRepeat('weekly');
+    expect(component.days_of_week).toEqual([0]);
+
+    component.toggleDay(4);
+    component.toggleDay(2);
+    expect(component.days_of_week).toEqual([0, 2, 4]);
+
+    component.toggleDay(0);
+    expect(component.days_of_week).toEqual([2, 4]);
+    expect(component.isDaySelected(0)).toBe(false);
+  });
+
+  it('just closes when saved with nothing changed', () => {
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+
+    component.save();
+
+    expect(postsService.updateTaskSchedule).not.toHaveBeenCalled();
+    expect(postsService.updateTaskOptions).not.toHaveBeenCalled();
+    expect(closed).toHaveBeenCalled();
+  });
+
+  it('stays open and says so when the settings could not be saved', () => {
+    // The server turns down a schedule that could never run.
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+    postsService.updateTaskSchedule.mockReturnValue(of({ success: false }));
+
+    component.chooseRepeat('daily');
+    component.save();
+
+    expect(component.saving).toBe(false);
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't save the task settings.");
+    expect(closed).not.toHaveBeenCalled();
+
+    postsService.openSnackBar.mockClear();
+    postsService.updateTaskSchedule.mockReturnValue(throwError(() => new Error('offline')));
+    component.save();
+
+    expect(postsService.openSnackBar).toHaveBeenCalledWith("Couldn't save the task settings.");
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('saves a schedule without a timezone when the browser cannot name its own', () => {
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => { throw new RangeError('no timezone data'); });
+
+    try {
+      expect(component.timeZone).toBeNull();
+      component.chooseRepeat('daily');
+      component.save();
+
+      expect(postsService.updateTaskSchedule.mock.lastCall[1].data.tz).toBeNull();
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it('closes without saving when cancelled', () => {
