@@ -92,19 +92,22 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     {
       tooltip: $localize`Pause`,
       action: (download: Download) => this.pauseDownload(download),
-      show: (download: Download) => !download.finished && !download.paused,
+      show: (download: Download) => this.getActionTargetDownloads(download)
+        .some(target => !target.finished && !target.paused),
       icon: 'pause'
     },
     {
       tooltip: $localize`Resume`,
       action: (download: Download) => this.resumeDownload(download),
-      show: (download: Download) => !download.finished && download.paused,
+      show: (download: Download) => this.getActionTargetDownloads(download)
+        .some(target => !target.finished && target.paused),
       icon: 'play_arrow'
     },
     {
       tooltip: $localize`Cancel`,
       action: (download: Download) => this.cancelDownload(download),
-      show: (download: Download) => !download.finished && !download.paused && !download.cancelled,
+      show: (download: Download) => this.getActionTargetDownloads(download)
+        .some(target => !target.finished && !target.paused && !target.cancelled),
       icon: 'cancel'
     },
     {
@@ -709,13 +712,19 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     const sorted_batch_downloads = [...batch_downloads].sort((download1, download2) => download1.timestamp_start - download2.timestamp_start);
     const representative_download = sorted_batch_downloads[0];
     const merged_playlist_progress = this.mergeBatchPlaylistProgress(sorted_batch_downloads as DownloadWithPlaylistProgress[]);
-    const all_finished = sorted_batch_downloads.every(download => !!download.finished);
-    const all_paused = sorted_batch_downloads.every(download => !!download.paused);
-    const any_running = sorted_batch_downloads.some(download => !!download.running);
-    const any_cancelled = sorted_batch_downloads.some(download => !!download.cancelled);
+    const unfinished_downloads = sorted_batch_downloads.filter(download => !download.finished);
+    const all_finished = unfinished_downloads.length === 0;
+    // Completed chunks must not stop a paused batch from being resumed.
+    const all_paused = !all_finished && unfinished_downloads.every(download => !!download.paused);
+    const any_running = unfinished_downloads.some(download => !!download.running);
+    const any_cancelled = sorted_batch_downloads.some(download => !!download.cancelled || download.error_type === 'cancelled');
     const finished_step = sorted_batch_downloads.every(download => !!download.finished_step);
     const normalized_percent_complete = this.getAggregatePercentComplete(sorted_batch_downloads, merged_playlist_progress, representative_download.percent_complete);
     const aggregate_error = this.getAggregateError(sorted_batch_downloads);
+    const failed_download = sorted_batch_downloads.find(download => this.isFailedDownload(download));
+    // Cancellation is terminal for the batch only after all chunks stop, and must
+    // not conceal a real failure from another chunk.
+    const batch_cancelled = all_finished && any_cancelled && !aggregate_error;
     const aggregate_step_index = this.getAggregateStepIndex(sorted_batch_downloads);
     const aggregate_options = {...((representative_download as DownloadWithOptions).options || {})};
     delete aggregate_options.playlistChunkRange;
@@ -733,11 +742,12 @@ export class DownloadsComponent implements OnInit, OnDestroy {
       running: any_running,
       finished: all_finished,
       paused: all_paused,
-      cancelled: any_cancelled,
+      cancelled: batch_cancelled,
       finished_step: finished_step,
       step_index: aggregate_step_index,
       percent_complete: normalized_percent_complete,
       error: aggregate_error,
+      error_type: failed_download?.error_type ?? (batch_cancelled ? 'cancelled' : null),
       playlist_item_progress: merged_playlist_progress,
       container: this.getAggregateContainer(sorted_batch_downloads),
       is_batch_aggregate: true,
@@ -783,7 +793,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   }
 
   private getAggregateError(batch_downloads: Download[]): string | null {
-    const error_downloads = batch_downloads.filter(download => !!download.error);
+    const error_downloads = batch_downloads.filter(download => this.isFailedDownload(download));
     if (error_downloads.length === 0) return null;
     const unique_errors = Array.from(new Set(error_downloads.map(download => download.error).filter(error => !!error)));
     if (unique_errors.length === 1) return unique_errors[0];
