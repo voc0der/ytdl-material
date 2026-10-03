@@ -3,6 +3,23 @@ const { assert, fs, os, path, uuid, db_api, utils, subscriptions_api, generateEm
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
     const notifications_api = require('../notifications');
+
+    async function waitForCondition(predicate, timeout_ms = 2000) {
+        const start = Date.now();
+        while (Date.now() - start < timeout_ms) {
+            if (await predicate()) return true;
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+        return false;
+    }
+
+    const getTask = (task_key) => db_api.getRecord('tasks', {key: task_key});
+
+    // Merged into the options the task already has. Without nested mode the local database
+    // stores 'options.x' as a key of its own, and the task never sees it.
+    const setTaskOptions = (task_key, options) => db_api.updateRecord('tasks', {key: task_key},
+        Object.fromEntries(Object.entries(options).map(([key, value]) => [`options.${key}`, value])), true);
+
     beforeEach(async function() {
         // await db_api.connectToDB();
         await db_api.removeAllRecords('tasks');
@@ -426,6 +443,81 @@ describe('Tasks', function() {
             assert(!!nonsense);
             assert.strictEqual(nonsense.getHours(), 3);
             assert.strictEqual(nonsense.getMinutes(), 30);
+        });
+    });
+
+    describe('Acting on findings without asking', function() {
+        let confirmed;
+        let unhandled;
+        const keepUnhandled = reason => unhandled.push(reason);
+
+        beforeEach(async function() {
+            confirmed = [];
+            unhandled = [];
+            process.on('unhandledRejection', keepUnhandled);
+            tasks_api.TASKS['dummy_task'].confirm = async (data) => { confirmed.push(data); };
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {options: {auto_confirm: true}});
+        });
+
+        afterEach(function() {
+            process.removeListener('unhandledRejection', keepUnhandled);
+        });
+
+        it('acts on what a run turned up', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => ({uids: ['found']});
+
+            await tasks_api.executeRun('dummy_task');
+
+            assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['last_confirmed']));
+            assert.deepStrictEqual(confirmed, [{uids: ['found']}]);
+        });
+
+        it('leaves a run that turned up nothing alone', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => null;
+
+            await tasks_api.executeRun('dummy_task');
+            await utils.wait(100);
+
+            assert.deepStrictEqual(confirmed, []);
+            assert.strictEqual((await getTask('dummy_task'))['last_confirmed'], null);
+        });
+
+        it('does not delete old files when no age is set, and does not throw over it', async function() {
+            // Without an age the run finds nothing to do. Confirming that read a property
+            // of null, and nothing waits on the confirm, so the server died of the rejection.
+            await setTaskOptions('delete_old_files', {auto_confirm: true});
+
+            await tasks_api.executeRun('delete_old_files');
+            await utils.wait(100);
+
+            const task = await getTask('delete_old_files');
+            assert.deepStrictEqual(unhandled, []);
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['last_confirmed'], null);
+            assert.match(task['error'], /no limit was set/);
+        });
+
+        it('does not download yt-dlp a second time after its check updated it', async function() {
+            // The check installs an update itself and returns nothing. Confirming that
+            // anyway downloaded the latest release again and recorded its version as null,
+            // so every later check saw an unknown version and downloaded it once more.
+            const update_task = tasks_api.TASKS['youtubedl_update_check'];
+            const original_run = update_task.run;
+            const original_confirm = update_task.confirm;
+            const updates = [];
+            update_task.run = async () => undefined;
+            update_task.confirm = async (version) => { updates.push(version); };
+
+            try {
+                await setTaskOptions('youtubedl_update_check', {auto_confirm: true});
+                await tasks_api.executeRun('youtubedl_update_check');
+                await utils.wait(100);
+
+                assert.deepStrictEqual(updates, []);
+            } finally {
+                update_task.run = original_run;
+                update_task.confirm = original_confirm;
+            }
         });
     });
 });

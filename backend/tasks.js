@@ -374,8 +374,14 @@ exports.executeRun = async (task_key) => {
     const task_obj = await db_api.getRecord('tasks', {key: task_key});
     if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
 
-    if (task_obj['options'] && task_obj['options']['auto_confirm']) {
-        exports.executeConfirm(task_key);
+    // Only a run that turned something up has anything to act on, the same rule a confirm
+    // by hand follows. Confirming nothing threw in the delete task, and since nothing waits
+    // on this, the throw took the whole server down. It also downloaded yt-dlp a second
+    // time, as its check installs an update itself and leaves nothing behind to confirm.
+    if (task_obj['options'] && task_obj['options']['auto_confirm'] && task_obj['data']) {
+        exports.executeConfirm(task_key).catch(err => {
+            logger.error(`Confirming task '${task_key}' failed: ${err && err.message ? err.message : err}`);
+        });
     }
 }
 
