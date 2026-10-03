@@ -1,4 +1,4 @@
-const { assert, fs, os, path, uuid, db_api, utils, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
+const { assert, fs, os, path, uuid, db_api, utils, files_api, subscriptions_api, generateEmptyVideoFile } = require('./test-shared');
 
 describe('Tasks', function() {
     const tasks_api = require('../tasks');
@@ -476,6 +476,62 @@ describe('Tasks', function() {
             tasks_api.TASKS['dummy_task'].confirm = null;
 
             assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+        });
+    });
+
+    describe('Deleting old files', function() {
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const OLD_FILE = 'delete-old-files-old';
+        const OLD_SUBSCRIPTION_FILE = 'delete-old-files-old-subscription';
+        const NEW_FILE = 'delete-old-files-new';
+        const OURS = [OLD_FILE, OLD_SUBSCRIPTION_FILE, NEW_FILE];
+
+        let deleted;
+        let original_delete_file;
+
+        // The shared database holds other tests' files too, old ones among them.
+        const deletedOfOurs = () => Object.fromEntries(deleted.filter(({uid}) => OURS.includes(uid)).map(({uid, blacklist}) => [uid, blacklist]));
+
+        const deleteOldFiles = async (options) => {
+            await setTaskOptions('delete_old_files', options);
+            await tasks_api.executeRun('delete_old_files');
+            await tasks_api.executeConfirm('delete_old_files');
+        };
+
+        beforeEach(async function() {
+            deleted = [];
+            original_delete_file = files_api.deleteFile;
+            files_api.deleteFile = async (uid, blacklist) => { deleted.push({uid, blacklist}); return true; };
+
+            for (const uid of OURS) await db_api.removeAllRecords('files', {uid});
+            await db_api.insertRecordIntoTable('files', {uid: OLD_FILE, path: 'video/old.mp4', registered: Date.now() - 40 * DAY_MS});
+            await db_api.insertRecordIntoTable('files', {uid: OLD_SUBSCRIPTION_FILE, path: 'subscriptions/channels/Old/old.mp4', sub_id: 'old-subscription', registered: Date.now() - 40 * DAY_MS});
+            await db_api.insertRecordIntoTable('files', {uid: NEW_FILE, path: 'video/new.mp4', registered: Date.now() - DAY_MS});
+        });
+
+        afterEach(async function() {
+            files_api.deleteFile = original_delete_file;
+            for (const uid of OURS) await db_api.removeAllRecords('files', {uid});
+        });
+
+        it('deletes only the files older than the age set', async function() {
+            await deleteOldFiles({threshold_days: 30});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: false});
+        });
+
+        it('blacklists the subscription files it deletes when only those are to be blacklisted', async function() {
+            // Read off the file instead of the task, this was always off, so a deleted video
+            // left its subscription's archive and came back with the subscription's next check.
+            await deleteOldFiles({threshold_days: 30, blacklist_subscription_files: true});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: true});
+        });
+
+        it('blacklists every file it deletes when asked to', async function() {
+            await deleteOldFiles({threshold_days: 30, blacklist_files: true});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: true, [OLD_SUBSCRIPTION_FILE]: true});
         });
     });
 

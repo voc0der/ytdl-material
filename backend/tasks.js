@@ -482,11 +482,15 @@ async function checkForAutoDeleteFiles() {
 
 async function autoDeleteFiles(data) {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
+    const options = task_obj['options'] || {};
     if (data['files_to_remove']) {
         logger.info(`Removing ${data['files_to_remove'].length} old files!`);
         for (let i = 0; i < data['files_to_remove'].length; i++) {
             const file_to_remove = data['files_to_remove'][i];
-            await files_api.deleteFile(file_to_remove['uid'], task_obj['options']['blacklist_files'] || (file_to_remove['sub_id'] && file_to_remove['blacklist_subscription_files']));
+            // The subscription-only option used to be read off the file, which never has it,
+            // so a deleted video left its subscription's archive and came back with the next check.
+            const blacklist = !!(options['blacklist_files'] || (file_to_remove['sub_id'] && options['blacklist_subscription_files']));
+            await files_api.deleteFile(file_to_remove['uid'], blacklist);
         }
     }
 }
