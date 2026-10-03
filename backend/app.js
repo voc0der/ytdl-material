@@ -3453,9 +3453,9 @@ app.post('/api/confirmTask', optionalJwt, requirePermission('tasks_manager'), as
     const task_key = req.body.task_key;
     const task = await db_api.getRecord('tasks', {key: task_key});
 
-    let success = true;
-    if (task['running'] || task['confirming'] || !task['data']) success = false;
-    else await tasks_api.executeConfirm(task_key);
+    const success = task['running'] || task['confirming'] || !task['data']
+        ? false
+        : await tasks_api.executeConfirm(task_key);
 
     res.send({success: success});
 });

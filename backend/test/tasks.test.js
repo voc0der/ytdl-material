@@ -446,6 +446,39 @@ describe('Tasks', function() {
         });
     });
 
+    describe('Confirming', function() {
+        it('acts on the findings, then clears them', async function() {
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {data: {uids: ['found']}});
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), true);
+
+            const task = await getTask('dummy_task');
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['data'], null);
+            assert(task['last_confirmed']);
+        });
+
+        it('leaves a task whose confirm failed idle, with its error and its findings', async function() {
+            // It stayed confirming, which refused every run after it until a restart.
+            tasks_api.TASKS['dummy_task'].confirm = async () => { throw new Error('Could not act on that'); };
+            await db_api.updateRecord('tasks', {key: 'dummy_task'}, {data: {uids: ['found']}});
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+
+            const task = await getTask('dummy_task');
+            assert.strictEqual(task['confirming'], false);
+            assert.strictEqual(task['error'], 'Could not act on that');
+            assert.deepStrictEqual(task['data'], {uids: ['found']});
+            assert.strictEqual(task['last_confirmed'], null);
+        });
+
+        it('says so for a task that has nothing to confirm', async function() {
+            tasks_api.TASKS['dummy_task'].confirm = null;
+
+            assert.strictEqual(await tasks_api.executeConfirm('dummy_task'), false);
+        });
+    });
+
     describe('Acting on findings without asking', function() {
         let confirmed;
         let unhandled;
@@ -495,6 +528,17 @@ describe('Tasks', function() {
             assert.strictEqual(task['confirming'], false);
             assert.strictEqual(task['last_confirmed'], null);
             assert.match(task['error'], /no limit was set/);
+        });
+
+        it('keeps a confirm that failed from ending the process', async function() {
+            tasks_api.TASKS['dummy_task'].run = async () => ({uids: ['found']});
+            tasks_api.TASKS['dummy_task'].confirm = async () => { throw new Error('Could not act on that'); };
+
+            await tasks_api.executeRun('dummy_task');
+
+            assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['error']));
+            assert.deepStrictEqual(unhandled, []);
+            assert.strictEqual((await getTask('dummy_task'))['confirming'], false);
         });
 
         it('does not download yt-dlp a second time after its check updated it', async function() {

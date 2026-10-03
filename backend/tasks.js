@@ -389,15 +389,25 @@ exports.executeConfirm = async (task_key) => {
     logger.verbose(`Confirming task ${task_key}`);
     await db_api.updateRecord('tasks', {key: task_key}, {error: null})
     if (!TASKS[task_key]['confirm']) {
-        return null;
+        return false;
     }
     await db_api.updateRecord('tasks', {key: task_key}, {confirming: true});
     const task_obj = await db_api.getRecord('tasks', {key: task_key});
     const data = task_obj['data'];
-    await TASKS[task_key].confirm(data);
+    try {
+        await TASKS[task_key].confirm(data);
+    } catch (err) {
+        // Left confirming, the task refused every later run, by hand or on its schedule,
+        // until a restart. Its findings stay, to be confirmed again once the cause is fixed.
+        const error_message = err && err.message ? err.message : String(err);
+        logger.error(`Confirming task '${task_key}' failed: ${error_message}`);
+        await db_api.updateRecord('tasks', {key: task_key}, {confirming: false, error: error_message});
+        return false;
+    }
     await db_api.updateRecord('tasks', {key: task_key}, {confirming: false, last_confirmed: Date.now()/1000, data: null});
     logger.verbose(`Finished confirming task ${task_key}`);
     if (TASKS[task_key]['notifyOnFinish'] !== false) await notifications_api.sendTaskNotification(task_obj, false);
+    return true;
 }
 
 exports.updateTaskSchedule = async (task_key, schedule) => {

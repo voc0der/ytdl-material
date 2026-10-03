@@ -1,6 +1,7 @@
 const assert = require('assert');
+const fs = require('fs-extra');
 
-const { startApp } = require('./helpers/app-process');
+const { startApp, addSampleMedia } = require('./helpers/app-process');
 
 /*************************************************
  * The tasks page's routes on the real server, with
@@ -13,6 +14,7 @@ describe('Tasks on the server as it runs', function() {
     this.timeout(30000);
 
     let app;
+    let video_path;
 
     const getTask = async (task_key) => (await app.api.post('/api/getTask').send({task_key}).expect(200)).body.task;
 
@@ -24,7 +26,12 @@ describe('Tasks on the server as it runs', function() {
     ]);
 
     before(async function() {
-        app = await startApp();
+        app = await startApp({
+            prepare: async ({media}) => {
+                video_path = await addSampleMedia(media.video);
+            }
+        });
+        await app.api.post('/api/runTask').send({task_key: 'missing_db_records'}).expect(200);
     });
 
     after(async function() {
@@ -46,5 +53,34 @@ describe('Tasks on the server as it runs', function() {
         const task = await getTask('delete_old_files');
         assert.strictEqual(task.confirming, false);
         assert.match(task.error, /no limit was set/);
+    });
+
+    it('removes what a run found once it is confirmed', async function() {
+        const [video] = (await app.api.get('/api/getMp4s').expect(200)).body.mp4s;
+        await fs.remove(video_path);
+
+        await app.api.post('/api/runTask').send({task_key: 'missing_files_check'}).expect(200);
+        assert.deepStrictEqual((await getTask('missing_files_check')).data, {uids: [video.uid]});
+
+        const confirmed = await app.api.post('/api/confirmTask').send({task_key: 'missing_files_check'}).expect(200);
+        assert.strictEqual(confirmed.body.success, true);
+        assert.deepStrictEqual((await app.api.get('/api/getMp4s').expect(200)).body.mp4s, []);
+        assert.strictEqual((await getTask('missing_files_check')).data, null);
+    });
+
+    it('keeps a task whose confirm failed usable', async function() {
+        // Findings the confirm cannot act on. It threw, the request failed with a 500,
+        // and the task stayed confirming, refusing every run after it until a restart.
+        await app.api.post('/api/updateTaskData').send({task_key: 'duplicate_files_check', new_data: {uids: null}}).expect(200);
+
+        const confirmed = await app.api.post('/api/confirmTask').send({task_key: 'duplicate_files_check'}).expect(200);
+        assert.strictEqual(confirmed.body.success, false);
+
+        const task = await getTask('duplicate_files_check');
+        assert.strictEqual(task.confirming, false);
+        assert(task.error, 'expected the failure to be on the task');
+
+        const ran = await app.api.post('/api/runTask').send({task_key: 'duplicate_files_check'}).expect(200);
+        assert.strictEqual(ran.body.success, true);
     });
 });
