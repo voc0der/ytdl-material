@@ -417,8 +417,14 @@ exports.updateTaskSchedule = async (task_key, schedule) => {
         return false;
     }
     ensureTaskJobAccessor(task_key);
+    // A schedule that can never run, like a single run at a time already gone by, used to
+    // be saved all the same, and the task was shown as scheduled with nothing to run it.
+    // The schedule it had stays instead.
+    const job = schedule ? scheduleJob(task_key, schedule) : null;
+    if (schedule && !job) return false;
     await db_api.updateRecord('tasks', {key: task_key}, {schedule: schedule});
-    scheduleTaskJob(task_key, schedule);
+    cancelTaskJob(task_key);
+    if (job) TASK_JOBS.set(task_key, job);
     return true;
 }
 

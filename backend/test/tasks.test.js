@@ -33,6 +33,9 @@ describe('Tasks', function() {
         tasks_api.TASKS['dummy_task'] = dummy_task;
 
         await tasks_api.setupTasks();
+        // Jobs are kept apart from the task objects, so a job an earlier test scheduled
+        // outlives the dummy task being replaced.
+        await tasks_api.updateTaskSchedule('dummy_task', null);
     });
     it('Backup db', async function() {
         const backups_original = await utils.recFindByExt('appdata', 'bak');
@@ -355,6 +358,31 @@ describe('Tasks', function() {
         assert(!tasks_api.TASKS['dummy_task']['job'], 'a schedule in the past must not produce a job');
 
         await tasks_api.updateTaskSchedule('dummy_task', null);
+    });
+
+    it('keeps the schedule it had when given one that can never run', async function() {
+        // These were saved anyway, and the task was shown as scheduled with nothing to run it.
+        const daily = {type: 'recurring', data: {hour: 3, minute: 30}};
+        assert.strictEqual(await tasks_api.updateTaskSchedule('dummy_task', daily), true);
+        const job = tasks_api.TASKS['dummy_task']['job'];
+
+        const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+        const never = [
+            {type: 'timestamp', data: {timestamp: yesterday}},
+            {type: 'timestamp', data: {timestamp: 'not a time'}},
+            {type: 'recurring', data: {hour: 25, minute: 0}},
+            {type: 'fortnightly', data: {}}
+        ];
+        try {
+            for (const schedule of never) {
+                assert.strictEqual(await tasks_api.updateTaskSchedule('dummy_task', schedule), false, JSON.stringify(schedule));
+                assert.deepStrictEqual((await getTask('dummy_task'))['schedule'], daily);
+                assert.strictEqual(tasks_api.TASKS['dummy_task']['job'], job);
+            }
+            assert(tasks_api.getNextRun('dummy_task') instanceof Date);
+        } finally {
+            await tasks_api.updateTaskSchedule('dummy_task', null);
+        }
     });
 
     describe('Schedule conversion', function() {

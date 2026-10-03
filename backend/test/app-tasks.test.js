@@ -94,4 +94,24 @@ describe('Tasks on the server as it runs', function() {
         const scheduled = await app.api.post('/api/updateTaskSchedule').send({task_key: 'no_such_task', new_schedule: null}).expect(200);
         assert.deepStrictEqual(scheduled.body, {success: false});
     });
+
+    it('refuses a single run at a time already gone by, and keeps the schedule it had', async function() {
+        // Saved anyway, it left the task showing as scheduled, with nothing to run it.
+        const daily = {type: 'recurring', data: {hour: 3, minute: 30}};
+        await app.api.post('/api/updateTaskSchedule').send({task_key: 'backup_local_db', new_schedule: daily}).expect(200);
+
+        try {
+            const res = await app.api.post('/api/updateTaskSchedule').send({
+                task_key: 'backup_local_db',
+                new_schedule: {type: 'timestamp', data: {timestamp: Date.now() - 60 * 60 * 1000}}
+            }).expect(200);
+
+            assert.deepStrictEqual(res.body, {success: false});
+            const task = await getTask('backup_local_db');
+            assert.deepStrictEqual(task.schedule, daily);
+            assert(task.next_invocation > Date.now(), 'expected the daily run to still be coming');
+        } finally {
+            await app.api.post('/api/updateTaskSchedule').send({task_key: 'backup_local_db', new_schedule: null}).expect(200);
+        }
+    });
 });

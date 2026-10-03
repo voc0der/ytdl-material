@@ -45,7 +45,11 @@
     <label class="settings-row settings-field-row">
       <span class="settings-row-text">
         <span class="settings-row-title" i18n="Task schedule time setting">Time</span>
-        <span class="settings-row-hint" i18n="Task schedule time hint">What time of day it starts.</span>
+        @if (alreadyPassed) {
+          <span class="settings-row-hint hint-invalid" i18n="Task schedule time passed hint">That time has already gone by.</span>
+        } @else {
+          <span class="settings-row-hint" i18n="Task schedule time hint">What time of day it starts.</span>
+        }
       </span>
       <span class="kit-field">
         <input type="time" name="taskTime" [(ngModel)]="time" [disabled]="saving" [attr.aria-label]="timeLabel">
@@ -127,5 +131,5 @@
 
 <div class="settings-actions">
   <button type="button" class="kit-text-button" (click)="cancel()" [disabled]="saving" i18n="Cancel button">Cancel</button>
-  <button type="button" class="kit-chip kit-primary" (click)="save()" [disabled]="!changed || incomplete || thresholdInvalid || saving" i18n="Save button">Save</button>
+  <button type="button" class="kit-chip kit-primary" (click)="save()" [disabled]="!changed || incomplete || thresholdInvalid || alreadyPassed || saving" i18n="Save button">Save</button>
 </div>
