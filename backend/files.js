@@ -289,7 +289,11 @@ async function deleteMediaAndSidecars(file_path, type, additional_sidecar_paths 
      * when the record has an owner -- inside that
      * owner's own directory.
      ************************************************/
-    if (!utils.isServableMediaFile(file_path, user_uid)) {
+    // Already gone, as when it was deleted by hand, there is nothing at the path to remove. It
+    // was refused as no regular file, which kept its record in the library for good, and made
+    // every "Delete and redownload" of its subscription fail.
+    const media_exists = await fs.pathExists(file_path);
+    if (media_exists && !utils.isServableMediaFile(file_path, user_uid)) {
         logger.error(`Refusing to delete ${file_path}: it is not a regular file inside `
             + `${user_uid ? `${user_uid}'s media folder` : 'the configured media folders'}.`);
         return false;
@@ -306,7 +310,8 @@ async function deleteMediaAndSidecars(file_path, type, additional_sidecar_paths 
 
     const sidecars_deleted = await deleteSidecarPaths(sidecar_paths);
 
-    if (await fs.pathExists(file_path)) {
+    // Only a path the check above has seen is removed.
+    if (media_exists) {
         await fs.remove(file_path);
     }
 

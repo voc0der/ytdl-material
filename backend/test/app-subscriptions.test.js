@@ -219,6 +219,25 @@ describe('Subscriptions on the server as it runs', function() {
         assert.strictEqual(checked.refresh_status.queued_count, 0);
     });
 
+    it('deletes a subscription file that was already deleted by hand', async function() {
+        const sub = await subscribe('https://example.com/c/by-hand', 'By Hand Channel');
+        const deleted = await addSubscriptionFile(sub, 'by-hand-1');
+        const redownloaded = await addSubscriptionFile(sub, 'by-hand-2');
+        await fs.remove(deleted.path);
+        await fs.remove(redownloaded.path);
+
+        // Refused as no regular file, its record stayed in the library for good.
+        const res = await app.api.post('/api/deleteSubscriptionFile').send({file_uid: deleted.uid, deleteForever: false}).expect(200);
+        assert.strictEqual(res.body.success, true);
+        assert.strictEqual((await getSub(sub.id)).subscription.file_count, 1);
+
+        // And "Delete and redownload" failed on it every time it was asked.
+        await answer({source: {entries: [channel('By Hand Channel')]}, listing: {entries: [upload('by-hand-1'), upload('by-hand-2')]}});
+        const redownload = await app.api.post('/api/redownloadSubscription').send({sub_id: sub.id}).expect(200);
+        assert.deepStrictEqual(redownload.body, {success: true, deleted_count: 1, failed_count: 0, refresh_started: true});
+        await waitFor(async () => (await getSub(sub.id)).subscription.refresh_status.pending_download_count === 2, 'both uploads to be queued again');
+    });
+
     it('deletes only what a subscription downloaded through the route for subscription files', async function() {
         const video_path = await addSampleMedia(app.media.video, {
             name: 'not-subscribed',
