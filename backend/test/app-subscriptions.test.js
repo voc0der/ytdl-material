@@ -25,6 +25,8 @@ if (answer.error) process.stderr.write(answer.error + '\\n');
 process.exitCode = answer.error ? 1 : 0;
 `;
 
+const channel = (name, overrides = {}) => ({id: name, title: name, uploader: name, channel_id: name, thumbnails: [], ...overrides});
+
 /*************************************************
  * The subscription routes on the real server,
  * with a server of their own: a check runs in the
@@ -44,9 +46,34 @@ describe('Subscriptions on the server as it runs', function() {
     let bin;
 
     const answer = async (scenario) => fs.writeJSON(path.join(bin, 'scenario.json'), scenario);
+    const calls = async () => (await fs.readFile(path.join(bin, 'calls.jsonl'), 'utf8'))
+        .split('\n').filter(Boolean).map(line => JSON.parse(line));
+    const listings = async (url) => (await calls()).filter(args => !args.includes('--dump-single-json') && args.includes(url));
 
     const getSub = async (id) => (await app.api.post('/api/getSubscription').send({id}).expect(200)).body;
     const getSubs = async () => (await app.api.post('/api/getSubscriptions').send({}).expect(200)).body.subscriptions;
+
+    const waitFor = async (predicate, what, timeout_ms = 10000) => {
+        const start = Date.now();
+        while ((Date.now() - start) < timeout_ms) {
+            if (await predicate()) return;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        assert.fail(`timed out waiting for ${what}\n--- server output ---\n${app.output()}`);
+    };
+    const checkFinished = (id) => waitFor(async () => {
+        const {subscription} = await getSub(id);
+        return !subscription.downloading && !subscription.refresh_status.active;
+    }, 'the check to finish');
+
+    // Subscribes to a channel the fake yt-dlp knows, and waits out the check that follows.
+    const subscribe = async (url, name, listing = {entries: []}) => {
+        await answer({source: {entries: [channel(name)]}, listing});
+        const res = await app.api.post('/api/subscribe').send({url, maxQuality: 'best', audioOnly: false}).expect(200);
+        assert(res.body.new_sub, `subscribing failed: ${JSON.stringify(res.body)}`);
+        await checkFinished(res.body.new_sub.id);
+        return res.body.new_sub;
+    };
 
     before(async function() {
         app = await startApp({
@@ -82,5 +109,16 @@ describe('Subscriptions on the server as it runs', function() {
 
         const left = await app.api.post('/api/unsubscribe').send({sub_id: sub.id, deleteMode: true}).expect(200);
         assert.strictEqual(left.body.success, true);
+    });
+
+    it('has no route that starts a check in the name of stopping one', async function() {
+        const sub = await subscribe('https://example.com/c/misnamed', 'Misnamed Channel');
+        const checks = (await listings('https://example.com/c/misnamed')).length;
+
+        // Asked for as JSON, the way the app asks: a page request would be handed the app instead.
+        await app.api.post('/api/cancelSubscriptionCheck').set('Accept', 'application/json').send({sub_id: sub.id}).expect(404);
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+        assert.strictEqual((await listings('https://example.com/c/misnamed')).length, checks);
     });
 });

@@ -2093,16 +2093,6 @@ app.post('/api/cancelCheckSubscription', optionalJwt, requirePermission('subscri
     });
 });
 
-app.post('/api/cancelSubscriptionCheck', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
-    let sub_id = req.body.sub_id;
-    let user_uid = req.isAuthenticated() ? req.user.uid : null;
-
-    const success = await subscriptions_api.getVideosForSub(sub_id, user_uid);
-    res.send({
-        success: success
-    });
-});
-
 app.post('/api/getSubscriptions', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
