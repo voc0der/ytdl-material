@@ -111,6 +111,17 @@ describe('Subscriptions on the server as it runs', function() {
         if (app) await app.stop();
     });
 
+    it('gives a subscription whose name is taken a folder of its own', async function() {
+        const first = await subscribe('https://example.com/c/taken-one', 'Taken Name');
+        const second = await subscribe('https://example.com/c/taken-two', 'Taken Name');
+
+        assert.strictEqual(second.name, `Taken Name - ${second.id}`);
+        const backup = (name) => fs.readJSON(path.join(app.media.subscriptions, 'channels', name, 'subscription_backup.json'));
+        // Its metadata was written under the name it was given, over the first one's backup.
+        assert.strictEqual((await backup('Taken Name')).id, first.id);
+        assert.strictEqual((await backup(second.name)).id, second.id);
+    });
+
     it('answers for a subscription whose link could not be read, so it can be removed', async function() {
         await answer({source: {error: 'ERROR: Unsupported URL: https://example.com/c/unreadable'}});
         const res = await app.api.post('/api/subscribe').send({url: 'https://example.com/c/unreadable', name: null}).expect(200);

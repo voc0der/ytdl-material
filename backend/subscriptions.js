@@ -1227,10 +1227,11 @@ async function applySubscriptionSourceName(sub, info) {
         : (info.uploader || info.channel || info.title);
     if (!sub.name) return;
 
-    let sub_name = sub.name;
     const sub_name_exists = await db_api.getRecord('subscriptions', {name: sub.name, isPlaylist: sub.isPlaylist, user_uid: sub.user_uid});
-    if (sub_name_exists) sub_name += ` - ${sub.id}`;
-    await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub_name});
+    // The name it is saved under. Its metadata is written next, and under the name it was
+    // given, it overwrote the backup of the subscription that already had that name.
+    if (sub_name_exists) sub.name += ` - ${sub.id}`;
+    await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub.name});
 }
 
 /*************************************************
