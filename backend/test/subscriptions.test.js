@@ -388,6 +388,42 @@ describe('Subscriptions', function() {
             subscriptions_api.getVideosForSub = original_get_videos_for_sub;
         }
     });
+    it('Starts one check of a subscription at a time', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'one_check_sub', source_info_checked_at: Date.now()});
+        const finish_listings = [];
+        youtubedl_api.runYoutubeDLLineStream = async () => ({
+            child_process: {pid: 4321},
+            callback: new Promise(resolve => finish_listings.push(() => resolve({err: null})))
+        });
+        const finished = () => waitForCondition(async () => !(await subscriptions_api.getSubscription(sub.id)).downloading);
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+
+            // Asked twice at once, as "Check now" and a scheduled check can be. Both found the
+            // subscription idle, and each started a check, listing and queueing it twice over.
+            const started = await Promise.all([
+                subscriptions_api.getVideosForSub(sub.id),
+                subscriptions_api.getVideosForSub(sub.id)
+            ]);
+
+            assert.deepStrictEqual(started, [true, false]);
+            assert(await waitForCondition(() => finish_listings.length > 0));
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.strictEqual(finish_listings.length, 1);
+
+            // Once it is over, the next can start.
+            finish_listings[0]();
+            assert(await finished());
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(() => finish_listings.length === 2));
+            finish_listings[1]();
+            assert(await finished());
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+    });
     it('Get subscription refresh status with pending queue counts', async function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {

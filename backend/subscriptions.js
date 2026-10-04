@@ -1568,7 +1568,10 @@ async function getValidSubscriptionsToCheck() {
 
 exports.getVideosForSub = async (sub_id, user_uid = null) => {
     const sub = await exports.getSubscription(sub_id, user_uid);
-    if (!sub || sub['downloading']) {
+    // A check only records that it is downloading once it is under way, so two requests close
+    // together both found the subscription idle and started one each. Its tracker is registered
+    // before _getVideosForSub first waits, so a check that has only just started is seen here.
+    if (!sub || sub['downloading'] || active_subscription_refresh_trackers.has(sub.id)) {
         return false;
     }
 
@@ -1655,6 +1658,9 @@ async function _getVideosForSub(sub) {
 
         const current_refresh_tracker = active_subscription_refresh_trackers.get(sub.id);
         if (!current_refresh_tracker || current_refresh_tracker === refresh_tracker) {
+            // Every ending finalizes the tracker, but one left behind would refuse every check
+            // of this subscription until a restart.
+            active_subscription_refresh_trackers.delete(sub.id);
             await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
         }
     }
