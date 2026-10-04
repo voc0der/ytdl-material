@@ -2001,37 +2001,34 @@ app.post('/api/getSubscription', optionalJwt, requirePermission('subscriptions')
     subscription = JSON.parse(JSON.stringify(subscription));
     if (!include_videos) delete subscription['videos'];
 
-    // get sub videos
-    if (subscription.name) {
-        const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
-        const file_count = await db_api.getRecords('files', sub_files_filter, true);
-        subscription['file_count'] = file_count;
-        subscription['thumbnail_file_uid'] = await subscriptions_api.getSubscriptionThumbnailFileUid(subscription.id);
+    // A subscription whose link could not be read has no name. It is answered for all the
+    // same, so its page can show it and offer to remove it.
+    const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
+    const file_count = await db_api.getRecords('files', sub_files_filter, true);
+    subscription['file_count'] = file_count;
+    subscription['thumbnail_file_uid'] = await subscriptions_api.getSubscriptionThumbnailFileUid(subscription.id);
 
-        if (include_videos) {
-            const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
-            subscription['videos'] = parsed_files;
-            // loop through files for extra processing
-            for (let i = 0; i < parsed_files.length; i++) {
-                const file = parsed_files[i];
-                // check if chat exists for twitch videos
-                if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
-            }
-
-            res.send({
-                subscription: subscription,
-                files: parsed_files
-            });
-            return;
+    if (include_videos) {
+        const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
+        subscription['videos'] = parsed_files;
+        // loop through files for extra processing
+        for (let i = 0; i < parsed_files.length; i++) {
+            const file = parsed_files[i];
+            // check if chat exists for twitch videos
+            if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
         }
 
         res.send({
             subscription: subscription,
-            files: []
+            files: parsed_files
         });
-    } else {
-        res.sendStatus(500);
+        return;
     }
+
+    res.send({
+        subscription: subscription,
+        files: []
+    });
 });
 
 app.post('/api/downloadVideosForSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {

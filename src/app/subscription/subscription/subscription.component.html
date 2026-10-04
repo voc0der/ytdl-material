@@ -13,7 +13,7 @@
           }
         </span>
         <div class="sub-heading">
-          <h1 class="sub-title">{{subscription.name}}</h1>
+          <h1 class="sub-title">{{subscription.name || subscription.url}}</h1>
           <div class="sub-meta">
             <span class="sub-type">
               <mat-icon>{{subscription.isPlaylist ? 'playlist_play' : 'account_box'}}</mat-icon>
@@ -48,7 +48,7 @@
             <span i18n="Stop checking subscription menu item">Stop checking</span>
           </button>
         } @else {
-          <button type="button" class="kit-chip" (click)="checkSubscription()" [disabled]="check_clicked">
+          <button type="button" class="kit-chip" (click)="checkSubscription()" [disabled]="check_clicked || !subscription.name">
             <mat-icon>refresh</mat-icon>
             <span i18n="Check subscription menu item">Check now</span>
           </button>
@@ -57,7 +57,8 @@
           <mat-icon>play_arrow</mat-icon>
           <span i18n="Play all">Play all</span>
         </button>
-        <button type="button" class="kit-chip" [attr.aria-pressed]="settingsOpen" aria-controls="subscription-settings" (click)="toggleSettings()">
+        <button type="button" class="kit-chip" [attr.aria-pressed]="settingsOpen" aria-controls="subscription-settings" (click)="toggleSettings()"
+          [disabled]="!subscription.name">
           <mat-icon>tune</mat-icon>
           <span i18n="Subscription settings menu item">Settings</span>
         </button>
@@ -80,7 +81,7 @@
             <span i18n="Resume subscription menu item">Resume</span>
           </button>
         } @else {
-          <button mat-menu-item (click)="setPaused(true)">
+          <button mat-menu-item (click)="setPaused(true)" [disabled]="!subscription.name">
             <mat-icon>pause_circle</mat-icon>
             <span i18n="Pause subscription menu item">Pause</span>
           </button>
@@ -98,7 +99,7 @@
           <span i18n="Open subscription link menu item">Open link</span>
         </a>
         <mat-divider></mat-divider>
-        <button mat-menu-item (click)="redownloadSubscription()">
+        <button mat-menu-item (click)="redownloadSubscription()" [disabled]="!subscription.name">
           <mat-icon>restore</mat-icon>
           <span i18n="Delete and redownload subscription files">Delete and redownload</span>
         </button>

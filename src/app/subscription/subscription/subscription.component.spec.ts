@@ -528,6 +528,12 @@ describe('SubscriptionComponent', () => {
       expect(component.getRefreshDescription()).not.toContain('This live event');
     });
 
+    it('says when the link of a subscription could not be read', () => {
+      component.subscription = { id: 'sub-1', name: null, url: 'https://example.com/nope', refresh_status: { phase: 'idle' } } as any;
+
+      expect(component.statusText()).toBe('Couldn\'t read this link');
+    });
+
     it('names a playlist as one', () => {
       component.subscription = { id: 'sub-1', name: 'Test', isPlaylist: true, refresh_status: { phase: 'complete' } } as any;
 
