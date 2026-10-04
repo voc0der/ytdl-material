@@ -1966,6 +1966,14 @@ app.post('/api/deleteSubscriptionFile', optionalJwt, requirePermission('subscrip
     let file_uid = req.body.file_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
+    // Only for what a subscription downloaded. Any other file is deleted through /api/deleteFile,
+    // which asks for the filemanager permission this route was a way around.
+    const file = await files_api.getVideo(file_uid, user_uid);
+    if (!file || !file.sub_id) {
+        res.sendStatus(404);
+        return;
+    }
+
     let success = await files_api.deleteFile(file_uid, deleteForever, user_uid);
 
     if (success) {

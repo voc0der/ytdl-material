@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs-extra');
 const path = require('path');
 
-const { startApp } = require('./helpers/app-process');
+const { startApp, addSampleMedia } = require('./helpers/app-process');
 
 /*************************************************
  * A yt-dlp for the server to run, which answers
@@ -182,5 +182,20 @@ describe('Subscriptions on the server as it runs', function() {
         // fail once they started for want of their subscription.
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert.deepStrictEqual((await getDownloads()).filter(download => download.sub_id === sub.id), []);
+    });
+
+    it('deletes only what a subscription downloaded through the route for subscription files', async function() {
+        const video_path = await addSampleMedia(app.media.video, {
+            name: 'not-subscribed',
+            info: {id: 'not-subscribed', extractor: 'generic', webpage_url: 'https://example.com/watch/not-subscribed'}
+        });
+        await app.api.post('/api/runTask').send({task_key: 'missing_db_records'}).expect(200);
+        const file = (await app.api.get('/api/getMp4s').expect(200)).body.mp4s.find(mp4 => mp4.url === 'https://example.com/watch/not-subscribed');
+        assert(file, 'the server did not register the video');
+
+        // Deleting other files takes the filemanager permission, which this route does not ask for.
+        await app.api.post('/api/deleteSubscriptionFile').send({file_uid: file.uid, deleteForever: false}).expect(404);
+
+        assert.strictEqual(await fs.pathExists(video_path), true);
     });
 });
