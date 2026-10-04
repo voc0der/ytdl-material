@@ -32,7 +32,8 @@ const channel = (name, overrides = {}) => ({id: name, title: name, uploader: nam
  * with a server of their own: a check runs in the
  * background after the request that started it
  * has been answered, and anything it leaves
- * running would otherwise outlive the test.
+ * running would otherwise outlive the test. One
+ * of these also used to take the server down.
  *
  * Downloads are held at zero at a time, so what a
  * check queues stays queued where a test can see
@@ -65,6 +66,11 @@ describe('Subscriptions on the server as it runs', function() {
         const {subscription} = await getSub(id);
         return !subscription.downloading && !subscription.refresh_status.active;
     }, 'the check to finish');
+    // Resolves true if the server exits within the window.
+    const exitsWithin = (ms) => Promise.race([
+        app.exited.then(() => true),
+        new Promise(resolve => setTimeout(() => resolve(false), ms))
+    ]);
 
     // Subscribes to a channel the fake yt-dlp knows, and waits out the check that follows.
     const subscribe = async (url, name, listing = {entries: []}) => {
@@ -109,6 +115,19 @@ describe('Subscriptions on the server as it runs', function() {
 
         const left = await app.api.post('/api/unsubscribe').send({sub_id: sub.id, deleteMode: true}).expect(200);
         assert.strictEqual(left.body.success, true);
+    });
+
+    it('stays up when the folder of a subscription cannot be made', async function() {
+        // Longer than a folder name may be, as the name of a channel can be.
+        const name = '日本語のプレイリスト'.repeat(30);
+        await answer({source: {entries: [channel(name)]}, listing: {entries: []}});
+        const res = await app.api.post('/api/subscribe').send({url: 'https://example.com/c/long-name'}).expect(200);
+
+        assert.strictEqual(await exitsWithin(500), false, `the server exited:\n${app.output()}`);
+        await checkFinished(res.body.new_sub.id);
+        const {subscription} = await getSub(res.body.new_sub.id);
+        assert.strictEqual(subscription.refresh_status.phase, 'error');
+        assert.match(subscription.refresh_status.error, /ENAMETOOLONG/);
     });
 
     it('has no route that starts a check in the name of stopping one', async function() {

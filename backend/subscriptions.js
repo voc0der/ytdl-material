@@ -1588,12 +1588,16 @@ async function _getVideosForSub(sub) {
     let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let appendedBasePath = getAppendedBasePath(sub, basePath);
-    fs.ensureDirSync(appendedBasePath);
 
     // Each yt-dlp run is recorded as it starts, so "Stop checking" can end whichever is going.
     const recordChildProcess = child_process => updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
 
     try {
+        // A folder that cannot be made, for a name longer than the filesystem allows or one the
+        // server may not write to, fails the check. Thrown outside of it, nothing caught it, and
+        // the server exited.
+        fs.ensureDirSync(appendedBasePath);
+
         // Neither step is needed for the check to work, only to show it well and make it quick,
         // so a failure in either leaves the check to go ahead the slow way.
         await refreshSubscriptionSourceInfo(sub, {on_spawn: recordChildProcess}).catch(e => {
