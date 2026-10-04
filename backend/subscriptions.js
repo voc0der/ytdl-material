@@ -186,8 +186,11 @@ function normalizeArchiveSourceValue(value) {
     return normalized_value === '' ? null : normalized_value;
 }
 
+// An archive entry keeps the extractor a download reported, which can be one of a family, as
+// 'twitch:vod', while what a check lists is compared by the family alone. Compared as they
+// were, a video deleted for good from such a subscription was downloaded again by the next check.
 function getArchiveKey(extractor = null, id = null) {
-    const normalized_extractor = normalizeStringForComparison(extractor);
+    const normalized_extractor = normalizeStringForComparison(extractor)?.split(':')[0];
     const normalized_id = normalizeArchiveSourceValue(id);
     if (!normalized_extractor || !normalized_id) return null;
     return `${normalized_extractor}:${normalized_id}`;
@@ -1227,10 +1230,11 @@ async function applySubscriptionSourceName(sub, info) {
         : (info.uploader || info.channel || info.title);
     if (!sub.name) return;
 
-    let sub_name = sub.name;
     const sub_name_exists = await db_api.getRecord('subscriptions', {name: sub.name, isPlaylist: sub.isPlaylist, user_uid: sub.user_uid});
-    if (sub_name_exists) sub_name += ` - ${sub.id}`;
-    await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub_name});
+    // The name it is saved under. Its metadata is written next, and under the name it was
+    // given, it overwrote the backup of the subscription that already had that name.
+    if (sub_name_exists) sub.name += ` - ${sub.id}`;
+    await db_api.updateRecord('subscriptions', {id: sub.id}, {name: sub.name});
 }
 
 /*************************************************
@@ -1373,6 +1377,11 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
             error: 'Subscription not found or not owned by the current user.'
         };
     }
+    // A check left running went on to queue downloads for a subscription that was gone, each of
+    // them to fail, and say so, once it started.
+    if (sub['downloading'] || sub['child_process'] || sub['refresh_status']?.active) {
+        await exports.cancelCheckSubscription(sub.id, user_uid);
+    }
     let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let id = sub.id;
@@ -1400,7 +1409,16 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     await killSubDownloads(sub_id, true);
     await files_api.cleanupSubscriptionPlaylists(id, user_uid, sub_files.map(file => file.uid));
 
-    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
+    // Another subscription can download into the same folder: one given the same name, or one
+    // whose name differs only in what a folder name cannot hold. Deleting the folder deleted its
+    // files as well, so a shared folder is left, and only this subscription's files are deleted.
+    const appendedBasePath = getAppendedBasePath(sub, basePath);
+    const metadataBasePath = getSubscriptionMetadataBasePath(sub, basePath);
+    const other_subscription_folders = await getFoldersOfOtherSubscriptions(sub);
+    const uses_own_folder = utils.usesSubscriptionSubfolder(sub)
+        && !other_subscription_folders.has(normalizeFolderForComparison(appendedBasePath));
+
+    if (deleteMode && !uses_own_folder) {
         for (const sub_file of sub_files) {
             await files_api.deleteFile(sub_file.uid, false, user_uid);
         }
@@ -1416,12 +1434,10 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
         return {success: true};
     }
 
-    const appendedBasePath = getAppendedBasePath(sub, basePath);
-    if (deleteMode && utils.usesSubscriptionSubfolder(sub) && (await fs.pathExists(appendedBasePath))) {
+    if (deleteMode && uses_own_folder && (await fs.pathExists(appendedBasePath))) {
         await fs.remove(appendedBasePath);
     }
-    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
-        const metadataBasePath = getSubscriptionMetadataBasePath(sub, basePath);
+    if (deleteMode && !utils.usesSubscriptionSubfolder(sub) && !other_subscription_folders.has(normalizeFolderForComparison(metadataBasePath))) {
         if (await fs.pathExists(metadataBasePath)) await fs.remove(metadataBasePath);
         await cleanupEmptyDirectory(path.dirname(metadataBasePath), utils.getSubscriptionTypePath(sub, basePath));
     }
@@ -1430,70 +1446,22 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     return {success: true};
 }
 
-exports.deleteSubscriptionFile = async (sub, file, deleteForever, file_uid = null, user_uid = null) => {
-    if (typeof sub === 'string') {
-        // TODO: fix bad workaround where sub is a sub_id
-        sub = await db_api.getRecord('subscriptions', {sub_id: sub});
+// The folders the other subscriptions download into and keep their metadata in. A name that
+// differs only in case is the same folder on some filesystems, so case is not compared.
+async function getFoldersOfOtherSubscriptions(sub) {
+    const others = await db_api.getRecords('subscriptions', null, false, null, null, ['id', 'name', 'user_uid', 'isPlaylist', 'use_subfolder']);
+    const folders = new Set();
+    for (const other of others) {
+        if (other.id === sub.id) continue;
+        const other_base_path = getSubscriptionsBasePathForSub(other, other.user_uid);
+        folders.add(normalizeFolderForComparison(getAppendedBasePath(other, other_base_path)));
+        folders.add(normalizeFolderForComparison(getSubscriptionMetadataBasePath(other, other_base_path)));
     }
-    // TODO: combine this with deletefile
-    let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
-    const appendedBasePath = getAppendedBasePath(sub, basePath);
-    const name = file;
-    let retrievedID = null;
-    let retrievedExtractor = null;
+    return folders;
+}
 
-    await db_api.removeRecord('files', {uid: file_uid});
-
-    let filePath = appendedBasePath;
-    const ext = (sub.type && sub.type === 'audio') ? '.mp3' : '.mp4'
-    const jsonPath = path.join(__dirname,filePath,name+'.info.json');
-    const videoFilePath = path.join(__dirname,filePath,name+ext);
-    const imageFilePath = path.join(__dirname,filePath,name+'.jpg');
-    const altImageFilePath = path.join(__dirname,filePath,name+'.webp');
-
-    const [jsonExists, videoFileExists, imageFileExists, altImageFileExists] = await Promise.all([
-        fs.pathExists(jsonPath),
-        fs.pathExists(videoFilePath),
-        fs.pathExists(imageFilePath),
-        fs.pathExists(altImageFilePath),
-    ]);
-
-    if (jsonExists) {
-        const info_json = fs.readJSONSync(jsonPath);
-        retrievedID = info_json['id'];
-        retrievedExtractor = info_json['extractor'];
-        await fs.unlink(jsonPath);
-    }
-
-    if (imageFileExists) {
-        await fs.unlink(imageFilePath);
-    }
-
-    if (altImageFileExists) {
-        await fs.unlink(altImageFilePath);
-    }
-
-    if (videoFileExists) {
-        await fs.unlink(videoFilePath);
-        if ((await fs.pathExists(jsonPath)) || (await fs.pathExists(videoFilePath))) {
-            return false;
-        } else {
-            // check if the user wants the video to be redownloaded (deleteForever === false)
-            if (deleteForever) {
-                // ensure video is in the archives
-                const exists_in_archive = await archive_api.existsInArchive(retrievedExtractor, retrievedID, sub.type, user_uid, sub.id);
-                if (!exists_in_archive) {
-                    await archive_api.addToArchive(retrievedExtractor, retrievedID, sub.type, file.title, user_uid, sub.id);
-                }
-            } else {
-                await archive_api.removeFromArchive(retrievedExtractor, retrievedID, sub.type, user_uid, sub.id);
-            }
-            return true;
-        }
-    } else {
-        // TODO: tell user that the file didn't exist
-        return true;
-    }
+function normalizeFolderForComparison(folder_path) {
+    return path.resolve(folder_path).toLowerCase();
 }
 
 exports.redownloadSubscription = async (sub_id, user_uid = null) => {
@@ -1634,7 +1602,10 @@ async function getValidSubscriptionsToCheck() {
 
 exports.getVideosForSub = async (sub_id, user_uid = null) => {
     const sub = await exports.getSubscription(sub_id, user_uid);
-    if (!sub || sub['downloading']) {
+    // A check only records that it is downloading once it is under way, so two requests close
+    // together both found the subscription idle and started one each. Its tracker is registered
+    // before _getVideosForSub first waits, so a check that has only just started is seen here.
+    if (!sub || sub['downloading'] || active_subscription_refresh_trackers.has(sub.id)) {
         return false;
     }
 
@@ -1654,12 +1625,16 @@ async function _getVideosForSub(sub) {
     let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let appendedBasePath = getAppendedBasePath(sub, basePath);
-    fs.ensureDirSync(appendedBasePath);
 
     // Each yt-dlp run is recorded as it starts, so "Stop checking" can end whichever is going.
     const recordChildProcess = child_process => updateSubscriptionProperty(sub, {child_process: child_process}, user_uid);
 
     try {
+        // A folder that cannot be made, for a name longer than the filesystem allows or one the
+        // server may not write to, fails the check. Thrown outside of it, nothing caught it, and
+        // the server exited.
+        fs.ensureDirSync(appendedBasePath);
+
         // Neither step is needed for the check to work, only to show it well and make it quick,
         // so a failure in either leaves the check to go ahead the slow way.
         await refreshSubscriptionSourceInfo(sub, {on_spawn: recordChildProcess}).catch(e => {
@@ -1717,6 +1692,9 @@ async function _getVideosForSub(sub) {
 
         const current_refresh_tracker = active_subscription_refresh_trackers.get(sub.id);
         if (!current_refresh_tracker || current_refresh_tracker === refresh_tracker) {
+            // Every ending finalizes the tracker, but one left behind would refuse every check
+            // of this subscription until a restart.
+            active_subscription_refresh_trackers.delete(sub.id);
             await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
         }
     }
@@ -1735,6 +1713,8 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
     await updateSubscriptionRefreshTrackerQueueCounts(refresh_tracker, effective_queue_context);
 
     for (const file_to_download of files_to_download) {
+        // Stopped partway through a batch: the rest of it is not queued.
+        if (isSubscriptionRefreshCancelled(refresh_tracker)) break;
         const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
         if (prefetched_info && Array.isArray(file_to_download['formats'])) {
             // Keep subscription queue payloads small when full info is available.
@@ -1774,11 +1754,14 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
     const file_output = config_api.getConfigItem('ytdl_default_file_output') ? config_api.getConfigItem('ytdl_default_file_output') : '%(title)s';
 
-    let fullOutput = `"${appendedBasePath}/${file_output}.%(ext)s"`;
+    // yt-dlp is started without a shell, so quotes around the template were part of the path.
+    // A date filter keeps -o for the check, whose _filename then named no real file: a download
+    // of such a subscription showed no progress, and missed a file it would overwrite.
+    let fullOutput = `${appendedBasePath}/${file_output}.%(ext)s`;
     if (desired_path) {
-        fullOutput = `"${desired_path}.%(ext)s"`;
+        fullOutput = `${desired_path}.%(ext)s`;
     } else if (sub.custom_output) {
-        fullOutput = `"${appendedBasePath}/${sub.custom_output}.%(ext)s"`;
+        fullOutput = `${appendedBasePath}/${sub.custom_output}.%(ext)s`;
     }
 
     let downloadConfig = ['--dump-json', '-o', fullOutput, !redownload ? '-ciw' : '-ci', '--write-info-json', '--print-json'];
@@ -2262,15 +2245,9 @@ exports.cancelCheckSubscription = async (sub_id, user_uid = null) => {
         return false;
     }
 
-    // if check is ongoing
-    if (sub['child_process']) {
-        const child_process = sub['child_process'];
-        // Awaited so the check is really dead before the record below says it is cancelled.
-        await youtubedl_api.killYoutubeDLProcess(child_process);
-    }
-
-    // cancel activate video downloads
-    await killSubDownloads(sub_id);
+    // Marked cancelled before anything is killed. Killing waits on the check's yt-dlp and on any
+    // download of the subscription, and a listing that exited in the meantime used to go on to
+    // queue everything it had found, after Stop, under a status saying it was cancelled.
     const refresh_tracker = active_subscription_refresh_trackers.get(sub_id);
     if (refresh_tracker) {
         await finalizeSubscriptionRefreshAsCancelled(sub_id, refresh_tracker);
@@ -2286,7 +2263,20 @@ exports.cancelCheckSubscription = async (sub_id, user_uid = null) => {
             });
         }
     }
-    await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+
+    // if check is ongoing
+    if (sub['child_process']) {
+        const child_process = sub['child_process'];
+        // Awaited so the check is really dead before the record below says it has stopped.
+        await youtubedl_api.killYoutubeDLProcess(child_process);
+    }
+
+    // cancel activate video downloads
+    await killSubDownloads(sub_id);
+    // Unless a new check has started meanwhile, which keeps its own.
+    if (!active_subscription_refresh_trackers.has(sub_id)) {
+        await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+    }
 
     return true;
 }

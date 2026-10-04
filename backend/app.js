@@ -1966,6 +1966,14 @@ app.post('/api/deleteSubscriptionFile', optionalJwt, requirePermission('subscrip
     let file_uid = req.body.file_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;
 
+    // Only for what a subscription downloaded. Any other file is deleted through /api/deleteFile,
+    // which asks for the filemanager permission this route was a way around.
+    const file = await files_api.getVideo(file_uid, user_uid);
+    if (!file || !file.sub_id) {
+        res.sendStatus(404);
+        return;
+    }
+
     let success = await files_api.deleteFile(file_uid, deleteForever, user_uid);
 
     if (success) {
@@ -2001,37 +2009,34 @@ app.post('/api/getSubscription', optionalJwt, requirePermission('subscriptions')
     subscription = JSON.parse(JSON.stringify(subscription));
     if (!include_videos) delete subscription['videos'];
 
-    // get sub videos
-    if (subscription.name) {
-        const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
-        const file_count = await db_api.getRecords('files', sub_files_filter, true);
-        subscription['file_count'] = file_count;
-        subscription['thumbnail_file_uid'] = await subscriptions_api.getSubscriptionThumbnailFileUid(subscription.id);
+    // A subscription whose link could not be read has no name. It is answered for all the
+    // same, so its page can show it and offer to remove it.
+    const sub_files_filter = {sub_id: subscription.id, ...getScopedFilterByUser(user_uid)};
+    const file_count = await db_api.getRecords('files', sub_files_filter, true);
+    subscription['file_count'] = file_count;
+    subscription['thumbnail_file_uid'] = await subscriptions_api.getSubscriptionThumbnailFileUid(subscription.id);
 
-        if (include_videos) {
-            const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
-            subscription['videos'] = parsed_files;
-            // loop through files for extra processing
-            for (let i = 0; i < parsed_files.length; i++) {
-                const file = parsed_files[i];
-                // check if chat exists for twitch videos
-                if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
-            }
-
-            res.send({
-                subscription: subscription,
-                files: parsed_files
-            });
-            return;
+    if (include_videos) {
+        const parsed_files = files_api.attachFileChaptersCollection(await db_api.getRecords('files', sub_files_filter)); // subscription.videos;
+        subscription['videos'] = parsed_files;
+        // loop through files for extra processing
+        for (let i = 0; i < parsed_files.length; i++) {
+            const file = parsed_files[i];
+            // check if chat exists for twitch videos
+            if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
         }
 
         res.send({
             subscription: subscription,
-            files: []
+            files: parsed_files
         });
-    } else {
-        res.sendStatus(500);
+        return;
     }
+
+    res.send({
+        subscription: subscription,
+        files: []
+    });
 });
 
 app.post('/api/downloadVideosForSubscription', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
@@ -2091,16 +2096,6 @@ app.post('/api/cancelCheckSubscription', optionalJwt, requirePermission('subscri
     let user_uid = req.isAuthenticated() ? req.user.uid : null;
 
     const success = await subscriptions_api.cancelCheckSubscription(sub_id, user_uid);
-    res.send({
-        success: success
-    });
-});
-
-app.post('/api/cancelSubscriptionCheck', optionalJwt, requirePermission('subscriptions'), async (req, res) => {
-    let sub_id = req.body.sub_id;
-    let user_uid = req.isAuthenticated() ? req.user.uid : null;
-
-    const success = await subscriptions_api.getVideosForSub(sub_id, user_uid);
     res.send({
         success: success
     });

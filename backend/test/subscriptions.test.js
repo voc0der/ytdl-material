@@ -213,9 +213,6 @@ describe('Subscriptions', function() {
             release_create_playlist();
         }
     });
-    it('Delete subscription file', async function () {
-        
-    });
     it('Deletes subscription files and starts a fresh redownload', async function () {
         const original_deleteFile = files_api.deleteFile;
         const original_getVideosForSub = subscriptions_api.getVideosForSub;
@@ -391,6 +388,189 @@ describe('Subscriptions', function() {
             subscriptions_api.getVideosForSub = original_get_videos_for_sub;
         }
     });
+    it('Skips the scheduled check while subscriptions are off, or when there is none to check', async function() {
+        config_api.setConfigItem('ytdl_allow_subscriptions', false);
+        const turned_off = await subscriptions_api.checkSubscriptions();
+        assert.deepStrictEqual(turned_off, {success: true, checked: false, checked_count: 0, skipped_count: 0, reason: 'subscriptions_disabled'});
+
+        config_api.setConfigItem('ytdl_allow_subscriptions', true);
+        await db_api.insertRecordIntoTable('subscriptions', Object.assign({}, new_sub, {id: uuid(), paused: true}));
+        const all_paused = await subscriptions_api.checkSubscriptions();
+        assert.strictEqual(all_paused.checked, false);
+        assert.strictEqual(all_paused.reason, 'no_valid_subscriptions');
+    });
+    it('Leaves out of a scheduled check a subscription still checking, and one whose name was never read', async function() {
+        const original_get_videos_for_sub = subscriptions_api.getVideosForSub;
+        const checking_sub = Object.assign({}, new_sub, {id: uuid(), name: 'still_checking_sub', paused: false, downloading: true});
+        const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null, url: 'https://example.com/c/nameless', paused: false});
+        const checked_sub_ids = [];
+        subscriptions_api.getVideosForSub = async (sub_id) => {
+            checked_sub_ids.push(sub_id);
+            return true;
+        };
+
+        try {
+            await db_api.insertRecordIntoTable('subscriptions', checking_sub);
+            await db_api.insertRecordIntoTable('subscriptions', nameless_sub);
+
+            const result = await subscriptions_api.checkSubscriptions();
+
+            assert.strictEqual(result.checked, false);
+            assert.strictEqual(result.skipped_count, 2);
+            assert.deepStrictEqual(result.skipped_sub_ids.sort(), [checking_sub.id, nameless_sub.id].sort());
+            assert.deepStrictEqual(checked_sub_ids, []);
+        } finally {
+            subscriptions_api.getVideosForSub = original_get_videos_for_sub;
+        }
+    });
+    it('Refuses a second subscription to a link without a name of its own', async function() {
+        const first = Object.assign({}, new_sub, {id: uuid(), url: 'https://example.com/c/twice'});
+        await subscriptions_api.subscribe(first, null, true);
+
+        const second = Object.assign({}, new_sub, {id: uuid(), name: null, url: 'https://example.com/c/twice'});
+        const result = await subscriptions_api.subscribe(second, null, true);
+
+        assert.strictEqual(result.success, false);
+        assert.match(result.error, /already exists/);
+        assert(!(await db_api.getRecord('subscriptions', {id: second.id})));
+    });
+    it('Counts what a check finds from what yt-dlp prints, whatever else is among it', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'noisy_output_sub', source_info_checked_at: Date.now()});
+        const found = {id: 'noisy-1', extractor: 'generic', title: 'Noisy 1', webpage_url: 'https://example.com/watch/noisy-1'};
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers) => {
+            for (const line of [
+                '[download] Downloading item 1 of 4',
+                'WARNING: [generic] Falling back on generic information extractor',
+                `[info] ${JSON.stringify(found)}`,
+                JSON.stringify(found),
+                '{"id": "cut-short',
+                JSON.stringify({title: 'No id', webpage_url: 'https://example.com/watch/no-id'}),
+                ''
+            ]) {
+                line_handlers.onStdoutLine(line);
+            }
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(async () => !(await subscriptions_api.getSubscription(sub.id)).downloading));
+
+            const {refresh_status} = await subscriptions_api.getSubscription(sub.id);
+            // Found once however often it is listed; the size of the listing from its progress.
+            assert.strictEqual(refresh_status.discovered_count, 2);
+            assert.strictEqual(refresh_status.total_count, 4);
+            assert.strictEqual(refresh_status.queued_count, 2);
+            const queued = await db_api.getRecords('download_queue', {sub_id: sub.id});
+            assert.deepStrictEqual(queued.map(download => download.url).sort(), ['https://example.com/watch/no-id', 'https://example.com/watch/noisy-1']);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+    });
+    it('Starts one check of a subscription at a time', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'one_check_sub', source_info_checked_at: Date.now()});
+        const finish_listings = [];
+        youtubedl_api.runYoutubeDLLineStream = async () => ({
+            child_process: {pid: 4321},
+            callback: new Promise(resolve => finish_listings.push(() => resolve({err: null})))
+        });
+        const finished = () => waitForCondition(async () => !(await subscriptions_api.getSubscription(sub.id)).downloading);
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+
+            // Asked twice at once, as "Check now" and a scheduled check can be. Both found the
+            // subscription idle, and each started a check, listing and queueing it twice over.
+            const started = await Promise.all([
+                subscriptions_api.getVideosForSub(sub.id),
+                subscriptions_api.getVideosForSub(sub.id)
+            ]);
+
+            assert.deepStrictEqual(started, [true, false]);
+            assert(await waitForCondition(() => finish_listings.length > 0));
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.strictEqual(finish_listings.length, 1);
+
+            // Once it is over, the next can start.
+            finish_listings[0]();
+            assert(await finished());
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(() => finish_listings.length === 2));
+            finish_listings[1]();
+            assert(await finished());
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+    });
+    it('Queues nothing a check found once it is stopped', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_killYoutubeDLProcess = youtubedl_api.killYoutubeDLProcess;
+        const original_cancelDownload = downloader_api.cancelDownload;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'stopped_check_sub', source_info_checked_at: Date.now()});
+        let exit_listing = null;
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers) => {
+            setTimeout(() => {
+                for (const id of ['stopped-1', 'stopped-2', 'stopped-3']) {
+                    line_handlers.onStdoutLine(JSON.stringify({id, extractor: 'generic', title: id, webpage_url: `https://example.com/watch/${id}`}));
+                }
+            }, 0);
+            return {
+                child_process: {pid: 4321},
+                callback: new Promise(resolve => {
+                    exit_listing = () => resolve({err: new Error('yt-dlp process exited with code null (signal: SIGKILL)')});
+                })
+            };
+        };
+        // Killed, the listing exits at once...
+        youtubedl_api.killYoutubeDLProcess = async () => {
+            exit_listing();
+            return true;
+        };
+        // ...while Stop waits on a download of the subscription to be cancelled, as it waits on
+        // that download's own yt-dlp.
+        downloader_api.cancelDownload = async (download_uid) => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {running: false, finished: true, cancelled: true, error: 'Cancelled'});
+            return true;
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(async () => (await db_api.getRecord('subscriptions', {id: sub.id})).refresh_status.discovered_count > 0));
+            await db_api.insertRecordIntoTable('download_queue', {
+                uid: uuid(),
+                url: 'https://example.com/watch/earlier',
+                type: 'video',
+                options: {},
+                sub_id: sub.id,
+                running: true,
+                paused: false,
+                finished_step: true,
+                finished: false,
+                error: null,
+                timestamp_start: Date.now()
+            });
+
+            assert.strictEqual(await subscriptions_api.cancelCheckSubscription(sub.id), true);
+
+            // The listing ended while Stop was still at work, and the check went on to queue all
+            // it had found, under a status that said it was cancelled.
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const queued = await db_api.getRecords('download_queue', {sub_id: sub.id, finished: false});
+            assert.deepStrictEqual(queued.map(download => download.url), []);
+            const stopped = await db_api.getRecord('subscriptions', {id: sub.id});
+            assert.strictEqual(stopped.downloading, false);
+            assert.strictEqual(stopped.refresh_status.phase, 'cancelled');
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            youtubedl_api.killYoutubeDLProcess = original_killYoutubeDLProcess;
+            downloader_api.cancelDownload = original_cancelDownload;
+        }
+    });
     it('Get subscription refresh status with pending queue counts', async function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {
@@ -482,6 +662,45 @@ describe('Subscriptions', function() {
 
         const remaining_downloads = await db_api.getRecords('download_queue', {sub_id: sub.id});
         assert.strictEqual(remaining_downloads.length, 0);
+    });
+    it('Cancels an archived subscription download already running before removing it', async function() {
+        const original_cancelDownload = downloader_api.cancelDownload;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'archived_running_sub'});
+        const running_download = {
+            uid: uuid(),
+            url: 'https://example.com/watch/archived-running',
+            type: 'video',
+            title: 'Archived and running',
+            options: {},
+            sub_id: sub.id,
+            user_uid: null,
+            prefetched_info: [{id: 'archived-running', extractor: 'generic', webpage_url: 'https://example.com/watch/archived-running'}],
+            running: true,
+            paused: false,
+            finished_step: true,
+            finished: false,
+            error: null,
+            timestamp_start: Date.now()
+        };
+        const cancelled = [];
+        // Gone by the time it is cancelled, which does not stop it being removed.
+        downloader_api.cancelDownload = async (download_uid) => {
+            cancelled.push(download_uid);
+            throw new Error('No such download');
+        };
+
+        try {
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await archive_api.addToArchive('generic', 'archived-running', 'video', 'Archived and running', null, sub.id);
+            await db_api.insertRecordIntoTable('download_queue', running_download);
+
+            await subscriptions_api.getSubscription(sub.id);
+
+            assert.deepStrictEqual(cancelled, [running_download.uid]);
+            assert.deepStrictEqual(await db_api.getRecords('download_queue', {sub_id: sub.id}), []);
+        } finally {
+            downloader_api.cancelDownload = original_cancelDownload;
+        }
     });
     it('Reports skipped finished subscription downloads in refresh status', async function() {
         const sub = Object.assign({}, new_sub, {id: uuid(), name: 'skipped_finished_sub'});
@@ -1027,6 +1246,88 @@ describe('Subscriptions', function() {
             await fs.remove(test_base_path);
         }
     });
+    it('Leaves the files of another subscription in the same folder when unsubscribing with delete mode', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'shared-subscription-folder');
+        // Two names that make the one folder, as what a folder name cannot hold is replaced.
+        const kept_sub = Object.assign({}, new_sub, {id: uuid(), name: 'AC/DC', url: 'https://example.com/c/acdc'});
+        const leaving_sub = Object.assign({}, new_sub, {id: uuid(), name: 'AC_DC', url: 'https://example.com/c/ac_dc'});
+        const kept_file_path = path.join(test_base_path, 'channels', 'AC_DC', 'Highway.mp4');
+        const leaving_file_path = path.join(test_base_path, 'channels', 'AC_DC', 'Thunder.mp4');
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+            await fs.outputFile(kept_file_path, 'kept');
+            await fs.outputFile(leaving_file_path, 'leaving');
+            await db_api.insertRecordIntoTable('subscriptions', kept_sub);
+            await db_api.insertRecordIntoTable('subscriptions', leaving_sub);
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'kept-shared-file',
+                sub_id: kept_sub.id,
+                path: kept_file_path,
+                isAudio: false,
+                url: 'https://example.com/highway',
+                title: 'Highway'
+            });
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'leaving-shared-file',
+                sub_id: leaving_sub.id,
+                path: leaving_file_path,
+                isAudio: false,
+                url: 'https://example.com/thunder',
+                title: 'Thunder'
+            });
+
+            const result = await subscriptions_api.unsubscribe(leaving_sub.id, true);
+
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(fs.existsSync(leaving_file_path), false);
+            // The folder was deleted whole, with the other subscription's files in it.
+            assert.strictEqual(fs.existsSync(kept_file_path), true);
+            assert(await db_api.getRecord('files', {uid: 'kept-shared-file'}));
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
+    it('Moves no file over one already where it would go, and keeps the setting as it was', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'subscription-move-conflict');
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'move_conflict_sub', use_subfolder: true});
+        const own_file_path = path.join(test_base_path, 'channels', 'move_conflict_sub', 'Clash.mp4');
+        const other_file_path = path.join(test_base_path, 'channels', 'Clash.mp4');
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+            await fs.outputFile(own_file_path, 'own');
+            await fs.outputFile(other_file_path, 'other');
+            await db_api.insertRecordIntoTable('subscriptions', sub);
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'move-conflict-file',
+                sub_id: sub.id,
+                path: own_file_path,
+                isAudio: false,
+                url: 'https://example.com/clash',
+                title: 'Clash'
+            });
+
+            // Out of its own folder, its file would land on one already there.
+            const updated = await subscriptions_api.updateSubscription({id: sub.id, use_subfolder: false});
+
+            assert.strictEqual(updated, false);
+            assert.strictEqual(await fs.readFile(own_file_path, 'utf8'), 'own');
+            assert.strictEqual(await fs.readFile(other_file_path, 'utf8'), 'other');
+            assert.strictEqual((await db_api.getRecord('subscriptions', {id: sub.id})).use_subfolder, true);
+            assert.strictEqual((await db_api.getRecord('files', {uid: 'move-conflict-file'})).path, own_file_path);
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
     it('Does not let path separators split subscription metadata folders', async function() {
         const sub = Object.assign({}, new_sub, {
             id: uuid(),
@@ -1500,6 +1801,49 @@ describe('Subscriptions', function() {
         assert(captured_args.includes('-o'));
         assert(captured_args.includes('-f'));
     });
+    it('Reports the progress of a download from a subscription with a date range', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.resolve('appdata', 'dated-subscription-progress');
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'dated_progress_sub', timerange: 'now-7days', source_info_checked_at: Date.now()});
+
+        // A date range has the check ask for full metadata, where yt-dlp fills in the file name
+        // the output template gives.
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers) => {
+            const template = args[args.indexOf('-o') + 1];
+            line_handlers.onStdoutLine(JSON.stringify({
+                id: 'dated-1',
+                extractor: 'generic',
+                extractor_key: 'Generic',
+                title: 'Dated Upload',
+                webpage_url: 'https://example.com/watch/dated-1',
+                ext: 'mp4',
+                filesize: 10,
+                formats: [],
+                _filename: template.replace('%(title)s', 'Dated Upload').replace('%(ext)s', 'mp4')
+            }));
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(async () => !(await subscriptions_api.getSubscription(sub.id)).downloading));
+            const [download] = await db_api.getRecords('download_queue', {sub_id: sub.id});
+
+            await downloader_api.collectInfo(download.uid);
+
+            // The template was in quotes, which are part of the path when there is no shell to
+            // take them off: the progress of the download was looked for in a folder that was not there.
+            const {files_to_check_for_progress} = await db_api.getRecord('download_queue', {uid: download.uid});
+            assert.deepStrictEqual(files_to_check_for_progress, [path.join(test_base_path, 'channels', 'dated_progress_sub', 'Dated Upload')]);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
     it('Skips writing metadata for subscriptions without a name', async function() {
         const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});
         const metadata_path = path.join('subscriptions', 'channels', 'null', 'subscription_backup.json');
@@ -1509,6 +1853,14 @@ describe('Subscriptions', function() {
 
         assert.strictEqual(success, false);
         assert.strictEqual(fs.existsSync(metadata_path), false);
+    });
+    it('Downloads an audio-only subscription as mp3', async function() {
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'audio_only_sub', type: 'audio'});
+
+        const args = await subscriptions_api.generateArgsForSubscription(sub, null);
+
+        const format_index = args.indexOf('-f');
+        assert.deepStrictEqual(args.slice(format_index, format_index + 5), ['-f', 'bestaudio', '-x', '--audio-format', 'mp3']);
     });
     it('Never adds extractor args to subscription download args on its own', async function() {
         const original_downloader = config_api.getConfigItem('ytdl_default_downloader');

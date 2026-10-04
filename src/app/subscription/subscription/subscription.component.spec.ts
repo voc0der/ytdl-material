@@ -1,4 +1,4 @@
-import { BehaviorSubject, of, Subject } from 'rxjs';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 
 import { SubscriptionComponent } from './subscription.component';
 
@@ -500,6 +500,335 @@ describe('SubscriptionComponent', () => {
     });
   });
 
+  describe('opening and leaving the page', () => {
+    let params: Subject<Record<string, string>>;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      params = new Subject();
+      component = new SubscriptionComponent(postsService, { params } as any, router, dialog, actions);
+      postsService.getSubscription.mockImplementation((id: string) => of({ subscription: { id, name: `Subscription ${id}`, file_count: 0 } }));
+    });
+
+    afterEach(() => {
+      component.ngOnDestroy();
+      vi.useRealTimers();
+    });
+
+    it('starts over on another subscription, closing the settings it had open', () => {
+      component.ngOnInit();
+      params.next({ id: 'sub-1' });
+      component.openSettings();
+      expect(component.settingsOpen).toBe(true);
+
+      // The next one has not answered yet.
+      postsService.getSubscription.mockReturnValue(new Subject());
+      params.next({ id: 'sub-2' });
+
+      expect(component.id).toBe('sub-2');
+      expect(component.subscription).toBeNull();
+      expect(component.settingsOpen).toBe(false);
+      expect(postsService.getSubscription).toHaveBeenLastCalledWith('sub-2', null, false);
+    });
+
+    it('stops asking after the subscription once the page is closed', () => {
+      component.ngOnInit();
+      params.next({ id: 'sub-1' });
+      vi.advanceTimersByTime(10_000);
+      const asked = postsService.getSubscription.mock.calls.length;
+      expect(asked).toBeGreaterThan(1);
+
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(60_000);
+
+      expect(postsService.getSubscription).toHaveBeenCalledTimes(asked);
+    });
+
+    it('drops a zip still being prepared when the page is closed', () => {
+      component.ngOnInit();
+      params.next({ id: 'sub-1' });
+      const archive = new Subject<Blob>();
+      postsService.downloadSubFromServer.mockReturnValue(archive);
+      component.startSubscriptionDownload();
+
+      component.ngOnDestroy();
+
+      expect(archive.observed).toBe(false);
+      expect(component.archiveDownloadSubscription).toBeNull();
+    });
+  });
+
+  describe('the zip of a subscription', () => {
+    let objectURLs: { create: typeof URL.createObjectURL; revoke: typeof URL.revokeObjectURL };
+
+    beforeEach(() => {
+      // Saving revokes the blob's URL on a timer, which must not outlive the test.
+      vi.useFakeTimers();
+      objectURLs = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+      URL.createObjectURL = vi.fn(() => 'blob:subscription-zip');
+      URL.revokeObjectURL = vi.fn();
+      component.subscription = { id: 'sub-1', name: 'Test subscription', file_count: 2 } as any;
+    });
+
+    afterEach(() => {
+      URL.createObjectURL = objectURLs.create;
+      URL.revokeObjectURL = objectURLs.revoke;
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    it('is saved under the name of the subscription', () => {
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      const archive = new Subject<Blob>();
+      postsService.downloadSubFromServer.mockReturnValue(archive);
+
+      component.startSubscriptionDownload();
+      archive.next(new Blob(['zip']));
+
+      expect(click).toHaveBeenCalledTimes(1);
+      expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('Test subscription.zip');
+      expect(component.downloading).toBe(false);
+      expect(component.archiveDownloadSubscription).toBeNull();
+    });
+
+    it('lets the page try again after preparing it failed', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const archive = new Subject<Blob>();
+      postsService.downloadSubFromServer.mockReturnValue(archive);
+
+      component.startSubscriptionDownload();
+      archive.error(new Error('disk full'));
+
+      expect(component.downloading).toBe(false);
+      expect(component.archiveDownloadSubscription).toBeNull();
+    });
+
+    it('is not asked for twice at once', () => {
+      component.downloading = true;
+
+      component.downloadContent();
+
+      expect(dialog.open).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('actions', () => {
+    beforeEach(() => {
+      component.subscription = { id: 'sub-1', name: 'Test subscription', file_count: 2, paused: false } as any;
+      postsService.getSubscription.mockReturnValue(of({ subscription: { ...component.subscription } }));
+    });
+
+    it('pauses, and asks again for where the subscription is', async () => {
+      postsService.getSubscription.mockReturnValue(of({ subscription: { ...component.subscription, paused: true } }));
+
+      await component.setPaused(true);
+
+      expect(actions.setPaused).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub-1' }), true);
+      expect(component.subscription.paused).toBe(true);
+      expect(postsService.getSubscription).toHaveBeenCalledWith('sub-1', null, false);
+    });
+
+    it('leaves the subscription as it was when pausing is refused', async () => {
+      actions.setPaused.mockResolvedValue(false);
+
+      await component.setPaused(true);
+
+      expect(component.subscription.paused).toBe(false);
+      expect(postsService.getSubscription).not.toHaveBeenCalled();
+    });
+
+    it('reloads once a redownload has started', async () => {
+      await component.redownloadSubscription();
+
+      expect(actions.redownload).toHaveBeenCalledWith(component.subscription);
+      expect(postsService.getSubscription).toHaveBeenCalledWith('sub-1', null, false);
+    });
+
+    it('exports the archive', async () => {
+      await component.exportArchive();
+
+      expect(actions.exportArchive).toHaveBeenCalledWith(component.subscription);
+    });
+
+    it('plays everything downloaded', () => {
+      component.watchSubscription();
+
+      expect(router.navigate).toHaveBeenCalledWith(['/player', { sub_id: 'sub-1' }]);
+    });
+
+    it('says so when a check could not start', () => {
+      postsService.checkSubscription.mockReturnValue(of({ success: false }));
+
+      component.checkSubscription();
+
+      expect(component.check_clicked).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Failed to check subscription!');
+      expect(postsService.getSubscription).not.toHaveBeenCalled();
+    });
+
+    it('says so when asking for a check failed', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      postsService.checkSubscription.mockReturnValue(throwError(() => new Error('offline')));
+
+      component.checkSubscription();
+
+      expect(component.check_clicked).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Failed to check subscription!');
+    });
+
+    it('stops a check, and asks again for where the subscription is', () => {
+      postsService.cancelCheckSubscription.mockReturnValue(of({ success: true }));
+
+      component.cancelCheckSubscription();
+
+      expect(postsService.cancelCheckSubscription).toHaveBeenCalledWith('sub-1');
+      expect(component.cancel_clicked).toBe(false);
+      expect(postsService.getSubscription).toHaveBeenCalledWith('sub-1', null, false);
+    });
+
+    it('says so when a check could not be stopped', () => {
+      postsService.cancelCheckSubscription.mockReturnValue(of({ success: false }));
+
+      component.cancelCheckSubscription();
+
+      expect(component.cancel_clicked).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Failed to cancel check subscription!');
+      expect(postsService.getSubscription).not.toHaveBeenCalled();
+    });
+
+    it('says so when asking to stop a check failed', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      postsService.cancelCheckSubscription.mockReturnValue(throwError(() => new Error('offline')));
+
+      component.cancelCheckSubscription();
+
+      expect(component.cancel_clicked).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Failed to cancel check subscription!');
+    });
+
+    it('keeps the settings open when saving them failed outright', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      postsService.updateSubscription.mockReturnValue(throwError(() => new Error('offline')));
+      component.toggleSettings();
+      component.settingsDraft.paused = true;
+
+      await component.saveSettings();
+
+      expect(component.settingsOpen).toBe(true);
+      expect(component.savingSettings).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Couldn\'t save the settings. Nothing was changed.');
+
+      component.toggleSettings();
+      expect(component.settingsOpen).toBe(false);
+    });
+  });
+
+  describe('what the refresh card says', () => {
+    const withStatus = (refresh_status: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+      component.subscription = {
+        id: 'sub-1',
+        name: 'Test subscription',
+        refresh_status: { active: false, pending_download_count: 0, running_download_count: 0, ...refresh_status },
+        ...extra
+      } as any;
+    };
+
+    it('counts the downloads a check is queueing', () => {
+      withStatus({ phase: 'queueing', active: true, new_items_count: 4, queued_count: 1 });
+
+      expect(component.getRefreshHeadline()).toBe('Queueing new downloads');
+      expect(component.getRefreshDescription()).toBe('Found 4 new item(s). The app is creating download jobs now.');
+      expect(component.shouldShowRefreshProgressBar()).toBe(true);
+      expect(component.getRefreshProgressMode()).toBe('determinate');
+      expect(component.getRefreshProgressValue()).toBe(25);
+      expect(component.getRefreshMetrics()).toEqual(['4 new downloads found', '1 queued']);
+    });
+
+    it('waits on a check that found nothing yet to queue', () => {
+      withStatus({ phase: 'queueing', active: true, new_items_count: 0, queued_count: 0 });
+
+      expect(component.getRefreshDescription()).toBe('The metadata scan finished. The app is preparing download jobs now.');
+      expect(component.getRefreshProgressMode()).toBe('indeterminate');
+      expect(component.getRefreshProgressValue()).toBe(0);
+    });
+
+    it('describes a playlist being scanned, with the newest item it found', () => {
+      withStatus({ phase: 'collecting', active: true, latest_item_title: 'Newest item' }, { isPlaylist: true });
+
+      expect(component.getRefreshHeadline()).toBe('Checking playlist metadata');
+      expect(component.getRefreshDescription()).toContain('scanning this playlist');
+      expect(component.getRefreshDescription()).toContain('"Newest item"');
+    });
+
+    it('counts queued downloads still to run, and running ones', () => {
+      withStatus({ phase: 'queued', new_items_count: 3, queued_count: 3, pending_download_count: 3, running_download_count: 1 });
+
+      expect(component.statusText()).toBe('Downloading 3 new');
+      expect(component.getRefreshHeadline()).toBe('Downloads queued');
+      expect(component.getRefreshDescription()).toBe('Download jobs are queued. New files will appear here as each download completes.');
+      expect(component.shouldShowRefreshProgressBar()).toBe(false);
+      expect(component.getRefreshMetrics()).toEqual(['3 new downloads found', '3 queued', '1 running now', '3 pending in downloads']);
+    });
+
+    it('says how many were skipped while the rest are still queued', () => {
+      withStatus({ phase: 'queued', new_items_count: 3, queued_count: 3, skipped_count: 1, pending_download_count: 2 });
+
+      expect(component.getRefreshDescription()).toContain('and 1 were skipped');
+      expect(component.getRefreshMetrics()).toEqual(['3 new downloads found', '2 queued', '1 skipped', '2 pending in downloads']);
+    });
+
+    it('says the queued downloads have gone through', () => {
+      withStatus({ phase: 'queued', new_items_count: 2, queued_count: 2 });
+
+      expect(component.getRefreshHeadline()).toBe('Downloads were queued');
+      expect(component.getRefreshDescription()).toBe('The refresh queued download jobs successfully.');
+    });
+
+    it('sums up a refresh that found more than it skipped', () => {
+      withStatus({ phase: 'queued', new_items_count: 3, queued_count: 3, skipped_count: 1 });
+
+      expect(component.getRefreshHeadline()).toBe('Refresh completed with skips');
+      expect(component.getRefreshDescription()).toBe('The refresh found 3 new item(s), but 1 were skipped because they are unavailable or members-only.');
+    });
+
+    it('says what a finished refresh did', () => {
+      withStatus({ phase: 'complete', new_items_count: 2, queued_count: 2 });
+      expect(component.getRefreshHeadline()).toBe('Channel is up to date');
+      expect(component.getRefreshDescription()).toBe('The refresh finished successfully.');
+
+      withStatus({ phase: 'complete', new_items_count: 0 });
+      expect(component.getRefreshDescription()).toBe('The last refresh did not find any new videos to download.');
+    });
+
+    it('says a refresh was stopped', () => {
+      withStatus({ phase: 'cancelled' });
+
+      expect(component.shouldShowRefreshStatus()).toBe(true);
+      expect(component.getRefreshHeadline()).toBe('Refresh cancelled');
+      expect(component.getRefreshDescription()).toBe('The refresh was stopped before it finished collecting metadata or queueing all downloads.');
+    });
+
+    it('names a check that has started before it says what it is doing', () => {
+      withStatus({ phase: 'idle' }, { downloading: true });
+      expect(component.getRefreshHeadline()).toBe('Checking channel metadata');
+
+      withStatus({ phase: 'idle' }, { downloading: true, isPlaylist: true });
+      expect(component.getRefreshHeadline()).toBe('Checking playlist metadata');
+
+      withStatus({ phase: 'idle' }, { isPlaylist: true });
+      expect(component.getRefreshHeadline()).toBe('Playlist refresh');
+      expect(component.getRefreshDescription()).toBe('The subscription page will show completed files only.');
+    });
+
+    it('has nothing to say without a refresh', () => {
+      component.subscription = { id: 'sub-1', name: 'Test subscription' } as any;
+
+      expect(component.getRefreshProgressMode()).toBe('indeterminate');
+      expect(component.getRefreshProgressValue()).toBe(0);
+      expect(component.getRefreshMetrics()).toEqual([]);
+    });
+  });
+
   describe('what the header says', () => {
     it('sums up a quiet subscription', () => {
       component.subscription = { id: 'sub-1', name: 'Test', refresh_status: { phase: 'complete', completed_at: Date.now() - 60_000 } } as any;
@@ -526,6 +855,18 @@ describe('SubscriptionComponent', () => {
       expect(component.refreshDetailsOpen).toBe(false);
       expect(component.getRefreshHeadline()).toBe('Check didn\'t finish');
       expect(component.getRefreshDescription()).not.toContain('This live event');
+    });
+
+    it('says a subscription is paused', () => {
+      component.subscription = { id: 'sub-1', name: 'Test', paused: true, refresh_status: { phase: 'complete' } } as any;
+
+      expect(component.statusText()).toBe('Paused');
+    });
+
+    it('says when the link of a subscription could not be read', () => {
+      component.subscription = { id: 'sub-1', name: null, url: 'https://example.com/nope', refresh_status: { phase: 'idle' } } as any;
+
+      expect(component.statusText()).toBe('Couldn\'t read this link');
     });
 
     it('names a playlist as one', () => {

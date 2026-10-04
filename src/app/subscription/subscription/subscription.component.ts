@@ -236,6 +236,8 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
     const sub = this.subscription;
     if (!sub) return '';
     switch (subscriptionState(sub)) {
+    case 'unavailable':
+      return $localize`Couldn't read this link`;
     case 'paused':
       return $localize`Paused`;
     case 'checking':

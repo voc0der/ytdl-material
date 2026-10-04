@@ -144,11 +144,58 @@ describe('SubscriptionActionsService', () => {
       );
     });
 
+    it('reports a redownload that failed outright', async () => {
+      confirms(true);
+      postsService.redownloadSubscription.mockReturnValue(throwError(() => new Error('offline')));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      expect(await service.redownload(sub())).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('ERROR: Failed to start redownload for Test subscription.', 'OK.');
+      expect(postsService.reloadSubscriptions).not.toHaveBeenCalled();
+    });
+
     it('does not redownload when the confirmation is dismissed', async () => {
       confirms(false);
 
       expect(await service.redownload(sub())).toBe(false);
       expect(postsService.redownloadSubscription).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('exporting the archive', () => {
+    let objectURLs: { create: typeof URL.createObjectURL; revoke: typeof URL.revokeObjectURL };
+
+    beforeEach(() => {
+      // Saving revokes the blob's URL on a timer, which must not outlive the test.
+      vi.useFakeTimers();
+      objectURLs = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+      URL.createObjectURL = vi.fn(() => 'blob:archive');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    afterEach(() => {
+      URL.createObjectURL = objectURLs.create;
+      URL.revokeObjectURL = objectURLs.revoke;
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    it('saves what the subscription has downloaded, as an archive file', async () => {
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      postsService.downloadArchive.mockReturnValue(of(new Blob(['generic upload-1\n'])));
+
+      expect(await service.exportArchive(sub())).toBe(true);
+
+      expect(postsService.downloadArchive).toHaveBeenCalledWith(null, 'sub-1');
+      expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('archive.txt');
+    });
+
+    it('says so when there was nothing to export', async () => {
+      postsService.downloadArchive.mockReturnValue(throwError(() => new Error('400')));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      expect(await service.exportArchive(sub())).toBe(false);
+      expect(postsService.openSnackBar).toHaveBeenCalledWith('Couldn\'t export the archive for Test subscription.');
     });
   });
 
