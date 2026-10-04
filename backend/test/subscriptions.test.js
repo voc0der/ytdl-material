@@ -213,9 +213,6 @@ describe('Subscriptions', function() {
             release_create_playlist();
         }
     });
-    it('Delete subscription file', async function () {
-        
-    });
     it('Deletes subscription files and starts a fresh redownload', async function () {
         const original_deleteFile = files_api.deleteFile;
         const original_getVideosForSub = subscriptions_api.getVideosForSub;
