@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs-extra');
+const http = require('http');
 const path = require('path');
 
 const { startApp, addSampleMedia } = require('./helpers/app-process');
@@ -10,9 +11,12 @@ const { startApp, addSampleMedia } = require('./helpers/app-process');
  * through the real routes with no network. Tests
  * rewrite the scenario between requests: `source`
  * is the channel's own record, `listing` its
- * uploads. A listing with a delay is still going
- * for that long before it exits, as a check under
- * way is. Every call is appended to calls.jsonl.
+ * uploads. A listing that hangs stays alive until
+ * it is killed, as a check under way does, and
+ * one with a delay exits on its own once it is
+ * up. Every call is appended to calls.jsonl, and
+ * the pid of the latest listing is left in
+ * listing.pid.
  ************************************************/
 const FAKE_YT_DLP = `#!/usr/bin/env node
 const fs = require('fs');
@@ -20,12 +24,14 @@ const path = require('path');
 const args = process.argv.slice(2);
 fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify(args) + '\\n');
 const is_source = args.includes('--dump-single-json');
+if (!is_source) fs.writeFileSync(path.join(__dirname, 'listing.pid'), String(process.pid));
 const scenario = JSON.parse(fs.readFileSync(path.join(__dirname, 'scenario.json'), 'utf8'));
 const answer = scenario[is_source ? 'source' : 'listing'] || {};
 for (const entry of answer.entries || []) process.stdout.write(JSON.stringify(entry) + '\\n');
 if (answer.error) process.stderr.write(answer.error + '\\n');
 process.exitCode = answer.error ? 1 : 0;
-if (answer.delay) setTimeout(() => {}, answer.delay);
+if (answer.hang) setInterval(() => {}, 1000);
+else if (answer.delay) setTimeout(() => {}, answer.delay);
 `;
 
 const channel = (name, overrides = {}) => ({id: name, title: name, uploader: name, channel_id: name, thumbnails: [], ...overrides});
@@ -39,6 +45,15 @@ const upload = (id, overrides = {}) => ({
     url: `https://example.com/watch/${id}`,
     ...overrides
 });
+
+const isRunning = (pid) => {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (err) {
+        return err.code !== 'ESRCH';
+    }
+};
 
 /*************************************************
  * The subscription routes on the real server,
@@ -118,6 +133,20 @@ describe('Subscriptions on the server as it runs', function() {
         return file;
     };
 
+    // Left by a server stopped halfway through a check. It goes into the database the way an
+    // older install's does, which the server imports as it starts.
+    const interrupted = {
+        id: 'interrupted-sub',
+        name: 'Interrupted Channel',
+        url: 'https://example.com/c/interrupted',
+        type: 'video',
+        isPlaylist: false,
+        paused: true,
+        downloading: true,
+        child_process: {pid: 999999},
+        refresh_status: {active: true, phase: 'collecting', discovered_count: 3, started_at: Date.now() - 60000}
+    };
+
     before(async function() {
         app = await startApp({
             env: {ytdl_max_concurrent_downloads: '0'},
@@ -126,12 +155,39 @@ describe('Subscriptions on the server as it runs', function() {
                 await fs.ensureDir(bin);
                 await fs.writeFile(path.join(bin, 'yt-dlp'), FAKE_YT_DLP, {mode: 0o755});
                 await fs.writeFile(path.join(bin, 'calls.jsonl'), '');
+                await fs.writeJSON(path.join(root, 'appdata', 'db.json'), {subscriptions: [interrupted]});
             }
         });
     });
 
     after(async function() {
         if (app) await app.stop();
+    });
+
+    it('lets go of a check the last shutdown cut off', async function() {
+        const {subscription} = await getSub(interrupted.id);
+
+        assert.strictEqual(subscription.downloading, false);
+        assert.strictEqual(subscription.refresh_status.active, false);
+        assert.strictEqual(subscription.refresh_status.phase, 'cancelled');
+        assert.strictEqual(subscription.refresh_status.discovered_count, 3);
+
+        // So it can be checked again.
+        const checked = await check(interrupted, []);
+        assert.strictEqual(checked.refresh_status.phase, 'complete');
+    });
+
+    it('subscribes under the name its source gives, and queues what the first check finds', async function() {
+        const sub = await subscribe('https://example.com/c/first', 'First Channel', {entries: [upload('first-1'), upload('first-2')]});
+
+        assert.strictEqual(sub.name, 'First Channel');
+        const {subscription} = await getSub(sub.id);
+        assert.strictEqual(subscription.refresh_status.phase, 'queued');
+        assert.strictEqual(subscription.refresh_status.queued_count, 2);
+        assert.strictEqual(subscription.refresh_status.pending_download_count, 2);
+
+        const [listing] = await listings('https://example.com/c/first');
+        assert(listing.includes('--flat-playlist'));
     });
 
     it('gives a subscription whose name is taken a folder of its own', async function() {
@@ -189,6 +245,98 @@ describe('Subscriptions on the server as it runs', function() {
         assert.strictEqual((await listings('https://example.com/c/misnamed')).length, checks);
     });
 
+    it('finds a subscription by name, and leaves its files out when asked to', async function() {
+        const sub = await subscribe('https://example.com/c/named', 'Named Channel');
+        await addSubscriptionFile(sub, 'named-1');
+
+        const by_name = (await app.api.post('/api/getSubscription').send({name: 'Named Channel'}).expect(200)).body;
+        assert.strictEqual(by_name.subscription.id, sub.id);
+        assert.strictEqual(by_name.subscription.file_count, 1);
+        assert.strictEqual(by_name.files.length, 1);
+
+        const without_files = (await app.api.post('/api/getSubscription').send({id: sub.id, include_videos: false}).expect(200)).body;
+        assert.deepStrictEqual(without_files.files, []);
+        assert.strictEqual(without_files.subscription.videos, undefined);
+        assert.strictEqual(without_files.subscription.file_count, 1);
+
+        await app.api.post('/api/getSubscription').send({id: 'no-such-subscription'}).expect(400);
+    });
+
+    it('subscribes with a date range and a file name of its own', async function() {
+        await answer({source: {entries: [channel('Dated Channel')]}, listing: {entries: []}});
+        const res = await app.api.post('/api/subscribe')
+            .send({url: 'https://example.com/c/dated', timerange: 'now-7days', customFileOutput: '%(upload_date)s %(title)s'})
+            .expect(200);
+        await checkFinished(res.body.new_sub.id);
+
+        const {subscription} = await getSub(res.body.new_sub.id);
+        assert.strictEqual(subscription.timerange, 'now-7days');
+        assert.strictEqual(subscription.custom_output, '%(upload_date)s %(title)s');
+    });
+
+    it('refuses arguments a download may not be given', async function() {
+        const refused = await app.api.post('/api/subscribe')
+            .send({url: 'https://example.com/c/refused', customArgs: '--exec,,touch /tmp/owned'})
+            .expect(400);
+        assert.strictEqual(refused.body.success, false);
+        assert.match(refused.body.error, /--exec/);
+        assert(!(await getSubs()).some(sub => sub.url === 'https://example.com/c/refused'));
+
+        const sub = await subscribe('https://example.com/c/kept', 'Kept Channel');
+        const update = await app.api.post('/api/updateSubscription')
+            .send({subscription: {id: sub.id, custom_args: '--exec,,touch /tmp/owned'}})
+            .expect(400);
+        assert.strictEqual(update.body.success, false);
+        assert.strictEqual((await getSub(sub.id)).subscription.custom_args, undefined);
+    });
+
+    it('saves a change of settings', async function() {
+        const sub = await subscribe('https://example.com/c/settings', 'Settings Channel');
+
+        const updated = await app.api.post('/api/updateSubscription').send({subscription: {id: sub.id, paused: true, maxQuality: '720'}}).expect(200);
+
+        assert.strictEqual(updated.body.success, true);
+        const {subscription} = await getSub(sub.id);
+        assert.strictEqual(subscription.paused, true);
+        assert.strictEqual(subscription.maxQuality, '720');
+    });
+
+    it('checks a channel as soon as its playlists are asked for, since only a check finds them', async function() {
+        const sub = await subscribe('https://example.com/c/collector', 'Collector Channel');
+        const checks = (await listings(sub.url)).length;
+
+        const updated = await app.api.post('/api/updateSubscription').send({subscription: {id: sub.id, retrieve_channel_playlists: true}}).expect(200);
+
+        assert.strictEqual(updated.body.success, true);
+        await waitFor(async () => (await listings(sub.url)).length > checks, 'a check to start');
+        await checkFinished(sub.id);
+    });
+
+    it('checks a subscription on request, and stops a check under way', async function() {
+        const sub = await subscribe('https://example.com/c/stoppable', 'Stoppable Channel');
+        await answer({source: {entries: [channel('Stoppable Channel')]}, listing: {entries: [upload('stoppable-1')], hang: true}});
+
+        const checked = await app.api.post('/api/checkSubscription').send({sub_id: sub.id}).expect(200);
+        assert.strictEqual(checked.body.success, true);
+        await waitFor(async () => (await listings('https://example.com/c/stoppable')).length === 2, 'the check to list the uploads');
+        await waitFor(async () => (await getSub(sub.id)).subscription.refresh_status.discovered_count === 1, 'the check to find the upload');
+        const pid = Number(await fs.readFile(path.join(bin, 'listing.pid'), 'utf8'));
+
+        const stopped = await app.api.post('/api/cancelCheckSubscription').send({sub_id: sub.id}).expect(200);
+
+        assert.strictEqual(stopped.body.success, true);
+        // Killed by the time the answer comes, but reaped by the server a moment later.
+        await waitFor(() => !isRunning(pid), 'the listing to exit', 5000);
+        const {subscription} = await getSub(sub.id);
+        assert.strictEqual(subscription.downloading, false);
+        assert.strictEqual(subscription.refresh_status.phase, 'cancelled');
+        assert.deepStrictEqual((await getDownloads()).filter(download => download.sub_id === sub.id), []);
+
+        // Nothing is running now, so there is nothing to stop.
+        const again = await app.api.post('/api/cancelCheckSubscription').send({sub_id: sub.id}).expect(200);
+        assert.strictEqual(again.body.success, false);
+    });
+
     it('stops a check under way when unsubscribing, so nothing is queued for a subscription that is gone', async function() {
         const sub = await subscribe('https://example.com/c/abandoned', 'Abandoned Channel');
         // The listing finds two uploads, and is still going when the subscription is removed.
@@ -205,6 +353,38 @@ describe('Subscriptions on the server as it runs', function() {
         // fail once they started for want of their subscription.
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert.deepStrictEqual((await getDownloads()).filter(download => download.sub_id === sub.id), []);
+    });
+
+    it('starts the downloads of a subscription on request', async function() {
+        const sub = await subscribe('https://example.com/c/on-request', 'On Request Channel');
+        await answer({source: {entries: [channel('On Request Channel')]}, listing: {entries: [upload('on-request-1')]}});
+
+        const started = await app.api.post('/api/downloadVideosForSubscription').send({subID: sub.id}).expect(200);
+
+        assert.strictEqual(started.body.success, true);
+        await waitFor(async () => (await getSub(sub.id)).subscription.refresh_status.pending_download_count === 1, 'the upload to be queued');
+
+        const missing = await app.api.post('/api/downloadVideosForSubscription').send({subID: 'no-such-subscription'}).expect(200);
+        assert.strictEqual(missing.body.success, false);
+    });
+
+    it('deletes a subscription file, and keeps it from coming back when asked to', async function() {
+        const sub = await subscribe('https://example.com/c/deleting', 'Deleting Channel');
+        const kept_out = await addSubscriptionFile(sub, 'deleting-1');
+        const allowed_back = await addSubscriptionFile(sub, 'deleting-2');
+
+        await app.api.post('/api/deleteSubscriptionFile').send({file_uid: kept_out.uid, deleteForever: true}).expect(200);
+        await app.api.post('/api/deleteSubscriptionFile').send({file_uid: allowed_back.uid, deleteForever: false}).expect(200);
+
+        assert.strictEqual(await fs.pathExists(kept_out.path), false);
+        assert.strictEqual(await fs.pathExists(allowed_back.path), false);
+        assert.strictEqual((await getSub(sub.id)).subscription.file_count, 0);
+
+        // The next check passes over the one deleted for good, and downloads the other again.
+        const checked = await check(sub, [upload('deleting-1'), upload('deleting-2')]);
+        assert.strictEqual(checked.refresh_status.queued_count, 1);
+
+        await app.api.post('/api/deleteSubscriptionFile').send({file_uid: kept_out.uid, deleteForever: true}).expect(404);
     });
 
     it('keeps a video deleted for good from coming back, whatever its extractor calls itself', async function() {
@@ -251,5 +431,84 @@ describe('Subscriptions on the server as it runs', function() {
         await app.api.post('/api/deleteSubscriptionFile').send({file_uid: file.uid, deleteForever: false}).expect(404);
 
         assert.strictEqual(await fs.pathExists(video_path), true);
+    });
+
+    it('unsubscribes, and deletes what was downloaded with it', async function() {
+        const sub = await subscribe('https://example.com/c/leaving', 'Leaving Channel');
+        const file = await addSubscriptionFile(sub, 'leaving-1');
+
+        const left = await app.api.post('/api/unsubscribe').send({sub_id: sub.id, deleteMode: true}).expect(200);
+
+        assert.strictEqual(left.body.success, true);
+        assert.strictEqual(await fs.pathExists(file.path), false);
+        assert(!(await getSubs()).some(candidate => candidate.id === sub.id));
+
+        const again = await app.api.post('/api/unsubscribe').send({sub_id: sub.id, deleteMode: true}).expect(200);
+        assert.strictEqual(again.body.success, false);
+        assert.match(again.body.error, /not found/);
+    });
+
+    it('deletes the files of a subscription and downloads them again', async function() {
+        const sub = await subscribe('https://example.com/c/again', 'Again Channel');
+        const file = await addSubscriptionFile(sub, 'again-1');
+        await answer({source: {entries: [channel('Again Channel')]}, listing: {entries: [upload('again-1')]}});
+
+        const redownload = await app.api.post('/api/redownloadSubscription').send({sub_id: sub.id}).expect(200);
+
+        assert.deepStrictEqual(redownload.body, {success: true, deleted_count: 1, failed_count: 0, refresh_started: true});
+        assert.strictEqual(await fs.pathExists(file.path), false);
+        await waitFor(async () => (await getSub(sub.id)).subscription.refresh_status.pending_download_count === 1, 'the upload to be queued again');
+    });
+
+    it('serves the artwork of a subscription once it has some', async function() {
+        const image = Buffer.from('89504e470d0a1a0a', 'hex');
+        const artwork_server = http.createServer((req, res) => {
+            res.writeHead(200, {'Content-Type': 'image/png'});
+            res.end(image);
+        });
+        await new Promise(resolve => artwork_server.listen(0, '127.0.0.1', resolve));
+        const artwork_url = `http://127.0.0.1:${artwork_server.address().port}/avatar.png`;
+
+        try {
+            const plain = await subscribe('https://example.com/c/plain', 'Plain Channel');
+            await app.api.get(`/api/subscriptionArtwork/${plain.id}`).expect(404);
+
+            await answer({source: {entries: [channel('Pictured Channel', {thumbnails: [{id: 'avatar_uncropped', url: artwork_url, width: 88, height: 88}]})]}, listing: {entries: []}});
+            const res = await app.api.post('/api/subscribe').send({url: 'https://example.com/c/pictured'}).expect(200);
+            await checkFinished(res.body.new_sub.id);
+
+            const served = await app.api.get(`/api/subscriptionArtwork/${res.body.new_sub.id}`).buffer(true).expect(200);
+            assert.match(served.headers['content-type'], /image\/png/);
+            assert.deepStrictEqual(Buffer.from(served.body), image);
+        } finally {
+            await new Promise(resolve => artwork_server.close(resolve));
+        }
+    });
+
+    it('keeps no artwork that is not an image, or that never arrives', async function() {
+        const artwork_server = http.createServer((req, res) => {
+            if (req.url === '/cut-off.png') {
+                res.destroy();
+                return;
+            }
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end('<html><body>Not an image</body></html>');
+        });
+        await new Promise(resolve => artwork_server.listen(0, '127.0.0.1', resolve));
+        const artwork_base = `http://127.0.0.1:${artwork_server.address().port}`;
+
+        try {
+            for (const [slug, artwork_path] of [['page', '/avatar'], ['cut-off', '/cut-off.png']]) {
+                const name = `Artless ${slug}`;
+                await answer({source: {entries: [channel(name, {thumbnails: [{id: 'avatar_uncropped', url: artwork_base + artwork_path, width: 88, height: 88}]})]}, listing: {entries: []}});
+                const res = await app.api.post('/api/subscribe').send({url: `https://example.com/c/artless-${slug}`}).expect(200);
+                await checkFinished(res.body.new_sub.id);
+
+                await app.api.get(`/api/subscriptionArtwork/${res.body.new_sub.id}`).expect(404);
+                assert.strictEqual((await getSub(res.body.new_sub.id)).subscription.artwork_file, undefined);
+            }
+        } finally {
+            await new Promise(resolve => artwork_server.close(resolve));
+        }
     });
 });

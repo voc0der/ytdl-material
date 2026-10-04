@@ -67,6 +67,18 @@ describe('SubscriptionSettingsComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Quality');
   });
 
+  it('takes the quality and audio only as they are chosen', () => {
+    component.chooseQuality('720');
+
+    expect(component.settings.maxQuality).toBe('720');
+    expect(changes).toBe(1);
+
+    chips().find(chip => chip.textContent.includes('Only Audio')).click();
+
+    expect(component.settings.audioOnly).toBe(true);
+    expect(changes).toBe(2);
+  });
+
   it('cannot change audio only once subscribed', () => {
     component.mode = 'edit';
     component.settings.audioOnly = true;

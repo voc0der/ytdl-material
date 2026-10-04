@@ -167,6 +167,14 @@ describe('SubscriptionsComponent', () => {
     expect(postsService.createSubscription).not.toHaveBeenCalled();
   });
 
+  it('reads a link as a playlist the way the backend does', () => {
+    component.url = 'https://example.com/playlist?list=abc';
+    expect(component.urlIsPlaylist).toBe(true);
+
+    component.url = 'https://example.com/channel';
+    expect(component.urlIsPlaylist).toBe(false);
+  });
+
   it('marks the options chip when something other than the defaults is set', () => {
     expect(component.hasCustomOptions).toBe(false);
 
@@ -192,6 +200,42 @@ describe('SubscriptionsComponent', () => {
     expect(postsService.getAllSubscriptions.mock.calls.length).toBe(loads + 1);
   });
 
+  it('runs each action on the card it was asked from', async () => {
+    const sub = channel() as any;
+
+    await component.check(sub);
+    await component.cancelCheck(sub);
+    await component.redownload(sub);
+    component.watch(sub);
+
+    expect(actions.check).toHaveBeenCalledWith(sub);
+    expect(actions.cancelCheck).toHaveBeenCalledWith(sub);
+    expect(actions.redownload).toHaveBeenCalledWith(sub);
+    expect(router.navigate).toHaveBeenCalledWith(['/player', { sub_id: 'sub-1' }]);
+    expect(postsService.getAllSubscriptions).toHaveBeenCalledTimes(3);
+  });
+
+  it('clears the form when subscribing is called off', () => {
+    component.url = 'https://example.com/channel';
+    component.name = 'Custom name';
+
+    component.cancelSubscribe();
+
+    expect(component.url).toBe('');
+    expect(component.name).toBe('');
+  });
+
+  it('stops polling once the page is closed', async () => {
+    listReturns(channel({ downloading: true, refresh_status: { phase: 'collecting', active: true } }));
+    await component.loadSubscriptions();
+    const loads = postsService.getAllSubscriptions.mock.calls.length;
+
+    component.ngOnDestroy();
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(postsService.getAllSubscriptions).toHaveBeenCalledTimes(loads);
+  });
+
   it('does not reload when an action was cancelled', async () => {
     actions.unsubscribe.mockResolvedValue(false);
     listReturns(channel());
@@ -214,7 +258,16 @@ describe('SubscriptionsComponent', () => {
       const sub = channel({ refresh_status: { phase: 'queued', pending_download_count: 2 } });
 
       expect(component.statusText(sub as any)).toBe('Downloading 2 new');
+      expect(component.state(sub as any)).toBe('downloading');
       expect(component.isBusy(sub as any)).toBe(true);
+      expect(component.isChecking(sub as any)).toBe(false);
+    });
+
+    it('says a check is under way', () => {
+      const sub = channel({ downloading: true, refresh_status: { phase: 'collecting', active: true } });
+
+      expect(component.statusText(sub as any)).toBe('Checking for new uploads');
+      expect(component.isChecking(sub as any)).toBe(true);
     });
 
     it('says when a quiet subscription was last checked', () => {
