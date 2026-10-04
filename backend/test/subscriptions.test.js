@@ -1645,6 +1645,49 @@ describe('Subscriptions', function() {
         assert(captured_args.includes('-o'));
         assert(captured_args.includes('-f'));
     });
+    it('Reports the progress of a download from a subscription with a date range', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.resolve('appdata', 'dated-subscription-progress');
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'dated_progress_sub', timerange: 'now-7days', source_info_checked_at: Date.now()});
+
+        // A date range has the check ask for full metadata, where yt-dlp fills in the file name
+        // the output template gives.
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers) => {
+            const template = args[args.indexOf('-o') + 1];
+            line_handlers.onStdoutLine(JSON.stringify({
+                id: 'dated-1',
+                extractor: 'generic',
+                extractor_key: 'Generic',
+                title: 'Dated Upload',
+                webpage_url: 'https://example.com/watch/dated-1',
+                ext: 'mp4',
+                filesize: 10,
+                formats: [],
+                _filename: template.replace('%(title)s', 'Dated Upload').replace('%(ext)s', 'mp4')
+            }));
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(async () => !(await subscriptions_api.getSubscription(sub.id)).downloading));
+            const [download] = await db_api.getRecords('download_queue', {sub_id: sub.id});
+
+            await downloader_api.collectInfo(download.uid);
+
+            // The template was in quotes, which are part of the path when there is no shell to
+            // take them off: the progress of the download was looked for in a folder that was not there.
+            const {files_to_check_for_progress} = await db_api.getRecord('download_queue', {uid: download.uid});
+            assert.deepStrictEqual(files_to_check_for_progress, [path.join(test_base_path, 'channels', 'dated_progress_sub', 'Dated Upload')]);
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
     it('Skips writing metadata for subscriptions without a name', async function() {
         const nameless_sub = Object.assign({}, new_sub, {id: uuid(), name: null});
         const metadata_path = path.join('subscriptions', 'channels', 'null', 'subscription_backup.json');

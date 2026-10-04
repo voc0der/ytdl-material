@@ -1754,11 +1754,14 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
 
     const file_output = config_api.getConfigItem('ytdl_default_file_output') ? config_api.getConfigItem('ytdl_default_file_output') : '%(title)s';
 
-    let fullOutput = `"${appendedBasePath}/${file_output}.%(ext)s"`;
+    // yt-dlp is started without a shell, so quotes around the template were part of the path.
+    // A date filter keeps -o for the check, whose _filename then named no real file: a download
+    // of such a subscription showed no progress, and missed a file it would overwrite.
+    let fullOutput = `${appendedBasePath}/${file_output}.%(ext)s`;
     if (desired_path) {
-        fullOutput = `"${desired_path}.%(ext)s"`;
+        fullOutput = `${desired_path}.%(ext)s`;
     } else if (sub.custom_output) {
-        fullOutput = `"${appendedBasePath}/${sub.custom_output}.%(ext)s"`;
+        fullOutput = `${appendedBasePath}/${sub.custom_output}.%(ext)s`;
     }
 
     let downloadConfig = ['--dump-json', '-o', fullOutput, !redownload ? '-ciw' : '-ci', '--write-info-json', '--print-json'];
