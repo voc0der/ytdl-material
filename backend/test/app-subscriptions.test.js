@@ -10,7 +10,9 @@ const { startApp } = require('./helpers/app-process');
  * through the real routes with no network. Tests
  * rewrite the scenario between requests: `source`
  * is the channel's own record, `listing` its
- * uploads. Every call is appended to calls.jsonl.
+ * uploads. A listing with a delay is still going
+ * for that long before it exits, as a check under
+ * way is. Every call is appended to calls.jsonl.
  ************************************************/
 const FAKE_YT_DLP = `#!/usr/bin/env node
 const fs = require('fs');
@@ -23,9 +25,20 @@ const answer = scenario[is_source ? 'source' : 'listing'] || {};
 for (const entry of answer.entries || []) process.stdout.write(JSON.stringify(entry) + '\\n');
 if (answer.error) process.stderr.write(answer.error + '\\n');
 process.exitCode = answer.error ? 1 : 0;
+if (answer.delay) setTimeout(() => {}, answer.delay);
 `;
 
 const channel = (name, overrides = {}) => ({id: name, title: name, uploader: name, channel_id: name, thumbnails: [], ...overrides});
+
+const upload = (id, overrides = {}) => ({
+    id,
+    title: `Upload ${id}`,
+    extractor: 'generic',
+    extractor_key: 'Generic',
+    webpage_url: `https://example.com/watch/${id}`,
+    url: `https://example.com/watch/${id}`,
+    ...overrides
+});
 
 /*************************************************
  * The subscription routes on the real server,
@@ -53,6 +66,7 @@ describe('Subscriptions on the server as it runs', function() {
 
     const getSub = async (id) => (await app.api.post('/api/getSubscription').send({id}).expect(200)).body;
     const getSubs = async () => (await app.api.post('/api/getSubscriptions').send({}).expect(200)).body.subscriptions;
+    const getDownloads = async () => (await app.api.post('/api/downloads').send({page_size: 100}).expect(200)).body.downloads;
 
     const waitFor = async (predicate, what, timeout_ms = 10000) => {
         const start = Date.now();
@@ -139,5 +153,23 @@ describe('Subscriptions on the server as it runs', function() {
 
         await new Promise(resolve => setTimeout(resolve, 250));
         assert.strictEqual((await listings('https://example.com/c/misnamed')).length, checks);
+    });
+
+    it('stops a check under way when unsubscribing, so nothing is queued for a subscription that is gone', async function() {
+        const sub = await subscribe('https://example.com/c/abandoned', 'Abandoned Channel');
+        // The listing finds two uploads, and is still going when the subscription is removed.
+        await answer({source: {entries: [channel('Abandoned Channel')]}, listing: {entries: [upload('abandoned-1'), upload('abandoned-2')], delay: 1000}});
+        await app.api.post('/api/checkSubscription').send({sub_id: sub.id}).expect(200);
+        // What it has found so far is written as it finds the first.
+        await waitFor(async () => (await getSub(sub.id)).subscription.refresh_status.discovered_count > 0, 'the check to find the uploads');
+        assert.strictEqual((await getSub(sub.id)).subscription.downloading, true);
+
+        const left = await app.api.post('/api/unsubscribe').send({sub_id: sub.id, deleteMode: true}).expect(200);
+        assert.strictEqual(left.body.success, true);
+
+        // Past the point where the listing would have finished on its own, and queued both, to
+        // fail once they started for want of their subscription.
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        assert.deepStrictEqual((await getDownloads()).filter(download => download.sub_id === sub.id), []);
     });
 });

@@ -1373,6 +1373,11 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
             error: 'Subscription not found or not owned by the current user.'
         };
     }
+    // A check left running went on to queue downloads for a subscription that was gone, each of
+    // them to fail, and say so, once it started.
+    if (sub['downloading'] || sub['child_process'] || sub['refresh_status']?.active) {
+        await exports.cancelCheckSubscription(sub.id, user_uid);
+    }
     let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
     let id = sub.id;
