@@ -186,8 +186,11 @@ function normalizeArchiveSourceValue(value) {
     return normalized_value === '' ? null : normalized_value;
 }
 
+// An archive entry keeps the extractor a download reported, which can be one of a family, as
+// 'twitch:vod', while what a check lists is compared by the family alone. Compared as they
+// were, a video deleted for good from such a subscription was downloaded again by the next check.
 function getArchiveKey(extractor = null, id = null) {
-    const normalized_extractor = normalizeStringForComparison(extractor);
+    const normalized_extractor = normalizeStringForComparison(extractor)?.split(':')[0];
     const normalized_id = normalizeArchiveSourceValue(id);
     if (!normalized_extractor || !normalized_id) return null;
     return `${normalized_extractor}:${normalized_id}`;

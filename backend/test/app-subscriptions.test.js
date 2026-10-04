@@ -95,6 +95,29 @@ describe('Subscriptions on the server as it runs', function() {
         return res.body.new_sub;
     };
 
+    // Runs a check that lists the given uploads, and waits for it to finish.
+    const check = async (sub, entries) => {
+        const checks = (await listings(sub.url)).length;
+        await answer({source: {entries: [channel(sub.name)]}, listing: {entries}});
+        await app.api.post('/api/checkSubscription').send({sub_id: sub.id}).expect(200);
+        await waitFor(async () => (await listings(sub.url)).length > checks, 'the check to list the uploads');
+        await checkFinished(sub.id);
+        return (await getSub(sub.id)).subscription;
+    };
+
+    // Puts a downloaded upload into a subscription's folder and has the server register it.
+    const addSubscriptionFile = async (sub, id, info = {}) => {
+        await addSampleMedia(path.join(app.media.subscriptions, 'channels', sub.name), {
+            name: id,
+            info: {id, extractor: 'generic', extractor_key: 'Generic', webpage_url: `https://example.com/watch/${id}`, title: `Upload ${id}`, ...info}
+        });
+        await app.api.post('/api/runTask').send({task_key: 'missing_db_records'}).expect(200);
+        const {files} = await getSub(sub.id);
+        const file = files.find(candidate => candidate.url === `https://example.com/watch/${id}`);
+        assert(file, `the server did not register ${id}`);
+        return file;
+    };
+
     before(async function() {
         app = await startApp({
             env: {ytdl_max_concurrent_downloads: '0'},
@@ -182,6 +205,18 @@ describe('Subscriptions on the server as it runs', function() {
         // fail once they started for want of their subscription.
         await new Promise(resolve => setTimeout(resolve, 1500));
         assert.deepStrictEqual((await getDownloads()).filter(download => download.sub_id === sub.id), []);
+    });
+
+    it('keeps a video deleted for good from coming back, whatever its extractor calls itself', async function() {
+        const sub = await subscribe('https://example.com/c/vods', 'Vods Channel');
+        // One of a family of extractors, as yt-dlp names those of some sites.
+        const family = {extractor: 'twitch:vod', extractor_key: 'TwitchVod'};
+        const file = await addSubscriptionFile(sub, 'vod-1', family);
+
+        await app.api.post('/api/deleteSubscriptionFile').send({file_uid: file.uid, deleteForever: true}).expect(200);
+
+        const checked = await check(sub, [upload('vod-1', family)]);
+        assert.strictEqual(checked.refresh_status.queued_count, 0);
     });
 
     it('deletes only what a subscription downloaded through the route for subscription files', async function() {
