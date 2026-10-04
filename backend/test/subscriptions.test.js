@@ -424,6 +424,72 @@ describe('Subscriptions', function() {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
         }
     });
+    it('Queues nothing a check found once it is stopped', async function() {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const original_killYoutubeDLProcess = youtubedl_api.killYoutubeDLProcess;
+        const original_cancelDownload = downloader_api.cancelDownload;
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'stopped_check_sub', source_info_checked_at: Date.now()});
+        let exit_listing = null;
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, line_handlers) => {
+            setTimeout(() => {
+                for (const id of ['stopped-1', 'stopped-2', 'stopped-3']) {
+                    line_handlers.onStdoutLine(JSON.stringify({id, extractor: 'generic', title: id, webpage_url: `https://example.com/watch/${id}`}));
+                }
+            }, 0);
+            return {
+                child_process: {pid: 4321},
+                callback: new Promise(resolve => {
+                    exit_listing = () => resolve({err: new Error('yt-dlp process exited with code null (signal: SIGKILL)')});
+                })
+            };
+        };
+        // Killed, the listing exits at once...
+        youtubedl_api.killYoutubeDLProcess = async () => {
+            exit_listing();
+            return true;
+        };
+        // ...while Stop waits on a download of the subscription to be cancelled, as it waits on
+        // that download's own yt-dlp.
+        downloader_api.cancelDownload = async (download_uid) => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await db_api.updateRecord('download_queue', {uid: download_uid}, {running: false, finished: true, cancelled: true, error: 'Cancelled'});
+            return true;
+        };
+
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            assert.strictEqual(await subscriptions_api.getVideosForSub(sub.id), true);
+            assert(await waitForCondition(async () => (await db_api.getRecord('subscriptions', {id: sub.id})).refresh_status.discovered_count > 0));
+            await db_api.insertRecordIntoTable('download_queue', {
+                uid: uuid(),
+                url: 'https://example.com/watch/earlier',
+                type: 'video',
+                options: {},
+                sub_id: sub.id,
+                running: true,
+                paused: false,
+                finished_step: true,
+                finished: false,
+                error: null,
+                timestamp_start: Date.now()
+            });
+
+            assert.strictEqual(await subscriptions_api.cancelCheckSubscription(sub.id), true);
+
+            // The listing ended while Stop was still at work, and the check went on to queue all
+            // it had found, under a status that said it was cancelled.
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const queued = await db_api.getRecords('download_queue', {sub_id: sub.id, finished: false});
+            assert.deepStrictEqual(queued.map(download => download.url), []);
+            const stopped = await db_api.getRecord('subscriptions', {id: sub.id});
+            assert.strictEqual(stopped.downloading, false);
+            assert.strictEqual(stopped.refresh_status.phase, 'cancelled');
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            youtubedl_api.killYoutubeDLProcess = original_killYoutubeDLProcess;
+            downloader_api.cancelDownload = original_cancelDownload;
+        }
+    });
     it('Get subscription refresh status with pending queue counts', async function() {
         await subscriptions_api.subscribe(new_sub, null, true);
         await db_api.updateRecord('subscriptions', {id: new_sub['id']}, {

@@ -1679,6 +1679,8 @@ async function handleOutputJSON(output_jsons, sub, user_uid, refresh_tracker = n
     await updateSubscriptionRefreshTrackerQueueCounts(refresh_tracker, effective_queue_context);
 
     for (const file_to_download of files_to_download) {
+        // Stopped partway through a batch: the rest of it is not queued.
+        if (isSubscriptionRefreshCancelled(refresh_tracker)) break;
         const prefetched_info = getSubscriptionPrefetchedInfoForDownload(file_to_download);
         if (prefetched_info && Array.isArray(file_to_download['formats'])) {
             // Keep subscription queue payloads small when full info is available.
@@ -2206,15 +2208,9 @@ exports.cancelCheckSubscription = async (sub_id, user_uid = null) => {
         return false;
     }
 
-    // if check is ongoing
-    if (sub['child_process']) {
-        const child_process = sub['child_process'];
-        // Awaited so the check is really dead before the record below says it is cancelled.
-        await youtubedl_api.killYoutubeDLProcess(child_process);
-    }
-
-    // cancel activate video downloads
-    await killSubDownloads(sub_id);
+    // Marked cancelled before anything is killed. Killing waits on the check's yt-dlp and on any
+    // download of the subscription, and a listing that exited in the meantime used to go on to
+    // queue everything it had found, after Stop, under a status saying it was cancelled.
     const refresh_tracker = active_subscription_refresh_trackers.get(sub_id);
     if (refresh_tracker) {
         await finalizeSubscriptionRefreshAsCancelled(sub_id, refresh_tracker);
@@ -2230,7 +2226,20 @@ exports.cancelCheckSubscription = async (sub_id, user_uid = null) => {
             });
         }
     }
-    await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+
+    // if check is ongoing
+    if (sub['child_process']) {
+        const child_process = sub['child_process'];
+        // Awaited so the check is really dead before the record below says it has stopped.
+        await youtubedl_api.killYoutubeDLProcess(child_process);
+    }
+
+    // cancel activate video downloads
+    await killSubDownloads(sub_id);
+    // Unless a new check has started meanwhile, which keeps its own.
+    if (!active_subscription_refresh_trackers.has(sub_id)) {
+        await updateSubscriptionProperty(sub, {downloading: false, child_process: null}, user_uid);
+    }
 
     return true;
 }
