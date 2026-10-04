@@ -1406,7 +1406,16 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
     await killSubDownloads(sub_id, true);
     await files_api.cleanupSubscriptionPlaylists(id, user_uid, sub_files.map(file => file.uid));
 
-    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
+    // Another subscription can download into the same folder: one given the same name, or one
+    // whose name differs only in what a folder name cannot hold. Deleting the folder deleted its
+    // files as well, so a shared folder is left, and only this subscription's files are deleted.
+    const appendedBasePath = getAppendedBasePath(sub, basePath);
+    const metadataBasePath = getSubscriptionMetadataBasePath(sub, basePath);
+    const other_subscription_folders = await getFoldersOfOtherSubscriptions(sub);
+    const uses_own_folder = utils.usesSubscriptionSubfolder(sub)
+        && !other_subscription_folders.has(normalizeFolderForComparison(appendedBasePath));
+
+    if (deleteMode && !uses_own_folder) {
         for (const sub_file of sub_files) {
             await files_api.deleteFile(sub_file.uid, false, user_uid);
         }
@@ -1422,18 +1431,34 @@ exports.unsubscribe = async (sub_id, deleteMode, user_uid = null) => {
         return {success: true};
     }
 
-    const appendedBasePath = getAppendedBasePath(sub, basePath);
-    if (deleteMode && utils.usesSubscriptionSubfolder(sub) && (await fs.pathExists(appendedBasePath))) {
+    if (deleteMode && uses_own_folder && (await fs.pathExists(appendedBasePath))) {
         await fs.remove(appendedBasePath);
     }
-    if (deleteMode && !utils.usesSubscriptionSubfolder(sub)) {
-        const metadataBasePath = getSubscriptionMetadataBasePath(sub, basePath);
+    if (deleteMode && !utils.usesSubscriptionSubfolder(sub) && !other_subscription_folders.has(normalizeFolderForComparison(metadataBasePath))) {
         if (await fs.pathExists(metadataBasePath)) await fs.remove(metadataBasePath);
         await cleanupEmptyDirectory(path.dirname(metadataBasePath), utils.getSubscriptionTypePath(sub, basePath));
     }
 
     await db_api.removeAllRecords('archives', {sub_id: sub.id, ...(shouldRestrictToUser(user_uid) ? {user_uid: user_uid} : {})});
     return {success: true};
+}
+
+// The folders the other subscriptions download into and keep their metadata in. A name that
+// differs only in case is the same folder on some filesystems, so case is not compared.
+async function getFoldersOfOtherSubscriptions(sub) {
+    const others = await db_api.getRecords('subscriptions', null, false, null, null, ['id', 'name', 'user_uid', 'isPlaylist', 'use_subfolder']);
+    const folders = new Set();
+    for (const other of others) {
+        if (other.id === sub.id) continue;
+        const other_base_path = getSubscriptionsBasePathForSub(other, other.user_uid);
+        folders.add(normalizeFolderForComparison(getAppendedBasePath(other, other_base_path)));
+        folders.add(normalizeFolderForComparison(getSubscriptionMetadataBasePath(other, other_base_path)));
+    }
+    return folders;
+}
+
+function normalizeFolderForComparison(folder_path) {
+    return path.resolve(folder_path).toLowerCase();
 }
 
 exports.redownloadSubscription = async (sub_id, user_uid = null) => {

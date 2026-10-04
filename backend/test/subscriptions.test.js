@@ -1126,6 +1126,52 @@ describe('Subscriptions', function() {
             await fs.remove(test_base_path);
         }
     });
+    it('Leaves the files of another subscription in the same folder when unsubscribing with delete mode', async function() {
+        const original_subscriptions_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const test_base_path = path.join('appdata', 'shared-subscription-folder');
+        // Two names that make the one folder, as what a folder name cannot hold is replaced.
+        const kept_sub = Object.assign({}, new_sub, {id: uuid(), name: 'AC/DC', url: 'https://example.com/c/acdc'});
+        const leaving_sub = Object.assign({}, new_sub, {id: uuid(), name: 'AC_DC', url: 'https://example.com/c/ac_dc'});
+        const kept_file_path = path.join(test_base_path, 'channels', 'AC_DC', 'Highway.mp4');
+        const leaving_file_path = path.join(test_base_path, 'channels', 'AC_DC', 'Thunder.mp4');
+
+        config_api.setConfigItem('ytdl_subscriptions_base_path', test_base_path);
+
+        try {
+            await fs.remove(test_base_path);
+            await fs.outputFile(kept_file_path, 'kept');
+            await fs.outputFile(leaving_file_path, 'leaving');
+            await db_api.insertRecordIntoTable('subscriptions', kept_sub);
+            await db_api.insertRecordIntoTable('subscriptions', leaving_sub);
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'kept-shared-file',
+                sub_id: kept_sub.id,
+                path: kept_file_path,
+                isAudio: false,
+                url: 'https://example.com/highway',
+                title: 'Highway'
+            });
+            await db_api.insertRecordIntoTable('files', {
+                uid: 'leaving-shared-file',
+                sub_id: leaving_sub.id,
+                path: leaving_file_path,
+                isAudio: false,
+                url: 'https://example.com/thunder',
+                title: 'Thunder'
+            });
+
+            const result = await subscriptions_api.unsubscribe(leaving_sub.id, true);
+
+            assert.strictEqual(result.success, true);
+            assert.strictEqual(fs.existsSync(leaving_file_path), false);
+            // The folder was deleted whole, with the other subscription's files in it.
+            assert.strictEqual(fs.existsSync(kept_file_path), true);
+            assert(await db_api.getRecord('files', {uid: 'kept-shared-file'}));
+        } finally {
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_subscriptions_base_path);
+            await fs.remove(test_base_path);
+        }
+    });
     it('Does not let path separators split subscription metadata folders', async function() {
         const sub = Object.assign({}, new_sub, {
             id: uuid(),
