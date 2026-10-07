@@ -361,10 +361,10 @@ exports.upsertOIDCUser = async (claims, options = {}) => {
  * internal account should still have its password
  * when it is.
  *
- * The role is set from admin_users at every sign-
- * in, so taking a name off that list takes its
- * administrator rights away the next time it signs
- * in.
+ * The role is set from the proxy's groups header
+ * at every sign-in, so taking somebody out of the
+ * administrator group takes their administrator
+ * rights away the next time they sign in.
  ************************************************/
 exports.upsertHeaderUser = async (raw_uid, options = {}) => {
   const uid = exports.sanitizeUserUID(raw_uid);
@@ -374,8 +374,7 @@ exports.upsertHeaderUser = async (raw_uid, options = {}) => {
     return null;
   }
 
-  const admin_users = Array.isArray(options.admin_users) ? options.admin_users : [];
-  const role = admin_users.includes(uid) ? 'admin' : 'user';
+  const role = options.role === 'admin' ? 'admin' : 'user';
 
   const user_obj = await db_api.getRecord('users', {uid: uid});
   if (!user_obj) {
@@ -409,7 +408,7 @@ exports.upsertHeaderUser = async (raw_uid, options = {}) => {
     return null;
   }
   logger.info(`Header sign-in made '${uid}' ${role === 'admin' ? 'an administrator' : 'an ordinary user'}, `
-    + 'following ytdl_header_auth_admin_users.');
+    + 'following ytdl_header_auth_admin_group.');
   return await db_api.getRecord('users', {uid: uid});
 }
 

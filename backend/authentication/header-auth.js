@@ -13,12 +13,13 @@ const oidc_api = require('./oidc');
  * Authelia, Authentik, oauth2-proxy and the like,
  * in front of the app as forward auth.
  *
- * The header is a claim of identity with nothing
- * behind it but where it came from, so it is only
- * read from a request whose connection was opened
- * by one of the listed proxies. Anybody else who
- * can reach the app could send it themselves and
- * be whoever they liked.
+ * The headers, one naming the user and one their
+ * groups, are a claim with nothing behind it but
+ * where it came from, so they are only read from a
+ * request whose connection was opened by one of
+ * the listed proxies. Anybody else who can reach
+ * the app could send them themselves and be
+ * whoever they liked, in whatever group.
  *
  * Decided once, at startup. Who is trusted to
  * vouch for identities is not something a running
@@ -67,9 +68,23 @@ function getConfiguredSettings() {
         enabled: parseBool(config_api.getConfigItem('ytdl_header_auth_enabled'), false),
         trusted_proxies: String(config_api.getConfigItem('ytdl_header_auth_trusted_proxies') || ''),
         user_header: String(config_api.getConfigItem('ytdl_header_auth_user_header') || '').trim() || 'Remote-User',
+        // No default: a header the proxy does not set is one the browser can, so groups are only read once it is named.
+        groups_header: String(config_api.getConfigItem('ytdl_header_auth_groups_header') || '').trim(),
         auto_register: parseBool(config_api.getConfigItem('ytdl_header_auth_auto_register'), true),
-        admin_users: parseCSV(config_api.getConfigItem('ytdl_header_auth_admin_users'))
+        admin_group: String(config_api.getConfigItem('ytdl_header_auth_admin_group') || '').trim() || 'admin',
+        allowed_groups: parseCSV(config_api.getConfigItem('ytdl_header_auth_allowed_groups'))
     };
+}
+
+// Authelia and oauth2-proxy separate groups with commas, Authentik with |.
+function parseGroups(value) {
+    return String(value || '').split(/[,|]/).map(group => group.trim()).filter(group => group.length > 0);
+}
+
+// Group names are compared without regard to case, as OIDC compares them.
+function inGroup(groups, group) {
+    const wanted = group.toLowerCase();
+    return groups.some(member_of => member_of.toLowerCase() === wanted);
 }
 
 /*************************************************
@@ -133,12 +148,12 @@ function parseTrustedProxies(value) {
     return trusted;
 }
 
-function checkHeaderName(header_name) {
+function checkHeaderName(setting, header_name) {
     if (!HEADER_NAME_PATTERN.test(header_name)) {
-        throw new Error(`ytdl_header_auth_user_header ${JSON.stringify(header_name)} is not a valid header name.`);
+        throw new Error(`${setting} ${JSON.stringify(header_name)} is not a valid header name.`);
     }
     if (RESERVED_HEADER_NAMES.has(header_name.toLowerCase())) {
-        throw new Error(`ytdl_header_auth_user_header cannot be ${header_name}: that header already means something else.`);
+        throw new Error(`${setting} cannot be ${header_name}: that header already means something else.`);
     }
 }
 
@@ -161,17 +176,33 @@ exports.initialize = () => {
     if (conflict) throw new Error(conflict);
 
     const trusted = parseTrustedProxies(settings.trusted_proxies);
-    checkHeaderName(settings.user_header);
+    checkHeaderName('ytdl_header_auth_user_header', settings.user_header);
+    if (settings.groups_header) {
+        checkHeaderName('ytdl_header_auth_groups_header', settings.groups_header);
+        if (settings.groups_header.toLowerCase() === settings.user_header.toLowerCase()) {
+            throw new Error(`ytdl_header_auth_groups_header cannot be ${settings.groups_header}: that header names the user.`);
+        }
+    } else if (settings.allowed_groups.length > 0) {
+        throw new Error('ytdl_header_auth_allowed_groups needs ytdl_header_auth_groups_header: name the header your proxy puts the groups in.');
+    }
 
     active_settings = {
         ...settings,
         header_key: settings.user_header.toLowerCase(),
+        groups_key: settings.groups_header ? settings.groups_header.toLowerCase() : null,
         trusted: trusted
     };
 
-    logger.info(`Header sign-in enabled: reading ${settings.user_header} from ${trusted.entries.map(entry => entry.text).join(', ')}.`);
-    if (settings.admin_users.length === 0) {
-        logger.warn('Header sign-in: ytdl_header_auth_admin_users is empty, so nobody who signs in through the proxy will be an administrator.');
+    const proxies = trusted.entries.map(entry => entry.text).join(', ');
+    if (settings.groups_header) {
+        logger.info(`Header sign-in enabled: reading ${settings.user_header} and ${settings.groups_header} from ${proxies}. `
+            + `Members of '${settings.admin_group}' are administrators.`);
+    } else {
+        logger.info(`Header sign-in enabled: reading ${settings.user_header} from ${proxies}.`);
+        logger.warn('Header sign-in: ytdl_header_auth_groups_header is not set, so nobody who signs in through the proxy will be an administrator.');
+    }
+    if (settings.allowed_groups.length > 0) {
+        logger.info(`Header sign-in: only members of ${settings.allowed_groups.map(group => `'${group}'`).join(', ')} can sign in.`);
     }
     return true;
 }
@@ -185,9 +216,9 @@ function getPeer(req) {
     return ip_ranges.normalizeAddress(req && req.socket ? req.socket.remoteAddress : null);
 }
 
-// Every copy of the header, kept apart. Node would otherwise join repeats with a comma.
-function getHeaderValues(req) {
-    const values = req && req.headersDistinct ? req.headersDistinct[active_settings.header_key] : null;
+// Every copy of a header, kept apart. Node would otherwise join repeats with a comma.
+function getHeaderValues(req, header_key) {
+    const values = req && req.headersDistinct ? req.headersDistinct[header_key] : null;
     return Array.isArray(values) ? values : [];
 }
 
@@ -201,20 +232,25 @@ function getHeaderValues(req) {
  * comes out of X-Forwarded-For, which whoever
  * opened the connection wrote.
  *
- * A header that arrives twice is refused rather
+ * Either header arriving twice is refused rather
  * than half-believed. That is what a proxy does
  * when it adds its own value to one the client
- * sent, instead of replacing it.
+ * sent, instead of replacing it. A missing groups
+ * header is no groups, and so is one that was
+ * never named.
  ************************************************/
 function readIdentity(req) {
     const peer = getPeer(req);
     if (!peer || !ip_ranges.addressInList(active_settings.trusted, peer)) return {problem: 'untrusted', peer: peer};
 
-    const values = getHeaderValues(req);
+    const values = getHeaderValues(req, active_settings.header_key);
     const present = values.filter(value => value !== '');
     if (present.length === 0) return {problem: 'missing', peer: peer};
-    if (values.length > 1) return {problem: 'repeated', peer: peer};
-    return {uid: present[0], peer: peer};
+    if (values.length > 1) return {problem: 'repeated', header: active_settings.user_header, peer: peer};
+
+    const group_values = active_settings.groups_key ? getHeaderValues(req, active_settings.groups_key) : [];
+    if (group_values.length > 1) return {problem: 'repeated', header: active_settings.groups_header, peer: peer};
+    return {uid: present[0], groups: parseGroups(group_values[0]), peer: peer};
 }
 
 /*************************************************
@@ -236,14 +272,21 @@ exports.signIn = async (req) => {
         return {status: 401, error: REFUSED_MESSAGE};
     }
     if (identity.problem === 'repeated') {
-        logger.warn(`Header sign-in refused: the request from ${identity.peer} carried ${header} more than once. `
+        logger.warn(`Header sign-in refused: the request from ${identity.peer} carried ${identity.header} more than once. `
             + 'The proxy has to replace the header, not add to one the client sent.');
         return {status: 401, error: REFUSED_MESSAGE};
     }
 
+    const allowed_groups = active_settings.allowed_groups;
+    if (allowed_groups.length > 0 && !allowed_groups.some(group => inGroup(identity.groups, group))) {
+        logger.warn(`Header sign-in refused: ${JSON.stringify(String(identity.uid).slice(0, 100))} is in none of `
+            + `ytdl_header_auth_allowed_groups (${allowed_groups.join(', ')}).`);
+        return {status: 403, error: UNUSABLE_ACCOUNT_MESSAGE};
+    }
+
     const user = await sign_in_mutex.runExclusive(() => auth_api.upsertHeaderUser(identity.uid, {
         auto_register: active_settings.auto_register,
-        admin_users: active_settings.admin_users
+        role: inGroup(identity.groups, active_settings.admin_group) ? 'admin' : 'user'
     }));
     if (!user) return {status: 403, error: UNUSABLE_ACCOUNT_MESSAGE};
     return {user: user};
@@ -253,7 +296,7 @@ exports.signIn = async (req) => {
  * What the settings page shows: the settings in
  * force, and what the server made of the request
  * asking -- the address it came from, whether that
- * address is trusted, and what the header said.
+ * address is trusted, and what the headers said.
  * Somebody setting this up needs those three, and
  * nothing else can tell them.
  ************************************************/
@@ -264,13 +307,16 @@ exports.getStatus = (req) => {
     return {
         enabled: true,
         user_header: active_settings.user_header,
+        groups_header: active_settings.groups_header,
         trusted_proxies: active_settings.trusted.entries.map(entry => entry.text),
         auto_register: active_settings.auto_register,
-        admin_users: active_settings.admin_users,
+        admin_group: active_settings.admin_group,
+        allowed_groups: active_settings.allowed_groups,
         request: {
             peer: peer,
             trusted: !!peer && ip_ranges.addressInList(active_settings.trusted, peer),
-            values: getHeaderValues(req)
+            values: getHeaderValues(req, active_settings.header_key),
+            group_values: active_settings.groups_key ? getHeaderValues(req, active_settings.groups_key) : []
         }
     };
 }

@@ -7,10 +7,10 @@ const header_auth = require('../authentication/header-auth');
 /*************************************************
  * Header sign-in hands out an account to whoever a
  * header names, so nearly everything here is about
- * when the header is not to be believed: from the
- * wrong address, sent twice, naming something that
- * is not a uid, or switched on beside another way
- * of signing in.
+ * when the headers are not to be believed: from
+ * the wrong address, sent twice, naming something
+ * that is not a uid, or switched on beside another
+ * way of signing in.
  *
  * supertest connects over loopback, so 127.0.0.1
  * is the trusted proxy in these tests, and any
@@ -30,7 +30,9 @@ describe('Header sign-in', function() {
         ytdl_header_auth_trusted_proxies: '127.0.0.1, ::1',
         ytdl_header_auth_user_header: 'Remote-User',
         ytdl_header_auth_auto_register: true,
-        ytdl_header_auth_admin_users: ''
+        ytdl_header_auth_groups_header: 'Remote-Groups',
+        ytdl_header_auth_admin_group: 'admin',
+        ytdl_header_auth_allowed_groups: ''
     };
     let settings = {...BASE_SETTINGS};
 
@@ -110,7 +112,11 @@ describe('Header sign-in', function() {
             ['trusting every IPv6 address', {ytdl_header_auth_trusted_proxies: '10.0.0.1, ::/0'}, /trusts every address/],
             ['with a header name that is not one', {ytdl_header_auth_user_header: 'Remote User'}, /not a valid header name/],
             ['reading a header that means something else', {ytdl_header_auth_user_header: 'Authorization'}, /already means something else/],
-            ['reading the address a proxy forwards', {ytdl_header_auth_user_header: 'x-forwarded-for'}, /already means something else/]
+            ['reading the address a proxy forwards', {ytdl_header_auth_user_header: 'x-forwarded-for'}, /already means something else/],
+            ['with a groups header name that is not one', {ytdl_header_auth_groups_header: 'Remote Groups'}, /groups_header "Remote Groups" is not a valid header name/],
+            ['reading groups from a header that means something else', {ytdl_header_auth_groups_header: 'Cookie'}, /groups_header cannot be Cookie/],
+            ['reading groups from the header that names the user', {ytdl_header_auth_groups_header: 'remote-user'}, /that header names the user/],
+            ['with allowed groups but no groups header', {ytdl_header_auth_groups_header: '', ytdl_header_auth_allowed_groups: 'media'}, /allowed_groups needs ytdl_header_auth_groups_header/]
         ];
         for (const [situation, overrides, message] of refusals) {
             it('refuses to start ' + situation, function() {
@@ -119,10 +125,22 @@ describe('Header sign-in', function() {
             });
         }
 
-        it('reads Remote-User when no header is named', async function() {
-            configure({ytdl_header_auth_user_header: '  '});
-            assert.strictEqual((await request(server()).get('/status').expect(200)).body.user_header, 'Remote-User');
-            assert.strictEqual((await signIn(ALICE).expect(200)).body.uid, ALICE);
+        it('reads Remote-User when no header is named, and no groups until their header is', async function() {
+            configure({ytdl_header_auth_user_header: '  ', ytdl_header_auth_groups_header: ''});
+            const status = (await request(server()).get('/status').set('Remote-Groups', 'admin').expect(200)).body;
+            assert.strictEqual(status.user_header, 'Remote-User');
+            assert.strictEqual(status.groups_header, '');
+            assert.deepStrictEqual(status.request.group_values, []);
+            // A groups header nobody named may be the browser's own, not the proxy's.
+            assert.deepStrictEqual((await signIn(ALICE).set('Remote-Groups', 'admin').expect(200)).body,
+                {uid: ALICE, role: 'user', auth_method: 'header'});
+            await signIn(ALICE).set('Remote-Groups', ['admin', 'admin']).expect(200);
+        });
+
+        it('makes admin the administrator group when none is named', async function() {
+            configure({ytdl_header_auth_admin_group: ' '});
+            assert.strictEqual((await request(server()).get('/status').expect(200)).body.admin_group, 'admin');
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'admin').expect(200)).body.role, 'admin');
         });
     });
 
@@ -162,6 +180,12 @@ describe('Header sign-in', function() {
             // What a proxy that adds its own value, rather than replacing the client's, sends.
             await signIn([PREFIX + 'mallory', ALICE]).expect(401);
             await signIn(['', ALICE]).expect(401);
+            assert.deepStrictEqual(await usersNamed(ALICE), []);
+        });
+
+        it('refuses a groups header that arrives more than once', async function() {
+            await signIn(ALICE).set('Remote-Groups', ['admin', 'users']).expect(401);
+            await signIn(ALICE).set('Remote-Groups', ['admin', '']).expect(401);
             assert.deepStrictEqual(await usersNamed(ALICE), []);
         });
 
@@ -228,41 +252,45 @@ describe('Header sign-in', function() {
     });
 
     describe('Administrators', function() {
-        it('makes the listed names administrators', async function() {
-            configure({ytdl_header_auth_admin_users: `${PREFIX}bob, ${ALICE}`});
-            assert.strictEqual((await signIn(ALICE).expect(200)).body.role, 'admin');
-            assert.strictEqual((await signIn(PREFIX + 'dave').expect(200)).body.role, 'user');
+        it('makes members of the administrator group administrators', async function() {
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'users,admin').expect(200)).body.role, 'admin');
+            assert.strictEqual((await signIn(PREFIX + 'dave').set('Remote-Groups', 'users').expect(200)).body.role, 'user');
+            assert.strictEqual((await signIn(PREFIX + 'erin').expect(200)).body.role, 'user');
         });
 
-        it('takes the rights away from a name that is no longer listed, at its next sign-in', async function() {
-            configure({ytdl_header_auth_admin_users: ALICE});
-            assert.strictEqual((await signIn(ALICE).expect(200)).body.role, 'admin');
+        it('reads the groups header it was told to, split on commas or pipes, in any case', async function() {
+            configure({ytdl_header_auth_groups_header: 'X-authentik-groups', ytdl_header_auth_admin_group: 'Media Admins'});
+            assert.strictEqual((await signIn(ALICE).set('x-AUTHENTIK-GROUPS', 'users|media admins').expect(200)).body.role, 'admin');
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'Media Admins').expect(200)).body.role, 'user');
+        });
 
-            configure({ytdl_header_auth_admin_users: ''});
-            assert.strictEqual((await signIn(ALICE).expect(200)).body.role, 'user');
+        it('matches whole group names only', async function() {
+            for (const groups of ['administrators', 'not-admin', 'admin users', 'admins|users']) {
+                assert.strictEqual((await signIn(ALICE).set('Remote-Groups', groups).expect(200)).body.role, 'user', groups);
+            }
+        });
+
+        it('takes the rights away from somebody no longer in the group, at their next sign-in', async function() {
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'admin').expect(200)).body.role, 'admin');
+
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'users').expect(200)).body.role, 'user');
             assert.strictEqual((await db_api.getRecord('users', {uid: ALICE})).role, 'user');
         });
 
-        it('demotes an existing administrator who signs in through the proxy without being listed', async function() {
+        it('demotes an existing administrator who signs in through the proxy outside the group', async function() {
             await auth_api.registerUser(ALICE, ALICE, 'alice-password');
             await db_api.updateRecord('users', {uid: ALICE}, {role: 'admin'});
 
             assert.strictEqual((await signIn(ALICE).expect(200)).body.role, 'user');
         });
 
-        it('matches listed names exactly', async function() {
-            configure({ytdl_header_auth_admin_users: ALICE.toUpperCase()});
-            assert.strictEqual((await signIn(ALICE).expect(200)).body.role, 'user');
-        });
-
         it('fails the sign-in when the database will not change the role', async function() {
             await signIn(ALICE).expect(200);
-            configure({ytdl_header_auth_admin_users: ALICE});
 
             const update = db_api.updateRecord;
             db_api.updateRecord = async () => false;
             try {
-                await signIn(ALICE).expect(403);
+                await signIn(ALICE).set('Remote-Groups', 'admin').expect(403);
             } finally {
                 db_api.updateRecord = update;
             }
@@ -270,24 +298,38 @@ describe('Header sign-in', function() {
         });
     });
 
+    describe('Allowed groups', function() {
+        it('lets in only members of a listed group, and makes no account for anybody else', async function() {
+            configure({ytdl_header_auth_allowed_groups: 'media, family'});
+            await signIn(ALICE).expect(403);
+            // The administrator group is not one of them by itself.
+            await signIn(ALICE).set('Remote-Groups', 'admin').expect(403);
+            assert.deepStrictEqual(await usersNamed(ALICE), []);
+
+            assert.strictEqual((await signIn(ALICE).set('Remote-Groups', 'users,FAMILY').expect(200)).body.uid, ALICE);
+        });
+    });
+
     describe('What the settings page is told', function() {
         it('reports the settings in force and what was made of the request', async function() {
-            configure({ytdl_header_auth_admin_users: ALICE, ytdl_header_auth_auto_register: false});
-            const res = await request(server()).get('/status').set('Remote-User', ALICE).expect(200);
+            configure({ytdl_header_auth_allowed_groups: 'media, family', ytdl_header_auth_auto_register: false});
+            const res = await request(server()).get('/status').set('Remote-User', ALICE).set('Remote-Groups', 'admin,media').expect(200);
             assert.deepStrictEqual(res.body, {
                 enabled: true,
                 user_header: 'Remote-User',
+                groups_header: 'Remote-Groups',
                 trusted_proxies: ['127.0.0.1', '::1'],
                 auto_register: false,
-                admin_users: [ALICE],
-                request: {peer: '127.0.0.1', trusted: true, values: [ALICE]}
+                admin_group: 'admin',
+                allowed_groups: ['media', 'family'],
+                request: {peer: '127.0.0.1', trusted: true, values: [ALICE], group_values: ['admin,media']}
             });
         });
 
         it('says when the request did not come from a trusted proxy, or named nobody', async function() {
             configure({ytdl_header_auth_trusted_proxies: '10.0.0.1'});
             const res = await request(server()).get('/status').expect(200);
-            assert.deepStrictEqual(res.body.request, {peer: '127.0.0.1', trusted: false, values: []});
+            assert.deepStrictEqual(res.body.request, {peer: '127.0.0.1', trusted: false, values: [], group_values: []});
         });
 
         it('says only that it is off when it is off', async function() {

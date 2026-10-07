@@ -110,7 +110,9 @@
         "trusted_proxies": "",
         "user_header": "Remote-User",
         "auto_register": true,
-        "admin_users": ""
+        "groups_header": "",
+        "admin_group": "admin",
+        "allowed_groups": ""
       }
     },
     "Database": {

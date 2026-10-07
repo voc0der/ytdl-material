@@ -186,14 +186,16 @@ export interface OIDCStatus {
 }
 
 // What /api/auth/header/status answers: the settings header sign-in started with, and what the
-// server made of the request asking, which is the only way to see the header it received.
+// server made of the request asking, which is the only way to see the headers it received.
 export interface HeaderAuthStatus {
     enabled: boolean;
     user_header?: string;
+    groups_header?: string;
     trusted_proxies?: string[];
     auto_register?: boolean;
-    admin_users?: string[];
-    request?: { peer: string | null, trusted: boolean, values: string[] };
+    admin_group?: string;
+    allowed_groups?: string[];
+    request?: { peer: string | null, trusted: boolean, values: string[], group_values: string[] };
 }
 
 // Pages that only ever show your own things, never a library someone shared with you.

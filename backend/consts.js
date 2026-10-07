@@ -353,9 +353,17 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_header_auth_auto_register',
         'path': 'YtdlMaterial.Users.header_auth.auto_register'
     },
-    'ytdl_header_auth_admin_users': {
-        'key': 'ytdl_header_auth_admin_users',
-        'path': 'YtdlMaterial.Users.header_auth.admin_users'
+    'ytdl_header_auth_groups_header': {
+        'key': 'ytdl_header_auth_groups_header',
+        'path': 'YtdlMaterial.Users.header_auth.groups_header'
+    },
+    'ytdl_header_auth_admin_group': {
+        'key': 'ytdl_header_auth_admin_group',
+        'path': 'YtdlMaterial.Users.header_auth.admin_group'
+    },
+    'ytdl_header_auth_allowed_groups': {
+        'key': 'ytdl_header_auth_allowed_groups',
+        'path': 'YtdlMaterial.Users.header_auth.allowed_groups'
     },
 
     // Database
