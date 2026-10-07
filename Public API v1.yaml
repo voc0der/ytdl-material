@@ -37,6 +37,34 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/downloadFiles:
+    post:
+      tags:
+        - downloader
+      summary: Download a list of links
+      description: |-
+        Queues every link in a list at the default settings, as pasting a long list into the app does.
+
+
+        A link repeated in the list, already waiting in the queue, or already in the library is counted as a duplicate instead of being queued. A duplicate that only a link's info can reveal is skipped once that info is fetched, whether or not duplicate warnings are on. Entries that are not http or https links are counted and left out.
+      operationId: post-downloadFiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDownloadRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDownloadResponse'
+        '400':
+          description: No list of links was given, or more than 1000.
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/generateArgs:
     post:
       tags:
@@ -2290,6 +2318,36 @@ components:
       properties:
         download:
           $ref: '#/components/schemas/Download'
+    BulkDownloadRequest:
+      required:
+        - urls
+      type: object
+      properties:
+        urls:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+        type:
+          $ref: '#/components/schemas/FileType'
+    BulkDownloadResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessObject'
+        - type: object
+          required:
+            - queued_count
+            - duplicate_count
+            - invalid_count
+          properties:
+            queued_count:
+              type: number
+              description: Links queued. A playlist counts once, however many batches it is split into.
+            duplicate_count:
+              type: number
+              description: Links left out as duplicates.
+            invalid_count:
+              type: number
+              description: Entries left out for not being http or https links.
     GenerateArgsResponse:
       type: object
       properties:

@@ -888,6 +888,124 @@ describe('MainComponent', () => {
     expect(open_dialog_spy).toHaveBeenCalled();
   });
 
+  describe('a pasted list of links', () => {
+    const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
+    const links = (count: number) => Array.from({ length: count }, (_, i) => watch(`video-${i}`));
+    let downloadFiles: ReturnType<typeof vi.fn>;
+    let openSnackBar: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      downloadFiles = vi.fn((urls: string[]) => of({ success: true, queued_count: urls.length, duplicate_count: 0, invalid_count: 0 }));
+      openSnackBar = vi.fn();
+      (component as any).postsService.downloadFiles = downloadFiles;
+      (component as any).postsService.openSnackBar = openSnackBar;
+      component.allowQualitySelect = true;
+      component.urlInput = { nativeElement: { focus: vi.fn() } } as any;
+    });
+
+    it('shows a long paste as its first link and looks none of them up', () => {
+      const probe = vi.spyOn(component, 'getURLInfo');
+      const validate = vi.spyOn(component, 'ValidURL');
+      component.autoplay = true;
+
+      component.inputChanged(links(500).join('\n'));
+
+      expect(component.bulkMode).toBe(true);
+      expect(component.bulkLinks).toEqual(links(500));
+      expect(component.bulkMoreLabel).toBe('499 more links');
+      expect(probe).not.toHaveBeenCalled();
+      expect(validate).not.toHaveBeenCalled();
+      expect(component.autoplay).toBe(true);
+    });
+
+    it('leaves a short paste as separate links', () => {
+      component.inputChanged(links(9).join('\n'));
+
+      expect(component.bulkMode).toBe(false);
+      expect(component.bulkLinks).toEqual([]);
+    });
+
+    it('keeps each video once, however it was linked', () => {
+      component.inputChanged([...links(10), watch('video-3'), 'https://youtu.be/video-4?t=10', `${watch('video-5')}&list=PL1`].join('\n'));
+
+      expect(component.bulkLinks).toEqual(links(10));
+    });
+
+    it('finds the links in a list copied from text', () => {
+      component.inputChanged(Array.from({ length: 10 }, (_, i) => `${i + 1}. [Video ${i}](https://youtu.be/video-${i}), `).join(''));
+
+      expect(component.bulkLinks).toEqual(links(10));
+    });
+
+    it('downloads the list at the defaults, 250 links to a request, and clears the box', () => {
+      const downloadFile = vi.spyOn((component as any).postsService, 'downloadFile');
+      component.audioOnly = true;
+      component.inputChanged(links(600).join('\n'));
+      component.downloadClicked();
+
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(downloadFiles.mock.calls.map(([urls]) => urls.length)).toEqual([250, 250, 100]);
+      expect(downloadFiles.mock.calls.flatMap(([urls]) => urls)).toEqual(links(600));
+      expect(component.url).toBe('');
+      expect(component.bulkMode).toBe(false);
+      expect(component.downloadingfile).toBe(false);
+      expect(openSnackBar).toHaveBeenCalledWith('600 downloads queued');
+    });
+
+    it('counts repeats in the paste with the duplicates the server skipped', () => {
+      downloadFiles.mockImplementation((urls: string[]) => of({ success: true, queued_count: urls.length - 2, duplicate_count: 2, invalid_count: 0 }));
+      component.inputChanged([...links(12), watch('video-0')].join('\n'));
+      component.downloadClicked();
+
+      expect(openSnackBar).toHaveBeenCalledWith('10 downloads queued, 3 duplicates skipped');
+    });
+
+    it('says when everything in the list was a duplicate', () => {
+      downloadFiles.mockImplementation((urls: string[]) => of({ success: true, queued_count: 0, duplicate_count: urls.length, invalid_count: 0 }));
+      component.inputChanged(links(10).join('\n'));
+      component.downloadClicked();
+
+      expect(openSnackBar).toHaveBeenCalledWith('Nothing new to download, 10 duplicates skipped');
+    });
+
+    it('keeps the list when queueing it fails, so it can be sent again', () => {
+      downloadFiles.mockReturnValue(throwError(() => new Error('offline')));
+      component.inputChanged(links(20).join('\n'));
+      component.downloadClicked();
+
+      expect(component.bulkLinks).toEqual(links(20));
+      expect(component.downloadingfile).toBe(false);
+      expect(openSnackBar).toHaveBeenCalledWith('Download failed!', 'OK.');
+    });
+
+    it('keeps a list that replaced it while the first was being queued', () => {
+      const pending = new Subject<any>();
+      downloadFiles.mockReturnValue(pending);
+      component.inputChanged(links(20).join('\n'));
+      component.downloadClicked();
+      const next = links(30).slice(20).concat(links(10)).join('\n');
+      component.inputChanged(next);
+      pending.next({ success: true, queued_count: 20, duplicate_count: 0, invalid_count: 0 });
+      pending.complete();
+
+      expect(component.bulkLinks.length).toBe(20);
+      expect(component.url).toBe(next);
+    });
+
+    it('is set aside while searching, and cleared from the box', () => {
+      component.inputChanged(links(20).join('\n'));
+      component.toggleInputMode();
+      expect(component.bulkMode).toBe(false);
+      component.toggleInputMode();
+      expect(component.bulkMode).toBe(true);
+
+      component.clearInput();
+
+      expect(component.bulkMode).toBe(false);
+      expect(component.url).toBe('');
+    });
+  });
+
   describe('advanced download mode', () => {
     const ADVANCED_STORAGE_KEYS = [
       'advancedMode', 'customArgsEnabled', 'replaceArgs', 'customOutputEnabled',

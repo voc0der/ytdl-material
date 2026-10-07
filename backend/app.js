@@ -1380,6 +1380,33 @@ app.post('/api/downloadFile', optionalJwt, requireAuthenticated, async function(
     }
 });
 
+/*************************************************
+ * A pasted list of links, queued at the default
+ * settings. A request per link runs into the API
+ * rate limit a few hundred links in, so a list
+ * comes in one request, or in a few when it is
+ * long: the app sends 250 links at a time, which
+ * keeps each well inside the request body limit.
+ ************************************************/
+const BULK_DOWNLOAD_MAX_URLS = 1000;
+
+app.post('/api/downloadFiles', optionalJwt, requireAuthenticated, async function(req, res) {
+    const urls = req.body.urls;
+    if (!Array.isArray(urls) || urls.length === 0) {
+        res.status(400).send({success: false, error: 'URLs must be provided as a non-empty array.'});
+        return;
+    }
+    if (urls.length > BULK_DOWNLOAD_MAX_URLS) {
+        res.status(400).send({success: false, error: `A maximum of ${BULK_DOWNLOAD_MAX_URLS} URLs may be queued at once.`});
+        return;
+    }
+
+    const type = req.body.type === 'audio' ? 'audio' : 'video';
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const result = await downloader_api.createBulkDownloads(urls, type, user_uid);
+    res.send({success: true, ...result});
+});
+
 app.post('/api/killAllDownloads', optionalJwt, requireAdmin, async function(req, res) {
     const result_obj = await youtubedl_api.killAllDownloads();
     res.send(result_obj);

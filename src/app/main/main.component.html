@@ -9,15 +9,25 @@
           <mat-icon class="mode-search">search</mat-icon>
         </span>
       </button>
+      <!-- A pasted list shows as its first link and a count of the rest, and is cleared, not edited. -->
       <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off"
-        [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
-        [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
+        [ngModel]="inputMode === 'url' ? (bulkMode ? bulkLinks[0] : url) : searchQuery" (ngModelChange)="inputChanged($event)"
+        [readonly]="bulkMode" [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
         [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
         (keydown.enter)="inputMode === 'search' && submitSearch($event)" (keydown.escape)="dismissSearch()"
         autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
+      @if (bulkMode) {
+        @if (bulkLinks.length > 1) {
+          <span class="bulk-count" [matTooltip]="bulkMoreLabel">+{{ bulkLinks.length - 1 }}</span>
+        }
+        <button type="button" class="kit-icon-button bulk-clear" (click)="clearInput()" [disabled]="downloadingfile"
+          [attr.aria-label]="clearLinksLabel" [matTooltip]="clearLinksLabel">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
       @if (inputMode === 'url' && url) {
         <button type="button" class="kit-icon-button kit-primary download-action" (click)="downloadClicked()" [disabled]="downloadingfile"
-          [attr.aria-label]="downloadLabel" [matTooltip]="downloadLabel">
+          [attr.aria-label]="bulkMode ? bulkDownloadLabel : downloadLabel" [matTooltip]="bulkMode ? bulkDownloadLabel : downloadLabel">
           <mat-icon>download</mat-icon>
         </button>
       }
@@ -28,30 +38,35 @@
     }
   </form>
   @if (inputMode === 'url') {
-    <!-- What to download settles once there is a link to look at, so its choices wait for one. -->
+    <!-- What to download settles once there is a link to look at, so its choices wait for one.
+         A pasted list has none: it downloads at the defaults. -->
     <div class="kit-rail download-options">
-      @if (url && allowQualitySelect) {
-        <app-picker [title]="qualityLabel" [label]="qualityLabel" [options]="qualityPickerOptions" [value]="selectedQuality"
-          (valueChange)="selectedQuality = $event; argsChanged()" [loading]="formatsLoading"></app-picker>
-        @if (canSelectAudioLanguage()) {
-          <app-picker [title]="audioLanguageLabel" [label]="audioLanguageLabel" [options]="audioLanguagePickerOptions" [value]="selectedAudioLanguage"
-            (valueChange)="selectedAudioLanguage = $any($event); argsChanged()"></app-picker>
+      @if (bulkMode) {
+        <span class="bulk-note" i18n="Note under a pasted list of links">Each link downloads as video at the default settings. Duplicates are skipped.</span>
+      } @else {
+        @if (url && allowQualitySelect) {
+          <app-picker [title]="qualityLabel" [label]="qualityLabel" [options]="qualityPickerOptions" [value]="selectedQuality"
+            (valueChange)="selectedQuality = $event; argsChanged()" [loading]="formatsLoading"></app-picker>
+          @if (canSelectAudioLanguage()) {
+            <app-picker [title]="audioLanguageLabel" [label]="audioLanguageLabel" [options]="audioLanguagePickerOptions" [value]="selectedAudioLanguage"
+              (valueChange)="selectedAudioLanguage = $any($event); argsChanged()"></app-picker>
+          }
+          @if (canSelectSubtitleLanguage()) {
+            <app-picker [title]="subtitleLanguageLabel" [label]="subtitleLanguageLabel" [options]="subtitleLanguagePickerOptions" [value]="selectedSubtitleLanguage"
+              (valueChange)="onSelectedSubtitleLanguageChanged($any($event))"></app-picker>
+          }
         }
-        @if (canSelectSubtitleLanguage()) {
-          <app-picker [title]="subtitleLanguageLabel" [label]="subtitleLanguageLabel" [options]="subtitleLanguagePickerOptions" [value]="selectedSubtitleLanguage"
-            (valueChange)="onSelectedSubtitleLanguageChanged($any($event))"></app-picker>
-        }
-      }
-      <button type="button" class="kit-chip" [attr.aria-pressed]="audioOnly" (click)="toggleAudioOnlyFromMenu()" [disabled]="downloadingfile || (autoplay && !!current_download)">
-        @if (audioOnly) {
-          <mat-icon>check</mat-icon>
-        }
-        <span i18n="Main download button option for audio-only mode">Only Audio</span>
-      </button>
-      @if (!forceAutoplay || allowAdvancedDownload || hasAdditionalDownloadMenuActions()) {
-        <button type="button" class="kit-chip download-more" [matMenuTriggerFor]="downloadMenu" [attr.aria-label]="moreDownloadOptionsLabel">
-          <mat-icon>more_horiz</mat-icon>
+        <button type="button" class="kit-chip" [attr.aria-pressed]="audioOnly" (click)="toggleAudioOnlyFromMenu()" [disabled]="downloadingfile || (autoplay && !!current_download)">
+          @if (audioOnly) {
+            <mat-icon>check</mat-icon>
+          }
+          <span i18n="Main download button option for audio-only mode">Only Audio</span>
         </button>
+        @if (!forceAutoplay || allowAdvancedDownload || hasAdditionalDownloadMenuActions()) {
+          <button type="button" class="kit-chip download-more" [matMenuTriggerFor]="downloadMenu" [attr.aria-label]="moreDownloadOptionsLabel">
+            <mat-icon>more_horiz</mat-icon>
+          </button>
+        }
       }
       <!-- Creating a playlist belongs to the library below, so it rides along at the end of this
            row: the row is there on both tabs, and switching tabs must not move anything. -->
@@ -100,7 +115,7 @@
     </mat-menu>
   }
 </div>
-@if (inputMode === 'url' && isAdvancedModeActive()) {
+@if (inputMode === 'url' && isAdvancedModeActive() && !bulkMode) {
   <div class="download-box">
     <form>
       <mat-card class="advanced-panel">

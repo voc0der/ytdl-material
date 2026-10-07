@@ -1,6 +1,6 @@
 import { Component, OnInit, ElementRef, ViewChild, ViewChildren, QueryList, ChangeDetectionStrategy } from '@angular/core';
 import {PostsService} from '../posts.services';
-import { EMPTY, Observable, of, Subject, timer } from 'rxjs';
+import { EMPTY, from, Observable, of, Subject, timer } from 'rxjs';
 import { UntypedFormControl, Validators, FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -14,7 +14,7 @@ import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.com
 import { MediaLibraryComponent } from 'app/components/media-library/media-library.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { DatabaseFile, Download, FileType, Playlist } from 'api-types';
-import { catchError, debounceTime, filter, map, switchMap, take, takeUntil } from 'rxjs/operators';
+import { catchError, concatMap, debounceTime, filter, map, reduce, switchMap, take, takeUntil } from 'rxjs/operators';
 import { MatCard } from '@angular/material/card';
 import { MatFormField, MatInput, MatLabel, MatHint } from '@angular/material/input';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
@@ -26,6 +26,16 @@ import { MatDivider } from '@angular/material/list';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MediaLibraryComponent as MediaLibraryComponent_1 } from '../components/media-library/media-library.component';
 import { PickerComponent, type PickerOption } from '../components/picker/picker.component';
+
+// From this many links a paste is a list, downloaded as it stands: at the default settings, in
+// one request, with none of its links looked up first.
+const BULK_LINK_THRESHOLD = 10;
+// Links per request, which keeps each well inside the server's request body limit.
+const BULK_REQUEST_SIZE = 250;
+// Anything from http(s):// to the next space, so a list copied out of a chat or a document works
+// as well as one link per line, less the punctuation it was written next to.
+const LINK_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
+const LINK_TRAILING_PUNCTUATION = /[.,;:!?)\]]+$/;
 
 @Component({
     selector: 'app-root',
@@ -61,6 +71,9 @@ export class MainComponent implements OnInit {
   url = '';
   exists = '';
   autoStartDownload = false;
+  // The links of a pasted list, each once; empty unless the URL box holds one.
+  bulkLinks: string[] = [];
+  private bulkRepeatCount = 0;
 
   // global settings
   fileManagerEnabled = false;
@@ -85,6 +98,7 @@ export class MainComponent implements OnInit {
   readonly downloadLabel = $localize`:Main download button:Download`;
   readonly moreDownloadOptionsLabel = $localize`:More download options button label:More download options`;
   readonly createPlaylistLabel = $localize`:Create playlist button:New playlist`;
+  readonly clearLinksLabel = $localize`:Clear a pasted list of links:Clear links`;
   readonly qualityLabel = $localize`:Quality select label:Quality`;
   readonly audioLanguageLabel = $localize`:Audio language select label:Language`;
   readonly subtitleLanguageLabel = $localize`:Subtitle select label:Subtitles`;
@@ -211,6 +225,21 @@ export class MainComponent implements OnInit {
   constructor(public postsService: PostsService, private youtubeSearch: YoutubeSearchService, public snackBar: MatSnackBar,
     private router: Router, public dialog: MatDialog, private platform: Platform, private route: ActivatedRoute) {
     this.audioOnly = false;
+  }
+
+  get bulkMode(): boolean {
+    return this.inputMode === 'url' && this.bulkLinks.length > 0;
+  }
+
+  get bulkDownloadLabel(): string {
+    return $localize`:Download every link in a pasted list:Download all ${this.bulkLinks.length}:count: links`;
+  }
+
+  get bulkMoreLabel(): string {
+    const more = this.bulkLinks.length - 1;
+    return more === 1
+      ? $localize`:The other link in a pasted list:1 more link`
+      : $localize`:Count of the other links in a pasted list:${more}:count: more links`;
   }
 
   get showCreatePlaylistShortcut(): boolean {
@@ -491,6 +520,10 @@ export class MainComponent implements OnInit {
 
   downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true, channelSearchPlaylist = false): void {
     if (this.inputMode === 'search' && urlOverride === null) return;
+    if (this.bulkLinks.length > 0 && urlOverride === null) {
+      this.downloadBulkLinks();
+      return;
+    }
     let effective_url = typeof urlOverride === 'string' ? urlOverride : (this.url || '');
 
     // Sanitize single YouTube watch URLs (keep only v=...)
@@ -587,6 +620,67 @@ export class MainComponent implements OnInit {
           this.downloadingfile = false;
       }
     }
+  }
+
+  /**
+   * The whole list at the default settings, sent BULK_REQUEST_SIZE links at a time. Anything
+   * already queued or downloaded comes back counted as a duplicate instead of being queued again,
+   * so sending a list twice, or again after a failure, is harmless.
+   */
+  private downloadBulkLinks(): void {
+    const links = this.bulkLinks;
+    const requests: string[][] = [];
+    for (let i = 0; i < links.length; i += BULK_REQUEST_SIZE) {
+      requests.push(links.slice(i, i + BULK_REQUEST_SIZE));
+    }
+
+    this.downloadingfile = true;
+    from(requests).pipe(
+      concatMap(request => this.postsService.downloadFiles(request)),
+      reduce((totals, res) => ({
+        queued: totals.queued + res.queued_count,
+        duplicates: totals.duplicates + res.duplicate_count
+      }), {queued: 0, duplicates: this.bulkRepeatCount})
+    ).subscribe({
+      next: ({queued, duplicates}) => {
+        this.downloadingfile = false;
+        // Unless the box was given something else meanwhile, the list is done with.
+        if (this.bulkLinks === links) {
+          this.url = '';
+          this.bulkLinks = [];
+          this.bulkRepeatCount = 0;
+        }
+        this.postsService.openSnackBar(this.getBulkQueuedMessage(queued, duplicates));
+      },
+      error: () => {
+        this.downloadingfile = false;
+        this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
+      }
+    });
+  }
+
+  private getBulkQueuedMessage(queued: number, duplicates: number): string {
+    const queued_text = queued === 0 ? $localize`Nothing new to download`
+      : queued === 1 ? $localize`1 download queued`
+      : $localize`${queued}:count: downloads queued`;
+    if (duplicates === 0) return queued_text;
+
+    const skipped_text = duplicates === 1 ? $localize`1 duplicate skipped` : $localize`${duplicates}:count: duplicates skipped`;
+    return `${queued_text}, ${skipped_text}`;
+  }
+
+  // Links come in the form a single download would send them, so one video linked two ways is
+  // one link.
+  private setBulkLinks(text: string): void {
+    const found_links = (text.match(LINK_PATTERN) ?? []).map(link => link.replace(LINK_TRAILING_PUNCTUATION, ''));
+    if (found_links.length < BULK_LINK_THRESHOLD) {
+      this.bulkLinks = [];
+      this.bulkRepeatCount = 0;
+      return;
+    }
+
+    this.bulkLinks = [...new Set(found_links.map(link => this.sanitizeYouTubeWatchUrl(link)))];
+    this.bulkRepeatCount = found_links.length - this.bulkLinks.length;
   }
 
   getSelectedAudioFormat(): string {
@@ -758,6 +852,8 @@ export class MainComponent implements OnInit {
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
     this.selectedSubtitleSource = '';
+    this.setBulkLinks(new_val || '');
+    if (this.bulkLinks.length > 0) return;
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -953,7 +1049,7 @@ export class MainComponent implements OnInit {
 
   getSimulatedOutput(): void {
     const urls = this.getURLArray(this.url);
-    if (urls.length > 1) return;
+    if (urls.length > 1 || this.bulkLinks.length > 0) return;
 
     // shares getAdvancedDownloadOptions() with downloadClicked() so the previewed command
     // always matches what an actual download would run

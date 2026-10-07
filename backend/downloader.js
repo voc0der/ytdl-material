@@ -1416,32 +1416,133 @@ exports.createDownload = async (url, type, options, user_uid = null, sub_id = nu
     }
 
     return await mutex.runExclusive(async () => {
-        const download = {
-            url: url,
-            type: type,
-            title: display_title || '',
-            user_uid: user_uid,
-            sub_id: sub_id,
-            sub_name: sub_name,
-            prefetched_info: prefetched_info,
-            options: options,
-            uid: uuid(),
-            step_index: 0,
-            paused: paused,
-            running: false,
-            finished_step: true,
-            error: null,
-            error_summary: null,
-            percent_complete: null,
-            playlist_item_progress: null,
-            finished: false,
-            timestamp_start: Date.now()
-        };
+        const download = buildDownloadRecord(url, type, options, user_uid, sub_id, sub_name, prefetched_info, paused, display_title);
         await db_api.insertRecordIntoTable('download_queue', download);
 
         should_check_downloads = true;
         return download;
     });
+}
+
+function buildDownloadRecord(url, type, options, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false, display_title = null) {
+    return {
+        url: url,
+        type: type,
+        title: display_title || '',
+        user_uid: user_uid,
+        sub_id: sub_id,
+        sub_name: sub_name,
+        prefetched_info: prefetched_info,
+        options: options,
+        uid: uuid(),
+        step_index: 0,
+        paused: paused,
+        running: false,
+        finished_step: true,
+        error: null,
+        error_summary: null,
+        percent_complete: null,
+        playlist_item_progress: null,
+        finished: false,
+        timestamp_start: Date.now()
+    };
+}
+
+/*************************************************
+ * What makes two links the same download: the
+ * source and id a link carries, where it carries
+ * one, so a video linked two ways is one download.
+ * Otherwise the link itself.
+ ************************************************/
+function getLinkSourceKey(url = '', type = 'video') {
+    const source_metadata = files_api.extractSourceMetadataFromUrl(url, type);
+    return source_metadata && source_metadata.duplicate_key ? source_metadata.duplicate_key : url;
+}
+
+async function findLinksAlreadyQueued(urls = [], type = 'video', user_uid = null) {
+    if (urls.length === 0) return new Set();
+
+    const queue_filter = {finished: false, type: type};
+    if (config_api.getConfigItem('ytdl_multi_user_mode')) queue_filter['user_uid'] = user_uid;
+
+    const queued_downloads = await db_api.getRecords('download_queue', queue_filter, false, null, null, ['url']);
+    const queued_keys = new Set(queued_downloads.map(download => getLinkSourceKey(download['url'], type)));
+    return new Set(urls.filter(url => queued_keys.has(getLinkSourceKey(url, type))));
+}
+
+/*************************************************
+ * A pasted list of links, queued in one go at the
+ * default settings. A link repeated in the list,
+ * already waiting in the queue, or already in the
+ * library is counted as a duplicate rather than
+ * queued, and one only its info can show to be a
+ * duplicate is skipped when that info is fetched,
+ * whatever the duplicate warning setting says:
+ * nobody is asked about each of several hundred.
+ *
+ * The records go in as one insert. Every insert
+ * rewrites the whole local database file, so one
+ * per link meant hundreds of rewrites.
+ ************************************************/
+exports.createBulkDownloads = async (urls = [], type = 'video', user_uid = null) => {
+    const result = {queued_count: 0, duplicate_count: 0, invalid_count: 0};
+    const options = {skipDuplicates: true};
+
+    const links = [];
+    const link_keys = new Set();
+    for (const candidate_url of Array.isArray(urls) ? urls : []) {
+        const url = typeof candidate_url === 'string' ? candidate_url.trim() : '';
+        if (!utils.isAllowedDownloadURL(url)) {
+            result.invalid_count++;
+            continue;
+        }
+
+        const link_key = getLinkSourceKey(url, type);
+        if (link_keys.has(link_key)) {
+            result.duplicate_count++;
+            continue;
+        }
+        link_keys.add(link_key);
+        links.push(url);
+    }
+
+    const playlist_links = [];
+    await mutex.runExclusive(async () => {
+        // Checked under the lock, so two lists pasted at once cannot both queue a link.
+        const queued_links = await findLinksAlreadyQueued(links, type, user_uid);
+        const library_links = await files_api.findLinksAlreadyInLibrary(links, type, user_uid);
+        const new_links = links.filter(url => !queued_links.has(url) && !library_links.has(url));
+        result.duplicate_count += links.length - new_links.length;
+
+        const queued_at = Date.now();
+        const records = [];
+        for (const url of new_links) {
+            if (isPlaylistLikeDownload(url, options)) {
+                playlist_links.push(url);
+                continue;
+            }
+            // Each its own options, which the info step writes to. A millisecond apart, so
+            // the queue starts them in the order they were pasted.
+            records.push({
+                ...buildDownloadRecord(url, type, {...options}, user_uid),
+                timestamp_start: queued_at + records.length
+            });
+        }
+
+        if (records.length > 0) {
+            await db_api.insertRecordsIntoTable('download_queue', records);
+            should_check_downloads = true;
+        }
+        result.queued_count += records.length;
+    });
+
+    // A playlist goes the usual way, which looks it up to split it into batches.
+    for (const url of playlist_links) {
+        const downloads = await exports.createDownloads(url, type, {...options}, user_uid);
+        if (downloads.length > 0) result.queued_count++;
+    }
+
+    return result;
 }
 
 exports.createDownloads = async (url, type, options = {}, user_uid = null, sub_id = null, sub_name = null, prefetched_info = null, paused = false) => {
@@ -2013,8 +2114,9 @@ exports.collectInfo = async (download_uid) => {
         info = await exports.getVideoInfoByURL(url, args, download_uid, options);
     }
 
-    const warn_on_duplicate = !!config_api.getConfigItem('ytdl_warn_on_duplicate');
-    const output_collision_paths = !warn_on_duplicate ? getExistingOutputCollisionPaths(info) : [];
+    // A pasted list skips what the library already has whatever the setting says.
+    const skip_duplicates = !!config_api.getConfigItem('ytdl_warn_on_duplicate') || options.skipDuplicates === true;
+    const output_collision_paths = !skip_duplicates ? getExistingOutputCollisionPaths(info) : [];
     if (output_collision_paths.length > 0) {
         const duplicate_output_suffix = ` [duplicate-${String(download_uid || '').slice(0, 8)}]`;
         args = applyOutputSuffixToArgs(args, duplicate_output_suffix);
@@ -2022,10 +2124,10 @@ exports.collectInfo = async (download_uid) => {
     }
 
     const stripped_category = category ? {name: category['name'], uid: category['uid']} : null;
-    const duplicate_matches = warn_on_duplicate
+    const duplicate_matches = skip_duplicates
         ? await findDuplicateMatchesForInfo(info, type, download['user_uid'])
         : [];
-    const info_without_duplicates = warn_on_duplicate
+    const info_without_duplicates = skip_duplicates
         ? getInfoItemsWithoutDuplicates(info, duplicate_matches)
         : info;
     const playlist_item_progress = buildDuplicateAwarePlaylistItemProgress(info, duplicate_matches);
@@ -2043,7 +2145,7 @@ exports.collectInfo = async (download_uid) => {
     const chunk_count = options && options.playlistChunkCount ? options.playlistChunkCount : null;
     const title = formatChunkedPlaylistTitle(base_title, chunk_range_label, chunk_index, chunk_count);
 
-    if (warn_on_duplicate && info_without_duplicates.length === 0 && single_duplicate_file_uids.length > 0) {
+    if (skip_duplicates && info_without_duplicates.length === 0 && single_duplicate_file_uids.length > 0) {
         await db_api.updateRecord('download_queue', {uid: download_uid}, {
             finished_step: true,
             running: false,

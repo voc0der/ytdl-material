@@ -1160,6 +1160,44 @@ exports.findExistingDuplicateByInfo = async (info_obj = null, type = 'video', us
     return hydrateFileSourceMetadata(url_matches[0], true);
 }
 
+/*************************************************
+ * The links in a list that the library already
+ * has, told from the links alone: by the source
+ * and id a link carries, or by its being the link
+ * a file was downloaded from. Anything else is
+ * left to the duplicate check a download makes
+ * once it has the link's info.
+ ************************************************/
+exports.findLinksAlreadyInLibrary = async (urls = [], type = 'video', user_uid = null) => {
+    const found_links = new Set();
+    if (!Array.isArray(urls) || urls.length === 0) return found_links;
+
+    const filter_obj = {isAudio: type === 'audio'};
+    if (shouldRestrictToUser(user_uid)) filter_obj['user_uid'] = user_uid;
+
+    // Compared without case, as a file's info and a link can spell the same source differently.
+    const getSourceKey = (source_extractor, source_id) => `${String(source_extractor).toLowerCase()}:${source_id}`;
+    const link_sources = new Map(urls.map(url => [url, extractSourceMetadataFromUrl(url, type)]));
+    const source_ids = [...new Set([...link_sources.values()].filter(Boolean).map(source => source.source_id))];
+
+    const file_source_keys = new Set();
+    if (source_ids.length > 0) {
+        const files_by_source = await db_api.getRecords('files', {...filter_obj, source_id: {$in: source_ids}},
+            false, null, null, ['source_id', 'source_extractor']);
+        for (const file_obj of files_by_source) file_source_keys.add(getSourceKey(file_obj.source_extractor, file_obj.source_id));
+    }
+
+    const files_by_url = await db_api.getRecords('files', {...filter_obj, url: {$in: urls}}, false, null, null, ['url']);
+    const file_urls = new Set(files_by_url.map(file_obj => file_obj.url));
+
+    for (const [url, source] of link_sources) {
+        if (file_urls.has(url) || (source && file_source_keys.has(getSourceKey(source.source_extractor, source.source_id)))) {
+            found_links.add(url);
+        }
+    }
+    return found_links;
+}
+
 exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null, allow_missing_metadata = false) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
     if (!file_object && allow_missing_metadata) file_object = await generateFallbackFileObject(file_path, type);
