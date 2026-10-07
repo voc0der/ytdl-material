@@ -467,8 +467,8 @@ export class PostsService {
     }
 
     // A pasted list of links, queued at the default settings with duplicates left out.
-    downloadFiles(urls: string[]) {
-        const body: BulkDownloadRequest = {urls: urls};
+    downloadFiles(urls: string[], type: FileType) {
+        const body: BulkDownloadRequest = {urls: urls, type: type};
         return this.http.post<BulkDownloadResponse>(this.path + 'downloadFiles', body, this.httpOptions);
     }
 

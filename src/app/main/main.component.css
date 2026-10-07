@@ -80,7 +80,7 @@
 }
 
 /* A pasted list: how many links follow the one shown, and what happens to them. */
-.bulk-count {
+.list-count {
     flex-shrink: 0;
     padding: 2px 10px;
     border-radius: 12px;
@@ -91,15 +91,11 @@
     line-height: 20px;
 }
 
-.bulk-clear {
+.list-clear {
     color: var(--kit-on-surface-variant);
 }
 
-/* As tall as the chips it stands in for, so the library below does not move. */
-.bulk-note {
-    display: flex;
-    align-items: center;
-    min-height: 36px;
+.list-note {
     padding: 0 4px;
     color: var(--kit-on-surface-variant);
     font-size: 14px;

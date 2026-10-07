@@ -27,14 +27,11 @@ import { MatCheckbox } from '@angular/material/checkbox';
 import { MediaLibraryComponent as MediaLibraryComponent_1 } from '../components/media-library/media-library.component';
 import { PickerComponent, type PickerOption } from '../components/picker/picker.component';
 
-// From this many links a paste is a list, downloaded as it stands: at the default settings, in
-// one request, with none of its links looked up first.
-const BULK_LINK_THRESHOLD = 10;
 // Links per request, which keeps each well inside the server's request body limit.
-const BULK_REQUEST_SIZE = 250;
-// Anything from http(s):// to the next space, so a list copied out of a chat or a document works
-// as well as one link per line, less the punctuation it was written next to.
-const LINK_PATTERN = /https?:\/\/[^\s"'<>]+/gi;
+const LIST_REQUEST_SIZE = 250;
+// Where a link starts within a word, and the punctuation it may have been written next to, such
+// as a list's comma or the bracket closing a Markdown link.
+const LINK_START = /https?:\/\/|www\./i;
 const LINK_TRAILING_PUNCTUATION = /[.,;:!?)\]]+$/;
 
 @Component({
@@ -71,9 +68,9 @@ export class MainComponent implements OnInit {
   url = '';
   exists = '';
   autoStartDownload = false;
-  // The links of a pasted list, each once; empty unless the URL box holds one.
-  bulkLinks: string[] = [];
-  private bulkRepeatCount = 0;
+  // The links of a pasted list, each once; empty unless the URL box holds more than one link.
+  pastedLinks: string[] = [];
+  private pastedRepeatCount = 0;
 
   // global settings
   fileManagerEnabled = false;
@@ -227,16 +224,18 @@ export class MainComponent implements OnInit {
     this.audioOnly = false;
   }
 
-  get bulkMode(): boolean {
-    return this.inputMode === 'url' && this.bulkLinks.length > 0;
+  get listMode(): boolean {
+    return this.inputMode === 'url' && this.pastedLinks.length > 0;
   }
 
-  get bulkDownloadLabel(): string {
-    return $localize`:Download every link in a pasted list:Download all ${this.bulkLinks.length}:count: links`;
+  get listDownloadLabel(): string {
+    return this.pastedLinks.length === 1
+      ? $localize`:Download the one link in a pasted list:Download 1 link`
+      : $localize`:Download every link in a pasted list:Download all ${this.pastedLinks.length}:count: links`;
   }
 
-  get bulkMoreLabel(): string {
-    const more = this.bulkLinks.length - 1;
+  get listMoreLabel(): string {
+    const more = this.pastedLinks.length - 1;
     return more === 1
       ? $localize`:The other link in a pasted list:1 more link`
       : $localize`:Count of the other links in a pasted list:${more}:count: more links`;
@@ -364,6 +363,7 @@ export class MainComponent implements OnInit {
     // check if params exist
     if (this.route.snapshot.paramMap.get('url')) {
       this.url = decodeURIComponent(this.route.snapshot.paramMap.get('url'));
+      this.setPastedLinks(this.url);
       this.audioOnly = this.route.snapshot.paramMap.get('audioOnly') === 'true';
 
       // set auto start flag to true
@@ -520,17 +520,17 @@ export class MainComponent implements OnInit {
 
   downloadClicked(disableSponsorBlock = false, urlOverride: string | null = null, sanitizeSingleWatchUrl = true, channelSearchPlaylist = false): void {
     if (this.inputMode === 'search' && urlOverride === null) return;
-    if (this.bulkLinks.length > 0 && urlOverride === null) {
-      this.downloadBulkLinks();
+    if (this.pastedLinks.length > 0 && urlOverride === null) {
+      this.downloadPastedLinks();
       return;
     }
-    let effective_url = typeof urlOverride === 'string' ? urlOverride : (this.url || '');
+    // More than one link is a list, so this is one link.
+    let effective_url = (typeof urlOverride === 'string' ? urlOverride : (this.url || '')).trim();
 
     // Sanitize single YouTube watch URLs (keep only v=...)
-    const urls_for_sanitize = this.getURLArray(effective_url);
-    if (sanitizeSingleWatchUrl && urls_for_sanitize.length === 1) {
-      const sanitized = this.sanitizeYouTubeWatchUrl(urls_for_sanitize[0]);
-      if (sanitized && sanitized !== urls_for_sanitize[0]) {
+    if (sanitizeSingleWatchUrl) {
+      const sanitized = this.sanitizeYouTubeWatchUrl(effective_url);
+      if (sanitized && sanitized !== effective_url) {
         effective_url = sanitized;
         if (urlOverride === null) {
           this.url = sanitized;
@@ -579,78 +579,75 @@ export class MainComponent implements OnInit {
     this.selectedSubtitleSource = '';
     this.downloadingfile = true;
 
-    const urls = this.getURLArray(effective_url);
-    for (let i = 0; i < urls.length; i++) {
-      const url = sanitizeSingleWatchUrl ? this.sanitizeYouTubeWatchUrl(urls[i]) : urls[i];
-      this.postsService.downloadFile(url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
-        customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language, selected_subtitle_language, selected_subtitle_type).subscribe(res => {
-          const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
-            ? res['downloads']
-            : (res['download'] ? [res['download']] : []);
-          if (queued_downloads.length === 0) {
-            this.downloadingfile = false;
-            this.current_download = null;
-            this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
-            return;
-          }
-
-          for (const queued_download of queued_downloads) {
-            if (!queued_download || !queued_download.uid) continue;
-            const existing_download = this.getDownloadByUID(queued_download.uid);
-            if (existing_download) {
-              Object.assign(existing_download, queued_download);
-            } else {
-              this.downloads.push(queued_download);
-            }
-            if (!this.download_uids.includes(queued_download.uid)) {
-              this.download_uids.push(queued_download.uid);
-            }
-          }
-          if (!this.current_download) this.setNextCurrentDownload();
-      }, () => { // can't access server
-        this.downloadingfile = false;
-        this.current_download = null;
-        this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
-      });
-
-      if (!this.autoplay && urls.length === 1) {
-          const download_queued_message = $localize`Download for ${url}:url: has been queued!`;
-          this.postsService.openSnackBar(download_queued_message);
-          this.url = '';
+    this.postsService.downloadFile(effective_url, type as FileType, (customQualityConfiguration || selected_quality === '' || typeof selected_quality !== 'string' ? null : selected_quality),
+      customQualityConfiguration, customArgs, additionalArgs, customOutput, youtubeUsername, youtubePassword, cropFileSettings, disableSponsorBlock, channelSearchPlaylist, selected_audio_language, selected_subtitle_language, selected_subtitle_type).subscribe(res => {
+        const queued_downloads = Array.isArray(res['downloads']) && res['downloads'].length > 0
+          ? res['downloads']
+          : (res['download'] ? [res['download']] : []);
+        if (queued_downloads.length === 0) {
           this.downloadingfile = false;
-      }
+          this.current_download = null;
+          this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
+          return;
+        }
+
+        for (const queued_download of queued_downloads) {
+          if (!queued_download || !queued_download.uid) continue;
+          const existing_download = this.getDownloadByUID(queued_download.uid);
+          if (existing_download) {
+            Object.assign(existing_download, queued_download);
+          } else {
+            this.downloads.push(queued_download);
+          }
+          if (!this.download_uids.includes(queued_download.uid)) {
+            this.download_uids.push(queued_download.uid);
+          }
+        }
+        if (!this.current_download) this.setNextCurrentDownload();
+    }, () => { // can't access server
+      this.downloadingfile = false;
+      this.current_download = null;
+      this.postsService.openSnackBar($localize`Download failed!`, 'OK.');
+    });
+
+    if (!this.autoplay) {
+      const download_queued_message = $localize`Download for ${effective_url}:url: has been queued!`;
+      this.postsService.openSnackBar(download_queued_message);
+      this.url = '';
+      this.downloadingfile = false;
     }
   }
 
   /**
-   * The whole list at the default settings, sent BULK_REQUEST_SIZE links at a time. Anything
-   * already queued or downloaded comes back counted as a duplicate instead of being queued again,
-   * so sending a list twice, or again after a failure, is harmless.
+   * The whole list at the default settings, as audio if Only Audio is on, sent LIST_REQUEST_SIZE
+   * links at a time. Anything already queued or downloaded comes back counted as a duplicate
+   * instead of being queued again, so sending a list twice, or again after a failure, is harmless.
    */
-  private downloadBulkLinks(): void {
-    const links = this.bulkLinks;
+  private downloadPastedLinks(): void {
+    const links = this.pastedLinks;
+    const type = (this.audioOnly ? 'audio' : 'video') as FileType;
     const requests: string[][] = [];
-    for (let i = 0; i < links.length; i += BULK_REQUEST_SIZE) {
-      requests.push(links.slice(i, i + BULK_REQUEST_SIZE));
+    for (let i = 0; i < links.length; i += LIST_REQUEST_SIZE) {
+      requests.push(links.slice(i, i + LIST_REQUEST_SIZE));
     }
 
     this.downloadingfile = true;
     from(requests).pipe(
-      concatMap(request => this.postsService.downloadFiles(request)),
+      concatMap(request => this.postsService.downloadFiles(request, type)),
       reduce((totals, res) => ({
         queued: totals.queued + res.queued_count,
         duplicates: totals.duplicates + res.duplicate_count
-      }), {queued: 0, duplicates: this.bulkRepeatCount})
+      }), {queued: 0, duplicates: this.pastedRepeatCount})
     ).subscribe({
       next: ({queued, duplicates}) => {
         this.downloadingfile = false;
         // Unless the box was given something else meanwhile, the list is done with.
-        if (this.bulkLinks === links) {
+        if (this.pastedLinks === links) {
           this.url = '';
-          this.bulkLinks = [];
-          this.bulkRepeatCount = 0;
+          this.pastedLinks = [];
+          this.pastedRepeatCount = 0;
         }
-        this.postsService.openSnackBar(this.getBulkQueuedMessage(queued, duplicates));
+        this.postsService.openSnackBar(this.getListQueuedMessage(queued, duplicates));
       },
       error: () => {
         this.downloadingfile = false;
@@ -659,7 +656,7 @@ export class MainComponent implements OnInit {
     });
   }
 
-  private getBulkQueuedMessage(queued: number, duplicates: number): string {
+  private getListQueuedMessage(queued: number, duplicates: number): string {
     const queued_text = queued === 0 ? $localize`Nothing new to download`
       : queued === 1 ? $localize`1 download queued`
       : $localize`${queued}:count: downloads queued`;
@@ -669,18 +666,51 @@ export class MainComponent implements OnInit {
     return `${queued_text}, ${skipped_text}`;
   }
 
-  // Links come in the form a single download would send them, so one video linked two ways is
-  // one link.
-  private setBulkLinks(text: string): void {
-    const found_links = (text.match(LINK_PATTERN) ?? []).map(link => link.replace(LINK_TRAILING_PUNCTUATION, ''));
-    if (found_links.length < BULK_LINK_THRESHOLD) {
-      this.bulkLinks = [];
-      this.bulkRepeatCount = 0;
+  // More than one link is a list, and so is a link with a line of something else, such as its
+  // title, which the link alone is downloaded for.
+  private setPastedLinks(text: string): void {
+    const links = this.findLinks(text);
+    const line_count = text.split('\n').filter(line => line.trim() !== '').length;
+    if (links.length === 0 || (links.length === 1 && line_count < 2)) {
+      this.pastedLinks = [];
+      this.pastedRepeatCount = 0;
       return;
     }
 
-    this.bulkLinks = [...new Set(found_links.map(link => this.sanitizeYouTubeWatchUrl(link)))];
-    this.bulkRepeatCount = found_links.length - this.bulkLinks.length;
+    this.pastedLinks = [...new Set(links)];
+    this.pastedRepeatCount = links.length - this.pastedLinks.length;
+  }
+
+  /**
+   * Every link in some text, in the form a single download would send it, so one video linked two
+   * ways is the same link: anything from http(s):// or www. to the next space, and a watch link
+   * written without either. A list copied out of a chat or a document works as well as one link
+   * per line.
+   */
+  private findLinks(text: string): string[] {
+    const links: string[] = [];
+    for (const word of text.split(/\s+/)) {
+      const start = word.search(LINK_START);
+      const candidate = word.slice(Math.max(start, 0)).replace(LINK_TRAILING_PUNCTUATION, '');
+      if (!candidate) continue;
+
+      if (start !== -1) {
+        links.push(this.sanitizeYouTubeWatchUrl(/^www\./i.test(candidate) ? `https://${candidate}` : candidate));
+        continue;
+      }
+      const watch_link = this.sanitizeYouTubeWatchUrl(candidate);
+      if (watch_link !== candidate) links.push(watch_link);
+    }
+    return links;
+  }
+
+  // The box is read-only while it holds a list, so a paste adds to the list instead. Anything else
+  // is the box's own paste.
+  addPastedText(event: ClipboardEvent): void {
+    if (!this.listMode) return;
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text') ?? '';
+    if (text.trim()) this.inputChanged(`${this.url}\n${text}`);
   }
 
   getSelectedAudioFormat(): string {
@@ -852,8 +882,8 @@ export class MainComponent implements OnInit {
     this.selectedAudioLanguage = '';
     this.selectedSubtitleLanguage = '';
     this.selectedSubtitleSource = '';
-    this.setBulkLinks(new_val || '');
-    if (this.bulkLinks.length > 0) return;
+    this.setPastedLinks(new_val || '');
+    if (this.pastedLinks.length > 0) return;
     if (new_val === '' || !new_val) {
       this.results_showing = false;
     } else {
@@ -865,13 +895,6 @@ export class MainComponent implements OnInit {
 
   // checks if url is a valid URL
   ValidURL(str: string): boolean {
-    // mark multiple urls as valid but don't get additional info
-    const urls = this.getURLArray(str);
-    if (urls.length > 1) {
-      this.autoplay = false;
-      return true;
-    }
-    
     // tslint:disable-next-line: max-line-length
     const strRegex = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/;
     const re = new RegExp(strRegex);
@@ -932,18 +955,13 @@ export class MainComponent implements OnInit {
   }
 
   private getPlaylistDownloadUrl(raw: string): string | null {
-    const urls = this.getURLArray(raw || '');
-    if (urls.length !== 1) return null;
-    const playlist_id = this.getYouTubePlaylistId(urls[0]);
+    const playlist_id = this.getYouTubePlaylistId((raw || '').trim());
     if (!playlist_id) return null;
     return `https://www.youtube.com/playlist?list=${encodeURIComponent(playlist_id)}`;
   }
 
   private getYouTubeChannelSearchPlaylistRequest(raw: string): { url: string } | null {
-    const urls = this.getURLArray(raw || '');
-    if (urls.length !== 1) return null;
-
-    const parsed_url = this.safeParseURL(urls[0]);
+    const parsed_url = this.safeParseURL((raw || '').trim());
     if (!parsed_url) return null;
 
     const host = parsed_url.hostname.replace(/^www\./, '').toLowerCase();
@@ -1048,8 +1066,7 @@ export class MainComponent implements OnInit {
 
 
   getSimulatedOutput(): void {
-    const urls = this.getURLArray(this.url);
-    if (urls.length > 1 || this.bulkLinks.length > 0) return;
+    if (this.pastedLinks.length > 0) return;
 
     // shares getAdvancedDownloadOptions() with downloadClicked() so the previewed command
     // always matches what an actual download would run
@@ -1798,12 +1815,6 @@ export class MainComponent implements OnInit {
   reloadMediaLibrary(is_playlist = false): void {
     this.postsService.files_changed.next(true);
     if (is_playlist) this.postsService.playlists_changed.next(true);
-  }
-
-  getURLArray(url_str: string): Array<string> {
-    let lines = url_str.split('\n');
-    lines = lines.filter(line => line);
-    return lines;
   }
 
     /**

@@ -10,11 +10,11 @@ The app can also search upstream when the administrator has enabled the search i
 
 ## Paste a list of links
 
-Paste ten or more links at once and the box shows the first one with a count of the rest, such as **+499**. A list downloads as it stands: every link as video at the default settings, with no quality, language or advanced choices, and nothing is looked up before it is queued. Select **Download** to queue the whole list, or the **×** to clear it.
+Paste more than one link and the box shows the first with a count of the rest, such as **+499**. A list downloads as it stands: every link at the default settings, as audio when **Only Audio** is on, and nothing is looked up before it is queued, so there are no quality, language or advanced choices. Select **Download** to queue the whole list, or the **×** to clear it. Pasting into the box again adds to the list.
 
 Duplicates are skipped without asking: a link the list repeats, one already waiting in the queue, and one already in your library. The same video linked two different ways counts once. A duplicate that only shows once a link is looked up is skipped at that point, whether or not **Warn on duplicate** is on. Pasting the same list again, or after an attempt that failed, queues only what is missing.
 
-The links can be one per line or copied out of other text; anything starting with `http://` or `https://` counts. API clients can queue a list with `POST /api/downloadFiles`.
+The links can be one per line or copied out of other text: anything starting with `http://`, `https://` or `www.` counts, as does a watch link written without either. A link pasted with a line of something else, such as its title, is a list of one. API clients can queue a list with `POST /api/downloadFiles`.
 
 ## Follow progress
 

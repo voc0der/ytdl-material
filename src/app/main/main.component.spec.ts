@@ -910,46 +910,114 @@ describe('MainComponent', () => {
 
       component.inputChanged(links(500).join('\n'));
 
-      expect(component.bulkMode).toBe(true);
-      expect(component.bulkLinks).toEqual(links(500));
-      expect(component.bulkMoreLabel).toBe('499 more links');
+      expect(component.listMode).toBe(true);
+      expect(component.pastedLinks).toEqual(links(500));
+      expect(component.listMoreLabel).toBe('499 more links');
       expect(probe).not.toHaveBeenCalled();
       expect(validate).not.toHaveBeenCalled();
       expect(component.autoplay).toBe(true);
     });
 
-    it('leaves a short paste as separate links', () => {
-      component.inputChanged(links(9).join('\n'));
+    it('makes a list of two links, and leaves one link as it was', () => {
+      component.inputChanged(links(2).join('\n'));
 
-      expect(component.bulkMode).toBe(false);
-      expect(component.bulkLinks).toEqual([]);
+      expect(component.listMode).toBe(true);
+      expect(component.pastedLinks).toEqual(links(2));
+      expect(component.listMoreLabel).toBe('1 more link');
+
+      component.inputChanged(`${watch('video-0')}\n`);
+
+      expect(component.listMode).toBe(false);
+      expect(component.pastedLinks).toEqual([]);
+    });
+
+    it('takes a link with a line of something else, such as its title, as a list of one', () => {
+      component.inputChanged('Moon landing\nhttps://youtu.be/video-0');
+
+      expect(component.pastedLinks).toEqual([watch('video-0')]);
+      expect(component.listDownloadLabel).toBe('Download 1 link');
     });
 
     it('keeps each video once, however it was linked', () => {
       component.inputChanged([...links(10), watch('video-3'), 'https://youtu.be/video-4?t=10', `${watch('video-5')}&list=PL1`].join('\n'));
 
-      expect(component.bulkLinks).toEqual(links(10));
+      expect(component.pastedLinks).toEqual(links(10));
     });
 
     it('finds the links in a list copied from text', () => {
       component.inputChanged(Array.from({ length: 10 }, (_, i) => `${i + 1}. [Video ${i}](https://youtu.be/video-${i}), `).join(''));
 
-      expect(component.bulkLinks).toEqual(links(10));
+      expect(component.pastedLinks).toEqual(links(10));
+    });
+
+    it('takes links written without a scheme, as a single link may be', () => {
+      component.inputChanged('www.youtube.com/watch?v=video-0 youtu.be/video-1 www.example.com/clip example.com/no-scheme');
+
+      expect(component.pastedLinks).toEqual([watch('video-0'), watch('video-1'), 'https://www.example.com/clip']);
+    });
+
+    it('adds a paste to the list instead of replacing it, and leaves any other paste alone', () => {
+      const paste = () => ({ preventDefault: vi.fn(), clipboardData: { getData: () => `${watch('video-1')}\n${watch('video-2')}` } });
+      const into_link = paste();
+      component.inputChanged(watch('video-0'));
+      component.addPastedText(into_link as unknown as ClipboardEvent);
+
+      expect(into_link.preventDefault).not.toHaveBeenCalled();
+      expect(component.listMode).toBe(false);
+
+      const into_list = paste();
+      component.inputChanged(links(2).join('\n'));
+      component.addPastedText(into_list as unknown as ClipboardEvent);
+
+      expect(into_list.preventDefault).toHaveBeenCalled();
+      expect(component.pastedLinks).toEqual(links(3));
     });
 
     it('downloads the list at the defaults, 250 links to a request, and clears the box', () => {
       const downloadFile = vi.spyOn((component as any).postsService, 'downloadFile');
-      component.audioOnly = true;
       component.inputChanged(links(600).join('\n'));
       component.downloadClicked();
 
       expect(downloadFile).not.toHaveBeenCalled();
-      expect(downloadFiles.mock.calls.map(([urls]) => urls.length)).toEqual([250, 250, 100]);
+      expect(downloadFiles.mock.calls.map(([urls, type]) => [urls.length, type])).toEqual([[250, 'video'], [250, 'video'], [100, 'video']]);
       expect(downloadFiles.mock.calls.flatMap(([urls]) => urls)).toEqual(links(600));
       expect(component.url).toBe('');
-      expect(component.bulkMode).toBe(false);
+      expect(component.listMode).toBe(false);
       expect(component.downloadingfile).toBe(false);
       expect(openSnackBar).toHaveBeenCalledWith('600 downloads queued');
+    });
+
+    it('downloads the list as audio when Only Audio is on', () => {
+      component.audioOnly = true;
+      component.inputChanged(links(2).join('\n'));
+      component.downloadClicked();
+
+      expect(downloadFiles).toHaveBeenCalledExactlyOnceWith(links(2), 'audio');
+    });
+
+    it('downloads a single link on its own, without the space around it', () => {
+      const downloadFile = vi.spyOn((component as any).postsService, 'downloadFile');
+      component.inputChanged(' https://example.com/clips/1 \n');
+      component.downloadClicked();
+
+      expect(downloadFiles).not.toHaveBeenCalled();
+      expect(downloadFile).toHaveBeenCalledTimes(1);
+      expect(downloadFile.mock.calls[0][0]).toBe('https://example.com/clips/1');
+    });
+
+    it('downloads a list given in the address as a list', async () => {
+      const downloadFile = vi.spyOn((component as any).postsService, 'downloadFile');
+      const route = { snapshot: { paramMap: { get: (key: string) => key === 'url' ? encodeURIComponent(links(3).join('\n')) : null } } };
+      const services = component as any;
+      const addressed = new MainComponent(services.postsService, services.youtubeSearch, services.snackBar, services.router,
+        services.dialog, services.platform, route as any);
+
+      addressed.ngOnInit();
+      await vi.waitFor(() => expect(downloadFiles).toHaveBeenCalled());
+      addressed.ngOnDestroy();
+
+      expect(downloadFiles).toHaveBeenCalledExactlyOnceWith(links(3), 'video');
+      expect(downloadFile).not.toHaveBeenCalled();
     });
 
     it('counts repeats in the paste with the duplicates the server skipped', () => {
@@ -973,7 +1041,7 @@ describe('MainComponent', () => {
       component.inputChanged(links(20).join('\n'));
       component.downloadClicked();
 
-      expect(component.bulkLinks).toEqual(links(20));
+      expect(component.pastedLinks).toEqual(links(20));
       expect(component.downloadingfile).toBe(false);
       expect(openSnackBar).toHaveBeenCalledWith('Download failed!', 'OK.');
     });
@@ -988,20 +1056,20 @@ describe('MainComponent', () => {
       pending.next({ success: true, queued_count: 20, duplicate_count: 0, invalid_count: 0 });
       pending.complete();
 
-      expect(component.bulkLinks.length).toBe(20);
+      expect(component.pastedLinks.length).toBe(20);
       expect(component.url).toBe(next);
     });
 
     it('is set aside while searching, and cleared from the box', () => {
       component.inputChanged(links(20).join('\n'));
       component.toggleInputMode();
-      expect(component.bulkMode).toBe(false);
+      expect(component.listMode).toBe(false);
       component.toggleInputMode();
-      expect(component.bulkMode).toBe(true);
+      expect(component.listMode).toBe(true);
 
       component.clearInput();
 
-      expect(component.bulkMode).toBe(false);
+      expect(component.listMode).toBe(false);
       expect(component.url).toBe('');
     });
   });
