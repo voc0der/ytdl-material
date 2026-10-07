@@ -1205,6 +1205,120 @@ describe('Downloader', function() {
         }
     });
 
+    describe('A pasted list of links', function() {
+        const watch = id => `https://www.youtube.com/watch?v=${id}`;
+        const getQueue = () => db_api.getRecords('download_queue', null, false, {by: 'timestamp_start', order: 1});
+
+        it('queues each link once, in the order pasted, in one write', async function() {
+            const original_insert_record = db_api.insertRecordIntoTable;
+            const original_insert_records = db_api.insertRecordsIntoTable;
+            const writes = [];
+            db_api.insertRecordIntoTable = (table, ...rest) => { writes.push(table); return original_insert_record(table, ...rest); };
+            db_api.insertRecordsIntoTable = (table, ...rest) => { writes.push(table); return original_insert_records(table, ...rest); };
+
+            try {
+                const result = await downloader_api.createBulkDownloads([
+                    watch('aaaaaaaaaaa'),
+                    'https://youtu.be/aaaaaaaaaaa',
+                    ' https://example.com/clips/1 ',
+                    'file:///etc/passwd',
+                    '',
+                    42,
+                    'https://example.com/clips/2'
+                ], 'video', null);
+
+                assert.deepStrictEqual(result, {queued_count: 3, duplicate_count: 1, invalid_count: 3});
+                assert.deepStrictEqual(writes, ['download_queue']);
+
+                const queue = await getQueue();
+                assert.deepStrictEqual(queue.map(download => download.url), [watch('aaaaaaaaaaa'), 'https://example.com/clips/1', 'https://example.com/clips/2']);
+                assert(queue.every(download => download.type === 'video' && download.options.skipDuplicates === true && !download.finished));
+                // The info step writes to a download's options, so no two may share them.
+                assert.notStrictEqual(queue[0].options, queue[1].options);
+            } finally {
+                db_api.insertRecordIntoTable = original_insert_record;
+                db_api.insertRecordsIntoTable = original_insert_records;
+            }
+        });
+
+        it('counts what is already queued or in the library as duplicates', async function() {
+            const file_uids = [uuid(), uuid(), uuid()];
+            await db_api.insertRecordsIntoTable('files', [
+                // Found by the id its link carries, though it was saved from another link to it.
+                {uid: file_uids[0], id: 'by-source', title: 'By source', isAudio: false, url: 'https://music.youtube.com/watch?v=bbbbbbbbbbb',
+                    source_id: 'bbbbbbbbbbb', source_extractor: 'Youtube', duplicate_key: 'Youtube:bbbbbbbbbbb:video', registered: Date.now()},
+                // Found by its link, with no source recorded.
+                {uid: file_uids[1], id: 'by-link', title: 'By link', isAudio: false, url: 'https://example.com/clips/3', registered: Date.now()},
+                // Audio, so not the video the list asks for.
+                {uid: file_uids[2], id: 'audio', title: 'Audio', isAudio: true, url: watch('ccccccccccc'),
+                    source_id: 'ccccccccccc', source_extractor: 'Youtube', registered: Date.now()}
+            ]);
+            await downloader_api.createDownload('https://example.com/clips/4', 'video', {});
+            const finished_download = await downloader_api.createDownload('https://example.com/clips/5', 'video', {});
+            await db_api.updateRecord('download_queue', {uid: finished_download.uid}, {finished: true});
+
+            try {
+                const result = await downloader_api.createBulkDownloads([
+                    watch('bbbbbbbbbbb'),
+                    'https://example.com/clips/3',
+                    watch('ccccccccccc'),
+                    'https://example.com/clips/4',
+                    'https://example.com/clips/5'
+                ], 'video', null);
+
+                assert.deepStrictEqual(result, {queued_count: 2, duplicate_count: 3, invalid_count: 0});
+                const waiting = (await getQueue()).filter(download => !download.finished).map(download => download.url);
+                assert.deepStrictEqual(waiting, ['https://example.com/clips/4', watch('ccccccccccc'), 'https://example.com/clips/5']);
+            } finally {
+                for (const uid of file_uids) await db_api.removeRecord('files', {uid: uid});
+            }
+        });
+
+        it('queues a playlist in the list the usual way, in batches', async function() {
+            const original_runYoutubeDL = youtubedl_api.runYoutubeDL;
+            youtubedl_api.runYoutubeDL = async () => ({
+                callback: Promise.resolve({
+                    parsed_output: [{title: 'Fixture Playlist', entries: Array.from({length: 205}, (_, i) => ({id: `id-${i}`}))}],
+                    err: null
+                })
+            });
+
+            try {
+                const result = await downloader_api.createBulkDownloads([playlist_url, watch('ddddddddddd')], 'video', null);
+
+                assert.deepStrictEqual(result, {queued_count: 2, duplicate_count: 0, invalid_count: 0});
+                const batches = (await getQueue()).filter(download => download.url === playlist_url);
+                assert.strictEqual(batches.length, 3);
+                assert(batches.every(download => download.options.skipDuplicates === true && download.options.playlistExclusive === true));
+            } finally {
+                youtubedl_api.runYoutubeDL = original_runYoutubeDL;
+            }
+        });
+
+        it('skips a duplicate its info reveals, with duplicate warnings off', async function() {
+            const original_find_existing_duplicate = files_api.findExistingDuplicateByInfo;
+            const original_warn_on_duplicate = config_api.getConfigItem('ytdl_warn_on_duplicate');
+            const existing_file_uid = uuid();
+
+            try {
+                config_api.setConfigItem('ytdl_warn_on_duplicate', false);
+                files_api.findExistingDuplicateByInfo = async () => ({uid: existing_file_uid});
+
+                await downloader_api.createBulkDownloads(['https://example.com/clips/6'], 'video', null);
+                const [queued_download] = await getQueue();
+                await downloader_api.collectInfo(queued_download.uid);
+                const updated_download = await db_api.getRecord('download_queue', {uid: queued_download.uid});
+
+                assert.strictEqual(updated_download.finished, true);
+                assert.strictEqual(updated_download.duplicate_skip_only, true);
+                assert.deepStrictEqual(updated_download.file_uids, [existing_file_uid]);
+            } finally {
+                files_api.findExistingDuplicateByInfo = original_find_existing_duplicate;
+                config_api.setConfigItem('ytdl_warn_on_duplicate', original_warn_on_duplicate);
+            }
+        });
+    });
+
     it('Collect info keeps category custom output relative to the download folder', async function() {
         const original_get_video_info = downloader_api.getVideoInfoByURL;
         const custom_output = path.join('categorized', '%(title)s');

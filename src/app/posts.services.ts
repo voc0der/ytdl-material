@@ -7,6 +7,8 @@ import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter, take, tap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
+    BulkDownloadRequest,
+    BulkDownloadResponse,
     ChangeRolePermissionsRequest,
     ChangeUserPermissionsRequest,
     ConfigResponse,
@@ -462,6 +464,12 @@ export class PostsService {
             selectedSubtitleLanguage: selectedSubtitleLanguage,
             selectedSubtitleType: selectedSubtitleType}
         return this.http.post<DownloadResponse>(this.path + 'downloadFile', body, this.httpOptions);
+    }
+
+    // A pasted list of links, queued at the default settings with duplicates left out.
+    downloadFiles(urls: string[], type: FileType) {
+        const body: BulkDownloadRequest = {urls: urls, type: type};
+        return this.http.post<BulkDownloadResponse>(this.path + 'downloadFiles', body, this.httpOptions);
     }
 
     generateArgs(url: string, type: FileType, selectedQuality: string, customQualityConfiguration: string, customArgs: string = null, additionalArgs: string = null, customOutput: string = null, youtubeUsername: string = null, youtubePassword: string = null, cropFileSettings = null, disableSponsorBlock: boolean = false, selectedAudioLanguage: string = null, selectedSubtitleLanguage: string = null, selectedSubtitleType: string = null) {

@@ -9,15 +9,26 @@
           <mat-icon class="mode-search">search</mat-icon>
         </span>
       </button>
+      <!-- A pasted list shows as its first link and a count of the rest. It is added to by pasting
+           and cleared, not edited. -->
       <textarea class="url-input" cdkTextareaAutosize cdkAutosizeMinRows="1" wrap="off"
-        [ngModel]="inputMode === 'url' ? url : searchQuery" (ngModelChange)="inputChanged($event)"
-        [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
+        [ngModel]="inputMode === 'url' ? (listMode ? pastedLinks[0] : url) : searchQuery" (ngModelChange)="inputChanged($event)"
+        [readonly]="listMode" (paste)="addPastedText($event)" [placeholder]="inputLabels[inputMode]" [attr.aria-label]="inputLabels[inputMode]"
         [attr.inputmode]="inputMode === 'url' ? 'url' : 'search'" [attr.enterkeyhint]="inputMode === 'url' ? 'enter' : 'search'"
         (keydown.enter)="inputMode === 'search' && submitSearch($event)" (keydown.escape)="dismissSearch()"
         autocomplete="off" autocapitalize="off" spellcheck="false" name="entry" #urlinput></textarea>
+      @if (listMode) {
+        @if (pastedLinks.length > 1) {
+          <span class="list-count" [matTooltip]="listMoreLabel">+{{ pastedLinks.length - 1 }}</span>
+        }
+        <button type="button" class="kit-icon-button list-clear" (click)="clearInput()" [disabled]="downloadingfile"
+          [attr.aria-label]="clearLinksLabel" [matTooltip]="clearLinksLabel">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
       @if (inputMode === 'url' && url) {
         <button type="button" class="kit-icon-button kit-primary download-action" (click)="downloadClicked()" [disabled]="downloadingfile"
-          [attr.aria-label]="downloadLabel" [matTooltip]="downloadLabel">
+          [attr.aria-label]="listMode ? listDownloadLabel : downloadLabel" [matTooltip]="listMode ? listDownloadLabel : downloadLabel">
           <mat-icon>download</mat-icon>
         </button>
       }
@@ -28,9 +39,10 @@
     }
   </form>
   @if (inputMode === 'url') {
-    <!-- What to download settles once there is a link to look at, so its choices wait for one. -->
+    <!-- What to download settles once there is a link to look at, so its choices wait for one.
+         A pasted list has none beyond Only Audio: it downloads at the defaults. -->
     <div class="kit-rail download-options">
-      @if (url && allowQualitySelect) {
+      @if (url && allowQualitySelect && !listMode) {
         <app-picker [title]="qualityLabel" [label]="qualityLabel" [options]="qualityPickerOptions" [value]="selectedQuality"
           (valueChange)="selectedQuality = $event; argsChanged()" [loading]="formatsLoading"></app-picker>
         @if (canSelectAudioLanguage()) {
@@ -48,7 +60,9 @@
         }
         <span i18n="Main download button option for audio-only mode">Only Audio</span>
       </button>
-      @if (!forceAutoplay || allowAdvancedDownload || hasAdditionalDownloadMenuActions()) {
+      @if (listMode) {
+        <span class="list-note" i18n="Note beside the options of a pasted list of links">Every link downloads at the default settings. Duplicates are skipped.</span>
+      } @else if (!forceAutoplay || allowAdvancedDownload || hasAdditionalDownloadMenuActions()) {
         <button type="button" class="kit-chip download-more" [matMenuTriggerFor]="downloadMenu" [attr.aria-label]="moreDownloadOptionsLabel">
           <mat-icon>more_horiz</mat-icon>
         </button>
@@ -65,7 +79,7 @@
     </div>
     <mat-menu #downloadMenu="matMenu" class="kit-menu">
       @if (!forceAutoplay) {
-        <button mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="autoplay" (click)="toggleAutoplayFromMenu()" [disabled]="downloadingfile || url === '' || getURLArray(url).length > 1">
+        <button mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="autoplay" (click)="toggleAutoplayFromMenu()" [disabled]="downloadingfile || url === ''">
           <mat-icon [class.kit-invisible]="!autoplay">check</mat-icon>
           <span i18n="Main download button option for autoplay">Autoplay</span>
         </button>
@@ -100,7 +114,7 @@
     </mat-menu>
   }
 </div>
-@if (inputMode === 'url' && isAdvancedModeActive()) {
+@if (inputMode === 'url' && isAdvancedModeActive() && !listMode) {
   <div class="download-box">
     <form>
       <mat-card class="advanced-panel">

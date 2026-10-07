@@ -79,6 +79,29 @@
     padding: 0 10px;
 }
 
+/* A pasted list: how many links follow the one shown, and what happens to them. */
+.list-count {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: var(--kit-tonal);
+    color: var(--kit-on-tonal);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 20px;
+}
+
+.list-clear {
+    color: var(--kit-on-surface-variant);
+}
+
+.list-note {
+    padding: 0 4px;
+    color: var(--kit-on-surface-variant);
+    font-size: 14px;
+    line-height: 20px;
+}
+
 /* Last in the row, kept against the right edge while there is room for it. */
 .playlist-shortcut-action {
     margin-left: auto;

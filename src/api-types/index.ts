@@ -5,6 +5,8 @@
 export type { AddFileToPlaylistRequest } from './models/AddFileToPlaylistRequest';
 export type { Archive } from './models/Archive';
 export type { BaseChangePermissionsRequest } from './models/BaseChangePermissionsRequest';
+export type { BulkDownloadRequest } from './models/BulkDownloadRequest';
+export type { BulkDownloadResponse } from './models/BulkDownloadResponse';
 export type { binary } from './models/binary';
 export type { body_19 } from './models/body_19';
 export type { body_20 } from './models/body_20';

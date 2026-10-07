@@ -8,6 +8,14 @@ Open the Download button menu for advanced options. They are available to accoun
 
 The app can also search upstream when the administrator has enabled the search integration and configured its API key. A direct URL does not need that search key.
 
+## Paste a list of links
+
+Paste more than one link and the box shows the first with a count of the rest, such as **+499**. A list downloads as it stands: every link at the default settings, as audio when **Only Audio** is on, and nothing is looked up before it is queued, so there are no quality, language or advanced choices. Select **Download** to queue the whole list, or the **×** to clear it. Pasting into the box again adds to the list.
+
+Duplicates are skipped without asking: a link the list repeats, one already waiting in the queue, and one already in your library. The same video linked two different ways counts once. A duplicate that only shows once a link is looked up is skipped at that point, whether or not **Warn on duplicate** is on. Pasting the same list again, or after an attempt that failed, queues only what is missing.
+
+The links can be one per line or copied out of other text: anything starting with `http://`, `https://` or `www.` counts, as does a watch link written without either. A link pasted with a line of something else, such as its title, is a list of one. API clients can queue a list with `POST /api/downloadFiles`.
+
 ## Follow progress
 
 The **Downloads** page shows queued, running, completed, and failed work. Inspect a failed download's error before retrying it. Cancellation stops the associated downloader processes; removing an entry from history is separate from managing the saved media in your library.
