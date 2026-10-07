@@ -11,7 +11,7 @@
 [![GitHub issues badge](https://img.shields.io/github/issues/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/issues)
 [![License badge](https://img.shields.io/github/license/voc0der/ytdl-material)](https://github.com/voc0der/ytdl-material/blob/main/LICENSE.md)
 [![Version badge](https://img.shields.io/github/v/release/voc0der/ytdl-material?display_name=tag)](https://github.com/voc0der/ytdl-material/releases/latest)
-[![Dependencies badge](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml/badge.svg?branch=main)](https://github.com/voc0der/ytdl-material/actions/workflows/dependencies.yml)
+[![CI status badge](https://img.shields.io/github/actions/workflow/status/voc0der/ytdl-material/build.yml?branch=main&label=CI)](https://github.com/voc0der/ytdl-material/actions/workflows/build.yml)
 
 Download and watch video and audio from a web app you host yourself. Paste a link to download something, or subscribe to channels and playlists and new uploads show up automatically. Everything goes into a library you can watch from any browser, solo or together. It runs on [yt-dlp](https://github.com/yt-dlp/yt-dlp), which it installs and updates for you. See the [full feature list](https://voc0der.github.io/ytdl-material/features/).
 
