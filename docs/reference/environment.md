@@ -65,6 +65,7 @@ Folder paths, filename normalization, metadata, thumbnails, archive settings, no
 | `ytdl_allow_registration` | Enables internal self-registration; default `true` |
 | `ytdl_auth_method` | `internal` or `ldap` |
 | `ytdl_oidc_enabled` and `ytdl_oidc_*` | [OIDC setup and claim mapping](../deployment/authentication.md#openid-connect) |
+| `ytdl_header_auth_enabled` and `ytdl_header_auth_*` | [Sign-in by a reverse proxy header](../deployment/authentication.md#reverse-proxy-header-sign-in); off by default |
 | `ytdl_enable_documentation_api` | Serves `/docs` and `/openapi.yaml`; restart required |
 | `ytdl_enable_rss_feed` | Enables `/api/rss`; default `false` |
 

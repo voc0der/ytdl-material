@@ -43,12 +43,36 @@ describe('LoginComponent', () => {
       service_initialized: of(true),
       config: { Advanced: { multi_user_mode: true }, Users: { allow_registration: true } },
       isOIDCEnabled: () => false,
+      isHeaderAuthEnabled: () => false,
+      headerLogin: vi.fn().mockName('headerLogin'),
       getBaseTitle: () => 'ytdl-material',
       login: vi.fn().mockName('login').mockReturnValue(of({ token: 'token', user: { uid: 'u' }, permissions: [], available_permissions: [] })),
       register: vi.fn().mockName('register').mockReturnValue(of({ user: { name: 'newcomer' } })),
       afterLogin: vi.fn().mockName('afterLogin')
     };
     routerStub = { navigate: vi.fn().mockName('navigate') };
+  });
+
+  it('signs in through the reverse proxy without asking for a password', async () => {
+    postsServiceStub.isHeaderAuthEnabled = () => true;
+    await create();
+
+    expect(postsServiceStub.headerLogin).toHaveBeenCalledExactlyOnceWith('/home', expect.any(Function));
+    expect(element().querySelector('.login-form')).toBeNull();
+    expect(element().querySelector('.login-title').textContent).toContain('Signing you in');
+    expect(element().textContent).toContain('Signing in through your reverse proxy');
+  });
+
+  it('says why signing in through the proxy failed, and tries again when asked', async () => {
+    postsServiceStub.isHeaderAuthEnabled = () => true;
+    postsServiceStub.headerLogin.mockImplementation((_path, onFailure) => onFailure('Your reverse proxy did not sign you in. The server log says why.'));
+    await create();
+    fixture.detectChanges();
+
+    expect(element().querySelector('.login-message.is-error').textContent).toContain('Your reverse proxy did not sign you in');
+    submitButton().click();
+    expect(postsServiceStub.headerLogin).toHaveBeenCalledTimes(2);
+    expect(element().querySelector('.login-form')).toBeNull();
   });
 
   it('asks for a user name and password, and cannot be submitted without both', async () => {

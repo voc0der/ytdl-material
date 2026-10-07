@@ -136,6 +136,11 @@ JSON section: <code>YtdlMaterial.Users</code>
 | <code>ytdl_oidc_allowed_groups</code> | <code>oidc.allowed_groups</code> | <code>""</code> |
 | <code>ytdl_oidc_username_claim</code> | <code>oidc.username_claim</code> | <code>"preferred_username"</code> |
 | <code>ytdl_oidc_display_name_claim</code> | <code>oidc.display_name_claim</code> | <code>"preferred_username"</code> |
+| <code>ytdl_header_auth_enabled</code> | <code>header_auth.enabled</code> | <code>false</code> |
+| <code>ytdl_header_auth_trusted_proxies</code> | <code>header_auth.trusted_proxies</code> | <code>""</code> |
+| <code>ytdl_header_auth_user_header</code> | <code>header_auth.user_header</code> | <code>"Remote-User"</code> |
+| <code>ytdl_header_auth_auto_register</code> | <code>header_auth.auto_register</code> | <code>true</code> |
+| <code>ytdl_header_auth_admin_users</code> | <code>header_auth.admin_users</code> | <code>""</code> |
 
 ## Database
 

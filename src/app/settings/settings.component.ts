@@ -1,5 +1,5 @@
 import { Component, OnInit, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
-import { OIDCStatus, PostsService } from 'app/posts.services';
+import { HeaderAuthStatus, OIDCStatus, PostsService } from 'app/posts.services';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {DomSanitizer} from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
@@ -93,6 +93,10 @@ export class SettingsComponent implements OnInit {
   // What the backend answered about OIDC, which is the only way to tell whether the settings
   // it was given actually work.
   oidcStatus: OIDCStatus = null;
+  // What the backend answered about header sign-in, including the header this page's own request
+  // carried. Stays null for anybody but an administrator, who is all the backend will answer.
+  headerAuthStatus: HeaderAuthStatus = null;
+  headerAuthStatusUnavailable = false;
 
   readonly themeOptions: PickerOption[] = [
     { value: 'default', label: $localize`Default` },
@@ -163,6 +167,10 @@ export class SettingsComponent implements OnInit {
 
   readonly oidcAuthMethodOptions: PickerOption[] = [
     { value: 'oidc', label: $localize`OIDC / SSO` }
+  ];
+
+  readonly headerAuthMethodOptions: PickerOption[] = [
+    { value: 'header', label: $localize`Reverse proxy header` }
   ];
 
   // The three kinds a notification can be, as chips rather than a multiple select.
@@ -269,6 +277,69 @@ export class SettingsComponent implements OnInit {
   }
 
   /*************************************************
+   * Header sign-in, shown the way single sign-on is
+   * and for the same reasons: it is set in the
+   * environment, and only described here.
+   *
+   * Apart from whether it is on, everything comes
+   * from the backend's status answer rather than the
+   * config, because only the backend can say which
+   * header arrived with this page's own request.
+   ************************************************/
+  get headerAuthEnabled(): boolean {
+    return !!this.postsService.config?.['Users']?.['header_auth']?.['enabled'];
+  }
+
+  get headerAuthRequestState(): 'received' | 'untrusted' | 'missing' | 'repeated' | null {
+    const request = this.headerAuthStatus?.request;
+    if (!request) return null;
+    if (!request.trusted) return 'untrusted';
+    if (!request.values.some(value => value !== '')) return 'missing';
+    return request.values.length > 1 ? 'repeated' : 'received';
+  }
+
+  get headerAuthDetails(): { label: string, value: string, hint?: string }[] {
+    const status = this.headerAuthStatus;
+    if (!status?.enabled) return [];
+    const values = status.request?.values ?? [];
+    return [
+      { label: $localize`Header`, value: status.user_header },
+      { label: $localize`Value on this request`, value: values.length ? values.join(', ') : $localize`Not sent` },
+      { label: $localize`Request came from`, value: status.request?.peer || $localize`Unknown` },
+      { label: $localize`Trusted proxies`, value: (status.trusted_proxies ?? []).join(', ') },
+      { label: $localize`Register users on first sign-in`, value: status.auto_register === false ? $localize`No` : $localize`Yes`,
+        hint: $localize`Creates an account for a name the proxy sends that has none yet. Existing accounts can still sign in when this is off.` },
+      { label: $localize`Administrators`, value: (status.admin_users ?? []).join(', ') || $localize`Nobody`,
+        hint: $localize`Applied at every sign-in: these names become administrators, and everyone else an ordinary user.` }
+    ];
+  }
+
+  get headerAuthNote(): string | null {
+    const status = this.headerAuthStatus;
+    switch (this.headerAuthRequestState) {
+      case 'untrusted':
+        return $localize`This page reached the server from ${status.request.peer || 'an unknown address'}:address:, which is not a trusted proxy, so the header is ignored.`;
+      case 'missing':
+        return $localize`The proxy did not send ${status.user_header}:header:, so it signed nobody in.`;
+      case 'repeated':
+        return $localize`The header arrived more than once. The proxy has to replace it, not add to one the browser sent.`;
+      default:
+        return null;
+    }
+  }
+
+  getHeaderAuthStatus(): void {
+    if (!this.headerAuthEnabled) return;
+    this.postsService.getHeaderAuthStatus().subscribe(res => {
+      this.headerAuthStatus = res;
+      this.headerAuthStatusUnavailable = false;
+    }, () => {
+      this.headerAuthStatus = null;
+      this.headerAuthStatusUnavailable = true;
+    });
+  }
+
+  /*************************************************
    * Server settings that come from the environment
    * rather than this page, shown so they can be
    * checked. Each one only appears once it is set.
@@ -324,6 +395,7 @@ export class SettingsComponent implements OnInit {
       this.getDBInfo();
       this.getDownloaderInfo();
       this.getOIDCStatus();
+      this.getHeaderAuthStatus();
     } else {
       this.postsService.service_initialized
         .pipe(filter(Boolean), take(1))
@@ -332,6 +404,7 @@ export class SettingsComponent implements OnInit {
           this.getDBInfo();
           this.getDownloaderInfo();
           this.getOIDCStatus();
+          this.getHeaderAuthStatus();
         });
     }
 

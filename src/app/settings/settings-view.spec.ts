@@ -62,6 +62,7 @@ describe('Settings page controls', () => {
       getLatestGithubRelease: vi.fn().mockReturnValue(of({})),
       getOIDCStatus: vi.fn().mockReturnValue(of({ initialized: true })),
       isOIDCEnabled: PostsService.prototype.isOIDCEnabled,
+      isHeaderAuthEnabled: PostsService.prototype.isHeaderAuthEnabled,
       getUsers: vi.fn().mockReturnValue(of({ users: [] })),
       getRoles: vi.fn().mockReturnValue(of({ roles: [] })),
       setConfig: vi.fn().mockReturnValue(of({ success: true })),
