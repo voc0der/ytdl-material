@@ -3716,8 +3716,8 @@ app.post('/api/auth/header/login', async (req, res) => {
     res.send(await auth_api.getAuthResponseObject(result.user));
 });
 
-// For the settings page. Administrators only: it lists the trusted proxies and the names that
-// get administrator rights.
+// For the settings page. Administrators only: it lists the trusted proxies and the groups that
+// get in and get administrator rights.
 app.get('/api/auth/header/status', optionalJwt, requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.send(header_auth_api.getStatus(req));

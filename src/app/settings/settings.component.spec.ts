@@ -429,8 +429,9 @@ describe('SettingsComponent OIDC panel', () => {
 
 describe('SettingsComponent header sign-in panel', () => {
   const STATUS = {
-    enabled: true, user_header: 'Remote-User', trusted_proxies: ['172.28.0.10'], auto_register: true, admin_users: ['alice'],
-    request: { peer: '172.28.0.10', trusted: true, values: ['alice'] }
+    enabled: true, user_header: 'Remote-User', groups_header: 'Remote-Groups', trusted_proxies: ['172.28.0.10'], auto_register: true,
+    admin_group: 'admin', allowed_groups: [],
+    request: { peer: '172.28.0.10', trusted: true, values: ['alice'], group_values: ['users,admin'] }
   };
   const buildComponent = (enabled: boolean, status: any = STATUS): SettingsComponent => {
     const posts_service_mock: any = {
@@ -457,31 +458,54 @@ describe('SettingsComponent header sign-in panel', () => {
     expect(off.headerAuthDetails).toEqual([]);
   });
 
-  it('shows the header, the value this request carried, and the settings in force', () => {
+  it('shows the headers, the values this request carried, and the settings in force', () => {
     const component = loaded();
     expect(component.headerAuthRequestState).toBe('received');
     expect(component.headerAuthNote).toBeNull();
     expect(value(component, 'Header')).toBe('Remote-User');
     expect(value(component, 'Value on this request')).toBe('alice');
+    expect(value(component, 'Groups header')).toBe('Remote-Groups');
+    expect(value(component, 'Groups on this request')).toBe('users,admin');
     expect(value(component, 'Request came from')).toBe('172.28.0.10');
     expect(value(component, 'Trusted proxies')).toBe('172.28.0.10');
     expect(value(component, 'Register users on first sign-in')).toBe('Yes');
-    expect(value(component, 'Administrators')).toBe('alice');
+    expect(value(component, 'Administrator group')).toBe('admin');
+    expect(value(component, 'Allowed groups')).toBe('Anyone');
+  });
+
+  it('tells a groups header sent empty from one not sent at all', () => {
+    const request = { peer: '172.28.0.10', trusted: true, values: ['alice'] };
+    expect(value(loaded({ ...STATUS, request: { ...request, group_values: [''] } }), 'Groups on this request')).toBe('None');
+    expect(value(loaded({ ...STATUS, request: { ...request, group_values: [] } }), 'Groups on this request')).toBe('Not sent');
+  });
+
+  it('says when no groups header is named, and shows no groups for the request', () => {
+    const component = loaded({ ...STATUS, groups_header: '', request: { peer: '172.28.0.10', trusted: true, values: ['alice'], group_values: [] } });
+    expect(value(component, 'Groups header')).toBe('Not set');
+    expect(component.headerAuthDetails.find(row => row.label === 'Groups header')?.hint).toContain('nobody is an administrator');
+    expect(value(component, 'Groups on this request')).toBeUndefined();
   });
 
   it('says why a request was not signed in by the proxy', () => {
-    const untrusted = loaded({ ...STATUS, request: { peer: '10.0.0.5', trusted: false, values: ['alice'] } });
+    const untrusted = loaded({ ...STATUS, request: { peer: '10.0.0.5', trusted: false, values: ['alice'], group_values: [] } });
     expect(untrusted.headerAuthRequestState).toBe('untrusted');
     expect(untrusted.headerAuthNote).toContain('10.0.0.5');
 
-    const missing = loaded({ ...STATUS, admin_users: [], auto_register: false, request: { peer: '172.28.0.10', trusted: true, values: [] } });
+    const missing = loaded({ ...STATUS, allowed_groups: ['media', 'family'], auto_register: false,
+      request: { peer: '172.28.0.10', trusted: true, values: [], group_values: [] } });
     expect(missing.headerAuthRequestState).toBe('missing');
     expect(missing.headerAuthNote).toContain('Remote-User');
     expect(value(missing, 'Value on this request')).toBe('Not sent');
-    expect(value(missing, 'Administrators')).toBe('Nobody');
+    expect(value(missing, 'Allowed groups')).toBe('media, family');
     expect(value(missing, 'Register users on first sign-in')).toBe('No');
 
-    expect(loaded({ ...STATUS, request: { peer: '172.28.0.10', trusted: true, values: ['mallory', 'alice'] } }).headerAuthRequestState).toBe('repeated');
+    const repeated = loaded({ ...STATUS, request: { peer: '172.28.0.10', trusted: true, values: ['mallory', 'alice'], group_values: [] } });
+    expect(repeated.headerAuthRequestState).toBe('repeated');
+    expect(repeated.headerAuthNote).toContain('Remote-User');
+
+    const repeated_groups = loaded({ ...STATUS, request: { peer: '172.28.0.10', trusted: true, values: ['alice'], group_values: ['admin', 'users'] } });
+    expect(repeated_groups.headerAuthRequestState).toBe('repeated');
+    expect(repeated_groups.headerAuthNote).toContain('Remote-Groups');
   });
 
   it('says only administrators can see the details when the backend will not say', () => {

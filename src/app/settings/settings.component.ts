@@ -295,22 +295,29 @@ export class SettingsComponent implements OnInit {
     if (!request) return null;
     if (!request.trusted) return 'untrusted';
     if (!request.values.some(value => value !== '')) return 'missing';
-    return request.values.length > 1 ? 'repeated' : 'received';
+    return request.values.length > 1 || (request.group_values ?? []).length > 1 ? 'repeated' : 'received';
   }
 
   get headerAuthDetails(): { label: string, value: string, hint?: string }[] {
     const status = this.headerAuthStatus;
     if (!status?.enabled) return [];
     const values = status.request?.values ?? [];
+    const group_values = status.request?.group_values ?? [];
     return [
       { label: $localize`Header`, value: status.user_header },
       { label: $localize`Value on this request`, value: values.length ? values.join(', ') : $localize`Not sent` },
+      { label: $localize`Groups header`, value: status.groups_header || $localize`Not set`,
+        hint: status.groups_header ? undefined : $localize`Groups are not read until this names the header your proxy sets, so nobody is an administrator.` },
+      ...(status.groups_header ? [{ label: $localize`Groups on this request`,
+        value: group_values.filter(value => value !== '').join(', ') || (group_values.length ? $localize`None` : $localize`Not sent`) }] : []),
       { label: $localize`Request came from`, value: status.request?.peer || $localize`Unknown` },
       { label: $localize`Trusted proxies`, value: (status.trusted_proxies ?? []).join(', ') },
       { label: $localize`Register users on first sign-in`, value: status.auto_register === false ? $localize`No` : $localize`Yes`,
         hint: $localize`Creates an account for a name the proxy sends that has none yet. Existing accounts can still sign in when this is off.` },
-      { label: $localize`Administrators`, value: (status.admin_users ?? []).join(', ') || $localize`Nobody`,
-        hint: $localize`Applied at every sign-in: these names become administrators, and everyone else an ordinary user.` }
+      { label: $localize`Administrator group`, value: status.admin_group,
+        hint: $localize`Applied at every sign-in: members of this group become administrators, and everyone else an ordinary user.` },
+      { label: $localize`Allowed groups`, value: (status.allowed_groups ?? []).join(', ') || $localize`Anyone`,
+        hint: $localize`Only members of one of these groups can sign in. With none listed, anyone the proxy signs in can.` }
     ];
   }
 
@@ -321,8 +328,10 @@ export class SettingsComponent implements OnInit {
         return $localize`This page reached the server from ${status.request.peer || 'an unknown address'}:address:, which is not a trusted proxy, so the header is ignored.`;
       case 'missing':
         return $localize`The proxy did not send ${status.user_header}:header:, so it signed nobody in.`;
-      case 'repeated':
-        return $localize`The header arrived more than once. The proxy has to replace it, not add to one the browser sent.`;
+      case 'repeated': {
+        const header = status.request.values.length > 1 ? status.user_header : status.groups_header;
+        return $localize`${header}:header: arrived more than once. The proxy has to replace it, not add to one the browser sent.`;
+      }
       default:
         return null;
     }

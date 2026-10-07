@@ -140,7 +140,9 @@ JSON section: <code>YtdlMaterial.Users</code>
 | <code>ytdl_header_auth_trusted_proxies</code> | <code>header_auth.trusted_proxies</code> | <code>""</code> |
 | <code>ytdl_header_auth_user_header</code> | <code>header_auth.user_header</code> | <code>"Remote-User"</code> |
 | <code>ytdl_header_auth_auto_register</code> | <code>header_auth.auto_register</code> | <code>true</code> |
-| <code>ytdl_header_auth_admin_users</code> | <code>header_auth.admin_users</code> | <code>""</code> |
+| <code>ytdl_header_auth_groups_header</code> | <code>header_auth.groups_header</code> | <code>""</code> |
+| <code>ytdl_header_auth_admin_group</code> | <code>header_auth.admin_group</code> | <code>"admin"</code> |
+| <code>ytdl_header_auth_allowed_groups</code> | <code>header_auth.allowed_groups</code> | <code>""</code> |
 
 ## Database
 

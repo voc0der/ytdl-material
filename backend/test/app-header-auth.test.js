@@ -17,7 +17,7 @@ describe('Header sign-in on a running server', function() {
         ytdl_multi_user_mode: 'true',
         ytdl_header_auth_enabled: 'true',
         ytdl_header_auth_trusted_proxies: '127.0.0.1, ::1',
-        ytdl_header_auth_admin_users: 'alice'
+        ytdl_header_auth_groups_header: 'Remote-Groups'
     };
 
     for (const [situation, env, message] of [
@@ -35,7 +35,7 @@ describe('Header sign-in on a running server', function() {
 
     describe('Set up properly', function() {
         let app;
-        const signIn = (name) => app.api.post('/api/auth/header/login').set('Remote-User', name);
+        const signIn = (name, groups = '') => app.api.post('/api/auth/header/login').set('Remote-User', name).set('Remote-Groups', groups);
 
         before(async function() {
             app = await startApp({env: HEADER_AUTH});
@@ -46,7 +46,7 @@ describe('Header sign-in on a running server', function() {
         });
 
         it('signs in whoever the proxy names, with a session the rest of the API accepts', async function() {
-            const res = await signIn('alice').expect(200);
+            const res = await signIn('alice', 'users,admin').expect(200);
             assert.strictEqual(res.headers['cache-control'], 'no-store');
             assert.strictEqual(res.body.user.uid, 'alice');
             assert.strictEqual(res.body.user.role, 'admin');
@@ -72,18 +72,19 @@ describe('Header sign-in on a running server', function() {
         });
 
         it('shows its status to administrators only', async function() {
-            const alice = (await signIn('alice').expect(200)).body.token;
+            const alice = (await signIn('alice', 'admin').expect(200)).body.token;
             const bob = (await signIn('bob').expect(200)).body.token;
 
             await app.api.get('/api/auth/header/status').expect(401);
             await app.api.get('/api/auth/header/status').query({jwt: bob}).expect(403);
-            const status = (await app.api.get('/api/auth/header/status').query({jwt: alice}).set('Remote-User', 'alice').expect(200)).body;
-            assert.deepStrictEqual(status.request, {peer: '127.0.0.1', trusted: true, values: ['alice']});
-            assert.deepStrictEqual(status.admin_users, ['alice']);
+            const status = (await app.api.get('/api/auth/header/status').query({jwt: alice})
+                .set('Remote-User', 'alice').set('Remote-Groups', 'admin').expect(200)).body;
+            assert.deepStrictEqual(status.request, {peer: '127.0.0.1', trusted: true, values: ['alice'], group_values: ['admin']});
+            assert.strictEqual(status.admin_group, 'admin');
         });
 
         it('keeps its settings when the settings page saves, and refuses a save the server could not start with', async function() {
-            const alice = (await signIn('alice').expect(200)).body.token;
+            const alice = (await signIn('alice', 'admin').expect(200)).body.token;
             const config = (await app.api.get('/api/config').query({jwt: alice}).expect(200)).body.config_file;
             const save = (changes) => {
                 const new_config_file = JSON.parse(JSON.stringify(config));
