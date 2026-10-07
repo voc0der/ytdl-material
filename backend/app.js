@@ -20,6 +20,7 @@ const unzipper = require('unzipper');
 const db_api = require('./db');
 const { DelegatingRateLimitStore } = require('./rate-limit-store');
 const { skipApiRateLimit, skipAuthRateLimit } = require('./rate-limit-paths');
+const ip_ranges = require('./ip-ranges');
 const redis_store = require('./redis-store');
 const utils = require('./utils')
 const low = require('./lowdb-compat')
@@ -392,13 +393,17 @@ async function simplifyDBFileStructure() {
     return true;
 }
 
-// CIDR IP checking utility
-function ipInCIDR(ip, cidr) {
-    const [range, bits = 32] = cidr.split('/');
-    const mask = ~(2 ** (32 - bits) - 1);
-    const ipNum = ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-    const rangeNum = range.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-    return (ipNum & mask) === (rangeNum & mask);
+// The whitelist as last parsed. It is read for every request, so it is only parsed again
+// when it changes, which is also what keeps a bad entry to one warning.
+let parsed_reverse_proxy_whitelist = {value: null, ranges: null};
+
+function getReverseProxyWhitelist(whitelist) {
+    if (parsed_reverse_proxy_whitelist.value !== whitelist) {
+        const ranges = ip_ranges.parseAddressList(whitelist);
+        for (const entry of ranges.invalid) logger.warn(`Invalid CIDR range in whitelist: ${entry}`);
+        parsed_reverse_proxy_whitelist = {value: whitelist, ranges: ranges};
+    }
+    return parsed_reverse_proxy_whitelist.ranges;
 }
 
 // Reverse proxy whitelist middleware
@@ -410,24 +415,13 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
         return next();
     }
 
-    // Get the direct connecting IP (the reverse proxy itself, not the end client)
-    const proxyIp = (req.connection.remoteAddress || req.socket.remoteAddress || '').replace('::ffff:', '');
-
-    // Parse whitelist (can be comma-separated CIDRs)
-    const allowedRanges = whitelist.split(',').map(s => s.trim()).filter(s => s);
-
-    // Check if IP is in any of the allowed ranges
-    for (const range of allowedRanges) {
-        try {
-            if (ipInCIDR(proxyIp, range)) {
-                return next();
-            }
-        } catch {
-            logger.warn(`Invalid CIDR range in whitelist: ${range}`);
-        }
+    // The direct connecting IP (the reverse proxy itself, not the end client)
+    const proxyIp = req.socket.remoteAddress;
+    if (ip_ranges.addressInList(getReverseProxyWhitelist(whitelist), proxyIp)) {
+        return next();
     }
 
-    logger.warn(`Access denied for reverse proxy IP ${proxyIp} - not in whitelist`);
+    logger.warn(`Access denied for reverse proxy IP ${ip_ranges.normalizeAddress(proxyIp) || proxyIp} - not in whitelist`);
     return res.status(403).send('Access forbidden');
 }
 
