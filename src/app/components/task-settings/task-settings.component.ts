@@ -157,8 +157,6 @@ export class TaskSettingsComponent implements OnChanges {
 
   setOption(key: string, value: unknown): void {
     this.options = {...this.options, [key]: value};
-    // Blacklisting everything already covers subscription files.
-    if (key === 'blacklist_files' && value) this.options['blacklist_subscription_files'] = false;
   }
 
   save(): void {

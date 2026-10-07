@@ -191,12 +191,17 @@ describe('TaskSettingsComponent', () => {
     expect(postsService.updateTaskSchedule).not.toHaveBeenCalled();
   });
 
-  it('drops the subscription-only blacklist once everything is blacklisted', () => {
+  it('stays on subscription files only when everything it deletes is blacklisted', () => {
+    // Blacklisting everything used to switch this off, and with it the task went back to
+    // deleting old files from the whole library.
     openOn(task({ key: TaskType.DELETE_OLD_FILES, options: { blacklist_subscription_files: true } }));
 
     component.setOption('blacklist_files', true);
+    fixture.detectChanges();
 
-    expect(component.options['blacklist_subscription_files']).toBe(false);
+    expect(component.options['blacklist_subscription_files']).toBe(true);
+    const toggle: HTMLButtonElement = fixture.nativeElement.querySelector('button[role="switch"][name="subscriptionFilesOnly"]');
+    expect(toggle.disabled).toBe(false);
   });
 
   it('will not save an age to delete files after that is not more than zero days', () => {
