@@ -481,7 +481,8 @@ async function removeDuplicates(data) {
 
 async function checkForAutoDeleteFiles() {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
-    const threshold = task_obj['options'] ? task_obj['options']['threshold_days'] : null;
+    const options = task_obj['options'] || {};
+    const threshold = options['threshold_days'];
     // A negative age put the cutoff in the future, and every file in the library is older than that.
     const threshold_days = Number(threshold);
     if (!threshold || !(threshold_days > 0)) {
@@ -493,7 +494,12 @@ async function checkForAutoDeleteFiles() {
         return null;
     }
     const delete_older_than_timestamp = Date.now() - threshold_days*86400*1000;
-    const files = (await db_api.getRecords('files', {registered: {$lt: delete_older_than_timestamp}}))
+    const filter = {registered: {$lt: delete_older_than_timestamp}};
+    // Named for what it first did on its own: blacklist the subscription files among what was
+    // deleted. It read as keeping the task to those files, and with it on a run deleted every
+    // old file in the library, however it was downloaded.
+    if (options['blacklist_subscription_files']) filter['sub_id'] = {$ne: null};
+    const files = (await db_api.getRecords('files', filter))
     const files_to_remove = files.map(file => {return {uid: file.uid, sub_id: file.sub_id}});
     return {files_to_remove: files_to_remove};
 }
@@ -502,9 +508,13 @@ async function autoDeleteFiles(data) {
     const task_obj = await db_api.getRecord('tasks', {key: 'delete_old_files'});
     const options = task_obj['options'] || {};
     if (data['files_to_remove']) {
-        logger.info(`Removing ${data['files_to_remove'].length} old files!`);
-        for (let i = 0; i < data['files_to_remove'].length; i++) {
-            const file_to_remove = data['files_to_remove'][i];
+        // A run made before the task was kept to subscription files found the others as well.
+        const files_to_remove = options['blacklist_subscription_files']
+            ? data['files_to_remove'].filter(file_to_remove => file_to_remove['sub_id'])
+            : data['files_to_remove'];
+        logger.info(`Removing ${files_to_remove.length} old files!`);
+        for (let i = 0; i < files_to_remove.length; i++) {
+            const file_to_remove = files_to_remove[i];
             // The subscription-only option used to be read off the file, which never has it,
             // so a deleted video left its subscription's archive and came back with the next check.
             const blacklist = !!(options['blacklist_files'] || (file_to_remove['sub_id'] && options['blacklist_subscription_files']));

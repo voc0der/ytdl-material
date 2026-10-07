@@ -11,7 +11,7 @@ Open **Tasks** for maintenance and recurring work. Each task shows its current s
 | Import missing DB records | Registers supported media found in managed directories |
 | Find duplicate files in DB | Finds duplicate entries for review and removal |
 | Update yt-dlp | Checks the selected downloader for an update and offers to apply it; the title names the downloader chosen in **Settings → Advanced** |
-| Delete old files | Finds files older than the configured retention threshold; confirmation deletes them |
+| Delete old files | Finds files older than the configured retention threshold, in the whole library or only from subscriptions; confirmation deletes them |
 | Import legacy archives | Imports older archive and blacklist text files into the database |
 | Rebuild database | Backs up the database and rebuilds file records from stored media and metadata |
 | Apply categories to existing files | Re-evaluates category membership using current rules |
@@ -57,6 +57,8 @@ If the container stops during a conversion, the next start discards the unfinish
 
 ## Retention
 
-Set the age threshold for **Delete old files** in its options. Age is measured from when a file was **registered in the library**, not its source upload date. The archive/blacklist choices control retaining download history; inspect the resulting Archive before relying on retention to prevent subscription redownloads.
+Set the age threshold for **Delete old files** in its options. Age is measured from when a file was **registered in the library**, not its source upload date.
+
+Without **Subscription files only**, the task deletes every file in the library past that age, however it was downloaded. With it on, the task deletes only files a subscription downloaded and keeps each in its subscription's archive, so the next check does not download it again. **Blacklist what it deletes** archives everything the task deletes; for files from outside subscriptions that only matters with download archiving on.
 
 Database snapshots do not include media files. Follow [backups and restore](../deployment/backups.md) before using rebuild, retention, or bulk cleanup.

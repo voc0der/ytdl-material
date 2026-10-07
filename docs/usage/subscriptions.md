@@ -16,7 +16,7 @@ Open **Subscriptions**, paste the channel or playlist URL, and choose the downlo
 | Retrieve channel playlists | For a channel, also downloads the videos in its playlists, whatever the date range, and keeps each one as a library playlist |
 | Custom args / output | Overrides download details for this subscription |
 
-A date range such as `now-2weeks` controls which uploads are eligible when a check runs. It does not delete older files that were already downloaded. Use the **Delete old files** task for retention.
+A date range such as `now-2weeks` controls which uploads are eligible when a check runs. It does not delete older files that were already downloaded. Use the **Delete old files** task with **Subscription files only** on for retention.
 
 A check with a date range first lists the source's uploads with their approximate dates, and fetches full details only for uploads near or inside the range, whose exact date decides. A short range on a large channel therefore takes seconds rather than one request per upload the channel has ever made.
 

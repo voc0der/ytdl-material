@@ -754,12 +754,28 @@ describe('Tasks', function() {
             assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: false});
         });
 
-        it('blacklists the subscription files it deletes when only those are to be blacklisted', async function() {
-            // Read off the file instead of the task, this was always off, so a deleted video
-            // left its subscription's archive and came back with the subscription's next check.
+        it('keeps to subscription files when asked to, and blacklists what it deletes', async function() {
+            // This used to blacklist the subscription files and delete every other old file in
+            // the library along with them. Read off the file instead of the task, the blacklist
+            // was always off, so a deleted video came back with the subscription's next check.
             await deleteOldFiles({threshold_days: 30, blacklist_subscription_files: true});
 
-            assert.deepStrictEqual(deletedOfOurs(), {[OLD_FILE]: false, [OLD_SUBSCRIPTION_FILE]: true});
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_SUBSCRIPTION_FILE]: true});
+        });
+
+        it('keeps to subscription files when everything it deletes is blacklisted as well', async function() {
+            await deleteOldFiles({threshold_days: 30, blacklist_files: true, blacklist_subscription_files: true});
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_SUBSCRIPTION_FILE]: true});
+        });
+
+        it('leaves the other files an earlier run found once it keeps to subscription files', async function() {
+            await setTaskOptions('delete_old_files', {threshold_days: 30});
+            await tasks_api.executeRun('delete_old_files');
+            await setTaskOptions('delete_old_files', {blacklist_subscription_files: true});
+            await tasks_api.executeConfirm('delete_old_files');
+
+            assert.deepStrictEqual(deletedOfOurs(), {[OLD_SUBSCRIPTION_FILE]: true});
         });
 
         it('blacklists every file it deletes when asked to', async function() {

@@ -64,7 +64,7 @@
         @if (thresholdInvalid) {
           <span class="settings-row-hint hint-invalid" i18n="Delete files older than invalid hint">Has to be more than zero days.</span>
         } @else {
-          <span class="settings-row-hint" i18n="Delete files older than hint">In days. Nothing is deleted until this is set.</span>
+          <span class="settings-row-hint" i18n="Delete files older than hint">Days since a file was added to the library. Nothing is deleted until this is set.</span>
         }
       </span>
       <span class="kit-field threshold-field">
@@ -74,6 +74,18 @@
       </span>
     </label>
 
+    <!-- Stored under the name of what it first did alone, blacklisting the subscription files
+         among what was deleted. It now keeps the task to them as well. -->
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" id="task-subscription-files-title" i18n="Delete only subscription files">Subscription files only</span>
+        <span class="settings-row-hint" i18n="Delete only subscription files hint">Leaves every other file alone. What it deletes is never downloaded again.</span>
+      </span>
+      <mat-slide-toggle name="subscriptionFilesOnly" [ngModel]="options['blacklist_subscription_files']"
+        (ngModelChange)="setOption('blacklist_subscription_files', $event)" [disabled]="saving"
+        aria-labelledby="task-subscription-files-title"></mat-slide-toggle>
+    </div>
+
     <div class="settings-row">
       <span class="settings-row-text">
         <span class="settings-row-title" id="task-blacklist-title" i18n="Blacklist deleted files">Blacklist what it deletes</span>
@@ -82,16 +94,6 @@
       <mat-slide-toggle name="blacklistFiles" [ngModel]="options['blacklist_files']"
         (ngModelChange)="setOption('blacklist_files', $event)" [disabled]="saving"
         aria-labelledby="task-blacklist-title"></mat-slide-toggle>
-    </div>
-
-    <div class="settings-row">
-      <span class="settings-row-text">
-        <span class="settings-row-title" id="task-blacklist-subs-title" i18n="Blacklist deleted subscription files">Blacklist subscription files only</span>
-        <span class="settings-row-hint" i18n="Blacklist deleted subscription files hint">The same, but only for files a subscription downloaded.</span>
-      </span>
-      <mat-slide-toggle name="blacklistSubscriptionFiles" [ngModel]="options['blacklist_subscription_files']"
-        (ngModelChange)="setOption('blacklist_subscription_files', $event)" [disabled]="saving || options['blacklist_files']"
-        aria-labelledby="task-blacklist-subs-title"></mat-slide-toggle>
     </div>
   }
 
