@@ -337,6 +337,26 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_oidc_display_name_claim',
         'path': 'YtdlMaterial.Users.oidc.display_name_claim'
     },
+    'ytdl_header_auth_enabled': {
+        'key': 'ytdl_header_auth_enabled',
+        'path': 'YtdlMaterial.Users.header_auth.enabled'
+    },
+    'ytdl_header_auth_trusted_proxies': {
+        'key': 'ytdl_header_auth_trusted_proxies',
+        'path': 'YtdlMaterial.Users.header_auth.trusted_proxies'
+    },
+    'ytdl_header_auth_user_header': {
+        'key': 'ytdl_header_auth_user_header',
+        'path': 'YtdlMaterial.Users.header_auth.user_header'
+    },
+    'ytdl_header_auth_auto_register': {
+        'key': 'ytdl_header_auth_auto_register',
+        'path': 'YtdlMaterial.Users.header_auth.auto_register'
+    },
+    'ytdl_header_auth_admin_users': {
+        'key': 'ytdl_header_auth_admin_users',
+        'path': 'YtdlMaterial.Users.header_auth.admin_users'
+    },
 
     // Database
     'ytdl_use_local_db': {

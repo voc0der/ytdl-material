@@ -93,7 +93,7 @@ nav:
       - Migrating an installation: deployment/migration.md
       - Backups and restore: deployment/backups.md
       - Reverse proxy and HTTPS: deployment/reverse-proxy.md
-      - Users, OIDC, and LDAP: deployment/authentication.md
+      - Users and sign-in: deployment/authentication.md
       - Hardware acceleration: deployment/hardware.md
       - NAS and ARM hosts: deployment/platforms.md
       - Updates: deployment/updates.md

@@ -10,6 +10,7 @@ const library_sharing = require('./authentication/library-sharing');
 const { resolveLibraryOwner, libraryOwnerUid } = library_sharing;
 const api_tokens_api = require('./authentication/api-tokens');
 const oidc_api = require('./authentication/oidc');
+const header_auth_api = require('./authentication/header-auth');
 const path = require('path');
 const compression = require('compression');
 const multer  = require('multer');
@@ -20,6 +21,7 @@ const unzipper = require('unzipper');
 const db_api = require('./db');
 const { DelegatingRateLimitStore } = require('./rate-limit-store');
 const { skipApiRateLimit, skipAuthRateLimit } = require('./rate-limit-paths');
+const ip_ranges = require('./ip-ranges');
 const redis_store = require('./redis-store');
 const utils = require('./utils')
 const low = require('./lowdb-compat')
@@ -392,13 +394,17 @@ async function simplifyDBFileStructure() {
     return true;
 }
 
-// CIDR IP checking utility
-function ipInCIDR(ip, cidr) {
-    const [range, bits = 32] = cidr.split('/');
-    const mask = ~(2 ** (32 - bits) - 1);
-    const ipNum = ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-    const rangeNum = range.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0;
-    return (ipNum & mask) === (rangeNum & mask);
+// The whitelist as last parsed. It is read for every request, so it is only parsed again
+// when it changes, which is also what keeps a bad entry to one warning.
+let parsed_reverse_proxy_whitelist = {value: null, ranges: null};
+
+function getReverseProxyWhitelist(whitelist) {
+    if (parsed_reverse_proxy_whitelist.value !== whitelist) {
+        const ranges = ip_ranges.parseAddressList(whitelist);
+        for (const entry of ranges.invalid) logger.warn(`Invalid CIDR range in whitelist: ${entry}`);
+        parsed_reverse_proxy_whitelist = {value: whitelist, ranges: ranges};
+    }
+    return parsed_reverse_proxy_whitelist.ranges;
 }
 
 // Reverse proxy whitelist middleware
@@ -410,24 +416,13 @@ function reverseProxyWhitelistMiddleware(req, res, next) {
         return next();
     }
 
-    // Get the direct connecting IP (the reverse proxy itself, not the end client)
-    const proxyIp = (req.connection.remoteAddress || req.socket.remoteAddress || '').replace('::ffff:', '');
-
-    // Parse whitelist (can be comma-separated CIDRs)
-    const allowedRanges = whitelist.split(',').map(s => s.trim()).filter(s => s);
-
-    // Check if IP is in any of the allowed ranges
-    for (const range of allowedRanges) {
-        try {
-            if (ipInCIDR(proxyIp, range)) {
-                return next();
-            }
-        } catch {
-            logger.warn(`Invalid CIDR range in whitelist: ${range}`);
-        }
+    // The direct connecting IP (the reverse proxy itself, not the end client)
+    const proxyIp = req.socket.remoteAddress;
+    if (ip_ranges.addressInList(getReverseProxyWhitelist(whitelist), proxyIp)) {
+        return next();
     }
 
-    logger.warn(`Access denied for reverse proxy IP ${proxyIp} - not in whitelist`);
+    logger.warn(`Access denied for reverse proxy IP ${ip_ranges.normalizeAddress(proxyIp) || proxyIp} - not in whitelist`);
     return res.status(403).send('Access forbidden');
 }
 
@@ -833,6 +828,15 @@ async function loadConfig() {
     initializeDocumentationAPI();
     await initializeRateLimiters();
 
+    // Ahead of OIDC, so that a server set up for both is told that, rather than whatever
+    // OIDC's own startup makes of it first.
+    try {
+        header_auth_api.initialize();
+    } catch (err) {
+        logger.error(`Header sign-in startup failed: ${err.message}`);
+        process.exit(1);
+    }
+
     const oidc_enabled = oidc_api.isEnabled();
     if (oidc_enabled && !config_api.getConfigItem('ytdl_multi_user_mode')) {
         logger.error('OIDC startup failed: multi-user mode must be enabled when OIDC is enabled.');
@@ -1181,9 +1185,42 @@ app.get('/api/config', async function(req, res) {
     });
 });
 
+/*************************************************
+ * Header sign-in is set in the environment, the
+ * way OIDC is, and the settings page sends the
+ * whole config back on every save. So the stored
+ * header_auth section is kept whatever the page
+ * sent, and a save that would stop the server from
+ * starting again -- OIDC or LDAP alongside header
+ * sign-in, or no multi-user mode -- is refused.
+ *
+ * Returns why the save is refused, or null.
+ ************************************************/
+function keepHeaderAuthSettings(new_config_file) {
+    const new_root = new_config_file[CONFIG_ROOT_KEY];
+    const stored_config = config_api.getConfigFile();
+    const stored_users = stored_config && stored_config[CONFIG_ROOT_KEY] ? stored_config[CONFIG_ROOT_KEY]['Users'] : null;
+    const stored_header_auth = stored_users ? stored_users['header_auth'] : undefined;
+
+    if (new_root['Users'] && typeof new_root['Users'] === 'object') {
+        if (stored_header_auth === undefined) delete new_root['Users']['header_auth'];
+        else new_root['Users']['header_auth'] = stored_header_auth;
+    }
+
+    if (!header_auth_api.isEnabled() && !header_auth_api.isConfiguredOn(stored_header_auth)) return null;
+    return header_auth_api.findConflictInConfig(new_root);
+}
+
 app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     let new_config_file = normalizeConfigRoot(req.body.new_config_file);
     if (new_config_file && new_config_file[CONFIG_ROOT_KEY]) {
+        const header_auth_conflict = keepHeaderAuthSettings(new_config_file);
+        if (header_auth_conflict) {
+            logger.error(`Refusing to save the config: ${header_auth_conflict}`);
+            res.status(400).send({success: false, error: header_auth_conflict});
+            return;
+        }
+
         let success = config_api.setConfigFile(new_config_file);
         loadConfigValues(); // reloads config values that exist as variables
         res.send({
@@ -3660,9 +3697,39 @@ app.get('/api/auth/oidc/callback', async (req, res) => {
     }
 });
 
+/*************************************************
+ * Turns the header a trusted reverse proxy sets
+ * into the same session a password login gets, so
+ * nothing past this point needs to know how the
+ * caller signed in. header-auth.js decides whether
+ * the header is believed.
+ ************************************************/
+app.post('/api/auth/header/login', async (req, res) => {
+    const result = await header_auth_api.signIn(req);
+    if (result.error) {
+        res.status(result.status).send({success: false, error: result.error});
+        return;
+    }
+
+    // The answer carries a session token, which nothing between here and the browser should keep.
+    res.set('Cache-Control', 'no-store');
+    res.send(await auth_api.getAuthResponseObject(result.user));
+});
+
+// For the settings page. Administrators only: it lists the trusted proxies and the names that
+// get administrator rights.
+app.get('/api/auth/header/status', optionalJwt, requireAdmin, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.send(header_auth_api.getStatus(req));
+});
+
 app.post('/api/auth/register', optionalJwt, async (req, res) => {
     if (oidc_api.isEnabled()) {
         res.status(403).send('Registration is disabled when OIDC is enabled.');
+        return;
+    }
+    if (header_auth_api.isEnabled()) {
+        res.status(403).send('Registration is disabled when header sign-in is enabled.');
         return;
     }
 
@@ -3712,6 +3779,10 @@ app.post('/api/auth/login'
         , (req, res, next) => {
             if (oidc_api.isEnabled()) {
                 res.status(403).send('Password login is disabled when OIDC is enabled.');
+                return;
+            }
+            if (header_auth_api.isEnabled()) {
+                res.status(403).send('Password login is disabled when header sign-in is enabled.');
                 return;
             }
             next();

@@ -1,10 +1,10 @@
 <div class="container login-page">
-  <section class="login-card" [attr.aria-busy]="busy || oidcRedirecting">
+  <section class="login-card" [attr.aria-busy]="busy || oidcRedirecting || headerSigningIn">
     <header class="login-header">
       <span class="login-symbol" aria-hidden="true">
         <mat-icon>{{mode === 'register' && !oidcEnabled ? 'person_add' : 'account_circle'}}</mat-icon>
       </span>
-      @if (oidcEnabled) {
+      @if (oidcEnabled || headerAuthEnabled) {
         <h1 class="login-title" i18n="OIDC login title">Signing you in</h1>
       } @else if (mode === 'register') {
         <h1 class="login-title" i18n="Register page title">Create an account</h1>
@@ -22,6 +22,18 @@
       <button type="button" class="kit-chip kit-primary login-submit" [disabled]="oidcRedirecting" (click)="redirectToOIDC()">
         <ng-container i18n="OIDC login continue button">Continue</ng-container>
       </button>
+    } @else if (headerAuthEnabled) {
+      @if (error) {
+        <p class="login-message is-error" role="alert"><mat-icon aria-hidden="true">error_outline</mat-icon><span>{{error}}</span></p>
+        <button type="button" class="kit-chip kit-primary login-submit" (click)="signInWithHeader()">
+          <ng-container i18n="Header login retry button">Try again</ng-container>
+        </button>
+      } @else {
+        <div class="login-redirect">
+          <mat-spinner [diameter]="20"></mat-spinner>
+          <p i18n="Header login signing in text">Signing in through your reverse proxy...</p>
+        </div>
+      }
     } @else {
       @if (registrationEnabled) {
         <div class="kit-segmented login-modes" role="radiogroup" aria-label="Log in or register" i18n-aria-label="Login or register choice">

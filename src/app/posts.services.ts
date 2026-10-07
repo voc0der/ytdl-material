@@ -185,6 +185,17 @@ export interface OIDCStatus {
     auto_register: boolean;
 }
 
+// What /api/auth/header/status answers: the settings header sign-in started with, and what the
+// server made of the request asking, which is the only way to see the header it received.
+export interface HeaderAuthStatus {
+    enabled: boolean;
+    user_header?: string;
+    trusted_proxies?: string[];
+    auto_register?: boolean;
+    admin_users?: string[];
+    request?: { peer: string | null, trusted: boolean, values: string[] };
+}
+
 // Pages that only ever show your own things, never a library someone shared with you.
 export const OWN_LIBRARY_PAGES = ['subscriptions', 'subscription', 'downloads', 'duplicates'];
 
@@ -296,7 +307,7 @@ export class PostsService {
                 this.setPageTitle();
                 if (this.config['Advanced']['multi_user_mode']) {
                     const storedToken = this.getStoredJwtToken();
-                    if (!storedToken && !this.isOIDCEnabled()) {
+                    if (!storedToken && !this.isOIDCEnabled() && !this.isHeaderAuthEnabled()) {
                         this.checkAdminCreationStatus();
                     }
                     // login stuff
@@ -304,6 +315,9 @@ export class PostsService {
                         this.token = storedToken;
                         this.httpOptions.params = this.httpOptions.params.set('jwt', this.token);
                         this.jwtAuth();
+                    } else if (this.isHeaderAuthEnabled() && !window.location.href.includes('/login')) {
+                        // The login page signs in through the proxy itself, and says why when it cannot.
+                        this.headerLogin();
                     } else if (redirect_not_required) {
                         this.setInitialized();
                     } else {
@@ -1053,6 +1067,36 @@ export class PostsService {
         return this.http.get<OIDCStatus>(this.path + 'auth/oidc/status', this.httpOptions);
     }
 
+    isHeaderAuthEnabled(): boolean {
+        return !!this.config?.['Users']?.['header_auth']?.['enabled'];
+    }
+
+    /**
+     * Signs in through the reverse proxy in front of the server, which says who this is with a
+     * header. Without onFailure, a refusal sends the page to the login page, which tries again
+     * and shows why it failed -- except for a shared video, which is meant to play for anybody.
+     */
+    headerLogin(redirect_path = '/home', onFailure: (error: string) => void = null) {
+        this.http.post<LoginResponse>(this.path + 'auth/header/login', {}, this.httpOptions).subscribe(res => {
+            if (res['token']) {
+                this.afterLogin(res['user'], res['token'], res['permissions'], res['available_permissions'], redirect_path);
+            }
+        }, err => {
+            if (onFailure) {
+                onFailure(this.getErrorMessage(err));
+            } else if (window.location.href.includes('/player')) {
+                this.setInitialized();
+            } else {
+                this.sendToLogin(false);
+            }
+        });
+    }
+
+    // Administrators only: the server answers anybody else with 403.
+    getHeaderAuthStatus() {
+        return this.http.get<HeaderAuthStatus>(this.path + 'auth/header/status', this.httpOptions);
+    }
+
     private getStoredJwtToken(): string | null {
         const storedToken = localStorage.getItem('jwt_token');
         return storedToken && storedToken !== 'null' ? storedToken : null;
@@ -1085,6 +1129,11 @@ export class PostsService {
     private handleBootstrapAuthFailure(err: any): void {
         if (this.isUnauthorizedError(err)) {
             this.clearStoredJwtToken();
+            // An expired session behind the proxy is renewed by it, without a stop at the login page.
+            if (this.isHeaderAuthEnabled()) {
+                this.headerLogin();
+                return;
+            }
             this.checkAdminCreationStatus();
             this.sendToLogin(false);
             return;
@@ -1155,7 +1204,7 @@ export class PostsService {
         const return_to = this.router.url && this.router.url !== '/login' ? this.router.url : '/home';
         this.router.navigate(['/login'], {queryParams: {returnTo: return_to}});
 
-        if (this.isOIDCEnabled()) {
+        if (this.isOIDCEnabled() || this.isHeaderAuthEnabled()) {
             return;
         }
 
@@ -1202,7 +1251,7 @@ export class PostsService {
     }
 
     checkAdminCreationStatus(force_show = false) {
-        if (this.isOIDCEnabled()) {
+        if (this.isOIDCEnabled() || this.isHeaderAuthEnabled()) {
             return;
         }
         if (!force_show && !this.config['Advanced']['multi_user_mode']) {

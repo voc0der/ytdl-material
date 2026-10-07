@@ -406,6 +406,13 @@ const DEFAULT_CONFIG = {
             "allowed_groups": "",
             "username_claim": "preferred_username",
             "display_name_claim": "preferred_username"
+        },
+        "header_auth": {
+            "enabled": false,
+            "trusted_proxies": "",
+            "user_header": "Remote-User",
+            "auto_register": true,
+            "admin_users": ""
         }
       },
       "Database": {
@@ -467,6 +474,11 @@ const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.Users.oidc.client_id',
     'YtdlMaterial.Users.oidc.client_secret',
     'YtdlMaterial.Users.oidc.issuer_url',
+    // Not credentials, but a map of who to impersonate and from where: the addresses whose
+    // header is believed, the header, and the names that get administrator rights.
+    'YtdlMaterial.Users.header_auth.trusted_proxies',
+    'YtdlMaterial.Users.header_auth.user_header',
+    'YtdlMaterial.Users.header_auth.admin_users',
     // Connection strings carry a username and password in the URL itself, so the whole
     // value is the secret. A key-name heuristic would never have caught these.
     'YtdlMaterial.Database.mongodb_connection_string',

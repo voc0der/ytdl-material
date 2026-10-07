@@ -43,6 +43,7 @@ const INTENTIONALLY_UNAUTHENTICATED = {
     '/api/auth/oidc/status': 'the login page asks whether to show an OIDC button',
     '/api/auth/oidc/login': 'the OIDC redirect, by definition pre-authentication',
     '/api/auth/oidc/callback': 'the OIDC redirect target, by definition pre-authentication',
+    '/api/auth/header/login': 'how a header from a trusted reverse proxy becomes a session; header-auth.js checks the proxy',
     '/api/telegramRequest': 'authenticated by Telegram\'s webhook secret header, not by a user session',
     '/api/checkConcurrentStream': 'playback state for a shared link, which has no user',
     '/api/incrementViewCount': 'playback state for a shared link, which has no user'

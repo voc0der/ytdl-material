@@ -1080,22 +1080,26 @@
                     <span class="settings-row-title" id="settings-allow-registration" i18n="Allow local registration setting">Allow local account self-registration</span>
                     @if (oidcSettings) {
                       <span class="settings-row-hint" id="settings-local-registration-hint" i18n="Local registration disabled by OIDC hint">Local registration is disabled while OIDC is enabled. New SSO accounts are controlled by “Register users on first sign-in”.</span>
+                    } @else if (headerAuthEnabled) {
+                      <span class="settings-row-hint" id="settings-local-registration-hint" i18n="Local registration disabled by header sign-in hint">Local registration is disabled while header sign-in is enabled. New accounts are controlled by “Register users on first sign-in”.</span>
                     }
                   </span>
                   <!-- Show the effective state without changing the saved local preference. -->
-                  <mat-slide-toggle [checked]="!oidcSettings && new_config['Users']['allow_registration']" [disabled]="!!oidcSettings"
+                  <mat-slide-toggle [checked]="!oidcSettings && !headerAuthEnabled && new_config['Users']['allow_registration']" [disabled]="!!oidcSettings || headerAuthEnabled"
                     (change)="new_config['Users']['allow_registration'] = $event.checked" aria-labelledby="settings-allow-registration"
-                    [aria-describedby]="oidcSettings ? 'settings-local-registration-hint' : null"></mat-slide-toggle>
+                    [aria-describedby]="oidcSettings || headerAuthEnabled ? 'settings-local-registration-hint' : null"></mat-slide-toggle>
                 </div>
                 <div class="settings-row">
                   <span class="settings-row-text">
                     <span class="settings-row-title" i18n="Auth method">Auth method</span>
                     @if (oidcSettings) {
                       <span class="settings-row-hint" i18n="Local sign-in disabled by OIDC hint">Local password sign-in and LDAP are disabled while OIDC is enabled.</span>
+                    } @else if (headerAuthEnabled) {
+                      <span class="settings-row-hint" i18n="Local sign-in disabled by header sign-in hint">Local password sign-in and LDAP are disabled while header sign-in is enabled.</span>
                     }
                   </span>
-                  <app-picker [title]="authMethodLabel" [options]="oidcSettings ? oidcAuthMethodOptions : authMethodOptions"
-                    [value]="oidcSettings ? 'oidc' : new_config['Users']['auth_method']" [disabled]="!!oidcSettings"
+                  <app-picker [title]="authMethodLabel" [options]="oidcSettings ? oidcAuthMethodOptions : headerAuthEnabled ? headerAuthMethodOptions : authMethodOptions"
+                    [value]="oidcSettings ? 'oidc' : headerAuthEnabled ? 'header' : new_config['Users']['auth_method']" [disabled]="!!oidcSettings || headerAuthEnabled"
                     (valueChange)="new_config['Users']['auth_method'] = $any($event)"></app-picker>
                 </div>
                 @if (new_config['Users']['auth_method'] === 'ldap') {
@@ -1172,6 +1176,62 @@
                   <p class="settings-note is-warning">
                     <mat-icon>error_outline</mat-icon>
                     <span i18n="OIDC not initialized note">Sign-in through the provider will fail until this is fixed. The server log says which setting it could not use.</span>
+                  </p>
+                }
+              </div>
+            </section>
+          }
+
+          @if (headerAuthEnabled) {
+            <section class="settings-section">
+              <h2 class="settings-section-title" i18n="Settings header sign-in section">Header sign-in</h2>
+              <p class="settings-section-hint" i18n="Settings header sign-in read-only hint">Set with the <code>ytdl_header_auth_*</code> environment variables. Shown here so you can check it; change it where you set it.</p>
+              <div class="kit-panel">
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-text">
+                      <span class="settings-row-title" i18n="Header sign-in request status setting">This request</span>
+                      <span class="settings-row-hint" i18n="Header sign-in request status hint">Whether this page came through a trusted proxy that named you.</span>
+                    </span>
+                    @switch (headerAuthRequestState) {
+                      @case ('received') {
+                        <span class="settings-badge" i18n="Header sign-in status received">Received</span>
+                      }
+                      @case ('untrusted') {
+                        <span class="settings-badge is-warning" i18n="Header sign-in status untrusted">Not a trusted proxy</span>
+                      }
+                      @case ('missing') {
+                        <span class="settings-badge is-warning" i18n="Header sign-in status missing">No header</span>
+                      }
+                      @case ('repeated') {
+                        <span class="settings-badge is-warning" i18n="Header sign-in status repeated">Sent twice</span>
+                      }
+                      @default {
+                        <span class="settings-row-value" i18n="Header sign-in status unknown">Unknown</span>
+                      }
+                    }
+                  </div>
+                  @for (detail of headerAuthDetails; track detail.label) {
+                    <div class="settings-row">
+                      <span class="settings-row-text">
+                        <span class="settings-row-title">{{detail.label}}</span>
+                        @if (detail.hint) {
+                          <span class="settings-row-hint">{{detail.hint}}</span>
+                        }
+                      </span>
+                      <span class="settings-row-value settings-row-wrap">{{detail.value}}</span>
+                    </div>
+                  }
+                </div>
+                @if (headerAuthStatusUnavailable) {
+                  <p class="settings-note">
+                    <mat-icon>info_outline</mat-icon>
+                    <span i18n="Header sign-in details admin only note">Only administrators can see how header sign-in is set up.</span>
+                  </p>
+                } @else if (headerAuthNote) {
+                  <p class="settings-note is-warning">
+                    <mat-icon>error_outline</mat-icon>
+                    <span>{{headerAuthNote}}</span>
                   </p>
                 }
               </div>

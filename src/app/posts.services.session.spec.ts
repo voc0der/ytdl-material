@@ -21,9 +21,9 @@ describe('PostsService session lifecycle', () => {
   let router: { url: string; navigate: ReturnType<typeof vi.fn>; navigateByUrl: ReturnType<typeof vi.fn> };
   let snackBar: { open: ReturnType<typeof vi.fn> };
 
-  function configuration(multiUser = true, oidc = false) {
+  function configuration(multiUser = true, oidc = false, headerAuth = false) {
     return {
-      Advanced: { multi_user_mode: multiUser }, Users: { oidc: { enabled: oidc } },
+      Advanced: { multi_user_mode: multiUser }, Users: { oidc: { enabled: oidc }, header_auth: { enabled: headerAuth } },
       Extra: { title_top: 'Media library' }
     };
   }
@@ -264,6 +264,48 @@ describe('PostsService session lifecycle', () => {
     expect(service.hasSession()).toBe(false);
     expect(router.navigate).toHaveBeenCalledExactlyOnceWith(['/login'], { queryParams: { returnTo: '/player;uid=file-1' } });
     http.expectNone(API + 'config');
+  });
+
+  function expectHeaderLogin() {
+    const request = http.expectOne(req => req.url === API + 'auth/header/login');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.params.has('jwt')).toBe(false);
+    return request;
+  }
+
+  it('signs in through the reverse proxy when there is no saved session, without offering local administrator setup', async () => {
+    start({ route: '/tasks' }).flush({ config_file: { YtdlMaterial: configuration(true, false, true) } });
+    expectHeaderLogin().flush(SESSION);
+    expectConfigRequest(SESSION.token).flush({ config_file: { YtdlMaterial: configuration(true, false, true) } });
+    await Promise.resolve();
+
+    expect(service.isLoggedIn).toBe(true);
+    expect(service.user).toEqual(SESSION.user);
+    expect(localStorage.getItem('jwt_token')).toBe(SESSION.token);
+    expect(service.open_create_default_admin_dialog.value).toBe(false);
+    expect(router.navigate).not.toHaveBeenCalled();
+    http.expectNone(req => req.url.includes('adminExists'));
+  });
+
+  it('renews an expired session through the reverse proxy rather than the login page', () => {
+    start({ token: 'expired-token', route: '/settings' }).flush({ config_file: { YtdlMaterial: configuration(true, false, true) } });
+    expectAuthRequest('expired-token').flush({}, { status: 401, statusText: 'Unauthorized' });
+    expectHeaderLogin().flush(SESSION);
+    expectConfigRequest(SESSION.token).flush({ config_file: { YtdlMaterial: configuration(true, false, true) } });
+
+    expect(service.isLoggedIn).toBe(true);
+    expect(router.navigate).not.toHaveBeenCalled();
+    http.expectNone(req => req.url.includes('adminExists'));
+  });
+
+  it('sends the page to the login page when the proxy does not sign it in, without a password-login warning', () => {
+    start({ route: '/tasks' }).flush({ config_file: { YtdlMaterial: configuration(true, false, true) } });
+    expectHeaderLogin().flush({ success: false, error: 'Your reverse proxy did not sign you in.' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(service.initialized).toBe(true);
+    expect(service.isLoggedIn).toBe(false);
+    expect(router.navigate).toHaveBeenCalledExactlyOnceWith(['/login'], { queryParams: { returnTo: '/tasks' } });
+    expect(snackBar.open).not.toHaveBeenCalled();
   });
 
   it('removes an expired saved credential before checking for a local administrator', () => {

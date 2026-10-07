@@ -427,6 +427,71 @@ describe('SettingsComponent OIDC panel', () => {
   });
 });
 
+describe('SettingsComponent header sign-in panel', () => {
+  const STATUS = {
+    enabled: true, user_header: 'Remote-User', trusted_proxies: ['172.28.0.10'], auto_register: true, admin_users: ['alice'],
+    request: { peer: '172.28.0.10', trusted: true, values: ['alice'] }
+  };
+  const buildComponent = (enabled: boolean, status: any = STATUS): SettingsComponent => {
+    const posts_service_mock: any = {
+      initialized: false,
+      service_initialized: of(false),
+      config: { Users: { header_auth: { enabled: enabled } } },
+      getHeaderAuthStatus: vi.fn().mockName('getHeaderAuthStatus').mockReturnValue(status instanceof Error ? throwError(() => status) : of(status))
+    };
+    const route_mock: any = { snapshot: { paramMap: { get: () => null } } };
+    return new SettingsComponent(posts_service_mock, {} as any, {} as any, {} as any, { navigate: () => { } } as any, route_mock);
+  };
+  const loaded = (status: any = STATUS) => {
+    const component = buildComponent(true, status);
+    component.getHeaderAuthStatus();
+    return component;
+  };
+  const value = (component: SettingsComponent, label: string) => component.headerAuthDetails.find(row => row.label === label)?.value;
+
+  it('asks the backend only when header sign-in is on', () => {
+    const off = buildComponent(false);
+    off.getHeaderAuthStatus();
+    expect(off.headerAuthEnabled).toBe(false);
+    expect((off as any).postsService.getHeaderAuthStatus).not.toHaveBeenCalled();
+    expect(off.headerAuthDetails).toEqual([]);
+  });
+
+  it('shows the header, the value this request carried, and the settings in force', () => {
+    const component = loaded();
+    expect(component.headerAuthRequestState).toBe('received');
+    expect(component.headerAuthNote).toBeNull();
+    expect(value(component, 'Header')).toBe('Remote-User');
+    expect(value(component, 'Value on this request')).toBe('alice');
+    expect(value(component, 'Request came from')).toBe('172.28.0.10');
+    expect(value(component, 'Trusted proxies')).toBe('172.28.0.10');
+    expect(value(component, 'Register users on first sign-in')).toBe('Yes');
+    expect(value(component, 'Administrators')).toBe('alice');
+  });
+
+  it('says why a request was not signed in by the proxy', () => {
+    const untrusted = loaded({ ...STATUS, request: { peer: '10.0.0.5', trusted: false, values: ['alice'] } });
+    expect(untrusted.headerAuthRequestState).toBe('untrusted');
+    expect(untrusted.headerAuthNote).toContain('10.0.0.5');
+
+    const missing = loaded({ ...STATUS, admin_users: [], auto_register: false, request: { peer: '172.28.0.10', trusted: true, values: [] } });
+    expect(missing.headerAuthRequestState).toBe('missing');
+    expect(missing.headerAuthNote).toContain('Remote-User');
+    expect(value(missing, 'Value on this request')).toBe('Not sent');
+    expect(value(missing, 'Administrators')).toBe('Nobody');
+    expect(value(missing, 'Register users on first sign-in')).toBe('No');
+
+    expect(loaded({ ...STATUS, request: { peer: '172.28.0.10', trusted: true, values: ['mallory', 'alice'] } }).headerAuthRequestState).toBe('repeated');
+  });
+
+  it('says only administrators can see the details when the backend will not say', () => {
+    const component = loaded(new Error('403'));
+    expect(component.headerAuthStatusUnavailable).toBe(true);
+    expect(component.headerAuthRequestState).toBeNull();
+    expect(component.headerAuthDetails).toEqual([]);
+  });
+});
+
 describe('SettingsComponent environment rows', () => {
   const buildComponent = (config: any, server_runtime: any): SettingsComponent => {
     const posts_service_mock: any = { initialized: false, service_initialized: of(false), config: config, serverRuntime: server_runtime };

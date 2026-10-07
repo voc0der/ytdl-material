@@ -346,6 +346,73 @@ exports.upsertOIDCUser = async (claims, options = {}) => {
   return await db_api.getRecord('users', {uid: user_obj.uid});
 }
 
+/*************************************************
+ * The account a reverse proxy's sign-in header
+ * names, created on its first sign-in when that is
+ * allowed.
+ *
+ * Matched on uid alone. A name is only a label --
+ * an administrator can rename anyone to anything
+ * -- so letting a name pick the account would let
+ * a rename hand one person's library to another.
+ *
+ * An existing account keeps the way it was made.
+ * Header sign-in can be switched off again, and an
+ * internal account should still have its password
+ * when it is.
+ *
+ * The role is set from admin_users at every sign-
+ * in, so taking a name off that list takes its
+ * administrator rights away the next time it signs
+ * in.
+ ************************************************/
+exports.upsertHeaderUser = async (raw_uid, options = {}) => {
+  const uid = exports.sanitizeUserUID(raw_uid);
+  if (!uid) {
+    logger.error(`Header sign-in refused: ${JSON.stringify(String(raw_uid).slice(0, 100))} is not a usable user name. `
+      + 'A name can only contain letters, digits, and . _ @ -');
+    return null;
+  }
+
+  const admin_users = Array.isArray(options.admin_users) ? options.admin_users : [];
+  const role = admin_users.includes(uid) ? 'admin' : 'user';
+
+  const user_obj = await db_api.getRecord('users', {uid: uid});
+  if (!user_obj) {
+    if (options.auto_register === false) {
+      logger.error(`Header sign-in refused: there is no account '${uid}', and registering one on first sign-in is off.`);
+      return null;
+    }
+    // Two accounts with one name would leave password sign-in guessing between them once
+    // header sign-in is switched off again.
+    if (await db_api.getRecord('users', {name: uid})) {
+      logger.error(`Header sign-in refused: a different account is already named '${uid}'. Rename it, or remove it, first.`);
+      return null;
+    }
+
+    const new_user = generateUserObject(uid, uid, null, 'header');
+    new_user.role = role;
+    const inserted = await db_api.insertRecordIntoTable('users', new_user);
+    if (!inserted) {
+      logger.error(`Header sign-in failed: could not create user '${uid}'.`);
+      return null;
+    }
+    logger.info(`Created the account '${uid}' on its first header sign-in.`);
+    return await db_api.getRecord('users', {uid: uid});
+  }
+
+  if (user_obj.role === role) return user_obj;
+
+  const updated = await db_api.updateRecord('users', {uid: uid}, {role: role});
+  if (!updated) {
+    logger.error(`Header sign-in failed: could not update the role of user '${uid}'.`);
+    return null;
+  }
+  logger.info(`Header sign-in made '${uid}' ${role === 'admin' ? 'an administrator' : 'an ordinary user'}, `
+    + 'following ytdl_header_auth_admin_users.');
+  return await db_api.getRecord('users', {uid: uid});
+}
+
 exports.deleteUser = async (uid) => {
   let success = false;
   let usersFileFolder = config_api.getConfigItem('ytdl_users_base_path');

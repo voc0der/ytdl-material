@@ -43,6 +43,8 @@ export class LoginComponent implements OnInit {
   registering = false;
   oidcEnabled = false;
   oidcRedirecting = false;
+  headerAuthEnabled = false;
+  headerSigningIn = false;
   returnTo = '/home';
 
   constructor(public postsService: PostsService, private router: Router, private route: ActivatedRoute) { }
@@ -87,6 +89,11 @@ export class LoginComponent implements OnInit {
         this.oidcEnabled = this.postsService.isOIDCEnabled();
         if (this.oidcEnabled) {
           this.redirectToOIDC();
+          return;
+        }
+        this.headerAuthEnabled = this.postsService.isHeaderAuthEnabled();
+        if (this.headerAuthEnabled) {
+          this.signInWithHeader();
           return;
         }
         this.registrationEnabled = this.postsService.config['Users'] && this.postsService.config['Users']['allow_registration'];
@@ -196,6 +203,20 @@ export class LoginComponent implements OnInit {
       } else {
         this.error = this.getErrorMessage(err) || $localize`:Registration failed unknown error:Failed to register user, unknown error.`;
       }
+    });
+  }
+
+  // The reverse proxy in front of the server has already signed the visitor in; this asks the
+  // server to accept that, and says why it did not.
+  signInWithHeader() {
+    if (this.headerSigningIn) {
+      return;
+    }
+    this.headerSigningIn = true;
+    this.error = null;
+    this.postsService.headerLogin(this.returnTo || '/home', error => {
+      this.headerSigningIn = false;
+      this.error = error || $localize`:Header login failed unknown error:Signing in through the reverse proxy failed.`;
     });
   }
 

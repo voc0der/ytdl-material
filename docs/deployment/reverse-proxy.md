@@ -21,7 +21,7 @@ If Nginx runs in a container on the app's network, use `http://ytdl-material:174
 
 ## Trust and access restrictions
 
-`ytdl_reverse_proxy_whitelist` is a comma-separated list of **proxy IPs or CIDR ranges allowed to connect directly**. It also supplies trusted proxies unless `ytdl_trust_proxy` overrides that behavior. Do not fill it with client subnets when your intended peer is a proxy.
+`ytdl_reverse_proxy_whitelist` is a comma-separated list of **proxy IPs or CIDR ranges allowed to connect directly**, IPv4 or IPv6. It also supplies trusted proxies unless `ytdl_trust_proxy` overrides that behavior. Do not fill it with client subnets when your intended peer is a proxy.
 
 ```yaml
 environment:
@@ -42,7 +42,7 @@ https://media.example.com/api/auth/oidc/callback
 
 There is a current limitation: some generated RSS and notification links concatenate the configured host URL and backend port. If your external HTTPS port differs from the backend's port, inspect the generated link and replace its origin with the public origin when needed. Setting the host URL alone does not consistently solve this, and changing the backend port solely to fix a link also changes where the server listens.
 
-Test sign-in, playback, seeking, downloads, and a shared link after installing the proxy. See [authentication](authentication.md) for identity-provider settings.
+Test sign-in, playback, seeking, downloads, and a shared link after installing the proxy. See [authentication](authentication.md) for identity-provider settings, including [sign-in by a header the proxy sets](authentication.md#reverse-proxy-header-sign-in).
 
 ## Direct HTTPS and subpaths
 

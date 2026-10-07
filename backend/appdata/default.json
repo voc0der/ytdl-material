@@ -104,6 +104,13 @@
         "allowed_groups": "",
         "username_claim": "preferred_username",
         "display_name_claim": "preferred_username"
+      },
+      "header_auth": {
+        "enabled": false,
+        "trusted_proxies": "",
+        "user_header": "Remote-User",
+        "auto_register": true,
+        "admin_users": ""
       }
     },
     "Database": {
