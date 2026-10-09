@@ -489,9 +489,9 @@ dev/screenshots/player.sh --keep        # leave the backend running on :17457 af
 
 It opens the README's Space Station playlist and checks the list is headed by it and counts its
 place, that each row has the file's thumbnail, length and uploader in the playlist's order, and
-that the playing row, and only it, is marked and carries Repeat and Autoplay. Then it plays
-another row, turns Autoplay on and waits for the next file to start on its own, turns Repeat on
-and waits for the same file to start again, drags a row to another place, and checks theater
+that the playing row, and only it, is marked and carries Autoplay. Then it plays another row,
+turns Autoplay on and waits for the next file to start on its own, turns Loop on from the
+right-click menu and waits for the same file to start again, drags a row to another place, and checks theater
 mode hides the list. It plays the library's oldest file on its own, checks the list says what
 Autoplay would do and that the row offers Watch together, then turns Autoplay on and checks the
 library is queued with that file last. It then downloads the file and checks the spinner that

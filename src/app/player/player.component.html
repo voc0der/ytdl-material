@@ -195,9 +195,6 @@
                       @if (db_file && media_ready && postsService.config && !library) {
                         <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="!!media && !media.paused" [uid]="currentItem.uid" [playback_timestamp]="playbackTime" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
                       }
-                      <button class="playlist-repeat-button playback-mode-button" [class.active]="repeat_enabled" [attr.aria-pressed]="repeat_enabled" (click)="toggleRepeat()" matTooltip="Repeat current video" i18n-matTooltip="Repeat current video toggle tooltip" aria-label="Repeat current video" i18n-aria-label="Repeat toggle label" mat-icon-button>
-                        <mat-icon>repeat_one</mat-icon>
-                      </button>
                       <button class="playlist-autoplay-button playback-mode-button" [class.active]="autoplay_enabled" [attr.aria-pressed]="autoplay_enabled" (click)="toggleAutoplayFromPlaylistRow($event)" matTooltip="Autoplay" i18n-matTooltip="Autoplay toggle tooltip" aria-label="Autoplay" i18n-aria-label="Autoplay toggle label" mat-icon-button>
                         <mat-icon>playlist_play</mat-icon>
                       </button>

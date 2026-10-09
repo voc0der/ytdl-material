@@ -247,9 +247,11 @@ describe('PlayerComponent', () => {
 
     expect(controls.shareLink).toBe('https://media.example.com/s/AbCdEf12345');
     expect(controls.loop).toBe(false);
+    component.autoplay_enabled = true;
     controls.toggleLoop.emit();
     fixture.detectChanges();
     expect(component.repeat_enabled).toBe(true);
+    expect(component.autoplay_enabled).toBe(false);
     expect(controls.loop).toBe(true);
   });
 
@@ -282,36 +284,32 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.getFile).not.toHaveBeenCalled();
   });
 
-  it('should mark only the engaged playback toggles', () => {
+  it('should mark the Autoplay toggle only while it is engaged', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
     component.autoplay_enabled = true;
-    component.repeat_enabled = false;
     fixture.detectChanges();
+    expect(playlistAutoplayButtons()[0].classList.contains('active')).toBe(true);
 
-    const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
-    const autoplay = toggles.find(button => button.getAttribute('aria-label') === 'Autoplay');
-    const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
-    // Idle toggles carry no marker at all, so they render at the same colour as the
-    // actions beside them rather than dimmed.
-    expect(autoplay.classList.contains('active')).toBe(true);
-    expect(repeat.classList.contains('active')).toBe(false);
+    // Idle, it carries no marker at all, so it renders at the same colour as the actions
+    // beside it rather than dimmed.
+    component.autoplay_enabled = false;
+    fixture.detectChanges();
+    expect(playlistAutoplayButtons()[0].classList.contains('active')).toBe(false);
   });
 
   it('should mark playback toggles as pressed for assistive tech', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
     component.theater_mode_enabled = true;
-    component.repeat_enabled = false;
+    component.autoplay_enabled = false;
     fixture.detectChanges();
 
-    const toggles = Array.from(fixture.nativeElement.querySelectorAll('button.playback-mode-button')) as HTMLButtonElement[];
-    const repeat = toggles.find(button => button.getAttribute('aria-label') === 'Repeat current video');
     expect(theaterButton().getAttribute('aria-pressed')).toBe('true');
-    expect(repeat.getAttribute('aria-pressed')).toBe('false');
+    expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('should keep repeat and autoplay clicks on the current playlist row without restarting playback', () => {
+  it('should keep autoplay clicks on the current playlist row without restarting playback', () => {
     showPlayer();
     const currentItem = component.currentItem;
     const updateCurrentItem = vi.spyOn(component, 'updateCurrentItem');
@@ -328,17 +326,8 @@ describe('PlayerComponent', () => {
     expect(updateCurrentItem).not.toHaveBeenCalled();
     expect(component.autoplay_enabled).toBe(true);
     expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('true');
-
-    const repeat = playlistRows()[0].querySelector('.playlist-repeat-button') as HTMLButtonElement;
-    repeat.click();
-    fixture.detectChanges();
-
-    expect(component.currentItem).toBe(currentItem);
-    expect(updateCurrentItem).not.toHaveBeenCalled();
-    expect(component.repeat_enabled).toBe(true);
-    expect(component.autoplay_enabled).toBe(false);
-    expect(repeat.getAttribute('aria-pressed')).toBe('true');
-    expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('false');
+    // Loop is in the player's right-click menu, so Autoplay is the row's only playback mode.
+    expect(playlistRows()[0].querySelectorAll('.playback-mode-button')).toHaveLength(1);
   });
 
   it('should move the autoplay control with the playing item', () => {

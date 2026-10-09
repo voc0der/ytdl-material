@@ -338,6 +338,7 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
     const menu = page.locator('app-media-controls .context-menu');
     const labels = () => menu.locator('.menu-label').allInnerTexts();
     const prevented = () => page.evaluate(() => window.__context_menu_prevented);
+    const looping = () => page.evaluate(() => localStorage.getItem('player_repeat_enabled') === 'true');
     const openAt = async (at_x, at_y) => {
         await page.mouse.click(at_x, at_y, { button: 'right' });
         await page.waitForTimeout(250);
@@ -414,18 +415,18 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
 
     await openAt(x, y);
     await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
-    check('Loop turns on Repeat', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'true');
+    check('Loop turns looping on', await looping());
     await openAt(x, y);
     check('and the menu marks it', await page.getByRole('menuitemcheckbox', { name: 'Loop' }).getAttribute('aria-checked') === 'true');
     await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
-    check('a second time turns it off', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'false');
+    check('a second time turns it off', !(await looping()));
 
     // Left of the pointer, since the menu opens to its right.
     await openAt(x, y);
     await page.mouse.click(x - 150, y + 40);
     await page.waitForTimeout(200);
     check('a click away closes it without playing the video', await menu.count() === 0 && (await media(page)).paused);
-    check('or changing anything in it', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'false');
+    check('or changing anything in it', !(await looping()));
 
     if (!was_paused) await page.evaluate(() => document.querySelector('video').play());
     await page.waitForTimeout(600);
