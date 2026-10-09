@@ -1,5 +1,5 @@
 // Drives the list under the player, end to end: a playlist played through with Autoplay and
-// Repeat, reordered by dragging, and a file played on its own that Autoplay turns into the
+// Loop, reordered by dragging, and a file played on its own that Autoplay turns into the
 // library.
 //
 // Autoplay is only seen working when a video ends, so every file here is a real two-second
@@ -149,7 +149,12 @@ const queueMeta = async page => {
 };
 const playingIndex = page => rows(page).evaluateAll(all => all.findIndex(row => row.querySelector('.queue-item[aria-current="true"]')));
 const autoplayButton = page => queue(page).locator('.playlist-autoplay-button');
-const repeatButton = page => queue(page).locator('.playlist-repeat-button');
+// Loop is in the player's right-click menu, and remembered in the browser.
+const looping = page => page.evaluate(() => localStorage.getItem('player_repeat_enabled') === 'true');
+async function toggleLoop(page) {
+    await page.locator('.media-player').click({ button: 'right' });
+    await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
+}
 
 async function waitForPlaying(page, index, timeout = 15_000) {
     await page.waitForFunction(expected => {
@@ -162,6 +167,10 @@ async function waitForPlaying(page, index, timeout = 15_000) {
 // The CDK starts a drag only once the pointer has moved a few pixels with the button held, so
 // this moves in steps the way a hand would rather than jumping to the target.
 async function drag(page, from, to) {
+    // Looping from the right-click menu scrolls the player into view, which can leave the rows
+    // below the fold, where the pointer cannot reach them.
+    await to.scrollIntoViewIfNeeded();
+    await from.scrollIntoViewIfNeeded();
     const start = await from.boundingBox();
     const end = await to.boundingBox();
     await page.mouse.move(start.x + start.width / 3, start.y + start.height / 2);
@@ -206,10 +215,9 @@ async function playingAPlaylist(page, seeded) {
 
     check('the first row is the one playing, and only it is marked', await playingIndex(page) === 0
         && await queue(page).locator('.queue-item[aria-current="true"]').count() === 1);
-    const onPlayingRow = await rows(page).first().evaluate(row =>
-        ['.playlist-repeat-button', '.playlist-autoplay-button'].every(selector => row.querySelector(selector)));
-    check('Repeat and Autoplay sit on the playing row, and only there', onPlayingRow
-        && await autoplayButton(page).count() === 1 && await repeatButton(page).count() === 1);
+    const onPlayingRow = await rows(page).first().evaluate(row => !!row.querySelector('.playlist-autoplay-button'));
+    check('Autoplay sits on the playing row, and only there, as the list\'s only playback mode', onPlayingRow
+        && await autoplayButton(page).count() === 1 && await queue(page).locator('.playback-mode-button').count() === 1);
     await shoot(page, 'player-playlist-desktop');
 
     await rows(page).nth(2).locator('.queue-item').click();
@@ -223,8 +231,8 @@ async function playingAPlaylist(page, seeded) {
     check('and plays the next file when this one ends', await waitForPlaying(page, 3), `playing row ${await playingIndex(page) + 1}`);
     check('with the heading following it', await queueMeta(page) === '4 of 4', await queueMeta(page));
 
-    await repeatButton(page).click();
-    check('Repeat turns Autoplay off', await repeatButton(page).getAttribute('aria-pressed') === 'true'
+    await toggleLoop(page);
+    check('Loop, from the right-click menu, turns Autoplay off', await looping(page)
         && await autoplayButton(page).getAttribute('aria-pressed') === 'false');
     const plays = await page.evaluate(async seconds => {
         const video = document.querySelector('#singleVideo');
@@ -235,7 +243,7 @@ async function playingAPlaylist(page, seeded) {
         return count;
     }, CLIP_SECONDS);
     check('and plays the same file again when it ends', plays >= 2 && await playingIndex(page) === 3, `${plays} plays`);
-    await repeatButton(page).click();
+    await toggleLoop(page);
 
     await drag(page, rows(page).nth(0), rows(page).nth(2));
     const reordered = await rowTitles(page);
@@ -263,8 +271,8 @@ async function playingOneFile(browser, seeded, errors) {
     check('with a hint at what Autoplay would do', await queueMeta(page) === 'Turn on Autoplay to keep playing from your library.', await queueMeta(page));
     // Watching together is offered for a file played on its own, once the player is ready.
     await rows(page).first().locator('.watch-together-button').waitFor({ timeout: 10_000 }).catch(() => {});
-    check('its row carries Watch together beside Repeat and Autoplay', await rows(page).first().evaluate(row =>
-        ['.watch-together-button', '.playlist-repeat-button', '.playlist-autoplay-button'].every(selector => row.querySelector(selector))));
+    check('its row carries Watch together beside Autoplay', await rows(page).first().evaluate(row =>
+        ['.watch-together-button', '.playlist-autoplay-button'].every(selector => row.querySelector(selector))));
     await shoot(page, 'player-single-desktop');
 
     await autoplayButton(page).click();
