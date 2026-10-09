@@ -9,6 +9,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatTooltip } from '@angular/material/tooltip';
 import { CdkCopyToClipboard } from '@angular/cdk/clipboard';
+import { shareLink, shareLinkAt } from 'app/utils/share-link';
 
 @Component({
     selector: 'app-share-media-dialog',
@@ -22,6 +23,7 @@ export class ShareMediaDialogComponent implements OnInit {
 
   uid = null;
   uuid = null;
+  share_id: string | null = null;
   share_url = null;
   default_share_url = null;
   sharing_enabled = null;
@@ -39,14 +41,20 @@ export class ShareMediaDialogComponent implements OnInit {
     if (this.data) {
       this.uid = this.data.uid;
       this.uuid = this.data.uuid;
+      this.share_id = this.data.share_id ?? null;
       this.sharing_enabled = this.data.sharing_enabled;
       this.is_playlist = this.data.is_playlist;
-      this.current_timestamp = (this.data.current_timestamp / 1000).toFixed(2);
+      this.current_timestamp = Math.floor(this.data.current_timestamp / 1000);
 
-      const arg = (this.is_playlist ? ';playlist_id=' : ';uid=');
-      this.default_share_url = window.location.href.split(';')[0] + arg + this.uid;
-      if (this.uuid) {
-        this.default_share_url += ';uuid=' + this.uuid;
+      if (this.share_id) {
+        this.default_share_url = shareLink(this.postsService.path, this.share_id);
+      } else {
+        // An automatic playlist has no short link.
+        const arg = (this.is_playlist ? ';playlist_id=' : ';uid=');
+        this.default_share_url = window.location.href.split(';')[0] + arg + this.uid;
+        if (this.uuid) {
+          this.default_share_url += ';uuid=' + this.uuid;
+        }
       }
       this.share_url = this.default_share_url;
     }
@@ -59,7 +67,7 @@ export class ShareMediaDialogComponent implements OnInit {
     }
     const new_val = change.target.value;
     if (new_val > 0) {
-      this.share_url = this.default_share_url + ';timestamp=' + new_val;
+      this.share_url = this.share_id ? shareLinkAt(this.default_share_url, +new_val) : this.default_share_url + ';timestamp=' + new_val;
     } else {
       this.share_url = this.default_share_url;
     }

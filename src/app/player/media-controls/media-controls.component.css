@@ -527,6 +527,38 @@
     font-weight: 500;
 }
 
+/* The right-click menu, at the pointer rather than above the bar. */
+.context-menu {
+    bottom: auto;
+    left: 0;
+    max-height: calc(100cqh - 16px);
+    max-width: calc(100cqw - 16px);
+    min-width: 240px;
+    padding: 8px 0;
+    right: auto;
+    top: 0;
+    z-index: 5;
+}
+
+.context-menu .menu-item {
+    font-size: 15px;
+    font-weight: 500;
+    gap: 16px;
+    height: 48px;
+    padding: 0 20px;
+}
+
+.context-menu mat-icon {
+    flex: none;
+}
+
+.menu-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .menu-time {
     flex: none;
     font-size: 13px;

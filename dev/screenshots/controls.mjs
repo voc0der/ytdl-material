@@ -109,6 +109,16 @@ async function newPage(browser, name, errors, viewport = { width: 1280, height: 
         localStorage.setItem('theme', 'dark');
         localStorage.setItem('player_autoplay_enabled', 'false');
         localStorage.setItem('player_repeat_enabled', 'false');
+        // What the page last copied, which neither browser lets a headless run read back from
+        // the clipboard itself. The player copies through a selected, hidden text field.
+        document.addEventListener('copy', () => {
+            const field = document.activeElement;
+            window.__copied = field && 'value' in field ? field.value.slice(field.selectionStart, field.selectionEnd) : String(getSelection());
+        }, true);
+        // Whether the page kept the browser's own menu shut on the last right-click.
+        window.addEventListener('contextmenu', event => {
+            window.__context_menu_prevented = event.defaultPrevented;
+        });
     });
     const page = await context.newPage();
     page.on('console', message => {
@@ -131,6 +141,7 @@ const media = page => page.evaluate(() => {
     };
 });
 const controlsShown = page => page.locator('app-media-controls .chrome').evaluate(el => getComputedStyle(el).visibility === 'visible');
+const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const badge = page => page.locator('app-media-controls .speed-hold-badge').count();
 
 async function openPlaying(page, route) {
@@ -275,6 +286,8 @@ async function onDesktop(browser, name, seeded, errors) {
     await page.waitForTimeout(200);
     check('the chapters menu jumps to a chapter', Math.abs((await media(page)).time - 50) < 0.6);
 
+    await rightClickMenu(page, name, seeded, { x, y }, errors, browser);
+
     await page.mouse.move(x, y);
     await page.mouse.dblclick(x, y);
     await page.waitForTimeout(500);
@@ -282,6 +295,11 @@ async function onDesktop(browser, name, seeded, errors) {
     check('a double-click takes the whole player full screen', fullscreen === 'media-player', `${fullscreen}`);
     if (fullscreen) {
         await shoot(page, `${name}-fullscreen`);
+        await page.mouse.click(x, y, { button: 'right' });
+        await page.waitForTimeout(250);
+        check('the right-click menu shows in full screen too', await page.evaluate(() => !!document.fullscreenElement?.querySelector('.context-menu')));
+        await shoot(page, `${name}-fullscreen-right-click`);
+        await page.mouse.click(x, y);
         await page.keyboard.press('f');
         await page.waitForTimeout(500);
         check('and f leaves it', await page.evaluate(() => !document.fullscreenElement));
@@ -313,6 +331,104 @@ async function onDesktop(browser, name, seeded, errors) {
     await audio.locator('video').waitFor({ timeout: 30_000 });
     check('an audio file keeps the browser\'s own bar', (await media(audio)).controls && await audio.locator('app-media-controls').count() === 0);
     await audio.context().close();
+}
+
+// The player's right-click menu: Loop, and the file's short link, plain or at a time.
+async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
+    const menu = page.locator('app-media-controls .context-menu');
+    const labels = () => menu.locator('.menu-label').allInnerTexts();
+    const prevented = () => page.evaluate(() => window.__context_menu_prevented);
+    const openAt = async (at_x, at_y) => {
+        await page.mouse.click(at_x, at_y, { button: 'right' });
+        await page.waitForTimeout(250);
+    };
+
+    // Paused, so the time it offers holds still.
+    const was_paused = (await media(page)).paused;
+    await page.evaluate(() => document.querySelector('video').pause());
+    await page.waitForTimeout(150);
+    const paused_at = (await media(page)).time;
+    await openAt(x, y);
+    const offered = await labels();
+    await shoot(page, `${name}-right-click`);
+    check('a right-click on the picture opens the player\'s menu instead of the browser\'s', await prevented() && offered.length === 3,
+        offered.join(' | '));
+    check('which offers Loop and the link, plain and at the time the video is at',
+        offered[0] === 'Loop' && offered[1] === 'Copy video URL' && offered[2] === `Copy video URL at ${clock(paused_at)}`);
+    const box = await menu.boundingBox();
+    check('it opens at the pointer', Math.abs(box.x - x) < 2 && Math.abs(box.y - y) < 2,
+        `at ${Math.round(box.x)},${Math.round(box.y)} for a click at ${Math.round(x)},${Math.round(y)}`);
+
+    await page.getByRole('menuitem', { name: /^Copy video URL at / }).click();
+    const flash = await page.locator('app-media-controls .flash-label').innerText().catch(() => '');
+    const timed_link = await page.evaluate(() => window.__copied);
+    check('Copy video URL at copies the short link with the time', /\/s\/[A-Za-z0-9]{11}\?t=\d+$/.test(timed_link ?? ''), timed_link);
+    check('and says so on the picture', flash === 'Link copied', flash);
+    check('the menu closes, and the video stays paused', await menu.count() === 0 && (await media(page)).paused);
+
+    await openAt(x, y);
+    await page.getByRole('menuitem', { name: 'Copy video URL', exact: true }).click();
+    const plain_link = await page.evaluate(() => window.__copied);
+    check('Copy video URL copies it without one', plain_link === timed_link.replace(/\?t=\d+$/, ''), plain_link);
+
+    const opened = await newPage(browser, name, errors);
+    await opened.goto(timed_link, { waitUntil: 'domcontentloaded' });
+    await opened.locator('app-media-controls').waitFor({ timeout: 30_000 });
+    await opened.waitForFunction(() => {
+        const video = document.querySelector('video');
+        return video && video.readyState >= 1 && video.currentTime > 0;
+    }, null, { timeout: 30_000 });
+    const landed = opened.url();
+    const started = (await media(opened)).time;
+    check('the short link opens the file in the player, at its time',
+        landed.includes(`/#/player;uid=${seeded.chaptered.uid};timestamp=${Math.floor(paused_at)}`) && Math.abs(started - Math.floor(paused_at)) < 2,
+        `${landed.replace(BASE, '')} at ${started.toFixed(1)} s`);
+    await opened.context().close();
+
+    // The scrubber: on its knob, the time the video is at; anywhere else, the time under it.
+    await page.mouse.move(x, y);
+    const knob = await page.locator('app-media-controls .scrub-thumb').boundingBox();
+    const knob_x = knob.x + knob.width / 2;
+    const knob_y = knob.y + knob.height / 2;
+    await page.mouse.move(knob_x, knob_y - 30);
+    await page.mouse.move(knob_x, knob_y, { steps: 3 });
+    await openAt(knob_x, knob_y);
+    const on_knob = (await labels())[2];
+    await shoot(page, `${name}-right-click-knob`);
+    check('a right-click on the scrubber\'s knob offers the time the video is at', on_knob === `Copy video URL at ${clock(paused_at)}`, on_knob);
+    await page.keyboard.press('Escape');
+    check('Escape closes the menu', await menu.count() === 0);
+
+    // 4.5 s into the first chapter, which runs from 0 to 8 s.
+    const intro = await page.locator('app-media-controls .segment').first().boundingBox();
+    const intro_x = intro.x + intro.width * 4.5 / 8;
+    const intro_y = intro.y + intro.height / 2;
+    await page.mouse.move(intro_x, intro_y, { steps: 3 });
+    await openAt(intro_x, intro_y);
+    const off_knob = (await labels())[2];
+    check('and anywhere else along it, the time under the pointer', off_knob === 'Copy video URL at 0:04', off_knob);
+
+    // A second one gets the browser's own menu, for Inspect and the like.
+    await openAt(intro_x, intro_y);
+    check('a second right-click is left to the browser', !(await prevented()) && await menu.count() === 0);
+
+    await openAt(x, y);
+    await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
+    check('Loop turns on Repeat', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'true');
+    await openAt(x, y);
+    check('and the menu marks it', await page.getByRole('menuitemcheckbox', { name: 'Loop' }).getAttribute('aria-checked') === 'true');
+    await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
+    check('a second time turns it off', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'false');
+
+    // Left of the pointer, since the menu opens to its right.
+    await openAt(x, y);
+    await page.mouse.click(x - 150, y + 40);
+    await page.waitForTimeout(200);
+    check('a click away closes it without playing the video', await menu.count() === 0 && (await media(page)).paused);
+    check('or changing anything in it', await page.locator('.playlist-repeat-button').getAttribute('aria-pressed') === 'false');
+
+    if (!was_paused) await page.evaluate(() => document.querySelector('video').play());
+    await page.waitForTimeout(600);
 }
 
 async function onAPhone(browser, name, seeded, errors) {

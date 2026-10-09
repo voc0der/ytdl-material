@@ -33,6 +33,10 @@ export type Playlist = {
     auto?: boolean;
     sharingEnabled?: boolean;
     /**
+     * The id in the playlist's short link, /s/{share_id}. Automatic playlists have none.
+     */
+    share_id?: string;
+    /**
      * Subscription whose downloads are automatically appended to this playlist
      */
     source_sub_id?: string;

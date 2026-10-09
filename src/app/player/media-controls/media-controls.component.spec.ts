@@ -1,3 +1,4 @@
+import { Clipboard } from '@angular/cdk/clipboard';
 import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 import { configureTestBed } from '../../../testing/test-bed';
 import { MediaControlsComponent, formatMediaTime } from './media-controls.component';
@@ -286,6 +287,184 @@ describe('MediaControlsComponent', () => {
       button('Full screen').click();
       expect(request).toHaveBeenCalled();
     });
+  });
+
+  describe('the right-click menu', () => {
+    const LINK = 'https://media.example.com/s/AbCdEf12345';
+    let copy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      copy = vi.spyOn(TestBed.inject(Clipboard), 'copy').mockReturnValue(true) as unknown as ReturnType<typeof vi.fn>;
+      fixture.componentRef.setInput('shareLink', LINK);
+      fixture.detectChanges();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    function rightClick(target: EventTarget = surface(), init: MouseEventInit = {}): MouseEvent {
+      const event = new MouseEvent('contextmenu', {button: 2, clientX: 100, clientY: 100, bubbles: true, cancelable: true, ...init});
+      target.dispatchEvent(event);
+      fixture.detectChanges();
+      return event;
+    }
+
+    const contextMenu = (): HTMLElement | null => host().querySelector('.context-menu');
+    const items = (): string[] => Array.from(host().querySelectorAll('.context-menu .menu-label')).map(label => label.textContent.trim());
+    const item = (label: string): HTMLButtonElement => Array.from(host().querySelectorAll<HTMLButtonElement>('.context-menu .menu-item'))
+      .find(candidate => candidate.querySelector('.menu-label').textContent.trim() === label);
+    const flashLabel = (): string | undefined => host().querySelector('.flash-label')?.textContent;
+
+    it('opens in place of the browser\'s, with the time to copy a link at', () => {
+      media.currentTime = 83.6;
+      const event = rightClick();
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 1:23']);
+      expect(contextMenu().getAttribute('role')).toBe('menu');
+    });
+
+    it('leaves a second right-click to the browser, and takes the one after that again', () => {
+      rightClick();
+      // The press of the second one closes the menu before the browser asks for one.
+      surface().dispatchEvent(new PointerEvent('pointerdown', {button: 2, bubbles: true}));
+      const second = rightClick();
+      expect(second.defaultPrevented).toBe(false);
+      expect(contextMenu()).toBeNull();
+
+      expect(rightClick().defaultPrevented).toBe(true);
+      // On the menu itself, the press leaves it open.
+      const on_menu = rightClick(contextMenu());
+      expect(on_menu.defaultPrevented).toBe(false);
+      expect(contextMenu()).toBeNull();
+    });
+
+    it('copies the link, or the link at the time the menu opened at', () => {
+      media.currentTime = 83.6;
+      rightClick();
+      // The video plays on while the menu is open.
+      media.currentTime = 90;
+      item('Copy video URL at 1:23').click();
+      fixture.detectChanges();
+      expect(copy).toHaveBeenLastCalledWith(`${LINK}?t=83`);
+      expect(contextMenu()).toBeNull();
+      expect(flashLabel()).toBe('Link copied');
+
+      rightClick();
+      item('Copy video URL').click();
+      expect(copy).toHaveBeenLastCalledWith(LINK);
+    });
+
+    it('says so when the link could not be copied', () => {
+      copy.mockReturnValue(false);
+      rightClick();
+      item('Copy video URL').click();
+      fixture.detectChanges();
+      expect(flashLabel()).toBe('Couldn\'t copy');
+    });
+
+    it('offers only Loop without a link to copy', () => {
+      fixture.componentRef.setInput('shareLink', null);
+      rightClick();
+      expect(items()).toEqual(['Loop']);
+    });
+
+    it('turns looping on and off, and shows which it is', () => {
+      const toggled = vi.fn();
+      component.toggleLoop.subscribe(toggled);
+      rightClick();
+      expect(item('Loop').getAttribute('aria-checked')).toBe('false');
+      expect(item('Loop').querySelector('.menu-check')).toBeNull();
+
+      item('Loop').click();
+      fixture.detectChanges();
+      expect(toggled).toHaveBeenCalledTimes(1);
+      expect(contextMenu()).toBeNull();
+      expect(flashLabel()).toBe('Loop on');
+
+      fixture.componentRef.setInput('loop', true);
+      rightClick();
+      expect(item('Loop').getAttribute('aria-checked')).toBe('true');
+      expect(item('Loop').querySelector('.menu-check')).not.toBeNull();
+      item('Loop').click();
+      fixture.detectChanges();
+      expect(flashLabel()).toBe('Loop off');
+    });
+
+    it('takes the time under the pointer on the scrubber, and where the video is on its knob', () => {
+      const scrubber = host().querySelector<HTMLElement>('.scrubber');
+      const segment = host().querySelector<HTMLElement>('.segment');
+      vi.spyOn(segment, 'getBoundingClientRect').mockReturnValue({left: 0, right: 200, width: 200} as DOMRect);
+      vi.spyOn(scrubber, 'getBoundingClientRect').mockReturnValue({left: 0, right: 200, width: 200} as DOMRect);
+      Object.defineProperty(segment, 'offsetWidth', {value: 200, configurable: true});
+      // Halfway through, so the knob is at 100px.
+      media.currentTime = 30;
+
+      scrubber.dispatchEvent(new PointerEvent('pointermove', {clientX: 150, bubbles: true}));
+      rightClick(scrubber, {clientX: 150});
+      expect(items()).toContain('Copy video URL at 0:45');
+      key('Escape');
+
+      scrubber.dispatchEvent(new PointerEvent('pointermove', {clientX: 106, bubbles: true}));
+      rightClick(scrubber, {clientX: 106});
+      expect(items()).toContain('Copy video URL at 0:30');
+    });
+
+    it('opens at the pointer, and inside the player near its edges', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(240);
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(160);
+      Object.defineProperty(host(), 'clientWidth', {value: 400, configurable: true});
+      Object.defineProperty(host(), 'clientHeight', {value: 300, configurable: true});
+
+      rightClick(surface(), {clientX: 20, clientY: 30});
+      expect([contextMenu().style.left, contextMenu().style.top]).toEqual(['20px', '30px']);
+      key('Escape');
+
+      // No room to the right or below, so it opens to the left of the pointer and above it.
+      rightClick(surface(), {clientX: 380, clientY: 280});
+      expect([contextMenu().style.left, contextMenu().style.top]).toEqual(['140px', '120px']);
+    });
+
+    it('closes on a click away without pausing or playing', () => {
+      startPlaying();
+      rightClick();
+      press();
+      release();
+      surface().click();
+      fixture.detectChanges();
+      expect(contextMenu()).toBeNull();
+      expect(media.pause).not.toHaveBeenCalled();
+      expect(component.speed_hold_active).toBe(false);
+
+      // The next click is an ordinary one.
+      press();
+      release();
+      surface().click();
+      expect(media.pause).toHaveBeenCalled();
+    });
+
+    it('closes with Escape, and when the next file loads', () => {
+      rightClick();
+      key('Escape');
+      expect(contextMenu()).toBeNull();
+
+      rightClick();
+      media.dispatchEvent(new Event('emptied'));
+      fixture.detectChanges();
+      expect(contextMenu()).toBeNull();
+    });
+
+    it('keeps the browser\'s menu shut during a hold, and opens none of its own', fakeAsync(() => {
+      press('touch');
+      tick(400);
+      const event = rightClick();
+      expect(event.defaultPrevented).toBe(true);
+      expect(contextMenu()).toBeNull();
+      release();
+      tick();
+      tick(3000);
+    }));
   });
 
   describe('the keyboard', () => {

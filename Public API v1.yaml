@@ -3427,6 +3427,9 @@ components:
           type: string
         sharingEnabled:
           type: boolean
+        share_id:
+          type: string
+          description: The id in the file's short link, /s/{share_id}, which opens it in the player.
         category:
           $ref: '#/components/schemas/Category'
         view_count:
@@ -3501,6 +3504,9 @@ components:
           type: boolean
         sharingEnabled:
           type: boolean
+        share_id:
+          type: string
+          description: The id in the playlist's short link, /s/{share_id}. Automatic playlists have none.
         source_sub_id:
           type: string
           description: Subscription whose downloads are automatically appended to this playlist

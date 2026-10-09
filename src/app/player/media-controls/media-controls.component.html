@@ -1,8 +1,7 @@
 <div class="surface"
      (pointerdown)="onSurfacePointerDown($event)"
      (click)="onSurfaceClick()"
-     (dblclick)="onSurfaceDoubleClick()"
-     (contextmenu)="onSurfaceContextMenu($event)"></div>
+     (dblclick)="onSurfaceDoubleClick()"></div>
 
 @if (speed_hold_active) {
   <div class="speed-hold-badge" aria-hidden="true"><mat-icon>fast_forward</mat-icon>{{speed_hold_rate}}x</div>
@@ -172,3 +171,25 @@
     </div>
   </div>
 </div>
+
+@if (menu === 'context') {
+  <div class="controls-menu context-menu" #contextMenu role="menu" aria-label="Video" i18n-aria-label="Right-click menu label">
+    <button class="menu-item" type="button" role="menuitemcheckbox" [attr.aria-checked]="loop" (click)="onLoopClick()">
+      <mat-icon>repeat</mat-icon>
+      <span class="menu-label" i18n="Loop menu item">Loop</span>
+      @if (loop) {
+        <mat-icon class="menu-check">check</mat-icon>
+      }
+    </button>
+    @if (shareLink) {
+      <button class="menu-item" type="button" role="menuitem" (click)="copyLink(false)">
+        <mat-icon>link</mat-icon>
+        <span class="menu-label" i18n="Copy video URL menu item">Copy video URL</span>
+      </button>
+      <button class="menu-item" type="button" role="menuitem" (click)="copyLink(true)">
+        <mat-icon>link</mat-icon>
+        <span class="menu-label" i18n="Copy video URL at a time menu item">Copy video URL at {{formatTime(context_time)}}</span>
+      </button>
+    }
+  </div>
+}

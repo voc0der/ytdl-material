@@ -238,6 +238,50 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist download cancelled.');
   });
 
+  it('should let the right-click menu loop the video and copy its short link', () => {
+    postsServiceStub.path = 'https://media.example.com/api/';
+    showPlayer();
+    component.currentFile.share_id = 'AbCdEf12345';
+    fixture.detectChanges();
+    const controls: MediaControlsComponent = fixture.debugElement.query(By.directive(MediaControlsComponent)).componentInstance;
+
+    expect(controls.shareLink).toBe('https://media.example.com/s/AbCdEf12345');
+    expect(controls.loop).toBe(false);
+    controls.toggleLoop.emit();
+    fixture.detectChanges();
+    expect(component.repeat_enabled).toBe(true);
+    expect(controls.loop).toBe(true);
+  });
+
+  it('should give no short link without one, or from someone else\'s library', () => {
+    postsServiceStub.path = 'https://media.example.com/api/';
+    component.currentFile = {uid: 'f1'} as DatabaseFile;
+    expect(component.currentShareLink).toBeNull();
+
+    component.currentFile = {uid: 'f1', share_id: 'AbCdEf12345'} as DatabaseFile;
+    component.library = 'bob';
+    expect(component.currentShareLink).toBeNull();
+  });
+
+  it('should share the file playing, and keep the queue when the dialog closes', () => {
+    const closed = new Subject<void>();
+    const dialogRef = {afterClosed: () => closed, componentInstance: {sharing_enabled: false}};
+    matDialogStub.open.mockReturnValue(dialogRef);
+    // Autoplay has moved on from the file the page opened with.
+    component.uid = 'f1';
+    component.db_file = {uid: 'f2', share_id: 'AbCdEf12345', sharingEnabled: false} as DatabaseFile;
+
+    component.openShareDialog();
+    expect(matDialogStub.open.mock.lastCall[1].data).toEqual(expect.objectContaining({
+      uid: 'f2', share_id: 'AbCdEf12345', sharing_enabled: false, is_playlist: false
+    }));
+
+    dialogRef.componentInstance.sharing_enabled = true;
+    closed.next();
+    expect(component.db_file.sharingEnabled).toBe(true);
+    expect(postsServiceStub.getFile).not.toHaveBeenCalled();
+  });
+
   it('should mark only the engaged playback toggles', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
