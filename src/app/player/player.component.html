@@ -27,6 +27,9 @@
                   (toggleTheater)="toggleTheaterMode()"
                   [hasNext]="currentIndex + 1 < playlist.length"
                   (playNext)="advanceToNextVideo()"
+                  [loop]="repeat_enabled"
+                  (toggleLoop)="toggleRepeat()"
+                  [shareLink]="currentShareLink"
                   [castSource]="castSource"
                   (prepareCast)="prepareCast($event)"
                   (castMessage)="postsService.openSnackBar($event)"></app-media-controls>

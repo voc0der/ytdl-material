@@ -10,6 +10,7 @@ Open a downloaded file or playlist from the library. The browser plays the saved
 - **Video blackout:** hides the picture while keeping playback available for listening.
 - **Autoplay:** continues through the queue below the player. In a playlist it follows that collection; for an individual file it can load more from your library.
 - **Repeat:** repeats playback; enabling Autoplay and Repeat changes the other mode so they do not compete.
+- **Right-click menu:** right-click the video for **Loop**, which is Repeat, and **Copy video URL**, plain or at the current time. On the timeline, the time is the one under the pointer, or the current time on the playhead. A second right-click opens the browser's own menu.
 
 Autoplay preference is remembered in your browser. The separate **Force autoplay** setting applies to the Home download flow's autoplay choice. Browsers may still require a user gesture before playing with sound.
 

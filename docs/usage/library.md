@@ -26,7 +26,7 @@ Playlist and subscription download actions prepare an archive for your browser. 
 
 Use **Share** on a file or playlist to enable sharing and copy its link. In multi-user mode, a share authorizes access to the selected media; it does not grant access to the owner's whole library or administrative actions. Disable sharing to withdraw access.
 
-Links are short, such as `https://media.example.com/s/AbCdEf12345`, and open the player. **Start at a time** adds `?t=` and the second to start at.
+Links are short, such as `https://media.example.com/s/AbCdEf12345`, and open the player. **Start at a time** adds `?t=` and the second to start at. The player's right-click menu copies the same link for the video playing.
 
 Recipients still need a reachable server address. Test the link outside your signed-in session, and use a [reverse proxy](../deployment/reverse-proxy.md) when sharing beyond your local network.
 

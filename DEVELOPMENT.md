@@ -528,9 +528,13 @@ picture pauses and plays, and that holding it
 plays at 2x with the badge showing, paused or not, and puts back the rate and the paused state
 on release. It tries the keyboard shortcuts, hovers the scrubber for the chapter's name, checks
 the marker stays at the end of the played part, and clicks it to seek, sets the speed from its
-menu, which has to open clear of the scrubber, and jumps from the chapters menu, goes full
-screen with a double-click and leaves with `f`, and turns theater mode on from the bar and off
-with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
+menu, which has to open clear of the scrubber, and jumps from the chapters menu. It right-clicks
+the picture for the player's own menu, copies the file's short link with and without the time,
+opens it and checks it lands in the player at that time, right-clicks the scrubber's knob for the
+time the video is at and elsewhere along it for the time there, leaves a second right-click to
+the browser, and turns Loop on and off from the menu. It goes full screen with a double-click,
+checks the menu shows there too, and leaves with `f`, and turns theater mode on from the bar and
+off with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
 browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the
 bar fits, and that the play button in the middle pauses. Screenshots of each, per browser, are
 left in the `shots` folder it prints.

@@ -10,6 +10,7 @@ import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-in
 import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.component';
 import { saveBlob } from '../utils/save-blob';
 import { fileThumbnailURL, formatDuration } from '../utils/file-display';
+import { shareLink } from '../utils/share-link';
 import { filesize } from 'filesize';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
@@ -935,6 +936,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
    playlistChanged(): boolean {
     return JSON.stringify(this.playlist) !== this.original_playlist;
+  }
+
+  // The short link to the file playing, which the player's right-click menu copies. Someone
+  // else's library is only watched: nothing is shared from it.
+  get currentShareLink(): string | null {
+    const share_id = this.currentFile?.share_id;
+    return share_id && !this.library ? shareLink(this.postsService.path, share_id) : null;
   }
 
   openShareDialog(): void {

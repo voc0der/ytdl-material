@@ -2,8 +2,10 @@ import {
   AfterViewChecked, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostBinding,
   HostListener, Input, NgZone, OnChanges, OnDestroy, Output, SimpleChanges, ViewChild
 } from '@angular/core';
+import { Clipboard } from '@angular/cdk/clipboard';
 import { MatIcon } from '@angular/material/icon';
 import type { IChapter } from '../player.component';
+import { shareLinkAt } from '../../utils/share-link';
 
 // How long the controls stay up after the pointer last moved over a playing video.
 const CONTROLS_HIDE_DELAY_MS = 2500;
@@ -14,6 +16,11 @@ const SPEED_HOLD_DELAY_MS = 400;
 const SPEED_HOLD_RATE = 2;
 // A press that drifts further than this before the hold engages is a drag, not a hold.
 const SPEED_HOLD_MOVE_TOLERANCE_PX = 10;
+// A right-click this close to the middle of the scrubber's knob is on the knob, which grows to
+// 20px across under the pointer.
+const KNOB_RADIUS_PX = 10;
+// How far the right-click menu keeps from the edges of the player.
+const CONTEXT_MENU_MARGIN_PX = 8;
 const SEEK_STEP_SECONDS = 5;
 const SEEK_JUMP_SECONDS = 10;
 const VOLUME_STEP = 0.05;
@@ -75,7 +82,7 @@ interface SpeedHold {
   was_paused: boolean;
 }
 
-type Menu = 'speed' | 'chapters';
+type Menu = 'speed' | 'chapters' | 'context';
 
 // The Remote Playback API's methods reject rather than throw, but a browser that throws anyway
 // must not take the rest of the controls down with it.
@@ -113,10 +120,15 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   @Input() theaterEnabled = false;
   @Input() hasNext = false;
   @Input() castSource: CastSource = 'ready';
+  // Whether the player plays the file again when it ends.
+  @Input() loop = false;
+  // The file's short link, which the right-click menu copies. Null when there is none to give.
+  @Input() shareLink: string | null = null;
 
   @Output() toggleSubtitles = new EventEmitter<void>();
   @Output() toggleTheater = new EventEmitter<void>();
   @Output() playNext = new EventEmitter<void>();
+  @Output() toggleLoop = new EventEmitter<void>();
   // Asks the player for a source a cast device can fetch; castSource says when it has one.
   @Output() prepareCast = new EventEmitter<CastRequest>();
   // Why a cast did not start, for the player to show.
@@ -124,6 +136,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
 
   @ViewChild('scrubber') scrubber?: ElementRef<HTMLElement>;
   @ViewChild('scrubTooltip') scrubTooltip?: ElementRef<HTMLElement>;
+  @ViewChild('contextMenu') contextMenu?: ElementRef<HTMLElement>;
 
   readonly playback_rates = PLAYBACK_RATES;
   readonly speed_hold_rate = SPEED_HOLD_RATE;
@@ -154,6 +167,8 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   hover_left = 0;
 
   menu: Menu | null = null;
+  // The time the right-click menu copies a link at, taken when it opened.
+  context_time = 0;
   flash: Flash | null = null;
   flash_id = 0;
   speed_hold_active = false;
@@ -171,6 +186,14 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   private last_pointer_type = 'mouse';
   private speed_hold: SpeedHold | null = null;
   private suppress_click = false;
+  // Where the right-click menu was asked for, from the player's top left.
+  private context_x = 0;
+  private context_y = 0;
+  private context_menu_unplaced = false;
+  // The click under way began while the right-click menu was open, so it only closes it.
+  private closing_context_menu = false;
+  // The right-click under way began while the right-click menu was open.
+  private native_context_menu_next = false;
   private segments_changed = false;
   // A device can take the loaded file as it is.
   private cast_source_available = false;
@@ -187,7 +210,8 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   private cast_reports_at_request = 0;
   private cast_prompt_timer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(private host: ElementRef<HTMLElement>, private cdr: ChangeDetectorRef, private zone: NgZone) {}
+  constructor(private host: ElementRef<HTMLElement>, private cdr: ChangeDetectorRef, private zone: NgZone,
+              private clipboard: Clipboard) {}
 
   @HostBinding('class.controls-visible')
   get controlsVisible(): boolean {
@@ -231,9 +255,11 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
 
   private readonly onMediaEvent = (event: Event): void => {
     if (event.type === 'emptied') {
-      // A new file: the old one's position and seeks mean nothing to it.
+      // A new file: the old one's position and seeks mean nothing to it, nor does the time
+      // the right-click menu would copy a link at.
       this.pending_seek = null;
       this.scrub_time = null;
+      if (this.menu === 'context') this.menu = null;
     }
     if (event.type === 'seeked' && this.pending_seek !== null) {
       const time = this.pending_seek;
@@ -288,6 +314,10 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   }
 
   ngAfterViewChecked(): void {
+    if (this.context_menu_unplaced) {
+      this.context_menu_unplaced = false;
+      this.placeContextMenu();
+    }
     if (!this.segments_changed) return;
     this.segments_changed = false;
     this.paintProgress();
@@ -329,6 +359,10 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   readonly chaptersLabel = $localize`Chapters`;
   readonly castAgainLabel = $localize`Select the cast button again to pick a device.`;
   readonly castRefusedLabel = $localize`Your browser did not open its cast picker.`;
+  readonly loopOnLabel = $localize`Loop on`;
+  readonly loopOffLabel = $localize`Loop off`;
+  readonly linkCopiedLabel = $localize`Link copied`;
+  readonly copyFailedLabel = $localize`Couldn't copy`;
 
   get castAvailable(): boolean {
     if (!this.cast_supported || this.castSource === 'unavailable') return false;
@@ -506,7 +540,10 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   onSurfacePointerDown(event: PointerEvent): void {
     this.last_pointer_type = event.pointerType;
     this.touch_ui = event.pointerType !== 'mouse';
-    if (!event.isPrimary || event.button !== 0) return;
+    // A click away from the right-click menu only closes it, as one away from the browser's
+    // own menu does.
+    this.closing_context_menu = this.menu === 'context';
+    if (this.closing_context_menu || !event.isPrimary || event.button !== 0) return;
     if (this.media.ended || this.error) return;
 
     this.endSpeedHold();
@@ -527,7 +564,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
 
   onSurfaceClick(): void {
     // Letting go of a hold is also a click.
-    if (this.suppress_click) return;
+    if (this.suppress_click || this.closing_context_menu) return;
     if (this.last_pointer_type !== 'mouse') {
       if (this.controlsVisible && !this.paused) this.hideNow();
       else this.poke();
@@ -539,11 +576,6 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   onSurfaceDoubleClick(): void {
     // Both clicks of it already toggled playback, which leaves it as it was.
     if (this.last_pointer_type === 'mouse') this.toggleFullscreen();
-  }
-
-  onSurfaceContextMenu(event: MouseEvent): void {
-    // A long press on a touch screen opens the context menu; during a hold it is the hold.
-    if (this.speed_hold || this.speed_hold_active) event.preventDefault();
   }
 
   private engageSpeedHold(): void {
@@ -740,6 +772,76 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
 
   jumpToSegment(segment: ScrubSegment): void {
     this.seekTo(segment.start);
+    this.setMenu(null);
+  }
+
+  // The right-click menu
+
+  @HostListener('contextmenu', ['$event'])
+  onContextMenu(event: MouseEvent): void {
+    // A long press on a touch screen opens the context menu; during a hold it is the hold, and
+    // on the scrubber it is a drag.
+    if (this.speed_hold || this.speed_hold_active || this.scrubbing) {
+      event.preventDefault();
+      return;
+    }
+    // A second right-click gets the browser's own menu, as it does on other players.
+    const native = this.menu === 'context' || this.native_context_menu_next;
+    this.native_context_menu_next = false;
+    if (native) {
+      this.setMenu(null);
+      return;
+    }
+    event.preventDefault();
+    const rect = this.host.nativeElement.getBoundingClientRect();
+    this.context_x = event.clientX - rect.left;
+    this.context_y = event.clientY - rect.top;
+    this.context_time = this.contextMenuTime(event);
+    this.context_menu_unplaced = true;
+    this.setMenu('context');
+  }
+
+  // On the scrubber, the time under the pointer, or where the video is when that is the
+  // knob. Anywhere else, where the video is.
+  private contextMenuTime(event: MouseEvent): number {
+    const now = this.media.currentTime || 0;
+    const scrubber = this.scrubber?.nativeElement;
+    // hover_time is only set while a pointer is over the scrubber, which a menu opened from the
+    // keyboard has not come from.
+    if (this.hover_time === null || !scrubber?.contains(event.target as Node)) return now;
+    const knob_x = scrubber.getBoundingClientRect().left + this.offsetOf(now);
+    return Math.abs(event.clientX - knob_x) <= KNOB_RADIUS_PX ? now : this.timeAt(event.clientX);
+  }
+
+  // At the pointer, like the browser's own menu, but inside the player: it opens to the left
+  // of the pointer, or above it, where there is no room to the right or below.
+  private placeContextMenu(): void {
+    const menu = this.contextMenu?.nativeElement;
+    if (!menu) return;
+    const host = this.host.nativeElement;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    const right = host.clientWidth - CONTEXT_MENU_MARGIN_PX;
+    const bottom = host.clientHeight - CONTEXT_MENU_MARGIN_PX;
+    const left = this.context_x + width > right ? this.context_x - width : this.context_x;
+    const top = this.context_y + height > bottom ? this.context_y - height : this.context_y;
+    menu.style.left = `${Math.max(CONTEXT_MENU_MARGIN_PX, Math.min(left, right - width))}px`;
+    menu.style.top = `${Math.max(CONTEXT_MENU_MARGIN_PX, Math.min(top, bottom - height))}px`;
+  }
+
+  onLoopClick(): void {
+    const looping = !this.loop;
+    this.toggleLoop.emit();
+    this.showFlash('repeat', looping ? this.loopOnLabel : this.loopOffLabel);
+    this.setMenu(null);
+  }
+
+  copyLink(at_time: boolean): void {
+    if (!this.shareLink) return;
+    // Through a hidden text field, which also works on a page served over plain HTTP, where
+    // the browser has no clipboard API.
+    const copied = this.clipboard.copy(at_time ? shareLinkAt(this.shareLink, this.context_time) : this.shareLink);
+    this.showFlash(copied ? 'link' : 'link_off', copied ? this.linkCopiedLabel : this.copyFailedLabel);
     this.setMenu(null);
   }
 
@@ -943,6 +1045,7 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     if (!this.menu) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('.controls-menu, .menu-button')) return;
+    this.native_context_menu_next = this.menu === 'context' && event.button === 2 && this.host.nativeElement.contains(target);
     this.setMenu(null);
   }
 
