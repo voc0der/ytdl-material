@@ -238,6 +238,25 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Playlist download cancelled.');
   });
 
+  it('should share the file playing, and keep the queue when the dialog closes', () => {
+    const closed = new Subject<void>();
+    const dialogRef = {afterClosed: () => closed, componentInstance: {sharing_enabled: false}};
+    matDialogStub.open.mockReturnValue(dialogRef);
+    // Autoplay has moved on from the file the page opened with.
+    component.uid = 'f1';
+    component.db_file = {uid: 'f2', share_id: 'AbCdEf12345', sharingEnabled: false} as DatabaseFile;
+
+    component.openShareDialog();
+    expect(matDialogStub.open.mock.lastCall[1].data).toEqual(expect.objectContaining({
+      uid: 'f2', share_id: 'AbCdEf12345', sharing_enabled: false, is_playlist: false
+    }));
+
+    dialogRef.componentInstance.sharing_enabled = true;
+    closed.next();
+    expect(component.db_file.sharingEnabled).toBe(true);
+    expect(postsServiceStub.getFile).not.toHaveBeenCalled();
+  });
+
   it('should mark only the engaged playback toggles', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;

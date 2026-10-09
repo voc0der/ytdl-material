@@ -40,7 +40,8 @@ const tables = {
             favorite: 'boolean',
             url: 'text',
             path: 'text',
-            'category.uid': 'text'
+            'category.uid': 'text',
+            share_id: 'text'
         },
         text_search: {
             title: 'text',
@@ -59,7 +60,8 @@ const tables = {
             { keys: { favorite: 1, registered: -1 } },
             { keys: { url: 1, sub_id: 1 } },
             { keys: { path: 1, sub_id: 1 } },
-            { keys: { 'category.uid': 1 } }
+            { keys: { 'category.uid': 1 } },
+            { keys: { share_id: 1 } }
         ]
     },
     playlists: {
@@ -68,11 +70,13 @@ const tables = {
         field_types: {
             id: 'text',
             user_uid: 'text',
-            source_sub_id: 'text'
+            source_sub_id: 'text',
+            share_id: 'text'
         },
         indexes: [
             { keys: { user_uid: 1 } },
-            { keys: { user_uid: 1, source_sub_id: 1 } }
+            { keys: { user_uid: 1, source_sub_id: 1 } },
+            { keys: { share_id: 1 } }
         ]
     },
     categories: {

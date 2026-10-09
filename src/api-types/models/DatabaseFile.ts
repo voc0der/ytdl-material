@@ -39,6 +39,10 @@ export type DatabaseFile = {
     uid: string;
     user_uid?: string;
     sharingEnabled?: boolean;
+    /**
+     * The id in the file's short link, /s/{share_id}, which opens it in the player.
+     */
+    share_id?: string;
     category?: Category;
     view_count?: number;
     local_view_count?: number;

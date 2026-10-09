@@ -8,6 +8,7 @@ const archive_api = require('./archive');
 const utils = require('./utils')
 const transcoding_api = require('./transcoding');
 const codecs = require('./codecs');
+const share_links = require('./share-links');
 const logger = require('./logger');
 const PLAYLIST_FILE_DELETE_BATCH_SIZE = 10;
 const FILE_LIST_MAX_RANGE_SIZE = 250;
@@ -1451,6 +1452,7 @@ exports.snipFile = async (file_uid, start, end, user_uid = null, on_progress = n
 async function registerFileDBManual(file_object) {
     // add additional info
     file_object['uid'] = uuid();
+    file_object['share_id'] = share_links.generateShareId();
     file_object['registered'] = Date.now();
     const path_object = path.parse(file_object['path']);
     file_object['path'] = path.format(path_object);
@@ -1694,6 +1696,7 @@ exports.createPlaylist = async (playlist_name, uids, user_uid = null) => {
         name: playlist_name,
         uids: uids,
         id: uuid(),
+        share_id: share_links.generateShareId(),
         thumbnailURL: thumbnailToUse,
         registered: Date.now(),
         randomize_order: false

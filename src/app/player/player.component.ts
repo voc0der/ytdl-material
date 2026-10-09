@@ -938,10 +938,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   openShareDialog(): void {
+    // The file playing, which Autoplay may have moved on from the one the page opened with.
+    const shared = this.playlist_id ? this.db_playlist : this.db_file;
     const dialogRef = this.dialog.open(ShareMediaDialogComponent, {
       data: {
-        uid: this.playlist_id ? this.playlist_id : this.uid,
-        sharing_enabled: this.playlist_id ? this.db_playlist.sharingEnabled : this.db_file.sharingEnabled,
+        uid: this.playlist_id ? this.playlist_id : this.db_file.uid,
+        share_id: shared.share_id,
+        sharing_enabled: shared.sharingEnabled,
         is_playlist: !!this.playlist_id,
         uuid: this.postsService.isLoggedIn ? this.postsService.user.uid : this.uuid,
         current_timestamp: (this.media?.currentTime ?? 0) * 1000
@@ -953,12 +956,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       autoFocus: 'dialog'
     });
 
+    // Sharing is all the dialog changes. Fetching the file again rebuilt the queue around the
+    // one the page opened with, and so went back to it once Autoplay had moved on.
     dialogRef.afterClosed().subscribe(() => {
-      if (!this.playlist_id) {
-        this.getFile();
-      } else {
-        this.getPlaylistFiles();
-      }
+      shared.sharingEnabled = dialogRef.componentInstance.sharing_enabled;
     });
   }
   

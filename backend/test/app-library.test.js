@@ -260,6 +260,33 @@ describe('The library through the server', function() {
         });
     });
 
+    describe('Short links', function() {
+        it('opens a file in the player, at a time when the link has one', async function() {
+            const file = await getFile(files.second.uid);
+            assert.match(file.share_id, /^[A-Za-z0-9]{11}$/);
+
+            const res = await app.api.get(`/s/${file.share_id}`).expect(302);
+            assert.strictEqual(res.headers.location, `../#/player;uid=${file.uid}`);
+            const timed = await app.api.get(`/s/${file.share_id}?t=90`).expect(302);
+            assert.strictEqual(timed.headers.location, `../#/player;uid=${file.uid};timestamp=90`);
+        });
+
+        it('opens a playlist in the player', async function() {
+            const created = await app.api.post('/api/createPlaylist').send({playlistName: 'Linked', uids: [files.first.uid]}).expect(200);
+            const playlist = created.body.new_playlist;
+            try {
+                const res = await app.api.get(`/s/${playlist.share_id}`).expect(302);
+                assert.strictEqual(res.headers.location, `../#/player;playlist_id=${playlist.id}`);
+            } finally {
+                await app.api.post('/api/deletePlaylist').send({playlist_id: playlist.id}).expect(200);
+            }
+        });
+
+        it('answers a link to nothing with a 404', async function() {
+            await app.api.get('/s/NoSuchLink1').expect(404);
+        });
+    });
+
     describe('Categories', function() {
         const categories = async () => (await app.api.post('/api/getAllCategories').send({}).expect(200)).body.categories;
 

@@ -42,6 +42,7 @@ const youtubedl_api = require('./youtube-dl');
 const archive_api = require('./archive');
 const files_api = require('./files');
 const playback_links = require('./playback-links');
+const share_links = require('./share-links');
 const playback_transcode = require('./playback-transcode');
 const codec_discovery = require('./codec-discovery');
 const notifications_api = require('./notifications');
@@ -862,6 +863,12 @@ async function loadConfig() {
     // check migrations
     await checkMigrations();
     await migrateUnassignedVideosToConfiguredUser();
+
+    try {
+        await share_links.assignMissingShareIds();
+    } catch (err) {
+        logger.error(`Could not give every file and playlist a short share link: ${err.message}`);
+    }
 
     // A codec conversion the last shutdown cut off is undone before anything else can
     // reach its files. The task itself stays idle until it is next run.
@@ -1810,6 +1817,9 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
         success: success
     });
 });
+
+// Short share links. Ahead of the pages below, which would send the link to the OIDC login.
+app.get('/s/:share_id', apiRateLimiter, share_links.redirect);
 
 /*************************************************
  * Unauthenticated by necessity: the player calls it
@@ -3593,9 +3603,13 @@ app.post('/api/restoreDBBackup', optionalJwt, requireAdmin, async (req, res) => 
     const file_name = req.body.file_name;
 
     const success = await db_api.restoreDB(file_name);
-    // The restored tasks bring their own schedules, which nothing ran until a restart, while
-    // the jobs of the tasks they replaced went on firing.
-    if (success) await tasks_api.setupTasks();
+    if (success) {
+        // The restored tasks bring their own schedules, which nothing ran until a restart, while
+        // the jobs of the tasks they replaced went on firing.
+        await tasks_api.setupTasks();
+        // A backup from before short share links has records without one.
+        await share_links.assignMissingShareIds();
+    }
 
     res.send({success: success});
 });

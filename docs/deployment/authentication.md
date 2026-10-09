@@ -105,7 +105,7 @@ With Traefik's `forwardAuth` or Caddy's `forward_auth`, list both headers among 
 
 - Signing out of the app does not sign you out of the proxy, so the next visit signs you straight back in. Sign out at the identity provider.
 - Deleting an account does not stop its owner signing in again: with `ytdl_header_auth_auto_register` on, their next visit creates a new one. Remove their access at the proxy.
-- API tokens, RSS feeds, and share links do not use the header. If the proxy guards every path, those clients need a rule that lets them through to the paths they use.
+- API tokens, RSS feeds, and share links do not use the header. If the proxy guards every path, those clients need a rule that lets them through to the paths they use. Share links start at `/s/`.
 
 ## LDAP
 
