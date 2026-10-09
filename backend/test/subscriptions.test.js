@@ -1353,6 +1353,9 @@ describe('Subscriptions', function() {
         }
     });
     it('Streams subscription videos with flat playlist metadata and queues them in batches before discovery completes', async function() {
+        // Queueing 65 real database records can exceed the default two-second limit
+        // under coverage. Allow both progress checks to finish before Mocha times out.
+        this.timeout(15000);
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const sub = Object.assign({}, new_sub, {id: uuid(), name: 'batched_sub'});
         const fake_outputs = Array.from({length: 65}, (_, index) => ({
@@ -1401,7 +1404,7 @@ describe('Subscriptions', function() {
                     && in_progress_sub.refresh_status.queued_count > 0
                     && in_progress_sub.refresh_status.queued_count < fake_outputs.length
                     && in_progress_sub.refresh_status.discovered_count === fake_outputs.length);
-            });
+            }, 5000);
             assert.strictEqual(queued_before_completion, true);
             assert.strictEqual(callback_resolved, false);
 
@@ -1420,7 +1423,7 @@ describe('Subscriptions', function() {
             const completed = await waitForCondition(async () => {
                 const refreshed_sub = await subscriptions_api.getSubscription(sub.id);
                 return !!(refreshed_sub && !refreshed_sub.downloading);
-            });
+            }, 5000);
             assert.strictEqual(completed, true);
 
             assert(captured_args.includes('--flat-playlist'));

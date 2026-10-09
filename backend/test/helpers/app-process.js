@@ -64,7 +64,7 @@ async function addSampleMedia(dir, {type = 'video', name = null, info = {}, thum
  * `prepare` runs before boot with the directories,
  * for anything that has to exist at startup.
  ************************************************/
-async function startApp({env = {}, prepare = null} = {}) {
+async function startApp({env = {}, prepare = null, preload = null} = {}) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ytdl-app-test-'));
     const media = {
         video: path.join(root, 'video'),
@@ -82,6 +82,8 @@ async function startApp({env = {}, prepare = null} = {}) {
     let output = '';
     const child = fork(path.join(__dirname, 'boot-app.js'), [], {
         cwd: root,
+        // A fixture may replace an external integration inside this child only.
+        execArgv: [...process.execArgv, ...(preload ? ['--require', preload] : [])],
         env: {
             ...process.env,
             YTDL_CONFIG_PATH: config_path,
