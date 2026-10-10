@@ -465,6 +465,15 @@
     width: 40px;
 }
 
+/* A mouse right-clicks the video for Loop, so the list's button for it is left to a touch
+   screen, which has no way to open that menu. Important, to beat the inline-flex that
+   styles.scss forces on every icon button. */
+@media (hover: hover) and (pointer: fine) {
+    .playlist-repeat-button {
+        display: none !important;
+    }
+}
+
 /* The preview is drawn over the list, so it needs a surface of its own under the row's. */
 .playlist-row.cdk-drag-preview {
     background: var(--kit-sheet);

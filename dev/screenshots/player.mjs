@@ -149,11 +149,25 @@ const queueMeta = async page => {
 };
 const playingIndex = page => rows(page).evaluateAll(all => all.findIndex(row => row.querySelector('.queue-item[aria-current="true"]')));
 const autoplayButton = page => queue(page).locator('.playlist-autoplay-button');
-// Loop is in the player's right-click menu, and remembered in the browser.
+// With a mouse, Loop is in the player's right-click menu. A touch screen cannot open that, so it
+// gets a button beside Autoplay. Either way, Loop is remembered in the browser.
+const loopButton = page => queue(page).locator('.playlist-repeat-button');
 const looping = page => page.evaluate(() => localStorage.getItem('player_repeat_enabled') === 'true');
 async function toggleLoop(page) {
     await page.locator('.media-player').click({ button: 'right' });
     await page.getByRole('menuitemcheckbox', { name: 'Loop' }).click();
+}
+
+// How many times the video starts over two clips' length, from playing it now.
+function countPlays(page) {
+    return page.evaluate(async seconds => {
+        const video = document.querySelector('#singleVideo');
+        let count = 0;
+        video.addEventListener('play', () => count++);
+        await video.play();
+        await new Promise(resolve => setTimeout(resolve, (seconds * 2 + 1) * 1000));
+        return count;
+    }, CLIP_SECONDS);
 }
 
 async function waitForPlaying(page, index, timeout = 15_000) {
@@ -216,8 +230,8 @@ async function playingAPlaylist(page, seeded) {
     check('the first row is the one playing, and only it is marked', await playingIndex(page) === 0
         && await queue(page).locator('.queue-item[aria-current="true"]').count() === 1);
     const onPlayingRow = await rows(page).first().evaluate(row => !!row.querySelector('.playlist-autoplay-button'));
-    check('Autoplay sits on the playing row, and only there, as the list\'s only playback mode', onPlayingRow
-        && await autoplayButton(page).count() === 1 && await queue(page).locator('.playback-mode-button').count() === 1);
+    check('Autoplay sits on the playing row, and only there', onPlayingRow && await autoplayButton(page).count() === 1);
+    check('with no Loop button beside it, since a mouse loops from the right-click menu', await loopButton(page).isHidden());
     await shoot(page, 'player-playlist-desktop');
 
     await rows(page).nth(2).locator('.queue-item').click();
@@ -234,14 +248,7 @@ async function playingAPlaylist(page, seeded) {
     await toggleLoop(page);
     check('Loop, from the right-click menu, turns Autoplay off', await looping(page)
         && await autoplayButton(page).getAttribute('aria-pressed') === 'false');
-    const plays = await page.evaluate(async seconds => {
-        const video = document.querySelector('#singleVideo');
-        let count = 0;
-        video.addEventListener('play', () => count++);
-        await video.play();
-        await new Promise(resolve => setTimeout(resolve, (seconds * 2 + 1) * 1000));
-        return count;
-    }, CLIP_SECONDS);
+    const plays = await countPlays(page);
     check('and plays the same file again when it ends', plays >= 2 && await playingIndex(page) === 3, `${plays} plays`);
     await toggleLoop(page);
 
@@ -323,6 +330,21 @@ async function playingOneFile(browser, seeded, errors) {
     await opened.context().close();
 }
 
+async function loopingOnAPhone(browser, seeded, errors) {
+    say('Looping on a phone');
+    const page = await newPage(browser, 'phone', errors);
+    await openPlaylist(page, seeded.playlists.find(candidate => candidate.name === 'Space Station'));
+    check('Loop sits beside Autoplay on the playing row', await rows(page).first().locator('.playlist-repeat-button').isVisible()
+        && await autoplayButton(page).isVisible());
+    await loopButton(page).tap();
+    check('a tap on it turns Loop on', await looping(page) && await loopButton(page).getAttribute('aria-pressed') === 'true');
+    const plays = await countPlays(page);
+    check('and plays the same file again when it ends', plays >= 2 && await playingIndex(page) === 0, `${plays} plays`);
+    await loopButton(page).tap();
+    check('a second tap turns it off', !(await looping(page)) && await loopButton(page).getAttribute('aria-pressed') === 'false');
+    await page.context().close();
+}
+
 async function onAPhone(browser, seeded, errors, theme) {
     const page = await newPage(browser, 'phone', errors, { theme });
     await openPlaylist(page, seeded.playlists.find(candidate => candidate.name === 'Space Station'));
@@ -371,6 +393,8 @@ async function main() {
         await page.context().close();
 
         await playingOneFile(browser, seeded, errors);
+
+        await loopingOnAPhone(browser, seeded, errors);
 
         say('Checking a phone width, and the light theme');
         for (const theme of ['dark', 'light']) {
