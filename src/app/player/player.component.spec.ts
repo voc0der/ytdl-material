@@ -156,6 +156,10 @@ describe('PlayerComponent', () => {
     return Array.from(fixture.nativeElement.querySelectorAll('.playlist-autoplay-button'));
   }
 
+  function playlistLoopButtons(): HTMLButtonElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.playlist-repeat-button'));
+  }
+
   // The whole toolbar sits behind the player's own guard, so a spec has to get far enough
   // for the player to be showing before any action button exists. ngOnInit runs on the
   // first detectChanges and rebuilds this state, so it has to settle first.
@@ -284,18 +288,17 @@ describe('PlayerComponent', () => {
     expect(postsServiceStub.getFile).not.toHaveBeenCalled();
   });
 
-  it('should mark the Autoplay toggle only while it is engaged', () => {
+  it('should mark only the engaged playback toggles', () => {
     showPlayer();
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
     component.autoplay_enabled = true;
+    component.repeat_enabled = false;
     fixture.detectChanges();
-    expect(playlistAutoplayButtons()[0].classList.contains('active')).toBe(true);
 
-    // Idle, it carries no marker at all, so it renders at the same colour as the actions
-    // beside it rather than dimmed.
-    component.autoplay_enabled = false;
-    fixture.detectChanges();
-    expect(playlistAutoplayButtons()[0].classList.contains('active')).toBe(false);
+    // Idle toggles carry no marker at all, so they render at the same colour as the
+    // actions beside them rather than dimmed.
+    expect(playlistAutoplayButtons()[0].classList.contains('active')).toBe(true);
+    expect(playlistLoopButtons()[0].classList.contains('active')).toBe(false);
   });
 
   it('should mark playback toggles as pressed for assistive tech', () => {
@@ -303,13 +306,15 @@ describe('PlayerComponent', () => {
     component.db_file = {uid: 'f1', title: 'A video', url: 'https://example.com/watch', isAudio: false} as any;
     component.theater_mode_enabled = true;
     component.autoplay_enabled = false;
+    component.repeat_enabled = false;
     fixture.detectChanges();
 
     expect(theaterButton().getAttribute('aria-pressed')).toBe('true');
     expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('false');
+    expect(playlistLoopButtons()[0].getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('should keep autoplay clicks on the current playlist row without restarting playback', () => {
+  it('should keep loop and autoplay clicks on the current playlist row without restarting playback', () => {
     showPlayer();
     const currentItem = component.currentItem;
     const updateCurrentItem = vi.spyOn(component, 'updateCurrentItem');
@@ -326,8 +331,19 @@ describe('PlayerComponent', () => {
     expect(updateCurrentItem).not.toHaveBeenCalled();
     expect(component.autoplay_enabled).toBe(true);
     expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('true');
-    // Loop is in the player's right-click menu, so Autoplay is the row's only playback mode.
-    expect(playlistRows()[0].querySelectorAll('.playback-mode-button')).toHaveLength(1);
+
+    // The stylesheet shows it only on a touch screen, which has no right-click menu to loop from.
+    const loop = playlistRows()[0].querySelector('.playlist-repeat-button') as HTMLButtonElement;
+    expect(loop.getAttribute('aria-label')).toBe('Loop');
+    loop.click();
+    fixture.detectChanges();
+
+    expect(component.currentItem).toBe(currentItem);
+    expect(updateCurrentItem).not.toHaveBeenCalled();
+    expect(component.repeat_enabled).toBe(true);
+    expect(component.autoplay_enabled).toBe(false);
+    expect(loop.getAttribute('aria-pressed')).toBe('true');
+    expect(playlistAutoplayButtons()[0].getAttribute('aria-pressed')).toBe('false');
   });
 
   it('should move the autoplay control with the playing item', () => {

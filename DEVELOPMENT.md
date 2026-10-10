@@ -489,15 +489,18 @@ dev/screenshots/player.sh --keep        # leave the backend running on :17457 af
 
 It opens the README's Space Station playlist and checks the list is headed by it and counts its
 place, that each row has the file's thumbnail, length and uploader in the playlist's order, and
-that the playing row, and only it, is marked and carries Autoplay. Then it plays another row,
-turns Autoplay on and waits for the next file to start on its own, turns Loop on from the
-right-click menu and waits for the same file to start again, drags a row to another place, and checks theater
-mode hides the list. It plays the library's oldest file on its own, checks the list says what
-Autoplay would do and that the row offers Watch together, then turns Autoplay on and checks the
-library is queued with that file last. It then downloads the file and checks the spinner that
-rings the download icon is centred on it. With Autoplay already on as the page opens, it checks
-the list has scrolled itself to the playing row without moving the page. Screenshots at a
-desktop and a phone width, light and dark, are left in the `shots` folder it prints.
+that the playing row, and only it, is marked and carries Autoplay, but not Loop, which a mouse
+finds in the right-click menu. Then it plays another row, turns Autoplay on and waits for the
+next file to start on its own, turns Loop on from that menu and waits for the same file to
+start again, drags a row to another place, and checks theater mode hides the list. It plays the
+library's oldest file on its own, checks the list says what Autoplay would do and that the row
+offers Watch together, then turns Autoplay on and checks the library is queued with that file
+last. It then downloads the file and checks the spinner that rings the download icon is centred
+on it. With Autoplay already on as the page opens, it checks the list has scrolled itself to
+the playing row without moving the page. On a phone, which cannot open the right-click menu, it
+checks the playing row carries Loop as well, and that tapping it plays the file again when it
+ends. Screenshots at a desktop and a phone width, light and dark, are left in the `shots`
+folder it prints.
 
 It downloads nothing, and like the others it is not part of CI.
 
