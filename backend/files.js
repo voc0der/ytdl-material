@@ -1199,7 +1199,7 @@ exports.findLinksAlreadyInLibrary = async (urls = [], type = 'video', user_uid =
     return found_links;
 }
 
-exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null, allow_missing_metadata = false) => {
+exports.registerFileDB = async (file_path, type, user_uid = null, category = null, sub_id = null, cropFileSettings = null, file_object = null, allow_missing_metadata = false, replace_uid = null) => {
     if (!file_object) file_object = generateFileObject(file_path, type);
     if (!file_object && allow_missing_metadata) file_object = await generateFallbackFileObject(file_path, type);
     if (!file_object) {
@@ -1233,7 +1233,9 @@ exports.registerFileDB = async (file_path, type, user_uid = null, category = nul
     if (user_uid) file_object['user_uid'] = user_uid;
     if (sub_id) file_object['sub_id'] = sub_id;
 
-    const file_obj = await registerFileDBManual(file_object);
+    const file_obj = replace_uid
+        ? await replaceFileDB(file_object, replace_uid, user_uid)
+        : await registerFileDBManual(file_object);
 
     if (sub_id && file_obj) {
         await exports.syncSubscriptionPlaylist(sub_id, user_uid, file_obj.uid);
@@ -1245,6 +1247,37 @@ exports.registerFileDB = async (file_path, type, user_uid = null, category = nul
     }
 
     return file_obj;
+}
+
+async function replaceFileDB(file_object, replace_uid, user_uid) {
+    const existing_file = await exports.getVideo(replace_uid, user_uid);
+    if (!existing_file || (existing_file.user_uid || null) !== user_uid
+        || existing_file.isAudio !== file_object.isAudio
+        || normalizeMediaBasePath(existing_file.path) === normalizeMediaBasePath(file_object.path)
+        || !utils.isServableMediaFile(file_object.path, user_uid) || file_object.size <= 0) return false;
+    const hydrated_file = await hydrateFileSourceMetadata(existing_file, true);
+    if (!hydrated_file.duplicate_key || hydrated_file.duplicate_key !== file_object.duplicate_key) return false;
+
+    // Only downloaded metadata changes. Keep the identity and library state that other records reference.
+    const updates = {...file_object};
+    for (const key of ['favorite', 'category', 'user_uid', 'sub_id']) delete updates[key];
+    const old_path = existing_file.path;
+    const replacement = {...existing_file, ...updates};
+    if (!await db_api.updateRecord('files', {uid: replace_uid}, updates)) return false;
+
+    // Legacy duplicate records can point to the same media. Leave it while another record uses it.
+    const files = await db_api.getRecords('files', null, false, null, null, ['path']);
+    const old_path_in_use = files.some(file => normalizeMediaBasePath(file.path) === normalizeMediaBasePath(old_path));
+    if (!old_path_in_use) {
+        try {
+            if (!await deleteMediaAndSidecars(old_path, existing_file.isAudio ? 'audio' : 'video', [], user_uid)) {
+                logger.warn(`Replaced file '${replace_uid}', but could not remove all of its old media and sidecars.`);
+            }
+        } catch (err) {
+            logger.warn(`Replaced file '${replace_uid}', but could not remove its old media: ${err.message}`);
+        }
+    }
+    return replacement;
 }
 
 /*************************************************

@@ -912,6 +912,10 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'resumeAllDownloads', {}, this.httpOptions);
     }
 
+    retryDuplicateDownload(download_uid: string, action: 'copy' | 'overwrite') {
+        return this.http.post<DownloadResponse>(this.path + 'retryDuplicateDownload', {download_uid, action}, this.httpOptions);
+    }
+
     restartDownload(download_uid: string) {
         const body: GetDownloadRequest = {download_uid: download_uid};
         return this.http.post<RestartDownloadResponse>(this.path + 'restartDownload', body, this.httpOptions);

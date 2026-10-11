@@ -1790,9 +1790,29 @@ export class MainComponent implements OnInit {
     openConfirmDialog(this.dialog, {
       dialogTitle: $localize`Duplicate skipped`,
       dialogIcon: 'info_outline',
-      dialogText: $localize`${duplicate_title}:download title: was already downloaded, so the duplicate was skipped.`,
-      submitText: $localize`OK`,
+      dialogText: $localize`${duplicate_title}:download title: was already downloaded. Keep another copy, or overwrite the existing file after the new download succeeds.`,
+      submitActions: [
+        {text: $localize`Keep both`, value: 'copy'},
+        ...(this.postsService.hasPermission('filemanager')
+          ? [{text: $localize`Overwrite`, value: 'overwrite', warnSubmitColor: true}]
+          : [])
+      ],
       cancelText: $localize`Close`
+    }).afterClosed().subscribe(action => {
+      if (action !== 'copy' && action !== 'overwrite') return;
+      this.postsService.retryDuplicateDownload(download.uid, action).subscribe({
+        next: res => {
+          if (!res.download?.uid) {
+            this.postsService.openSnackBar($localize`Could not queue the download. Try again.`);
+            return;
+          }
+          this.downloads.push(res.download);
+          this.download_uids.push(res.download.uid);
+          this.setNextCurrentDownload();
+          this.postsService.openSnackBar($localize`Download queued.`);
+        },
+        error: () => this.postsService.openSnackBar($localize`Could not queue the download. Try again.`)
+      });
     });
   }
 

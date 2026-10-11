@@ -1438,6 +1438,46 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/retryDuplicateDownload:
+    post:
+      summary: Download a skipped duplicate again
+      operationId: post-api-retry-duplicate-download
+      description: >-
+        Retry a completed single-file duplicate skip using its original download options.
+        Copy keeps both files. Overwrite requires filemanager permission and replaces the
+        existing library entry only after a successful download, preserving its ID and library state.
+        The request must belong to the caller and can only be retried once.
+      tags:
+        - downloader
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [download_uid, action]
+              properties:
+                download_uid:
+                  type: string
+                action:
+                  type: string
+                  enum: [copy, overwrite]
+      responses:
+        '200':
+          description: Download queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+        '400':
+          description: Invalid action or skipped duplicate unavailable
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing filemanager permission for overwrite
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/restartDownload:
     post:
       summary: Restart one download

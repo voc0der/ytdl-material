@@ -394,6 +394,61 @@ describe('MainComponent', () => {
     expect(reload_spy).not.toHaveBeenCalled();
   });
 
+  describe('retrying a skipped duplicate', () => {
+    const skipped = {uid: 'skipped', finished: true, duplicate_skip_only: true,
+      file_uids: ['existing'], type: 'video', title: 'Existing video'};
+    let answer: Subject<string>;
+    let posts: any;
+    let open: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      answer = new Subject<string>();
+      posts = (component as any).postsService;
+      posts.getCurrentDownload = () => of({download: skipped});
+      posts.retryDuplicateDownload = vi.fn().mockReturnValue(of({download: {uid: 'retry'}}));
+      posts.openSnackBar = vi.fn();
+      open = vi.spyOn((component as any).dialog, 'open').mockReturnValue({afterClosed: () => answer} as any);
+      component.current_download = {uid: 'skipped'} as any;
+      component.downloads = [component.current_download, {uid: 'next'} as any];
+      component.download_uids = ['skipped', 'next'];
+    });
+
+    it('offers Close, Keep both and Overwrite without downloading on dismissal', () => {
+      component.getCurrentDownload();
+      const data = open.mock.calls[0][1].data;
+      expect(data.cancelText).toBe('Close');
+      expect(data.submitActions.map(action => action.text)).toEqual(['Keep both', 'Overwrite']);
+      answer.next(undefined);
+      expect(posts.retryDuplicateDownload).not.toHaveBeenCalled();
+    });
+
+    for (const action of ['copy', 'overwrite']) {
+      it(`queues ${action} and keeps tracking the other pending download`, () => {
+        component.getCurrentDownload();
+        answer.next(action);
+        expect(posts.retryDuplicateDownload).toHaveBeenCalledWith('skipped', action);
+        expect(component.download_uids).toEqual(['next', 'retry']);
+        expect(component.current_download.uid).toBe('next');
+        expect(component.downloads.map(download => download.uid)).toEqual(['next', 'retry']);
+      });
+    }
+
+    it('hides Overwrite when file management is not allowed', () => {
+      posts.hasPermission = () => false;
+      component.getCurrentDownload();
+      expect(open.mock.calls[0][1].data.submitActions.map(action => action.value)).toEqual(['copy']);
+    });
+
+    it('reports a retry error without disturbing the remaining queue', () => {
+      posts.retryDuplicateDownload.mockReturnValue(throwError(() => new Error('Unavailable')));
+      component.getCurrentDownload();
+      answer.next('overwrite');
+      expect(posts.openSnackBar).toHaveBeenCalledWith('Could not queue the download. Try again.');
+      expect(component.download_uids).toEqual(['next']);
+      expect(component.current_download.uid).toBe('next');
+    });
+  });
+
   it('removes finished errored downloads and continues polling remaining queue', () => {
     const api_download = {
       uid: 'download-6',
