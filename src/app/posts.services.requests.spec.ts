@@ -24,6 +24,8 @@ interface ExpectedRequest {
 // backend's handler for it reads. Grouped the way the backend groups its routes.
 const REQUESTS: ExpectedRequest[] = [
   // Downloading
+  {call: 'retryDuplicateDownload', send: s => s.retryDuplicateDownload('download-1', 'overwrite'), method: 'POST', url: 'retryDuplicateDownload',
+    body: {download_uid: 'download-1', action: 'overwrite'}},
   {call: 'downloadFile', send: s => s.downloadFile('https://example.com/a', FileType.VIDEO, '720', null, '--a', '--b', '%(id)s', 'name', 'pass', null, true, true, 'en', 'de', 'manual'),
     method: 'POST', url: 'downloadFile', body: {url: 'https://example.com/a', maxHeight: '720', customQualityConfiguration: null, customArgs: '--a', additionalArgs: '--b',
       customOutput: '%(id)s', youtubeUsername: 'name', youtubePassword: 'pass', type: 'video', cropFileSettings: null, disableSponsorBlock: true,

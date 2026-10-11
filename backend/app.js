@@ -3435,6 +3435,19 @@ app.post('/api/resumeAllDownloads', optionalJwt, requirePermission('downloads_ma
     res.send({success: success});
 });
 
+app.post('/api/retryDuplicateDownload', optionalJwt, requireAuthenticated, async (req, res, next) => {
+    if (req.body.action === 'overwrite') return requirePermission('filemanager')(req, res, next);
+    return next();
+}, async (req, res) => {
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    const download = await downloader_api.retryDuplicateDownload(req.body.download_uid, req.body.action, user_uid);
+    if (!download) {
+        res.status(400).send({success: false, error: 'This skipped duplicate is no longer available to retry.'});
+        return;
+    }
+    res.send({download});
+});
+
 app.post('/api/restartDownload', optionalJwt, requirePermission('downloads_manager'), async (req, res) => {
     const download_uid = req.body.download_uid;
     const user_uid = req.isAuthenticated() ? req.user.uid : null;

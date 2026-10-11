@@ -20,6 +20,7 @@ const archive_api = require('./archive');
 
 const mutex = new Mutex();
 const playlist_batch_finalization_mutex = new Mutex();
+const duplicate_retry_mutex = new Mutex();
 let should_check_downloads = true;
 
 const download_to_child_process = {};
@@ -1647,6 +1648,29 @@ exports.resumeDownload = async (download_uid) => {
     })
 }
 
+exports.retryDuplicateDownload = async (download_uid, action, user_uid = null) => {
+    if (typeof download_uid !== 'string' || !['copy', 'overwrite'].includes(action)) return false;
+    return duplicate_retry_mutex.runExclusive(async () => {
+        const download = await db_api.getRecord('download_queue', {uid: download_uid});
+        if (!download || (download.user_uid || null) !== user_uid || !download.finished
+            || !download.duplicate_skip_only || download.sub_id || download.playlist_item_progress
+            || !Array.isArray(download.file_uids) || download.file_uids.length !== 1) return false;
+        const existing_file = await files_api.getVideo(download.file_uids[0], user_uid);
+        if (!existing_file || (existing_file.user_uid || null) !== user_uid) return false;
+
+        const options = {
+            ...download.options,
+            ignoreArchive: true,
+            skipDuplicates: false,
+            duplicateAction: action,
+            replaceFileUID: action === 'overwrite' ? existing_file.uid : null
+        };
+        const new_download = await exports.createDownload(download.url, download.type, options, user_uid);
+        if (new_download) await exports.clearDownload(download_uid);
+        return new_download;
+    });
+}
+
 exports.restartDownload = async (download_uid) => {
     const downloads = await db_api.getRecords(
         'download_queue',
@@ -2087,21 +2111,6 @@ exports.collectInfo = async (download_uid) => {
         return;
     }
 
-    // in subscriptions we don't care if archive mode is enabled, but we already removed archived videos from subs by this point
-    const useYoutubeDLArchive = config_api.getConfigItem('ytdl_use_youtubedl_archive');
-    if (useYoutubeDLArchive && !options.ignoreArchive && info.length === 1) {
-        const info_obj = info[0];
-        const exists_in_archive = await archive_api.existsInArchive(info_obj['extractor'], info_obj['id'], type, download['user_uid'], download['sub_id']);
-        if (exists_in_archive) {
-            const error = `File '${info_obj['title']}' already exists in archive! Disable the archive or override to continue downloading.`;
-            logger.warn(error);
-            if (download_uid) {
-                await handleDownloadError(download_uid, error, 'exists_in_archive');
-                return;
-            }
-        }
-    }
-
     let category = null;
 
     // check if it fits into a category. If so, then get info again using new args
@@ -2115,9 +2124,20 @@ exports.collectInfo = async (download_uid) => {
     }
 
     // A pasted list skips what the library already has whatever the setting says.
-    const skip_duplicates = !!config_api.getConfigItem('ytdl_warn_on_duplicate') || options.skipDuplicates === true;
+    const retry_duplicate = ['copy', 'overwrite'].includes(options.duplicateAction);
+    if (retry_duplicate && info.length !== 1) {
+        await handleDownloadError(download_uid, 'A duplicate retry must contain exactly one file.', 'duplicate_retry_failed');
+        return;
+    }
+    const skip_duplicates = !retry_duplicate && (!!config_api.getConfigItem('ytdl_warn_on_duplicate') || options.skipDuplicates === true);
     const output_collision_paths = !skip_duplicates ? getExistingOutputCollisionPaths(info) : [];
-    if (output_collision_paths.length > 0) {
+    if (retry_duplicate) {
+        // Both choices download to a fresh path. The old media stays usable until registration succeeds.
+        info = applyOutputSuffixToInfo(info, ` [redownload-${download_uid}]`);
+        const output_template = utils.removeFileExtension(info[0]._filename).replace(/%/g, '%%') + '.%(ext)s';
+        args = stripArgsWithValues(args, ['--download-archive']);
+        args.push('-o', output_template);
+    } else if (output_collision_paths.length > 0) {
         const duplicate_output_suffix = ` [duplicate-${String(download_uid || '').slice(0, 8)}]`;
         args = applyOutputSuffixToArgs(args, duplicate_output_suffix);
         info = applyOutputSuffixToInfo(info, duplicate_output_suffix);
@@ -2156,6 +2176,21 @@ exports.collectInfo = async (download_uid) => {
         });
         await finalizeDuplicateOnlyDownload(download_uid, download, playlist_item_progress, single_duplicate_file_uids);
         return;
+    }
+
+    // Library duplicates get the retry choice even when archived. Archive-only entries still stop here.
+    const useYoutubeDLArchive = config_api.getConfigItem('ytdl_use_youtubedl_archive');
+    if (useYoutubeDLArchive && !options.ignoreArchive && info.length === 1) {
+        const info_obj = info[0];
+        const exists_in_archive = await archive_api.existsInArchive(info_obj['extractor'], info_obj['id'], type, download['user_uid'], download['sub_id']);
+        if (exists_in_archive) {
+            const error = `File '${info_obj['title']}' already exists in archive! Disable the archive or override to continue downloading.`;
+            logger.warn(error);
+            if (download_uid) {
+                await handleDownloadError(download_uid, error, 'exists_in_archive');
+                return;
+            }
+        }
     }
 
     const info_for_download = info_without_duplicates.length > 0 ? info_without_duplicates : info;
@@ -2230,6 +2265,15 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
     let end_time = Date.now();
     let difference = (end_time - start_time)/1000;
     logger.debug(`${type === 'audio' ? 'Audio' : 'Video'} download delay: ${difference} seconds.`);
+    if (options.replaceFileUID) {
+        const latest_download = await db_api.getRecord('download_queue', {uid: download_uid});
+        if (!latest_download || latest_download.paused || latest_download.cancelled || latest_download.error) return false;
+        // Successful processes can return warning text in err; failed processes return an Error.
+        if ((err && typeof err !== 'string') || !Array.isArray(parsed_output) || parsed_output.length !== 1) {
+            await handleDownloadError(download_uid, 'The replacement download did not complete successfully. The original file was kept.', 'replacement_failed');
+            return false;
+        }
+    }
     if (!parsed_output) {
         const errored_download = await db_api.getRecord('download_queue', {uid: download_uid});
         if (errored_download && errored_download['paused']) return;
@@ -2297,7 +2341,7 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
             }
 
             // registers file in DB
-            const file_obj = await files_api.registerFileDB(full_file_path, type, download['user_uid'], category, download['sub_id'] ? download['sub_id'] : null, options.cropFileSettings);
+            const file_obj = await files_api.registerFileDB(full_file_path, type, download['user_uid'], category, download['sub_id'] ? download['sub_id'] : null, options.cropFileSettings, null, false, options.replaceFileUID);
             if (!file_obj) {
                 logger.warn(`Failed to register downloaded file '${full_file_path}' in DB.`);
                 continue;
