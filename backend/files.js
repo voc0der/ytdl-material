@@ -28,6 +28,7 @@ function shouldRestrictToUser(user_uid) {
 function escapeRegex(text = '') {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+exports.escapeRegex = escapeRegex;
 
 function normalizeFileListRange(range = null) {
     if (!Array.isArray(range) || range.length !== 2) return null;

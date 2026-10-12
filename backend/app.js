@@ -2468,13 +2468,10 @@ app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), a
     let file_type_filter = req.body.file_type_filter;
 
     const filter_obj = getScopedFilterByUser(uuid);
-    const regex = true;
     if (text_search) {
-        if (regex) {
-            filter_obj['title'] = {$regex: `.*${text_search}.*`, $options: 'i'};
-        } else {
-            filter_obj['$text'] = { $search: utils.createEdgeNGrams(text_search) };
-        }
+        // Titles containing the text as written. Read as a pattern, '.' matched, and so
+        // deleted, every file, and '(' failed the request.
+        filter_obj['title'] = {$regex: files_api.escapeRegex(String(text_search)), $options: 'i'};
     }
 
     if (file_type_filter === 'audio_only') filter_obj['isAudio'] = true;

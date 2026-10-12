@@ -555,6 +555,15 @@ describe('The library through the server', function() {
             assert.strictEqual(res.body.success, false);
         });
 
+        it('matches a search as written, not as a pattern', async function() {
+            const before = (await allFiles()).file_count;
+            for (const text_search of ['First.clip', '(', 'clip$', '.*']) {
+                const res = await app.api.post('/api/deleteAllFiles').send({text_search}).expect(200);
+                assert.deepStrictEqual(res.body, {file_count: 0, delete_count: 0}, text_search);
+            }
+            assert.strictEqual((await allFiles()).file_count, before);
+        });
+
         it('deletes everything a search matches', async function() {
             const before = (await allFiles()).file_count;
             const res = await app.api.post('/api/deleteAllFiles').send({text_search: 'Renamed'}).expect(200);
