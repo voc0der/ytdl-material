@@ -309,7 +309,31 @@ app.use(reverseProxyWhitelistMiddleware);
 
 // actual functions
 
+/*************************************************
+ * Whether db.json or users.json still holds what
+ * an install from before 4.3 kept in them, which
+ * is what the migrations to 4.3 move into the
+ * database. The defaults written at startup hold
+ * nothing.
+ ************************************************/
+function hasPre43Records(db_json = {}, users_json = {}) {
+    const holdsRecords = value => Array.isArray(value)
+        ? value.length > 0
+        : !!value && typeof value === 'object' && Object.values(value).some(holdsRecords);
+    return ['files', 'playlists', 'categories', 'subscriptions'].some(key => holdsRecords(db_json[key]))
+        || holdsRecords(users_json.users);
+}
+
 async function checkMigrations() {
+    // The two migrations to 4.3 run whenever db.json lacks their flags, which is also true of
+    // a new install, or one whose db.json was lost or deleted -- and the second starts by
+    // emptying the database. With nothing from before 4.3 to move, they are done already.
+    const pre_43_migrations_pending = !db.get('simplified_db_migration_complete').value() || !db.get('new_db_system_migration_complete').value();
+    if (pre_43_migrations_pending && !hasPre43Records(db.value(), users_db.value())) {
+        db.set('simplified_db_migration_complete', true).write();
+        db.set('new_db_system_migration_complete', true).write();
+    }
+
     // 4.1->4.2 migration
 
     const simplified_db_migration_complete = db.get('simplified_db_migration_complete').value();
@@ -327,7 +351,12 @@ async function checkMigrations() {
     }
 
     const new_db_system_migration_complete = db.get('new_db_system_migration_complete').value();
-    if (!new_db_system_migration_complete) {
+    if (!new_db_system_migration_complete && await db_api.hasLibraryRecords()) {
+        // Old records left in users.json, say, on an install whose db.json went missing. The
+        // import would replace the library the database already holds with them.
+        logger.error('Skipped migration 4.2->4.3+: the database already holds a library, which it would replace. The records from before 4.3 stay in appdata/db.json and appdata/users.json.');
+        db.set('new_db_system_migration_complete', true).write();
+    } else if (!new_db_system_migration_complete) {
         logger.info('Beginning migration: 4.2->4.3+')
         let success = await db_api.importJSONToDB(db.value(), users_db.value());
         await tasks_api.setupTasks(); // necessary as tasks were not properly initialized at first

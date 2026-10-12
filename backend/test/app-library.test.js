@@ -66,12 +66,6 @@ describe('The library through the server', function() {
                 // The same source as 'first', so the two are duplicates.
                 await addSampleMedia(media.video, {name: 'first-again', info: FIRST});
                 await addSampleMedia(media.audio, {type: 'audio', name: 'song', info: SONG});
-                // An install past the migrations that rebuild the database from db.json,
-                // which would otherwise replace these on first start.
-                await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-                    simplified_db_migration_complete: true,
-                    new_db_system_migration_complete: true
-                });
                 await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {
                     download_queue: QUEUED_DOWNLOADS,
                     notifications: NOTIFICATIONS

@@ -27,9 +27,6 @@ for (const multi_user_mode of [false, true]) {
             app = await startApp({
                 env: {ytdl_multi_user_mode: String(multi_user_mode)},
                 prepare: async ({root}) => {
-                    await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-                        simplified_db_migration_complete: true, new_db_system_migration_complete: true
-                    });
                     await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {
                         files: [{uid: 'played', user_uid: owner, local_view_count: 0, sharingEnabled: true}],
                         notifications

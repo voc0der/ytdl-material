@@ -18,16 +18,6 @@ async function cookieTests(app, forwarded_for, count = 1) {
 
 const TEN_THEN_LIMITED = [...Array(10).fill(400), 429];
 
-// An install past the migrations that rebuild the database from db.json, which would
-// otherwise replace the records a test puts in place.
-async function writeDatabase(root, tables) {
-    await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-        simplified_db_migration_complete: true,
-        new_db_system_migration_complete: true
-    });
-    await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), tables);
-}
-
 const readDatabase = app => fs.readJSONSync(path.join(app.root, 'appdata', 'local_db.json'));
 
 /*************************************************
@@ -133,7 +123,7 @@ describe('Settings from the environment', function() {
         async function startWith(target, tables) {
             return await startApp({
                 env: {ytdl_oidc_migrate_videos: target},
-                prepare: ({root}) => writeDatabase(root, {users: USERS, ...tables})
+                prepare: ({root}) => fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {users: USERS, ...tables})
             });
         }
 

@@ -1292,6 +1292,15 @@ exports.getDBStats = async () => {
     };
 }
 
+// Whether the database holds anything someone made: a file, playlist, category, subscription
+// or account. Roles and tasks do not count, as startup writes those itself.
+exports.hasLibraryRecords = async () => {
+    for (const table of ['files', 'playlists', 'categories', 'subscriptions', 'users']) {
+        if (await exports.getRecords(table, null, true) > 0) return true;
+    }
+    return false;
+}
+
 const getDBTableStats = async (table) => {
     const table_stats = {};
     // local db override
