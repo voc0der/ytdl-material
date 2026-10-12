@@ -1487,7 +1487,8 @@ exports.transferDB = async (local_to_remote) => {
     logger.info('Backup up DB...');
     await exports.backupDB(); // should backup always
 
-    using_local_db = !local_to_remote;
+    // Switched only once there is a connection to switch to. Set before connecting, a failed
+    // connection left every later read going to a remote database that was never opened.
     if (local_to_remote) {
         const db_connected = await exports.connectToDB(5, true);
         if (!db_connected) {
@@ -1495,6 +1496,7 @@ exports.transferDB = async (local_to_remote) => {
             return false;
         }
     }
+    using_local_db = !local_to_remote;
     let success = true;
 
     logger.debug('Clearing new database before transfer...');

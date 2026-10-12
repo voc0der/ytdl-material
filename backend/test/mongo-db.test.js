@@ -391,7 +391,7 @@ describe('MongoDB storage', function() {
             assert.deepStrictEqual(mongo.databases.get(MONGO_URL).collectionNames(), []);
         });
 
-        it('reports a transfer to a MongoDB that never answers as failed', async function() {
+        it('stays on the local store, and keeps reading it, when a transfer to MongoDB cannot connect', async function() {
             await withLocalRecords([{uid: 'local-1'}]);
             config_api.setConfigItem('ytdl_use_local_db', true);
             await fake.install({behavior: {connect: () => {
@@ -399,7 +399,10 @@ describe('MongoDB storage', function() {
             }}});
 
             assert.strictEqual(await db_api.transferDB(true), false);
+
             assert.strictEqual(config_api.getConfigItem('ytdl_use_local_db'), true);
+            assert.strictEqual(db_api.isUsingLocalDB(), true);
+            assert.deepStrictEqual((await db_api.getRecords('test')).map(record => record.uid), ['local-1']);
         });
     });
 
