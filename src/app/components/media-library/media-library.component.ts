@@ -1143,8 +1143,9 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   removeFileCard(file_to_remove: DatabaseFile): void {
-    const index = this.paged_data.map(e => e.uid).indexOf(file_to_remove.uid);
-    this.paged_data.splice(index, 1);
+    const index = this.paged_data.findIndex(file => file.uid === file_to_remove.uid);
+    // A page change or refresh may have already removed this card while deletion was pending.
+    if (index !== -1) this.paged_data.splice(index, 1);
     this.getAllFiles(true);
   }
 
@@ -1189,10 +1190,10 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
 
     if (left_value < right_value) {
-      return direction;
+      return -direction;
     }
     if (left_value > right_value) {
-      return -direction;
+      return direction;
     }
     return 0;
   }
