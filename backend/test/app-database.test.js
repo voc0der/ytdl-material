@@ -34,10 +34,6 @@ describe('Moving the database through the server', function() {
             env: {ytdl_remote_db_type: 'mongo', ytdl_mongodb_connection_string: MONGO_URL},
             preload: path.join(__dirname, 'helpers', 'fake-mongo-server.js'),
             prepare: async ({root}) => {
-                await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-                    simplified_db_migration_complete: true,
-                    new_db_system_migration_complete: true
-                });
                 await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {files: FILES});
             }
         });

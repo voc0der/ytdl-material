@@ -58,10 +58,6 @@ describe('The download queue all at once', function() {
         app = await startApp({
             env: {ytdl_multi_user_mode: 'true', ytdl_max_concurrent_downloads: '0'},
             prepare: async ({root}) => {
-                await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-                    simplified_db_migration_complete: true,
-                    new_db_system_migration_complete: true
-                });
                 await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {download_queue: QUEUE});
             }
         });

@@ -66,12 +66,6 @@ describe('The library through the server', function() {
                 // The same source as 'first', so the two are duplicates.
                 await addSampleMedia(media.video, {name: 'first-again', info: FIRST});
                 await addSampleMedia(media.audio, {type: 'audio', name: 'song', info: SONG});
-                // An install past the migrations that rebuild the database from db.json,
-                // which would otherwise replace these on first start.
-                await fs.outputJSON(path.join(root, 'appdata', 'db.json'), {
-                    simplified_db_migration_complete: true,
-                    new_db_system_migration_complete: true
-                });
                 await fs.outputJSON(path.join(root, 'appdata', 'local_db.json'), {
                     download_queue: QUEUED_DOWNLOADS,
                     notifications: NOTIFICATIONS
@@ -559,6 +553,15 @@ describe('The library through the server', function() {
             assert(!fs.existsSync(files.song.path));
             const res = await app.api.post('/api/getFile').send({uid: files.song.uid}).expect(200);
             assert.strictEqual(res.body.success, false);
+        });
+
+        it('matches a search as written, not as a pattern', async function() {
+            const before = (await allFiles()).file_count;
+            for (const text_search of ['First.clip', '(', 'clip$', '.*']) {
+                const res = await app.api.post('/api/deleteAllFiles').send({text_search}).expect(200);
+                assert.deepStrictEqual(res.body, {file_count: 0, delete_count: 0}, text_search);
+            }
+            assert.strictEqual((await allFiles()).file_count, before);
         });
 
         it('deletes everything a search matches', async function() {

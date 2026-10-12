@@ -13,9 +13,6 @@ describe('Duplicate retry through the server', function() {
                 ytdl_header_auth_enabled: 'true', ytdl_header_auth_trusted_proxies: '127.0.0.1, ::1',
                 ytdl_header_auth_groups_header: 'Remote-Groups'},
             prepare: async ({root}) => {
-                await fs.writeJSON(path.join(root, 'appdata', 'db.json'), {
-                    simplified_db_migration_complete: true, new_db_system_migration_complete: true
-                });
                 await fs.writeJSON(path.join(root, 'appdata', 'local_db.json'), {
                     files: [{uid: 'original', user_uid: 'alice', isAudio: false}],
                     roles: [{key: 'viewer', permissions: []}],

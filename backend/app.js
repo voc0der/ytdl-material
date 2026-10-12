@@ -116,10 +116,11 @@ function configureExpressTrustProxy() {
 
     const reverseProxyWhitelist = config_api.getConfigItem('ytdl_reverse_proxy_whitelist');
     if (reverseProxyWhitelist && reverseProxyWhitelist.trim() !== '') {
-        const trustedProxies = reverseProxyWhitelist
-            .split(',')
-            .map(item => item.trim())
-            .filter(item => item !== '');
+        // Only the entries the whitelist itself can use, which it warns about the rest of.
+        // express throws on anything that is not an address, such as a host name, and that
+        // stopped the server from starting.
+        const trustedProxies = getReverseProxyWhitelist(reverseProxyWhitelist).entries
+            .map(entry => `${entry.address}/${entry.prefix}`);
 
         if (trustedProxies.length > 0) {
             app.set('trust proxy', trustedProxies);
@@ -309,7 +310,31 @@ app.use(reverseProxyWhitelistMiddleware);
 
 // actual functions
 
+/*************************************************
+ * Whether db.json or users.json still holds what
+ * an install from before 4.3 kept in them, which
+ * is what the migrations to 4.3 move into the
+ * database. The defaults written at startup hold
+ * nothing.
+ ************************************************/
+function hasPre43Records(db_json = {}, users_json = {}) {
+    const holdsRecords = value => Array.isArray(value)
+        ? value.length > 0
+        : !!value && typeof value === 'object' && Object.values(value).some(holdsRecords);
+    return ['files', 'playlists', 'categories', 'subscriptions'].some(key => holdsRecords(db_json[key]))
+        || holdsRecords(users_json.users);
+}
+
 async function checkMigrations() {
+    // The two migrations to 4.3 run whenever db.json lacks their flags, which is also true of
+    // a new install, or one whose db.json was lost or deleted -- and the second starts by
+    // emptying the database. With nothing from before 4.3 to move, they are done already.
+    const pre_43_migrations_pending = !db.get('simplified_db_migration_complete').value() || !db.get('new_db_system_migration_complete').value();
+    if (pre_43_migrations_pending && !hasPre43Records(db.value(), users_db.value())) {
+        db.set('simplified_db_migration_complete', true).write();
+        db.set('new_db_system_migration_complete', true).write();
+    }
+
     // 4.1->4.2 migration
 
     const simplified_db_migration_complete = db.get('simplified_db_migration_complete').value();
@@ -327,7 +352,12 @@ async function checkMigrations() {
     }
 
     const new_db_system_migration_complete = db.get('new_db_system_migration_complete').value();
-    if (!new_db_system_migration_complete) {
+    if (!new_db_system_migration_complete && await db_api.hasLibraryRecords()) {
+        // Old records left in users.json, say, on an install whose db.json went missing. The
+        // import would replace the library the database already holds with them.
+        logger.error('Skipped migration 4.2->4.3+: the database already holds a library, which it would replace. The records from before 4.3 stay in appdata/db.json and appdata/users.json.');
+        db.set('new_db_system_migration_complete', true).write();
+    } else if (!new_db_system_migration_complete) {
         logger.info('Beginning migration: 4.2->4.3+')
         let success = await db_api.importJSONToDB(db.value(), users_db.value());
         await tasks_api.setupTasks(); // necessary as tasks were not properly initialized at first
@@ -917,7 +947,7 @@ function loadConfigValues() {
 
     // empty url defaults to default URL
     if (!url || url === '') url = 'http://example.com'
-    url_domain = new URL(url);
+    url_domain = parseServerURL(url);
 
     if (!logger.hasEnvLogLevelOverride()) {
         let logger_level = config_api.getConfigItem('ytdl_logger_level');
@@ -950,6 +980,25 @@ function initializeDocumentationAPI() {
     documentation_api_enabled = true;
 
     logger.info('Documentation API enabled at /docs. Restart required for config changes to take effect.');
+}
+
+/*************************************************
+ * The URL the app is reached at, as configured. A
+ * host and port written without the scheme is read
+ * as http. new URL() threw on one, which stopped
+ * the server from starting, and a Settings save
+ * that set it failed only after it had been saved.
+ ************************************************/
+function parseServerURL(value) {
+    const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `http://${value}`;
+    try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed;
+    } catch {
+        // Not a URL at all; the warning below says so.
+    }
+    logger.warn(`The configured URL '${value}' is not a web address, so http://example.com is used instead.`);
+    return new URL('http://example.com');
 }
 
 function getOrigin() {
@@ -2419,13 +2468,10 @@ app.post('/api/deleteAllFiles', optionalJwt, requirePermission('filemanager'), a
     let file_type_filter = req.body.file_type_filter;
 
     const filter_obj = getScopedFilterByUser(uuid);
-    const regex = true;
     if (text_search) {
-        if (regex) {
-            filter_obj['title'] = {$regex: `.*${text_search}.*`, $options: 'i'};
-        } else {
-            filter_obj['$text'] = { $search: utils.createEdgeNGrams(text_search) };
-        }
+        // Titles containing the text as written. Read as a pattern, '.' matched, and so
+        // deleted, every file, and '(' failed the request.
+        filter_obj['title'] = {$regex: files_api.escapeRegex(String(text_search)), $options: 'i'};
     }
 
     if (file_type_filter === 'audio_only') filter_obj['isAudio'] = true;
