@@ -1,42 +1,58 @@
-const { assert, uuid, db_api } = require('./test-shared');
+const { assert, uuid, db_api, config_api, fs, path } = require('./test-shared');
+const { useFakeMongo, MONGO_URL } = require('./helpers/fake-mongo');
+
+const BACKUP_DIR = path.join('appdata', 'db_backup');
 
 describe('Database', async function() {
-    describe.skip('Import', async function() {
-        // it('Migrate', async function() {
-        //     // await db_api.connectToDB();
-        //     await db_api.removeAllRecords();
-        //     const success = await db_api.importJSONToDB(db.value(), users_db.value());
-        //     assert(success);
-        // });
+    describe('Import', async function() {
+        const fake = useFakeMongo();
 
         it('Transfer to remote', async function() {
             await db_api.removeAllRecords('test');
             await db_api.insertRecordIntoTable('test', {test: 'test'});
 
-            await db_api.transferDB(true);
+            assert(await db_api.transferDB(true));
+            assert.strictEqual(db_api.isUsingMongoDB(), true);
+            assert.strictEqual(config_api.getConfigItem('ytdl_use_local_db'), false);
             const success = await db_api.getRecord('test', {test: 'test'});
             assert(success);
+            assert.deepStrictEqual(fake.mongo.databases.get(MONGO_URL).snapshot('test'), [{test: 'test'}]);
         });
 
         it('Transfer to local', async function() {
-            // await db_api.connectToDB();
             await db_api.removeAllRecords('test');
             await db_api.insertRecordIntoTable('test', {test: 'test'});
 
-            await db_api.transferDB(false);
+            assert(await db_api.transferDB(false));
+            assert.strictEqual(db_api.isUsingLocalDB(), true);
+            assert.strictEqual(config_api.getConfigItem('ytdl_use_local_db'), true);
             const success = await db_api.getRecord('test', {test: 'test'});
             assert(success);
         });
 
         it('Restore db', async function() {
+            assert.strictEqual(await db_api.connectToDB(0, true), true);
+            await db_api.removeAllRecords('test');
+            await db_api.insertRecordsIntoTable('test', [{uid: 'kept-1'}, {uid: 'kept-2'}]);
             const db_stats = await db_api.getDBStats();
-            
+
             const file_name = await db_api.backupDB();
-            await db_api.restoreDB(file_name);
+            assert(file_name.startsWith('remote_db.json.'));
+            await db_api.insertRecordIntoTable('test', {uid: 'after-the-backup'});
+            assert(await db_api.restoreDB(file_name));
 
             const new_db_stats = await db_api.getDBStats();
+            assert.deepStrictEqual(new_db_stats, db_stats);
+            assert.deepStrictEqual((await db_api.getRecords('test')).map(record => record.uid).sort(), ['kept-1', 'kept-2']);
+        });
 
-            assert(JSON.stringify(db_stats), JSON.stringify(new_db_stats));
+        it('Restore db refuses a backup with nothing in it', async function() {
+            const file_name = `remote_db.json.${Date.now() / 1000}.bak`;
+            fs.outputFileSync(path.join(BACKUP_DIR, file_name), 'null');
+            const before = await db_api.getRecords('test');
+
+            assert.strictEqual(await db_api.restoreDB(file_name), false);
+            assert.deepStrictEqual(await db_api.getRecords('test'), before);
         });
     });
 
@@ -47,13 +63,12 @@ describe('Database', async function() {
 
         for (const local_db_mode of local_db_modes) {
             let use_local_db = local_db_mode;
-            const describe_skippable = use_local_db ? describe : describe.skip;
-            describe_skippable(`Use local DB - ${use_local_db}`, async function() {
+            describe(`Use local DB - ${use_local_db}`, async function() {
+                // The remote half runs against an in-memory MongoDB, and connects without
+                // falling back, so a failed connection cannot quietly test the local store.
+                if (!use_local_db) useFakeMongo({connect: true});
+
                 beforeEach(async function() {
-                    if (!use_local_db) {
-                        this.timeout(120000);
-                        await db_api.connectToDB(0);
-                    }
                     await db_api.removeAllRecords('test');
                 });
                 it('Add and read record', async function() {
@@ -209,11 +224,20 @@ describe('Database', async function() {
                 });
 
                 it('Stats', async function() {
+                    await db_api.insertRecordsIntoTable('notifications', [{uid: 'stats-1'}, {uid: 'stats-2'}]);
                     const stats = await db_api.getDBStats();
-                    assert(stats);
+                    await db_api.removeAllRecords('notifications', {uid: {$in: ['stats-1', 'stats-2']}});
+
+                    assert.strictEqual(stats.current_db_type, use_local_db ? 'local' : 'mongo');
+                    assert.strictEqual(stats.using_local_db, use_local_db);
+                    assert(stats.stats_by_table.notifications.records_count >= 2);
+                    assert(!('test' in stats.stats_by_table));
                 });
 
-                it('Sorts upload dates in chronological order', async function() {
+                // Only the local store reads the date formats older versions saved. MongoDB
+                // sorts the stored strings as they are, which puts 'N/A' ahead of every date
+                // when sorting newest first.
+                (use_local_db ? it : it.skip)('Sorts upload dates in chronological order', async function() {
                     const test_records = [
                         {uid: 'upload-date-sort-1', upload_date: '6/26/17'},
                         {uid: 'upload-date-sort-2', upload_date: '2021-07-06'},
@@ -293,6 +317,30 @@ describe('Database', async function() {
                     assert.strictEqual(Object.prototype.hasOwnProperty.call(projected_records[0].options, 'additionalArgs'), false);
                 });
 
+                (use_local_db ? it : it.skip)('Sorts upload dates written out in words', async function() {
+                    await db_api.insertRecordsIntoTable('test', [
+                        {uid: 'worded-date-1', upload_date: '2022-01-01'},
+                        {uid: 'worded-date-2', upload_date: 'March 5, 2021'},
+                        {uid: 'worded-date-3', upload_date: '2020-01-01'}
+                    ]);
+
+                    const records = await db_api.getRecords('test', null, false, {by: 'upload_date', order: -1});
+                    assert.deepStrictEqual(records.map(record => record.uid), ['worded-date-1', 'worded-date-2', 'worded-date-3']);
+                });
+
+                (use_local_db ? it : it.skip)('Adds more records than one local write takes', async function() {
+                    const records = Array.from({length: 30001}, (_, i) => ({uid: `local-batch-${i}`}));
+
+                    try {
+                        assert(await db_api.insertRecordsIntoTable('test', records));
+                        assert.strictEqual(await db_api.getRecords('test', null, true), 30001);
+                        assert.strictEqual((await db_api.getRecord('test', {uid: 'local-batch-30000'})).uid, 'local-batch-30000');
+                    } finally {
+                        // Every later write rewrites the whole local file, so do not leave these in it.
+                        await db_api.removeAllRecords('test');
+                    }
+                });
+
                 it.skip('Query speed', async function() {
                     this.timeout(120000); 
                     const NUM_RECORDS_TO_ADD = 300004; // max batch ops is 1000
@@ -346,6 +394,15 @@ describe('Database', async function() {
         it('Nested', async function() {
             const result = db_api.applyFilterLocalDB([{test1: {test2: 'test3'}}, {test4: 'test5'}], {'test1.test2': 'test3'}, 'find');
             assert(result && result['test1']['test2'] === 'test3');
+        });
+
+        it('Ranges and membership', async function() {
+            const records = [{n: 1}, {n: 2}, {n: 3}, {}];
+            assert.deepStrictEqual(db_api.applyFilterLocalDB(records, {n: {$gt: 1}}, 'filter'), [{n: 2}, {n: 3}]);
+            assert.deepStrictEqual(db_api.applyFilterLocalDB(records, {n: {$gte: 2}}, 'filter'), [{n: 2}, {n: 3}]);
+            assert.deepStrictEqual(db_api.applyFilterLocalDB(records, {n: {$lt: 2}}, 'filter'), [{n: 1}]);
+            assert.deepStrictEqual(db_api.applyFilterLocalDB(records, {n: {$lte: 2}}, 'filter'), [{n: 1}, {n: 2}]);
+            assert.deepStrictEqual(db_api.applyFilterLocalDB(records, {n: {$in: [1, 3]}}, 'filter'), [{n: 1}, {n: 3}]);
         });
 
         it('Nested path through a null or primitive value', async function() {

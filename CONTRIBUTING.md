@@ -109,3 +109,8 @@ trade than a job on every PR. Update the badge in the same PR as whatever moved 
   from `backend/test/helpers/app-process.js` and send it real requests. It runs in a child
   process with its own working directory, config and media folders, so nothing it writes
   outlives the test, and c8 follows the child, so `app.js` counts toward coverage.
+- There is no MongoDB in CI, so backend tests that need one use the in-memory stand-in in
+  `backend/test/helpers/fake-mongo.js`: `useFakeMongo()` points `db.js` at it for a describe
+  block, and `helpers/fake-mongo-server.js` does the same for a `startApp()` server when passed
+  as its `preload`. It follows MongoDB's rules for the driver calls `db.js` makes and throws on
+  any other, so a change that has `db.js` use more of the driver extends it there.

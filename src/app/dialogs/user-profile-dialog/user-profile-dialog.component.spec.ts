@@ -128,3 +128,149 @@ describe('UserProfileDialogComponent with shared libraries', () => {
     expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
   });
 });
+
+describe('UserProfileDialogComponent tokens and preferences', () => {
+  let component: UserProfileDialogComponent;
+  let postsService: any;
+  let router: any;
+  let dialogRef: any;
+
+  beforeEach(() => {
+    postsService = {
+      isLoggedIn: true,
+      user: { uid: 'alice', name: 'Alice' },
+      sidepanel_mode: 'over',
+      card_size: 'medium',
+      listAPITokens: vi.fn().mockReturnValue(of({ tokens: [{ id: 'token-1', label: 'Feed reader' }] })),
+      getSharedLibraries: vi.fn().mockReturnValue(of({ libraries: [] })),
+      getSupportedLocales: vi.fn().mockReturnValue(of({ supported_locales: ['de', 'fr'] })),
+      generateAPIToken: vi.fn().mockReturnValue(of({ success: true, token: 'secret-token' })),
+      revokeAPIToken: vi.fn().mockReturnValue(of({ success: true })),
+      openSnackBar: vi.fn(),
+      logout: vi.fn()
+    };
+    router = { navigate: vi.fn() };
+    dialogRef = { close: vi.fn() };
+    component = new UserProfileDialogComponent(postsService, router, dialogRef);
+    component.ngOnInit();
+  });
+
+  afterEach(() => {
+    for (const key of ['locale', 'sidepanel_mode', 'card_size']) localStorage.removeItem(key);
+    vi.restoreAllMocks();
+  });
+
+  it('should offer the languages the server has, besides English', () => {
+    expect(component.supported_locales).toEqual(['en', 'en-GB', 'de', 'fr']);
+    expect(component.api_tokens).toEqual([{ id: 'token-1', label: 'Feed reader' }]);
+  });
+
+  it('should keep its own languages when the server cannot list them', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    postsService.getSupportedLocales.mockReturnValue(throwError(() => new Error('not built')));
+
+    const dialog = new UserProfileDialogComponent(postsService, router, dialogRef);
+    dialog.ngOnInit();
+
+    expect(dialog.supported_locales).toContain('es');
+    expect(logged).toHaveBeenCalled();
+  });
+
+  it('should show a new token once, then list it with the rest', () => {
+    component.new_token_label = 'Phone';
+
+    component.generateAPIToken();
+
+    expect(postsService.generateAPIToken).toHaveBeenCalledWith('Phone');
+    expect(component.new_token).toBe('secret-token');
+    expect(component.new_token_label).toBe('');
+    expect(postsService.listAPITokens).toHaveBeenCalledTimes(2);
+
+    component.dismissNewToken();
+    expect(component.new_token).toBeNull();
+  });
+
+  it('should say why a token could not be made', () => {
+    postsService.generateAPIToken.mockReturnValueOnce(of({ success: false, error: 'Too many tokens' }));
+    component.generateAPIToken();
+    expect(component.token_error).toBe('Too many tokens');
+
+    postsService.generateAPIToken.mockReturnValueOnce(of(null));
+    component.generateAPIToken();
+    expect(component.token_error).toBe('Could not generate a token.');
+
+    postsService.generateAPIToken.mockReturnValueOnce(throwError(() => ({ error: { error: 'Sign in again' } })));
+    component.generateAPIToken();
+    expect(component.token_error).toBe('Sign in again');
+
+    postsService.generateAPIToken.mockReturnValueOnce(throwError(() => new Error('offline')));
+    component.generateAPIToken();
+    expect(component.token_error).toBe('Could not generate a token.');
+    expect(component.new_token).toBeNull();
+  });
+
+  it('should copy the new token, or say to copy it by hand', async () => {
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    component.new_token = 'secret-token';
+
+    try {
+      component.copyNewToken();
+      await vi.waitFor(() => expect(postsService.openSnackBar).toHaveBeenCalledWith('Token copied to the clipboard.'));
+      component.copyNewToken();
+      await vi.waitFor(() => expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Could not copy automatically -- select the token and copy it.'));
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+      else delete (navigator as any).clipboard;
+    }
+    expect(writeText).toHaveBeenCalledWith('secret-token');
+  });
+
+  it('should revoke a token and list what is left, or say it could not', () => {
+    component.revokeAPIToken('token-1');
+    expect(postsService.revokeAPIToken).toHaveBeenCalledWith('token-1');
+    expect(postsService.openSnackBar).toHaveBeenCalledWith('Token revoked.');
+    expect(postsService.listAPITokens).toHaveBeenCalledTimes(2);
+
+    postsService.revokeAPIToken.mockReturnValueOnce(of({ success: false }));
+    component.revokeAPIToken('token-1');
+    expect(postsService.openSnackBar).toHaveBeenLastCalledWith('Could not revoke that token.');
+    expect(postsService.listAPITokens).toHaveBeenCalledTimes(2);
+  });
+
+  it('should show no tokens or shared libraries when they cannot be loaded', () => {
+    postsService.listAPITokens.mockReturnValueOnce(throwError(() => new Error('offline')));
+    postsService.getSharedLibraries.mockReturnValueOnce(throwError(() => new Error('offline')));
+
+    component.loadAPITokens();
+    component.loadSharedLibraries();
+
+    expect(component.api_tokens).toEqual([]);
+    expect(component.api_tokens_loading).toBe(false);
+    expect(component.shared_libraries).toEqual([]);
+  });
+
+  it('should sign in and out, closing as it goes', () => {
+    component.loginClicked();
+    component.logoutClicked();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    expect(postsService.logout).toHaveBeenCalled();
+    expect(dialogRef.close).toHaveBeenCalledTimes(2);
+  });
+
+  it('should remember the language, side panel and card size chosen', () => {
+    component.localeSelectChanged('de');
+    component.localeSelectChanged(7);
+    component.sidePanelModeChanged('side');
+    component.cardSizeOptionChanged('small');
+
+    expect(localStorage.getItem('locale')).toBe('de');
+    expect(postsService.openSnackBar).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('sidepanel_mode')).toBe('side');
+    expect(postsService.sidepanel_mode).toBe('side');
+    expect(localStorage.getItem('card_size')).toBe('small');
+    expect(postsService.card_size).toBe('small');
+  });
+});
