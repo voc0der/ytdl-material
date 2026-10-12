@@ -106,6 +106,59 @@ describe('Settings from the environment', function() {
             assert.deepStrictEqual(await cookieTests(app, '203.0.113.2'), [400]);
             assert.match(app.output(), /trust proxy configured from reverse proxy whitelist/);
         });
+
+        // express throws on an entry that is not an address, which stopped the server from
+        // starting, and failed a Settings save only after the entry had been saved.
+        it('starts with an entry that is not an address, warning about it and trusting the rest', async function() {
+            app = await startApp({env: {ytdl_reverse_proxy_whitelist: '127.0.0.1, nginx-proxy, ::1'}});
+
+            assert.deepStrictEqual(await cookieTests(app, '203.0.113.1', 11), TEN_THEN_LIMITED);
+            assert.deepStrictEqual(await cookieTests(app, '203.0.113.2'), [400]);
+            assert.match(app.output(), /Invalid CIDR range in whitelist: nginx-proxy/);
+        });
+
+        it('saves such an entry from the settings, and keeps serving', async function() {
+            app = await startApp();
+            const {config_file} = (await app.api.get('/api/config').expect(200)).body;
+            config_file.YtdlMaterial.Host.reverse_proxy_whitelist = '127.0.0.1, nginx-proxy';
+
+            const saved = await app.api.post('/api/setConfig').send({new_config_file: config_file}).expect(200);
+
+            assert.deepStrictEqual(saved.body, {success: true});
+            assert.deepStrictEqual(await cookieTests(app, '203.0.113.1', 11), TEN_THEN_LIMITED);
+            assert.deepStrictEqual(await cookieTests(app, '203.0.113.2'), [400]);
+        });
+    });
+
+    describe('The URL the app is reached at', function() {
+        let app;
+
+        afterEach(async function() {
+            if (app) await app.stop();
+            app = null;
+        });
+
+        const allowedOrigin = async () => (await app.api.get('/api/versionInfo').expect(200)).headers['access-control-allow-origin'];
+
+        it('reads one written without its scheme as http', async function() {
+            app = await startApp({env: {ytdl_url: '192.168.1.10:8998'}});
+
+            assert.strictEqual(await allowedOrigin(), 'http://192.168.1.10:8998');
+        });
+
+        it('saves one from the settings, and falls back from one that is not a web address', async function() {
+            app = await startApp();
+            const {config_file} = (await app.api.get('/api/config').expect(200)).body;
+
+            config_file.YtdlMaterial.Host.url = 'ytdl.example.test';
+            await app.api.post('/api/setConfig').send({new_config_file: config_file}).expect(200);
+            assert.strictEqual(await allowedOrigin(), 'http://ytdl.example.test');
+
+            config_file.YtdlMaterial.Host.url = 'ftp://files.example.test';
+            await app.api.post('/api/setConfig').send({new_config_file: config_file}).expect(200);
+            assert.strictEqual(await allowedOrigin(), 'http://example.com');
+            assert.match(app.output(), /The configured URL 'ftp:\/\/files\.example\.test' is not a web address/);
+        });
     });
 
     describe('Giving unowned files to a user at startup', function() {

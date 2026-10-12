@@ -116,10 +116,11 @@ function configureExpressTrustProxy() {
 
     const reverseProxyWhitelist = config_api.getConfigItem('ytdl_reverse_proxy_whitelist');
     if (reverseProxyWhitelist && reverseProxyWhitelist.trim() !== '') {
-        const trustedProxies = reverseProxyWhitelist
-            .split(',')
-            .map(item => item.trim())
-            .filter(item => item !== '');
+        // Only the entries the whitelist itself can use, which it warns about the rest of.
+        // express throws on anything that is not an address, such as a host name, and that
+        // stopped the server from starting.
+        const trustedProxies = getReverseProxyWhitelist(reverseProxyWhitelist).entries
+            .map(entry => `${entry.address}/${entry.prefix}`);
 
         if (trustedProxies.length > 0) {
             app.set('trust proxy', trustedProxies);
@@ -946,7 +947,7 @@ function loadConfigValues() {
 
     // empty url defaults to default URL
     if (!url || url === '') url = 'http://example.com'
-    url_domain = new URL(url);
+    url_domain = parseServerURL(url);
 
     if (!logger.hasEnvLogLevelOverride()) {
         let logger_level = config_api.getConfigItem('ytdl_logger_level');
@@ -979,6 +980,25 @@ function initializeDocumentationAPI() {
     documentation_api_enabled = true;
 
     logger.info('Documentation API enabled at /docs. Restart required for config changes to take effect.');
+}
+
+/*************************************************
+ * The URL the app is reached at, as configured. A
+ * host and port written without the scheme is read
+ * as http. new URL() threw on one, which stopped
+ * the server from starting, and a Settings save
+ * that set it failed only after it had been saved.
+ ************************************************/
+function parseServerURL(value) {
+    const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `http://${value}`;
+    try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed;
+    } catch {
+        // Not a URL at all; the warning below says so.
+    }
+    logger.warn(`The configured URL '${value}' is not a web address, so http://example.com is used instead.`);
+    return new URL('http://example.com');
 }
 
 function getOrigin() {
