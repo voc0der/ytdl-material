@@ -46,12 +46,13 @@ const newObjectId = () => crypto.randomBytes(12).toString('hex');
 
 // What a value looks like once it has been through BSON and back. The driver's default
 // (ignoreUndefined: false) writes undefined as null; copying also keeps a caller's later
-// changes out of what is stored.
+// changes out of what is stored. Nothing here changes a pattern, so one is kept as it is
+// rather than compiled again from data.
 function stored(value) {
     if (value === undefined) return null;
     if (value === null || typeof value !== 'object') return value;
     if (value instanceof Date) return new Date(value.getTime());
-    if (value instanceof RegExp) return new RegExp(value.source, value.flags);
+    if (value instanceof RegExp) return value;
     if (Array.isArray(value)) return value.map(stored);
     const copy = {};
     for (const [key, item] of Object.entries(value)) copy[key] = stored(item);
@@ -159,13 +160,6 @@ function matchesOperators(field, operators) {
         case '$lt': return matchesComparison(field, target, order => order < 0);
         case '$lte': return matchesComparison(field, target, order => order <= 0);
         case '$exists': return field.found === !!target;
-        case '$regex': {
-            const pattern = target instanceof RegExp ? target : new RegExp(target, operators.$options || '');
-            return field.found && typeof field.value === 'string' && pattern.test(field.value);
-        }
-        case '$options':
-            assert('$regex' in operators, '$options needs $regex');
-            return true;
         default:
             throw new Error(`fake-mongo: the query operator ${operator} is not supported`);
         }
@@ -177,7 +171,7 @@ function matches(doc, filter = {}) {
     return Object.entries(filter).every(([key, target]) => {
         if (key.startsWith('$')) throw new Error(`fake-mongo: the top-level operator ${key} is not supported`);
         const field = getPath(doc, key);
-        if (target instanceof RegExp) return matchesOperators(field, {$regex: target});
+        if (target instanceof RegExp) throw new Error(`fake-mongo: matching '${key}' by a pattern is not supported`);
         if (isPlainObject(target) && Object.keys(target).some(item => item.startsWith('$'))) {
             if (!isOperatorObject(target)) throw new Error(`fake-mongo: '${key}' mixes operators and fields`);
             return matchesOperators(field, target);
