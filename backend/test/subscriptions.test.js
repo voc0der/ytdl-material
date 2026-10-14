@@ -2348,6 +2348,9 @@ describe('Subscriptions', function() {
     });
 
     it('Goes through every upload as before where a check cannot stop at its date filter', async function () {
+        // Six checks, one after another, can take longer than the default two seconds on a
+        // busy machine, and one cut off would carry on into the next test.
+        this.timeout(15000);
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const full_listings = [];
         const checks = [];
