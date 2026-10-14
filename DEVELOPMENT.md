@@ -210,11 +210,11 @@ node dev/subscriptions/date-range-check.mjs --keep              # leave it runni
 ```
 
 Boots a throwaway backend with downloads held at zero, subscribes with a date range, and
-prints how long subscribing and the check took, where the check stopped (or, for a Shorts
-tab or a playlist, how many uploads the dated listing let it skip), what it queued, and
-whether the artwork was stored and served. No frontend build is needed. A healthy run checks
-in about ten seconds on a channel of a few hundred uploads, and about fifteen on one of
-several thousand; most of that is fetching the uploads inside the range.
+prints how long subscribing and the check took, where the check stopped (or, for a playlist,
+how many uploads the dated listing let it skip), what it queued, and whether the artwork was
+stored and served. No frontend build is needed. A healthy run checks in about ten seconds on
+a channel of a few hundred uploads, and about fifteen on one of several thousand; most of
+that is fetching the uploads inside the range.
 
 Worth knowing when a check with a date range is slow:
 
@@ -241,6 +241,13 @@ Worth knowing when a check with a date range is slow:
 - **An archived upload is skipped before any filter is looked at**, so it never triggers the
   stop. The check's archive is cut down to the uploads the listing found inside the range,
   or the check would page on through every older upload it had already downloaded.
+- **A Shorts tab is stopped by count instead.** Its Shorts are a newest-first part of the
+  uploads playlist, so those inside the range are among its first N, N being the uploads the
+  dated listing found inside it. The first N + 10 Shorts are listed, those the listing did
+  not find inside the range go into the check's archive, and `--playlist-items 1:N+10` keeps
+  the check to them. The dated listing leaves out the user's match filters, since an upload
+  it misses would be taken for an older one. The Shorts-only uploads playlist (`UUSH` for
+  `UC`) matches the tab entry for entry, but is no more dated than the tab.
 
 # Exercising downloads and tasks
 

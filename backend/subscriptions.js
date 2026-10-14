@@ -112,11 +112,13 @@ const SUBSCRIPTION_SOURCE_INFO_REFRESH_INTERVAL_MS = DAY_MS;
 const SUBSCRIPTION_LISTING_DATE_MIN_MARGIN_MS = 3 * DAY_MS;
 const SUBSCRIPTION_LISTING_DATE_MARGIN_RATIO = 0.1;
 const SUBSCRIPTION_LISTING_ENTRY_TEMPLATE = '%(.{ie_key,extractor_key,id,timestamp,upload_date})j';
-// A channel's own pages that list its uploads newest first with a date on each: the channel
-// itself, and its videos and live tabs. Its Shorts tab has no dates, and its other tabs are
-// not ordered by date.
+// A channel's own pages that list its uploads newest first: the channel itself, and its videos,
+// live and Shorts tabs. Its other tabs are not ordered by date.
 const SUBSCRIPTION_CHANNEL_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);
-const SUBSCRIPTION_CHANNEL_PATH_PATTERN = /^\/(?:@[^/]+|channel\/UC[\w-]{22}|c\/[^/]+|user\/[^/]+)(?:\/(videos|streams))?\/?$/;
+const SUBSCRIPTION_CHANNEL_PATH_PATTERN = /^\/(?:@[^/]+|channel\/UC[\w-]{22}|c\/[^/]+|user\/[^/]+)(?:\/(videos|streams|shorts))?\/?$/;
+// How many more Shorts a check of a Shorts tab goes through than the uploads inside its date
+// filter, for any posted between the listing and the check.
+const SUBSCRIPTION_SHORTS_WINDOW_SLACK = 10;
 // Added to a link shared from the site, and of no account to what it lists.
 const SUBSCRIPTION_CHANNEL_SHARE_PARAMS = new Set(['si', 'feature']);
 // Options that already decide where a check stops, or which uploads it goes through and in
@@ -2020,24 +2022,37 @@ async function generateArgsForSubscriptionDatedListing(sub) {
     return await appendSubscriptionCookieArgs(args);
 }
 
-// Archive lines, in yt-dlp's own "extractor id" form, for the entries dated before the threshold.
+// A listing entry as an archive line, in yt-dlp's own "extractor id" form, or null.
+function getListingEntryArchiveLine(entry = null) {
+    if (!entry || typeof entry !== 'object') return null;
+    const extractor = normalizeStringForComparison(entry.ie_key || entry.extractor_key);
+    const id = normalizeArchiveSourceValue(entry.id);
+    return extractor && id ? `${extractor} ${id}` : null;
+}
+
+// Archive lines for the entries dated before the threshold.
 function getListingEntriesDatedBefore(listing_entries = [], threshold_ms) {
     const archive_lines = new Set();
     for (const entry of Array.isArray(listing_entries) ? listing_entries : []) {
-        if (!entry || typeof entry !== 'object') continue;
-        const extractor = normalizeStringForComparison(entry.ie_key || entry.extractor_key);
-        const id = normalizeArchiveSourceValue(entry.id);
-        if (!extractor || !id) continue;
+        const archive_line = getListingEntryArchiveLine(entry);
+        if (!archive_line) continue;
 
         const has_timestamp = entry.timestamp !== null && entry.timestamp !== undefined && Number.isFinite(Number(entry.timestamp));
         const dated_at = has_timestamp
             ? Number(entry.timestamp) * 1000
             : parseSubscriptionDateArg(typeof entry.upload_date === 'string' ? entry.upload_date : null);
-        if (dated_at !== null && dated_at < threshold_ms) archive_lines.add(`${extractor} ${id}`);
+        if (dated_at !== null && dated_at < threshold_ms) archive_lines.add(archive_line);
     }
     return [...archive_lines];
 }
 exports.getListingEntriesDatedBefore = getListingEntriesDatedBefore;
+
+// Adds to this check's own archive, which yt-dlp consults before fetching anything.
+async function addToSubscriptionCheckArchive(archive_path, archive_lines = []) {
+    await fs.ensureDir(path.dirname(archive_path));
+    // The archive text is written without a trailing newline.
+    await fs.appendFile(archive_path, `\n${archive_lines.join('\n')}\n`);
+}
 
 /*************************************************
  * yt-dlp applies a date filter only once it has an
@@ -2086,9 +2101,7 @@ async function skipUploadsBeforeDateFilter(sub, base_path, discovery_args, on_sp
     const archive_lines = getListingEntriesDatedBefore(parsed_output, getSubscriptionListingDateThreshold(lower_bound, now));
     if (archive_lines.length === 0) return parsed_output.length;
 
-    await fs.ensureDir(path.dirname(archive_path));
-    // The archive text is written without a trailing newline.
-    await fs.appendFile(archive_path, `\n${archive_lines.join('\n')}\n`);
+    await addToSubscriptionCheckArchive(archive_path, archive_lines);
     if (effective_archive_path === null) discovery_args.push('--download-archive', archive_path);
     logger.verbose(`Subscription: skipping ${archive_lines.length} uploads of ${sub.name} that predate its date filter.`);
     return parsed_output.length;
@@ -2103,15 +2116,17 @@ function hasAnyArg(args = [], flags = []) {
 }
 
 /*************************************************
- * The URL a check with a date filter can go through
- * newest first and stop partway, or null. yt-dlp
- * goes through the channel itself as one tab after
- * another, and a stop in the first would end the
- * rest before they began, so the channel is gone
- * through as its uploads playlist instead: the same
- * uploads, as yt-dlp itself points out, in one list.
+ * The list a check with a date filter can go
+ * through newest first and stop partway, as {url,
+ * dated}, or null. yt-dlp goes through the channel
+ * itself as one tab after another, and a stop in
+ * the first would end the rest before they began,
+ * so the channel is gone through as its uploads
+ * playlist instead: the same uploads, as yt-dlp
+ * itself points out, in one list. A Shorts tab is
+ * not dated, so it is stopped by count instead.
  ************************************************/
-function getSubscriptionNewestFirstURL(sub) {
+function getSubscriptionNewestFirstListing(sub) {
     if (sub.isPlaylist || typeof sub.channel_id !== 'string' || !/^UC[\w-]{22}$/.test(sub.channel_id)) return null;
     let url;
     try {
@@ -2123,9 +2138,10 @@ function getSubscriptionNewestFirstURL(sub) {
     if ([...url.searchParams.keys()].some(key => !SUBSCRIPTION_CHANNEL_SHARE_PARAMS.has(key))) return null;
     const match = url.pathname.match(SUBSCRIPTION_CHANNEL_PATH_PATTERN);
     if (!match) return null;
-    return match[1] ? sub.url : getSubscriptionDatedListingURL(sub);
+    if (!match[1]) return {url: getSubscriptionDatedListingURL(sub), dated: true};
+    return {url: sub.url, dated: match[1] !== 'shorts'};
 }
-exports.getSubscriptionNewestFirstURL = getSubscriptionNewestFirstURL;
+exports.getSubscriptionNewestFirstListing = getSubscriptionNewestFirstListing;
 
 // The first upload whose listing date falls before the threshold is where a check stops. One
 // the listing could not date goes on to the exact check.
@@ -2166,6 +2182,17 @@ async function listSubscriptionUploads(url, args, on_spawn = null) {
  * so an older one left in would carry the check
  * on past the point where it should stop.
  *
+ * A Shorts tab has no dates to stop at. Its Shorts
+ * are a newest-first part of the uploads, though,
+ * so those inside the filter are among the first
+ * as many as the listing found. The check goes
+ * through no more than those, a few more for any
+ * posted meanwhile, and those of them the listing
+ * did not find inside the filter are older, so
+ * they go into its archive. One posted since the
+ * listing is taken for an older one, this once,
+ * and found by the next check.
+ *
  * Resolves {url, args} for the check, or null when
  * the subscription is not one this suits, or its
  * uploads could not be listed. The check then goes
@@ -2175,33 +2202,55 @@ async function stopSubscriptionCheckAtDateFilter(sub, base_path, discovery_args,
     const lower_bound = getSubscriptionDiscoveryDateLowerBound(discovery_args, now);
     if (lower_bound === null) return null;
     if (downloader_api.getPreferredDownloaderFork({}) !== 'yt-dlp') return null;
-    const check_url = getSubscriptionNewestFirstURL(sub);
-    if (!check_url || hasAnyArg(discovery_args, SUBSCRIPTION_CHECK_EXTENT_ARGS)) return null;
-    // Only this check's own archive may be cut down. The user's is theirs to keep whole.
+    const check_listing = getSubscriptionNewestFirstListing(sub);
+    if (!check_listing || hasAnyArg(discovery_args, SUBSCRIPTION_CHECK_EXTENT_ARGS)) return null;
+    // Only this check's own archive may be changed. The user's is theirs to keep whole.
     const archive_path = getSubscriptionTemporaryArchivePath(sub, base_path);
     const effective_archive_path = getLastArgValue(discovery_args, '--download-archive');
     if (effective_archive_path !== null && !isSamePath(effective_archive_path, archive_path)) return null;
 
+    // Every upload inside the filter, whatever the user's own filters would keep: which of
+    // them the check goes through is decided by whether they are listed here.
+    const listing_args = [...await generateArgsForSubscriptionDatedListing(sub), '--no-match-filters'];
     const stop_args = ['--lazy-playlist', '--break-match-filters', getSubscriptionDateFilterBreakFilter(getSubscriptionListingDateThreshold(lower_bound, now))];
-    const listing_args = [...await generateArgsForSubscriptionDatedListing(sub), ...stop_args];
-    const {entries, err} = await listSubscriptionUploads(getSubscriptionDatedListingURL(sub), listing_args, on_spawn);
+    const {entries, err} = await listSubscriptionUploads(getSubscriptionDatedListingURL(sub), [...listing_args, ...stop_args], on_spawn);
     if (err && err.code !== YTDLP_BREAK_EXIT_CODE) {
         logger.warn(`Subscription: could not list the recent uploads of ${sub.name}: ${describeSubscriptionInfoError(err)}`);
         return null;
     }
+    const inside_keys = new Set(entries.map(entry => getArchiveKey(entry.ie_key || entry.extractor_key, entry.id)).filter(Boolean));
+
+    if (!check_listing.dated) {
+        const window_args = ['--playlist-items', `1:${entries.length + SUBSCRIPTION_SHORTS_WINDOW_SLACK}`];
+        const shorts = await listSubscriptionUploads(check_listing.url, [...listing_args, ...window_args], on_spawn);
+        if (shorts.err) {
+            logger.warn(`Subscription: could not list the recent Shorts of ${sub.name}: ${describeSubscriptionInfoError(shorts.err)}`);
+            return null;
+        }
+        const older_lines = shorts.entries
+            .filter(entry => !inside_keys.has(getArchiveKey(entry.ie_key || entry.extractor_key, entry.id)))
+            .map(getListingEntryArchiveLine)
+            .filter(Boolean);
+        const check_args = [...discovery_args, ...window_args];
+        if (older_lines.length > 0) {
+            await addToSubscriptionCheckArchive(archive_path, older_lines);
+            if (effective_archive_path === null) check_args.push('--download-archive', archive_path);
+        }
+        logger.verbose(`Subscription: ${sub.name} has ${entries.length} uploads inside its date filter, so its check goes through the first ${shorts.entries.length} Shorts and skips ${older_lines.length} older ones.`);
+        return {url: check_listing.url, args: check_args};
+    }
 
     if (effective_archive_path !== null) {
-        const listed_keys = new Set(entries.map(entry => getArchiveKey(entry.ie_key || entry.extractor_key, entry.id)).filter(Boolean));
         const archive_lines = (await fs.readFile(archive_path, 'utf8')).split('\n').filter(line => {
             const [extractor, id] = line.trim().split(/\s+/);
-            return listed_keys.has(getArchiveKey(extractor, id));
+            return inside_keys.has(getArchiveKey(extractor, id));
         });
         await fs.writeFile(archive_path, archive_lines.join('\n'));
     }
     logger.verbose(`Subscription: ${sub.name} has ${entries.length} uploads inside its date filter, and its check stops at the first one before it.`);
 
     return {
-        url: check_url,
+        url: check_listing.url,
         // The check dates its own listing for the stop, as the listing above did.
         args: appendExtractorArg([...discovery_args, ...stop_args], 'youtubetab', 'approximate_date')
     };

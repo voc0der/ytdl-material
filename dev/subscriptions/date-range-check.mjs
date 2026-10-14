@@ -86,8 +86,8 @@ try {
     const status = sub.refresh_status ?? {};
     console.log(`    checked in ${seconds(checked_at)}: ${status.phase}, ${status.queued_count ?? 0} queued${status.error ? `, error: ${status.error}` : ''}`);
 
-    // A channel is listed as far back as the date range goes, and checked as far. Its Shorts
-    // tab, or a playlist, is listed whole, so that the check can skip what is older.
+    // A channel is listed as far back as the date range goes, and checked as far. A playlist
+    // is listed whole, so that the check can skip what is older.
     const log = await readFile(join(RUN_DIR, 'backend.log'), 'utf8');
     const stopped = log.match(/has (\d+) uploads inside its date filter/);
     const skipped = log.match(/skipping (\d+) uploads of .* that predate its date filter/);

@@ -2083,11 +2083,11 @@ describe('Subscriptions', function() {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const day = 24 * 60 * 60;
         const now_seconds = Math.floor(Date.now() / 1000);
-        // Shorts have no date to stop at, so their tab is still gone through to the end.
+        // Where the user set the check's end, it is not stopped early, and everything is listed.
         const sub = Object.assign({}, new_sub, {
             id: uuid(),
             name: 'dated_listing_sub',
-            url: 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/shorts',
+            custom_args: '--playlist-end,,500',
             timerange: 'now-1week',
             channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
             source_info_checked_at: Date.now()
@@ -2186,23 +2186,23 @@ describe('Subscriptions', function() {
         assert.deepStrictEqual(listing_requests, []);
     });
 
-    it('Knows which of a channel\'s pages list its uploads newest first, each with a date', function () {
-        const newest_first = (url, settings = {}) => subscriptions_api.getSubscriptionNewestFirstURL(Object.assign({url: url, channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g'}, settings));
-        const uploads_playlist = 'https://www.youtube.com/playlist?list=UUzofo-P8yMMCOv8rsPfIR-g';
+    it('Knows which of a channel\'s pages list its uploads newest first, and which have dates', function () {
+        const newest_first = (url, settings = {}) => subscriptions_api.getSubscriptionNewestFirstListing(Object.assign({url: url, channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g'}, settings));
+        const uploads_playlist = {url: 'https://www.youtube.com/playlist?list=UUzofo-P8yMMCOv8rsPfIR-g', dated: true};
 
         // The channel itself is gone through as its uploads playlist: yt-dlp makes it a run of
         // tabs, and a stop in the first would leave the others out.
-        assert.strictEqual(newest_first('https://www.youtube.com/@channel'), uploads_playlist);
-        assert.strictEqual(newest_first('https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/'), uploads_playlist);
-        assert.strictEqual(newest_first('https://m.youtube.com/c/channel?si=shared'), uploads_playlist);
-        assert.strictEqual(newest_first('http://youtube.com/user/channel'), uploads_playlist);
-        // Its videos and live tabs are gone through as they are.
-        assert.strictEqual(newest_first('https://www.youtube.com/@channel/videos'), 'https://www.youtube.com/@channel/videos');
-        assert.strictEqual(newest_first('https://www.youtube.com/@channel/streams'), 'https://www.youtube.com/@channel/streams');
+        assert.deepStrictEqual(newest_first('https://www.youtube.com/@channel'), uploads_playlist);
+        assert.deepStrictEqual(newest_first('https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/'), uploads_playlist);
+        assert.deepStrictEqual(newest_first('https://m.youtube.com/c/channel?si=shared'), uploads_playlist);
+        assert.deepStrictEqual(newest_first('http://youtube.com/user/channel'), uploads_playlist);
+        // Its tabs are gone through as they are. Shorts carry no date.
+        assert.deepStrictEqual(newest_first('https://www.youtube.com/@channel/videos'), {url: 'https://www.youtube.com/@channel/videos', dated: true});
+        assert.deepStrictEqual(newest_first('https://www.youtube.com/@channel/streams'), {url: 'https://www.youtube.com/@channel/streams', dated: true});
+        assert.deepStrictEqual(newest_first('https://www.youtube.com/@channel/shorts'), {url: 'https://www.youtube.com/@channel/shorts', dated: false});
 
         for (const url of [
-            // Shorts carry no date, and the other tabs are not in date order.
-            'https://www.youtube.com/@channel/shorts',
+            // The other tabs are not in date order.
             'https://www.youtube.com/@channel/featured',
             'https://www.youtube.com/@channel/search?query=talk',
             'https://www.youtube.com/@channel/videos?view=0&sort=p',
@@ -2256,6 +2256,9 @@ describe('Subscriptions', function() {
         const [listing, check] = runs;
         assert.strictEqual(listing.url, uploads_playlist);
         assert(listing.args.includes('--flat-playlist'));
+        // The listing finds every upload inside the range. The user's filters are the check's.
+        assert(listing.args.includes('--no-match-filters'));
+        assert(!check.args.includes('--no-match-filters'));
         assert.strictEqual(check.url, uploads_playlist);
         assert(!check.args.includes('--flat-playlist'));
         // yt-dlp still makes the exact call on everything before the stop.
@@ -2280,6 +2283,70 @@ describe('Subscriptions', function() {
         assert.deepStrictEqual(logged, []);
     });
 
+    it('Goes through no more of a Shorts tab than the uploads inside its date filter', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const day = 24 * 60 * 60;
+        const now_seconds = Math.floor(Date.now() / 1000);
+        const shorts_tab = 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/shorts';
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'shorts_window_sub',
+            url: shorts_tab,
+            timerange: 'now-1week',
+            channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+            source_info_checked_at: Date.now()
+        });
+        const runs = [];
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args, handlers) => {
+            const archive_index = args.indexOf('--download-archive');
+            runs.push({url: requested_url, args: args, archive: archive_index === -1 ? null : fs.readFileSync(args[archive_index + 1], 'utf8')});
+            const stopped = args.includes('--break-match-filters');
+            let lines = [{webpage_url: 'https://www.youtube.com/watch?v=new-short', title: 'new-short', extractor: 'youtube', id: 'new-short'}];
+            if (stopped) {
+                lines = [
+                    {ie_key: 'Youtube', id: 'new-short', timestamp: now_seconds - 2 * day},
+                    {ie_key: 'Youtube', id: 'new-video', timestamp: now_seconds - 3 * day}
+                ];
+            } else if (args.includes('--print')) {
+                lines = ['new-short', 'old-short', 'older-short'].map(id => ({ie_key: 'Youtube', id: id}));
+            }
+            lines.forEach(line => handlers.onStdoutLine(JSON.stringify(line)));
+            const err = stopped ? Object.assign(new Error('yt-dlp process exited with code 101'), {code: 101}) : null;
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: err})};
+        };
+
+        let logged;
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            await archive_api.addToArchive('youtube', 'have-short', 'video', 'Have it', null, sub.id);
+            logged = await captureWarningsAndErrors(() => checkAndWait(sub.id));
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        assert.strictEqual(runs.length, 3);
+        const [listing, shorts_listing, check] = runs;
+        // Shorts carry no date, so the uploads playlist says which uploads are inside the range.
+        assert.strictEqual(listing.url, 'https://www.youtube.com/playlist?list=UUzofo-P8yMMCOv8rsPfIR-g');
+        assert(listing.args.includes('--lazy-playlist'));
+        // Those Shorts are among the first two on the tab, and ten more allow for any posted since.
+        for (const run of [shorts_listing, check]) {
+            assert.strictEqual(run.url, shorts_tab);
+            assert.strictEqual(run.args[run.args.indexOf('--playlist-items') + 1], '1:12');
+            assert(!run.args.includes('--break-match-filters'));
+        }
+        assert(shorts_listing.args.includes('--flat-playlist'));
+        assert(!check.args.includes('--flat-playlist'));
+        assert.strictEqual(check.args[check.args.indexOf('--dateafter') + 1], 'now-1week');
+        // Shorts the listing did not find inside the range are older, and skipped. With the
+        // count rather than a filter ending the check, the archive keeps all it had.
+        assert.deepStrictEqual(check.archive.split('\n').filter(Boolean).sort(), ['youtube have-short', 'youtube old-short', 'youtube older-short']);
+
+        const queued = await db_api.getRecords('download_queue', {sub_id: sub.id});
+        assert.deepStrictEqual(queued.map(download => download.url), ['https://www.youtube.com/watch?v=new-short']);
+        assert.deepStrictEqual(logged, []);
+    });
+
     it('Goes through every upload as before where a check cannot stop at its date filter', async function () {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const full_listings = [];
@@ -2294,9 +2361,8 @@ describe('Subscriptions', function() {
         };
 
         const subs = [
-            // Shorts carry no date to stop at.
-            {url: 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/shorts'},
-            // A playlist need not be in date order.
+            // Neither a channel's search results nor a playlist need be in date order.
+            {url: 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/search?query=talk'},
             {url: 'https://www.youtube.com/playlist?list=PL0123456789', isPlaylist: true},
             // The user already set where a check stops, or what it goes through.
             {custom_args: '--playlist-end,,20'},
