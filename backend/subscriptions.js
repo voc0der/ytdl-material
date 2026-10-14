@@ -112,6 +112,30 @@ const SUBSCRIPTION_SOURCE_INFO_REFRESH_INTERVAL_MS = DAY_MS;
 const SUBSCRIPTION_LISTING_DATE_MIN_MARGIN_MS = 3 * DAY_MS;
 const SUBSCRIPTION_LISTING_DATE_MARGIN_RATIO = 0.1;
 const SUBSCRIPTION_LISTING_ENTRY_TEMPLATE = '%(.{ie_key,extractor_key,id,timestamp,upload_date})j';
+// A channel's own pages that list its uploads newest first with a date on each: the channel
+// itself, and its videos and live tabs. Its Shorts tab has no dates, and its other tabs are
+// not ordered by date.
+const SUBSCRIPTION_CHANNEL_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);
+const SUBSCRIPTION_CHANNEL_PATH_PATTERN = /^\/(?:@[^/]+|channel\/UC[\w-]{22}|c\/[^/]+|user\/[^/]+)(?:\/(videos|streams))?\/?$/;
+// Added to a link shared from the site, and of no account to what it lists.
+const SUBSCRIPTION_CHANNEL_SHARE_PARAMS = new Set(['si', 'feature']);
+// Options that already decide where a check stops, or which uploads it goes through and in
+// what order. A subscription with one is checked as it was set up.
+const SUBSCRIPTION_CHECK_EXTENT_ARGS = Object.freeze([
+    '--break-on-existing',
+    '--break-on-reject',
+    '--break-match-filter',
+    '--break-match-filters',
+    '--max-downloads',
+    '--playlist-items',
+    '-I',
+    '--playlist-start',
+    '--playlist-end',
+    '--playlist-reverse',
+    '--playlist-random'
+]);
+// How yt-dlp exits when a --break-match-filters stops it.
+const YTDLP_BREAK_EXIT_CODE = 101;
 
 function getSubscriptionPendingDownloadProjectionFields() {
     // MongoDB find projections cannot address an array by numeric index. Projecting
@@ -1112,11 +1136,17 @@ function createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker
         // source_listed: the uploads were already listed once this check, so the source itself
         // answers. yt-dlp then exits with an error for any one upload it cannot read, which on
         // its own is no reason to call the whole check failed.
-        async finalize(process_error = null, {source_listed = false} = {}) {
+        // stopped_at_date_filter: the check was set to stop at the first upload before its date
+        // filter, which yt-dlp does by exiting with 101. Only an upload it could not read on the
+        // way there is worth a word.
+        async finalize(process_error = null, {source_listed = false, stopped_at_date_filter = false} = {}) {
             if (isSubscriptionRefreshCancelled(refresh_tracker)) {
                 stream_state.pending_output_batch = [];
                 await stream_state.flush_promise;
                 return stream_state.queue_context ? stream_state.queue_context.queued_count : 0;
+            }
+            if (stopped_at_date_filter && process_error && process_error.code === YTDLP_BREAK_EXIT_CODE && stream_state.error_count === 0) {
+                process_error = null;
             }
 
             await scheduleBatchFlush(true);
@@ -1643,23 +1673,30 @@ async function _getVideosForSub(sub) {
         if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
 
         const downloadConfig = await generateArgsForSubscriptionDiscovery(sub, user_uid);
-        const listed_count = await skipUploadsBeforeDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
+        const date_stop = await stopSubscriptionCheckAtDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
+            logger.warn(`Subscription: could not list the recent uploads of ${sub.name}: ${e.message}`);
+            return null;
+        });
+        if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
+        const listed_count = date_stop ? 0 : await skipUploadsBeforeDateFilter(sub, basePath, downloadConfig, recordChildProcess).catch(e => {
             logger.warn(`Subscription: could not skip the uploads of ${sub.name} that predate its date filter: ${e.message}`);
             return 0;
         });
         if (isSubscriptionRefreshCancelled(refresh_tracker)) return null;
+        const check_url = date_stop ? date_stop.url : sub.url;
+        const check_args = date_stop ? date_stop.args : downloadConfig;
 
         const discovery_filter_context = {
-            match_filters: collectMatchFiltersFromArgs(downloadConfig)
+            match_filters: collectMatchFiltersFromArgs(check_args)
         };
-        const discoveryDownloadConfig = filterSubscriptionDiscoveryAvailabilityMatchFilters(downloadConfig);
+        const discoveryDownloadConfig = filterSubscriptionDiscoveryAvailabilityMatchFilters(check_args);
 
         // get videos
         logger.verbose(`Subscription: getting list of videos to download for ${sub.name} with args: ${utils.redactCommandArgsForLogging(discoveryDownloadConfig).join(',')}`);
 
         const refresh_stream_processor = createSubscriptionRefreshStreamProcessor(sub, user_uid, refresh_tracker, discovery_filter_context);
         const downloader_fork = downloader_api.getPreferredDownloaderFork({});
-        let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(sub.url, discoveryDownloadConfig, {
+        let {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(check_url, discoveryDownloadConfig, {
             onStdoutLine: (line) => refresh_stream_processor.ingestLine(line),
             onStderrLine: (line) => refresh_stream_processor.ingestLine(line)
         }, downloader_fork);
@@ -1672,7 +1709,10 @@ async function _getVideosForSub(sub) {
             });
         }
 
-        const queued_count = await refresh_stream_processor.finalize(err, {source_listed: listed_count > 0});
+        const queued_count = await refresh_stream_processor.finalize(err, {
+            source_listed: !!date_stop || listed_count > 0,
+            stopped_at_date_filter: !!date_stop
+        });
         logger.verbose('Subscription: finished check for ' + sub.name);
         return queued_count;
     } catch (e) {
@@ -2052,6 +2092,119 @@ async function skipUploadsBeforeDateFilter(sub, base_path, discovery_args, on_sp
     if (effective_archive_path === null) discovery_args.push('--download-archive', archive_path);
     logger.verbose(`Subscription: skipping ${archive_lines.length} uploads of ${sub.name} that predate its date filter.`);
     return parsed_output.length;
+}
+
+function hasAnyArg(args = [], flags = []) {
+    if (!Array.isArray(args)) return false;
+    return args.some(arg => typeof arg === 'string' && flags.some(flag => arg === flag
+        || arg.startsWith(`${flag}=`)
+        // A short option can have its value joined on, as -I1:10.
+        || (!flag.startsWith('--') && arg.startsWith(flag))));
+}
+
+/*************************************************
+ * The URL a check with a date filter can go through
+ * newest first and stop partway, or null. yt-dlp
+ * goes through the channel itself as one tab after
+ * another, and a stop in the first would end the
+ * rest before they began, so the channel is gone
+ * through as its uploads playlist instead: the same
+ * uploads, as yt-dlp itself points out, in one list.
+ ************************************************/
+function getSubscriptionNewestFirstURL(sub) {
+    if (sub.isPlaylist || typeof sub.channel_id !== 'string' || !/^UC[\w-]{22}$/.test(sub.channel_id)) return null;
+    let url;
+    try {
+        url = new URL(sub.url);
+    } catch {
+        return null;
+    }
+    if (!/^https?:$/.test(url.protocol) || !SUBSCRIPTION_CHANNEL_HOSTS.has(url.hostname.toLowerCase())) return null;
+    if ([...url.searchParams.keys()].some(key => !SUBSCRIPTION_CHANNEL_SHARE_PARAMS.has(key))) return null;
+    const match = url.pathname.match(SUBSCRIPTION_CHANNEL_PATH_PATTERN);
+    if (!match) return null;
+    return match[1] ? sub.url : getSubscriptionDatedListingURL(sub);
+}
+exports.getSubscriptionNewestFirstURL = getSubscriptionNewestFirstURL;
+
+// The first upload whose listing date falls before the threshold is where a check stops. One
+// the listing could not date goes on to the exact check.
+function getSubscriptionDateFilterBreakFilter(threshold_ms) {
+    return `timestamp>=?${Math.floor(threshold_ms / 1000)}`;
+}
+
+// What a listing printed, one JSON object to a line, and how it ended. runYoutubeDL keeps no
+// output from a run that exits with an error, and one stopped by a filter exits with 101.
+async function listSubscriptionUploads(url, args, on_spawn = null) {
+    const entries = [];
+    const {child_process, callback} = await youtubedl_api.runYoutubeDLLineStream(url, args, {
+        onStdoutLine: line => {
+            const {output_json} = parseSubscriptionRefreshOutputLine(line);
+            if (output_json) entries.push(output_json);
+        }
+    }, 'yt-dlp');
+    if (on_spawn) await on_spawn(child_process);
+    const {err} = await callback;
+    return {entries, err};
+}
+
+/*************************************************
+ * Uploads are listed newest first, so everything a
+ * date filter lets through is at the top. Going on
+ * past it reads the channel's whole history to keep
+ * none of it, and both the dated listing above and
+ * the check after it did: on a channel of thousands
+ * of uploads, hundreds of page requests and minutes
+ * to find one new video, however up to date the
+ * subscription already was.
+ *
+ * Here both stop at the first upload dated clearly
+ * before the filter. The listing then only has to
+ * say which uploads are inside it, and the check's
+ * archive is cut down to those: yt-dlp skips an
+ * archived upload before it looks at any filter,
+ * so an older one left in would carry the check
+ * on past the point where it should stop.
+ *
+ * Resolves {url, args} for the check, or null when
+ * the subscription is not one this suits, or its
+ * uploads could not be listed. The check then goes
+ * on as before.
+ ************************************************/
+async function stopSubscriptionCheckAtDateFilter(sub, base_path, discovery_args, on_spawn = null, now = Date.now()) {
+    const lower_bound = getSubscriptionDiscoveryDateLowerBound(discovery_args, now);
+    if (lower_bound === null) return null;
+    if (downloader_api.getPreferredDownloaderFork({}) !== 'yt-dlp') return null;
+    const check_url = getSubscriptionNewestFirstURL(sub);
+    if (!check_url || hasAnyArg(discovery_args, SUBSCRIPTION_CHECK_EXTENT_ARGS)) return null;
+    // Only this check's own archive may be cut down. The user's is theirs to keep whole.
+    const archive_path = getSubscriptionTemporaryArchivePath(sub, base_path);
+    const effective_archive_path = getLastArgValue(discovery_args, '--download-archive');
+    if (effective_archive_path !== null && !isSamePath(effective_archive_path, archive_path)) return null;
+
+    const stop_args = ['--lazy-playlist', '--break-match-filters', getSubscriptionDateFilterBreakFilter(getSubscriptionListingDateThreshold(lower_bound, now))];
+    const listing_args = [...await generateArgsForSubscriptionDatedListing(sub), ...stop_args];
+    const {entries, err} = await listSubscriptionUploads(getSubscriptionDatedListingURL(sub), listing_args, on_spawn);
+    if (err && err.code !== YTDLP_BREAK_EXIT_CODE) {
+        logger.warn(`Subscription: could not list the recent uploads of ${sub.name}: ${describeSubscriptionInfoError(err)}`);
+        return null;
+    }
+
+    if (effective_archive_path !== null) {
+        const listed_keys = new Set(entries.map(entry => getArchiveKey(entry.ie_key || entry.extractor_key, entry.id)).filter(Boolean));
+        const archive_lines = (await fs.readFile(archive_path, 'utf8')).split('\n').filter(line => {
+            const [extractor, id] = line.trim().split(/\s+/);
+            return listed_keys.has(getArchiveKey(extractor, id));
+        });
+        await fs.writeFile(archive_path, archive_lines.join('\n'));
+    }
+    logger.verbose(`Subscription: ${sub.name} has ${entries.length} uploads inside its date filter, and its check stops at the first one before it.`);
+
+    return {
+        url: check_url,
+        // The check dates its own listing for the stop, as the listing above did.
+        args: appendExtractorArg([...discovery_args, ...stop_args], 'youtubetab', 'approximate_date')
+    };
 }
 
 function getSubscriptionChannelPlaylistsURL(sub) {

@@ -1,11 +1,12 @@
 // Times a subscription check with a date range against the real site: the case that used to
-// fetch every upload a channel ever made, one at a time, to find the few inside the range.
+// fetch every upload a channel ever made, one at a time, to find the few inside the range,
+// and then to page through the whole channel even once it no longer fetched them.
 //
 // Boots the backend from a throwaway copy (see ../screenshots/stage.mjs) with downloads held
 // at zero, so a check queues its finds and nothing is downloaded. It subscribes through the
-// API, waits for the check, and reports how long subscribing and checking took, how many
-// uploads the dated listing let the check skip, what was queued, and whether the channel's
-// artwork was stored and is served. It unsubscribes before it stops.
+// API, waits for the check, and reports how long subscribing and checking took, where the
+// check stopped or how many uploads the dated listing let it skip, what was queued, and
+// whether the channel's artwork was stored and is served. It unsubscribes before it stops.
 //
 // Not part of CI: it talks to the site, so it fails for reasons unrelated to any change.
 //
@@ -85,9 +86,13 @@ try {
     const status = sub.refresh_status ?? {};
     console.log(`    checked in ${seconds(checked_at)}: ${status.phase}, ${status.queued_count ?? 0} queued${status.error ? `, error: ${status.error}` : ''}`);
 
+    // A channel is listed as far back as the date range goes, and checked as far. Its Shorts
+    // tab, or a playlist, is listed whole, so that the check can skip what is older.
     const log = await readFile(join(RUN_DIR, 'backend.log'), 'utf8');
+    const stopped = log.match(/has (\d+) uploads inside its date filter/);
     const skipped = log.match(/skipping (\d+) uploads of .* that predate its date filter/);
-    console.log(`    skipped from the dated listing without fetching: ${skipped ? skipped[1] : 'none'}`);
+    if (stopped) console.log(`    stopped at the date range, with ${stopped[1]} uploads inside it`);
+    else console.log(`    skipped from the dated listing without fetching: ${skipped ? skipped[1] : 'none'}`);
 
     const { downloads = [] } = await api('downloads', {});
     for (const download of downloads.filter(download => download.sub_id === sub_id)) {

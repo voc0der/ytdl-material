@@ -210,9 +210,11 @@ node dev/subscriptions/date-range-check.mjs --keep              # leave it runni
 ```
 
 Boots a throwaway backend with downloads held at zero, subscribes with a date range, and
-prints how long subscribing and the check took, how many uploads the dated listing let the
-check skip, what it queued, and whether the artwork was stored and served. No frontend build
-is needed. A healthy run on a channel of a few hundred uploads checks in about ten seconds.
+prints how long subscribing and the check took, where the check stopped (or, for a Shorts
+tab or a playlist, how many uploads the dated listing let it skip), what it queued, and
+whether the artwork was stored and served. No frontend build is needed. A healthy run checks
+in about ten seconds on a channel of a few hundred uploads, and about fifteen on one of
+several thousand; most of that is fetching the uploads inside the range.
 
 Worth knowing when a check with a date range is slow:
 
@@ -229,6 +231,16 @@ Worth knowing when a check with a date range is slow:
 - **Entries in `--download-archive` are skipped from the listing without being fetched**,
   which is what the dated listing feeds: the uploads it rules out go into the check's own
   temporary archive, never the user's.
+- **Without `--lazy-playlist`, yt-dlp reads a whole list before it filters any of it**, so
+  skipping uploads still paged through the entire channel, twice: once for the dated listing
+  and once for the check. On a channel, or its Videos or Live tab, both now stop at the first
+  upload dated clearly before the range: `--lazy-playlist` with `--break-match-filters
+  "timestamp>=?<cutoff>"`, after which yt-dlp exits with 101. The channel itself is checked
+  as its uploads playlist, because yt-dlp goes through its tabs one after another and a stop
+  in the first would end the rest.
+- **An archived upload is skipped before any filter is looked at**, so it never triggers the
+  stop. The check's archive is cut down to the uploads the listing found inside the range,
+  or the check would page on through every older upload it had already downloaded.
 
 # Exercising downloads and tasks
 
