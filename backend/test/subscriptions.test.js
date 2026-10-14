@@ -2433,6 +2433,50 @@ describe('Subscriptions', function() {
         assert.deepStrictEqual(logged, ['warn: Subscription: could not list the recent uploads of unlisted_recent_sub: yt-dlp: error: no such option: --lazy-playlist']);
     });
 
+    it('Goes through a Shorts tab as before when its Shorts cannot be listed', async function () {
+        const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
+        const shorts_tab = 'https://www.youtube.com/channel/UCzofo-P8yMMCOv8rsPfIR-g/shorts';
+        const sub = Object.assign({}, new_sub, {
+            id: uuid(),
+            name: 'unlisted_shorts_sub',
+            url: shorts_tab,
+            timerange: 'now-1week',
+            channel_id: 'UCzofo-P8yMMCOv8rsPfIR-g',
+            source_info_checked_at: Date.now()
+        });
+        const full_listings = [];
+        const checks = [];
+        youtubedl_api.runYoutubeDL = async (requested_url) => {
+            full_listings.push(requested_url);
+            return {child_process: null, callback: Promise.resolve({parsed_output: [], err: null})};
+        };
+        youtubedl_api.runYoutubeDLLineStream = async (requested_url, args) => {
+            if (args.includes('--break-match-filters')) {
+                return {child_process: {pid: 4321}, callback: Promise.resolve({err: Object.assign(new Error('yt-dlp process exited with code 101'), {code: 101})})};
+            }
+            if (args.includes('--print')) {
+                const failed = Object.assign(new Error('yt-dlp process exited with code 1'), {code: 1, stderr: 'ERROR: [youtube:tab] UCzofo-P8yMMCOv8rsPfIR-g: HTTP Error 503: Service Unavailable'});
+                return {child_process: {pid: 4321}, callback: Promise.resolve({err: failed})};
+            }
+            checks.push({url: requested_url, args: args});
+            return {child_process: {pid: 4321}, callback: Promise.resolve({err: null})};
+        };
+
+        let logged;
+        try {
+            await subscriptions_api.subscribe(sub, null, true);
+            logged = await captureWarningsAndErrors(() => checkAndWait(sub.id));
+        } finally {
+            youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+        }
+
+        assert.deepStrictEqual(full_listings, ['https://www.youtube.com/playlist?list=UUzofo-P8yMMCOv8rsPfIR-g']);
+        assert.strictEqual(checks.length, 1);
+        assert.strictEqual(checks[0].url, shorts_tab);
+        assert(!checks[0].args.includes('--playlist-items'));
+        assert.deepStrictEqual(logged, ['warn: Subscription: could not list the recent Shorts of unlisted_shorts_sub: ERROR: [youtube:tab] UCzofo-P8yMMCOv8rsPfIR-g: HTTP Error 503: Service Unavailable']);
+    });
+
     it('Retrieves a channel\'s playlists: their videos download with its uploads, and each is kept in order', async function () {
         const original_runYoutubeDLLineStream = youtubedl_api.runYoutubeDLLineStream;
         const original_createDownload = downloader_api.createDownload;
