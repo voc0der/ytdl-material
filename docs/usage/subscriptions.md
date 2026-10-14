@@ -18,7 +18,7 @@ Open **Subscriptions**, paste the channel or playlist URL, and choose the downlo
 
 A date range such as `now-2weeks` controls which uploads are eligible when a check runs. It does not delete older files that were already downloaded. Use the **Delete old files** task with **Subscription files only** on for retention.
 
-A check with a date range first lists the source's uploads with their approximate dates, and fetches full details only for uploads near or inside the range, whose exact date decides. A short range on a large channel therefore takes seconds rather than one request per upload the channel has ever made.
+A check with a date range first lists the source's uploads with their approximate dates, and fetches full details only for uploads near or inside the range, whose exact date decides. On a channel, or its Videos, Shorts or Live tab, uploads are listed newest first, so the check stops where the range ends: a short range on a large channel reads a page or two, not the channel's whole history. A playlist need not be in date order, so it is still listed in full, as is a subscription whose custom args already decide where a check stops (`--playlist-items`, `--playlist-end`, `--max-downloads` or a `--break-...` option).
 
 The global **Skip join-only videos** option skips items identified as membership-only and records skipped subscription items in the Archive. If your access later changes, review that history before expecting those items to download. The optional **Redownload fresh uploads** setting requests later quality checks for recently published items; it is not a command to upgrade every existing file in a subscription.
 
