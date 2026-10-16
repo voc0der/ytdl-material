@@ -75,7 +75,7 @@
             <img class="list-thumbnail-fill" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
           }
           @if (showPreview && elevated && !is_playlist && !isAudioFile) {
-            <video class="preview-video list-thumbnail-fill" autoplay loop muted preload="none" [muted]="true" [src]="streamURL"></video>
+            <video #previewVideo class="preview-video list-thumbnail-fill" autoplay loop muted preload="none" [muted]="true" [src]="streamURL"></video>
           }
           <span class="list-duration">
             @if (isAudioFile) {
@@ -119,7 +119,7 @@
                    is just when a click on a card that was scrolled to tends to land. -->
               <img [ngClass]="{'image-small': card_size === 'small', 'image': card_size === 'medium', 'image-large': card_size === 'large'}" [src]="thumbnailBlobURL ? thumbnailBlobURL : file_obj.thumbnailURL" alt="Thumbnail">
               @if (showPreview && elevated && !is_playlist && !(file_obj.type === 'audio' || file_obj.isAudio)) {
-                <video class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
+                <video #previewVideo class="preview-video" autoplay loop muted preload="none" [muted]="true" [ngClass]="{'video-small': card_size === 'small', 'video': card_size === 'medium', 'video-large': card_size === 'large'}" [src]="streamURL">
                 </video>
               }
               @if (playlistItemCountLabel) {

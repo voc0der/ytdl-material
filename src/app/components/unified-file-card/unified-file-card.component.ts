@@ -1,4 +1,4 @@
-import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, ChangeDetectionStrategy, HostBinding } from '@angular/core';
+import { Component, OnInit, OnChanges, OnDestroy, SimpleChanges, Input, Output, EventEmitter, ViewChild, ElementRef, ChangeDetectionStrategy, HostBinding, HostListener } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoInfoDialogComponent } from 'app/dialogs/video-info-dialog/video-info-dialog.component';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
@@ -19,6 +19,7 @@ import { MatRipple } from '@angular/material/core';
 import { MatTooltip } from '@angular/material/tooltip';
 import { formatRelativeDate } from 'app/utils/relative-time';
 import { AppDatePipe } from 'app/pipes/app-date.pipe';
+import { HoverPreviewService } from 'app/hover-preview.service';
 
 registerLocaleData(localeGB);
 registerLocaleData(localeFR);
@@ -48,7 +49,7 @@ export function getListCardHeight(card_width: number): number {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatIcon, ContentLoaderModule, MatMenuTrigger, MatIconButton, MatMenu, MatMenuItem, MatDivider, MatCard, MatRipple, MatTooltip, NgClass, AppDatePipe]
 })
-export class UnifiedFileCardComponent implements OnInit, OnChanges {
+export class UnifiedFileCardComponent implements OnInit, OnChanges, OnDestroy {
 
   // required info
   file_title = '';
@@ -63,6 +64,8 @@ export class UnifiedFileCardComponent implements OnInit, OnChanges {
   streamURL = null;
   showPreview = false;
   previewHoverTimeout: ReturnType<typeof setTimeout> = null;
+  private readonly stopPreview = () => this.onMouseOut();
+  @ViewChild('previewVideo') previewVideo: ElementRef<HTMLVideoElement>;
 
   // input/output
   @Input() loading = true;
@@ -107,7 +110,7 @@ export class UnifiedFileCardComponent implements OnInit, OnChanges {
     big: 250x200
   */
 
-  constructor(private dialog: MatDialog) { }
+  constructor(private dialog: MatDialog, private hoverPreview: HoverPreviewService) { }
 
   private get normalizedBaseStreamPath(): string {
     return this.baseStreamPath?.endsWith('/')
@@ -213,11 +216,24 @@ export class UnifiedFileCardComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    const fileChange = changes['file_obj'];
+    const previewFileChanged = fileChange && (
+      ['uid', 'isAudio', 'type'].some(key => fileChange.previousValue?.[key] !== fileChange.currentValue?.[key])
+      || !!fileChange.previousValue?.thumbnailURL !== !!fileChange.currentValue?.thumbnailURL
+    );
+    if (previewFileChanged || changes['jwtString'] || changes['library'] || changes['baseStreamPath']
+        || changes['layout'] || changes['loading'] || changes['is_playlist']) {
+      this.onMouseOut();
+    }
     // The library keeps a card for the same file or playlist across a refresh, so new art, or
     // a playlist's new first file, arrives here rather than as a new card.
     if (changes['file_obj'] || changes['jwtString'] || changes['library'] || changes['baseStreamPath']) {
       this.updateThumbnailURL();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.onMouseOut();
   }
 
   private updateThumbnailURL(): void {
@@ -315,27 +331,41 @@ export class UnifiedFileCardComponent implements OnInit, OnChanges {
   }
 
   onMouseOver() {
+    // Claim the preview before the delay, so moving between cards also cancels a pending start.
+    this.hoverPreview.activate(this.stopPreview);
     this.elevated = true;
-    if (this.previewHoverTimeout) {
+    if (this.previewHoverTimeout !== null) {
       clearTimeout(this.previewHoverTimeout);
+      this.previewHoverTimeout = null;
     }
+    if (this.loading || !this.file_obj || this.is_playlist || this.isAudioFile) return;
     this.previewHoverTimeout = setTimeout(() => {
+      this.previewHoverTimeout = null;
       if (this.elevated) {
-        if (!this.streamURL && this.file_obj && !this.is_playlist && !(this.file_obj.type === 'audio' || this.file_obj.isAudio)) {
-          this.streamURL = this.generateStreamURL();
-        }
+        this.streamURL = this.generateStreamURL();
         this.showPreview = true;
       }
     }, 500);
   }
 
+  @HostListener('window:blur')
   onMouseOut() {
-    if (this.previewHoverTimeout) {
+    if (this.previewHoverTimeout !== null) {
       clearTimeout(this.previewHoverTimeout);
       this.previewHoverTimeout = null;
     }
+    const video = this.previewVideo?.nativeElement;
+    if (video?.hasAttribute('src')) {
+      // Removing or pausing a video alone can leave its download running. Reset its source
+      // before Angular removes the element, and before another card starts its preview.
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    }
     this.elevated = false;
     this.showPreview = false;
+    this.streamURL = null;
+    this.hoverPreview.release(this.stopPreview);
   }
 
   emitToggleFavorite() {
