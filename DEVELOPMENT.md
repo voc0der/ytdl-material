@@ -422,6 +422,14 @@ Like the dialogs and settings harnesses it downloads nothing, and it is not part
 
 # Exercising the library
 
+To check hover preview transfers in a real browser, run `node dev/screenshots/hover-previews.mjs`
+(or add `--skip-build` to reuse the last build). It requires the screenshot harness's
+Playwright/Chromium dependencies and ffmpeg. It stages three cards with a generated video,
+throttles the connection, and checks both grid and list layouts: leaving a card cancels its
+transfer, re-entering plays again, only one file streams at a time even without a mouse-leave
+event, and removing the cards cancels the remaining preview. The backend uses a temporary
+library and stops when the checks finish.
+
 The playlist editor and the Duplicates page are the library's own tools, and both only show what
 they do against a library: the editor picks from every file there is and puts them in order, and
 the duplicates page deletes the copies it finds. `dev/screenshots/library.sh` stages one and

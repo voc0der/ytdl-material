@@ -1,5 +1,5 @@
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material/menu';
@@ -24,12 +24,171 @@ describe('UnifiedFileCardComponent', () => {
   }));
 
   beforeEach(() => {
+    // jsdom does not implement media playback. The browser harness checks actual requests.
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
     fixture = TestBed.createComponent(UnifiedFileCardComponent);
     component = fixture.componentInstance;
     component.theme = {
       ghost_primary: '#000000',
       ghost_secondary: '#111111'
     } as any;
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    vi.restoreAllMocks();
+  });
+
+  describe.each(['grid', 'list'] as const)('hover previews in the %s layout', layout => {
+    const file = {uid: 'f1', title: 'A video', isAudio: false, duration: 90, registered: 0, thumbnailURL: '/thumbnail.jpg'};
+    let otherFixtures: ComponentFixture<UnifiedFileCardComponent>[];
+
+    beforeEach(() => {
+      otherFixtures = [];
+      component.layout = layout;
+      component.baseStreamPath = '/api';
+      setUpFileCard(file);
+    });
+
+    afterEach(() => otherFixtures.forEach(other => other.destroy()));
+
+    function anotherCard(): ComponentFixture<UnifiedFileCardComponent> {
+      const other = TestBed.createComponent(UnifiedFileCardComponent);
+      otherFixtures.push(other);
+      other.componentInstance.loading = false;
+      other.componentInstance.layout = layout;
+      other.componentInstance.file_obj = {...file, uid: `f${otherFixtures.length + 1}`};
+      other.componentInstance.baseStreamPath = '/api';
+      other.detectChanges();
+      return other;
+    }
+
+    function startPreview(card = fixture): HTMLVideoElement {
+      card.debugElement.query(By.css('div')).triggerEventHandler('mouseenter');
+      tick(500);
+      card.detectChanges();
+      return card.nativeElement.querySelector('video.preview-video');
+    }
+
+    function expectUnloaded(video: HTMLVideoElement): void {
+      expect(video.hasAttribute('src')).toBe(false);
+      expect(video.pause).toHaveBeenCalled();
+      expect(video.load).toHaveBeenCalled();
+    }
+
+    it('does not start a stream when the pointer only passes over a card', fakeAsync(() => {
+      component.onMouseOver();
+      tick(499);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('video')).toBeNull();
+      expect(component.streamURL).toBeNull();
+
+      component.onMouseOut();
+      tick(500);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('video')).toBeNull();
+      expect(component.streamURL).toBeNull();
+    }));
+
+    it('unloads the stream on mouse leave and can preview the same file again', fakeAsync(() => {
+      const video = startPreview();
+      expect(video.getAttribute('src')).toContain('uid=f1');
+      expect(video.autoplay && video.loop && video.muted).toBe(true);
+      vi.mocked(video.load).mockImplementationOnce(() => expect(video.hasAttribute('src')).toBe(false));
+
+      fixture.debugElement.query(By.css('div')).triggerEventHandler('mouseleave');
+      // The request must be aborted synchronously, before the next render removes the video.
+      expectUnloaded(video);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('video')).toBeNull();
+
+      const nextVideo = startPreview();
+      expect(nextVideo).not.toBe(video);
+      expect(nextVideo.getAttribute('src')).toContain('uid=f1');
+    }));
+
+    it('unloads the previous card before starting another, even without mouse leave', fakeAsync(() => {
+      const video = startPreview();
+      const second = anotherCard();
+      second.componentInstance.onMouseOver();
+      expectUnloaded(video);
+      expect(component.showPreview).toBe(false);
+      expect(second.componentInstance.showPreview).toBe(false);
+      tick(500);
+      second.detectChanges();
+      const secondVideo = second.nativeElement.querySelector('video');
+      expect(secondVideo.getAttribute('src')).toContain('uid=f2');
+
+      // Destroying the old card must not release the newer card's ownership.
+      fixture.destroy();
+      const third = anotherCard();
+      startPreview(third);
+      expectUnloaded(secondVideo);
+      expect(second.componentInstance.showPreview).toBe(false);
+    }));
+
+    it('cancels another card\'s pending preview when ownership changes', fakeAsync(() => {
+      component.onMouseOver();
+      tick(300);
+      const second = anotherCard();
+      second.componentInstance.onMouseOver();
+      tick(200);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('video')).toBeNull();
+      tick(300);
+      second.detectChanges();
+      expect(second.nativeElement.querySelector('video')).not.toBeNull();
+      expect(component.streamURL).toBeNull();
+    }));
+
+    it('cancels a pending start when the card is destroyed', fakeAsync(() => {
+      component.onMouseOver();
+      fixture.destroy();
+      tick(500);
+      expect(component.showPreview).toBe(false);
+      expect(component.streamURL).toBeNull();
+    }));
+
+    it('unloads an active stream when the card is destroyed', fakeAsync(() => {
+      const video = startPreview();
+      fixture.destroy();
+      expectUnloaded(video);
+    }));
+
+    it('unloads the stream when the window loses focus', fakeAsync(() => {
+      const video = startPreview();
+      window.dispatchEvent(new Event('blur'));
+      expectUnloaded(video);
+      expect(component.showPreview).toBe(false);
+    }));
+
+    it('unloads the old video when the layout changes', fakeAsync(() => {
+      const video = startPreview();
+      fixture.componentRef.setInput('layout', layout === 'grid' ? 'list' : 'grid');
+      fixture.detectChanges();
+      expectUnloaded(video);
+      expect(fixture.nativeElement.querySelector('video')).toBeNull();
+    }));
+
+    it('unloads the old file when a card is reused and previews its new file', fakeAsync(() => {
+      const video = startPreview();
+      fixture.componentRef.setInput('file_obj', {...file, uid: 'replacement'});
+      fixture.detectChanges();
+      expectUnloaded(video);
+      expect(startPreview().getAttribute('src')).toContain('uid=replacement');
+    }));
+
+    it('keeps playing when a refresh only updates the same file\'s metadata', fakeAsync(() => {
+      fixture.componentRef.setInput('file_obj', file);
+      fixture.detectChanges();
+      const video = startPreview();
+      fixture.componentRef.setInput('file_obj', {...file, title: 'Updated title'});
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('video')).toBe(video);
+      expect(video.getAttribute('src')).toContain('uid=f1');
+      expect(video.load).not.toHaveBeenCalled();
+    }));
   });
 
 
