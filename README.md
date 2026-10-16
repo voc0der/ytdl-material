@@ -3,6 +3,7 @@
   ytdl-material
 </h1>
 
+![Since badge](https://img.shields.io/badge/since-03%2F07%2F2026-blue)
 [![Docker pulls badge](https://img.shields.io/docker/pulls/voc0der/ytdl-material.svg)](https://hub.docker.com/r/voc0der/ytdl-material)
 [![Docker image size badge](https://img.shields.io/docker/image-size/voc0der/ytdl-material?sort=date)](https://hub.docker.com/r/voc0der/ytdl-material)
 <a href="https://github.com/voc0der/ytdl-material/blob/main/CONTRIBUTING.md#coverage">
