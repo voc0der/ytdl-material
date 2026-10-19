@@ -30,8 +30,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-v${{ matrix.node }}-
           working-directory: ./backend
-      - uses: FedericoCarboni/setup-ffmpeg@v3
-        id: setup-ffmpeg
+      # BtbN's master build never needs a version bump. It has to be a GPL build: the
+      # tests encode with libx264.
+      - name: Install ffmpeg
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/ffmpeg.tar.xz" \
+            --connect-timeout 5 \
+            --max-time 300 \
+            --retry 5 \
+            --retry-max-time 120 \
+            --retry-all-errors \
+            https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl-shared.tar.xz
+          mkdir "$RUNNER_TEMP/ffmpeg"
+          tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
+          "$RUNNER_TEMP/ffmpeg/bin/ffmpeg" -hide_banner -version
+          "$RUNNER_TEMP/ffmpeg/bin/ffprobe" -hide_banner -version >/dev/null
+          echo "$RUNNER_TEMP/ffmpeg/bin" >> "$GITHUB_PATH"
       - name: Install Dependencies
         run: npm install
         working-directory: ./backend
