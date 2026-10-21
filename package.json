@@ -22,6 +22,9 @@
     "npm": ">=10"
   },
   "private": true,
+  "overrides": {
+    "vite@>=8.3.0 <8.3.3": "8.3.3"
+  },
   "dependencies": {
     "@angular/cdk": "^22.2.0",
     "@angular/common": "^22.2.0",
