@@ -316,6 +316,23 @@ describe('MediaControlsComponent', () => {
       .find(candidate => candidate.querySelector('.menu-label').textContent.trim() === label);
     const flashLabel = (): string | undefined => host().querySelector('.flash-label')?.textContent;
 
+    // A scrubber `width` pixels wide at the left of the page, over the whole minute-long file,
+    // so the knob of a video 30 seconds in is at width / 2.
+    function layOutScrubber(width = 200): HTMLElement {
+      const scrubber = host().querySelector<HTMLElement>('.scrubber');
+      const segment = host().querySelector<HTMLElement>('.segment');
+      vi.spyOn(segment, 'getBoundingClientRect').mockReturnValue({left: 0, right: width, width} as DOMRect);
+      vi.spyOn(scrubber, 'getBoundingClientRect').mockReturnValue({left: 0, right: width, width} as DOMRect);
+      Object.defineProperty(segment, 'offsetWidth', {value: width, configurable: true});
+      return scrubber;
+    }
+
+    // As a mouse does it: the pointer is over the scrubber first, which gives it its time.
+    function rightClickScrubber(scrubber: HTMLElement, client_x: number): MouseEvent {
+      scrubber.dispatchEvent(new PointerEvent('pointermove', {clientX: client_x, bubbles: true}));
+      return rightClick(scrubber, {clientX: client_x});
+    }
+
     it('opens in place of the browser\'s, with the time to copy a link at', () => {
       media.currentTime = 83.6;
       const event = rightClick();
@@ -393,22 +410,93 @@ describe('MediaControlsComponent', () => {
     });
 
     it('takes the time under the pointer on the scrubber, and where the video is on its knob', () => {
-      const scrubber = host().querySelector<HTMLElement>('.scrubber');
-      const segment = host().querySelector<HTMLElement>('.segment');
-      vi.spyOn(segment, 'getBoundingClientRect').mockReturnValue({left: 0, right: 200, width: 200} as DOMRect);
-      vi.spyOn(scrubber, 'getBoundingClientRect').mockReturnValue({left: 0, right: 200, width: 200} as DOMRect);
-      Object.defineProperty(segment, 'offsetWidth', {value: 200, configurable: true});
+      const scrubber = layOutScrubber();
       // Halfway through, so the knob is at 100px.
       media.currentTime = 30;
 
-      scrubber.dispatchEvent(new PointerEvent('pointermove', {clientX: 150, bubbles: true}));
-      rightClick(scrubber, {clientX: 150});
+      rightClickScrubber(scrubber, 150);
       expect(items()).toContain('Copy video URL at 0:45');
       key('Escape');
 
-      scrubber.dispatchEvent(new PointerEvent('pointermove', {clientX: 106, bubbles: true}));
-      rightClick(scrubber, {clientX: 106});
+      rightClickScrubber(scrubber, 106);
       expect(items()).toContain('Copy video URL at 0:30');
+    });
+
+    describe('for a part of the video', () => {
+      const PART = 'Copy video URL at 0:30–0:45';
+      let scrubber: HTMLElement;
+
+      beforeEach(() => {
+        scrubber = layOutScrubber();
+        // Halfway through, so the knob is at 100px, and 150px is 0:45.
+        media.currentTime = 30;
+      });
+
+      it('offers the part from where the video is to a time ahead of it on the scrubber', () => {
+        rightClickScrubber(scrubber, 150);
+        expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 0:45', PART]);
+
+        item(PART).click();
+        fixture.detectChanges();
+        expect(copy).toHaveBeenLastCalledWith(`${LINK}?t=30&end=45`);
+        expect(contextMenu()).toBeNull();
+        expect(flashLabel()).toBe('Link copied');
+      });
+
+      it('offers none for a time behind the video, on its knob, or anywhere off the scrubber', () => {
+        rightClickScrubber(scrubber, 50);
+        expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 0:15']);
+        key('Escape');
+
+        // Ahead of the video's time, but on the knob, which stands for that time.
+        rightClickScrubber(scrubber, 106);
+        expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 0:30']);
+        key('Escape');
+
+        rightClick();
+        expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 0:30']);
+      });
+
+      it('offers none ahead by less than the whole second the menu would show it as', () => {
+        // 30px a second, so a pointer clear of the knob can still be in the video's second.
+        scrubber = layOutScrubber(1800);
+        media.currentTime = 30.1;
+
+        // 0:30.8, 22px past the knob.
+        rightClickScrubber(scrubber, 925);
+        expect(items()).toEqual(['Loop', 'Copy video URL', 'Copy video URL at 0:30']);
+        key('Escape');
+
+        rightClickScrubber(scrubber, 935);
+        expect(items()).toContain('Copy video URL at 0:30–0:31');
+      });
+
+      it('copies the part it showed when clicked long after, though the video has played past its end', fakeAsync(() => {
+        media.paused = false;
+        rightClickScrubber(scrubber, 150);
+        expect(items()).toContain(PART);
+
+        // Ten minutes away, while the video plays on past 0:45.
+        tick(10 * 60 * 1000);
+        media.currentTime = 50;
+        media.dispatchEvent(new Event('timeupdate'));
+        fixture.detectChanges();
+        expect(items()).toContain(PART);
+
+        item(PART).click();
+        fixture.detectChanges();
+        expect(copy).toHaveBeenLastCalledWith(`${LINK}?t=30&end=45`);
+        expect(flashLabel()).toBe('Link copied');
+        tick(1000);
+      }));
+
+      it('closes, rather than copy a part of the file before, when the next one loads in the meantime', () => {
+        rightClickScrubber(scrubber, 150);
+        media.dispatchEvent(new Event('emptied'));
+        fixture.detectChanges();
+        expect(contextMenu()).toBeNull();
+        expect(copy).not.toHaveBeenCalled();
+      });
     });
 
     it('opens at the pointer, and inside the player near its edges', () => {

@@ -57,11 +57,22 @@ exports.assignMissingShareIds = async () => {
     return assigned;
 }
 
-// ?t=90, in seconds. Anything else is left off rather than refused: the link still opens.
-exports.parseStartTime = (value) => {
+// A time in seconds, as ?t=90 gives it. Anything else is left off rather than refused: the
+// link still opens.
+function parseSeconds(value) {
     if (typeof value !== 'string' || !/^\d{1,7}(\.\d{1,3})?$/.test(value)) return null;
     const seconds = Number(value);
     return seconds > 0 ? seconds : null;
+}
+
+// ?t=90, where the player starts.
+exports.parseStartTime = (value) => parseSeconds(value);
+
+// ?end=120, where it stops. An end that is not after the start is left off, and the link
+// plays on from its start as it would without one.
+exports.parseEndTime = (value, start_time = null) => {
+    const seconds = parseSeconds(value);
+    return seconds !== null && seconds > (start_time ?? 0) ? seconds : null;
 }
 
 /*************************************************
@@ -74,7 +85,7 @@ exports.parseStartTime = (value) => {
  * stop the owner opening their own unshared file.
  * Single-user mode needs no owner to find a file.
  ************************************************/
-exports.resolveShareLink = async (share_id, start_time = null) => {
+exports.resolveShareLink = async (share_id, start_time = null, end_time = null) => {
     if (!exports.isShareId(share_id)) return null;
     const file = await db_api.getRecord('files', {share_id: share_id});
     const record = file || await db_api.getRecord('playlists', {share_id: share_id});
@@ -87,11 +98,12 @@ exports.resolveShareLink = async (share_id, start_time = null) => {
         route += `;uuid=${encodeURIComponent(record.user_uid)}`;
     }
     if (start_time) route += `;timestamp=${start_time}`;
+    if (end_time) route += `;end=${end_time}`;
     return route;
 }
 
 /*************************************************
- * GET /s/<id>[?t=<seconds>].
+ * GET /s/<id>[?t=<seconds>][&end=<seconds>].
  *
  * The redirect is relative, as the app's own pages
  * are, so it lands on whatever address the link was
@@ -99,7 +111,9 @@ exports.resolveShareLink = async (share_id, start_time = null) => {
  * /#/player;... there.
  ************************************************/
 exports.redirect = async (req, res) => {
-    const route = await exports.resolveShareLink(req.params.share_id, exports.parseStartTime(req.query.t));
+    const start_time = exports.parseStartTime(req.query.t);
+    const end_time = exports.parseEndTime(req.query.end, start_time);
+    const route = await exports.resolveShareLink(req.params.share_id, start_time, end_time);
     if (!route) {
         res.sendStatus(404);
         return;

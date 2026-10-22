@@ -5,7 +5,7 @@ import {
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatIcon } from '@angular/material/icon';
 import type { IChapter } from '../player.component';
-import { shareLinkAt } from '../../utils/share-link';
+import { shareLinkAt, shareLinkBetween } from '../../utils/share-link';
 
 // How long the controls stay up after the pointer last moved over a playing video.
 const CONTROLS_HIDE_DELAY_MS = 2500;
@@ -65,6 +65,11 @@ export interface ScrubSegment {
   start: number;
   end: number;
   title: string | null;
+}
+
+export interface TimeRange {
+  start: number;
+  end: number;
 }
 
 interface Flash {
@@ -169,6 +174,9 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
   menu: Menu | null = null;
   // The time the right-click menu copies a link at, taken when it opened.
   context_time = 0;
+  // From where the video was to context_time, when that is ahead of it: the part the menu
+  // copies a link to. Also taken when it opened, so it holds however far the video plays on.
+  context_range: TimeRange | null = null;
   flash: Flash | null = null;
   flash_id = 0;
   speed_hold_active = false;
@@ -796,15 +804,17 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
     const rect = this.host.nativeElement.getBoundingClientRect();
     this.context_x = event.clientX - rect.left;
     this.context_y = event.clientY - rect.top;
-    this.context_time = this.contextMenuTime(event);
+    const now = this.media.currentTime || 0;
+    this.context_time = this.contextMenuTime(event, now);
+    // Ahead in the whole seconds the menu shows, or the part would be no part at all.
+    this.context_range = Math.floor(this.context_time) > Math.floor(now) ? {start: now, end: this.context_time} : null;
     this.context_menu_unplaced = true;
     this.setMenu('context');
   }
 
   // On the scrubber, the time under the pointer, or where the video is when that is the
   // knob. Anywhere else, where the video is.
-  private contextMenuTime(event: MouseEvent): number {
-    const now = this.media.currentTime || 0;
+  private contextMenuTime(event: MouseEvent, now: number): number {
     const scrubber = this.scrubber?.nativeElement;
     // hover_time is only set while a pointer is over the scrubber, which a menu opened from the
     // keyboard has not come from.
@@ -838,9 +848,19 @@ export class MediaControlsComponent implements OnChanges, AfterViewChecked, OnDe
 
   copyLink(at_time: boolean): void {
     if (!this.shareLink) return;
+    this.copy(at_time ? shareLinkAt(this.shareLink, this.context_time) : this.shareLink);
+  }
+
+  // The part the menu showed, even once the video has played past its end.
+  copyRangeLink(): void {
+    if (!this.shareLink || !this.context_range) return;
+    this.copy(shareLinkBetween(this.shareLink, this.context_range.start, this.context_range.end));
+  }
+
+  private copy(link: string): void {
     // Through a hidden text field, which also works on a page served over plain HTTP, where
     // the browser has no clipboard API.
-    const copied = this.clipboard.copy(at_time ? shareLinkAt(this.shareLink, this.context_time) : this.shareLink);
+    const copied = this.clipboard.copy(link);
     this.showFlash(copied ? 'link' : 'link_off', copied ? this.linkCopiedLabel : this.copyFailedLabel);
     this.setMenu(null);
   }

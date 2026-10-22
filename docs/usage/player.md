@@ -11,6 +11,7 @@ Open a downloaded file or playlist from the library. The browser plays the saved
 - **Autoplay:** continues through the queue below the player. In a playlist it follows that collection; for an individual file it can load more from your library.
 - **Loop:** plays the video again when it ends; enabling Autoplay and Loop changes the other mode so they do not compete. With a mouse, it is in the right-click menu. On a phone or tablet, which has no right-click, it is the button beside Autoplay in the queue below the player.
 - **Right-click menu:** right-click the video for **Loop** and **Copy video URL**, plain or at the current time. On the timeline, the time is the one under the pointer, or the current time on the playhead. A second right-click opens the browser's own menu.
+- **Share a part:** right-click the timeline ahead of the playhead and the menu also offers the part from the current time to the time under the pointer, such as **Copy video URL at 13:35–14:55**. It copies the part it shows, even once the video has played past it. The link plays that part and stops, or plays it again with **Loop** on. Press play at its end, or seek out of it, to watch the rest.
 
 Autoplay preference is remembered in your browser. The separate **Force autoplay** setting applies to the Home download flow's autoplay choice. Browsers may still require a user gesture before playing with sound.
 

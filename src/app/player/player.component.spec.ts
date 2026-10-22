@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
-import { IChapter, IMedia, ISubtitleTrack, PlayerComponent } from './player.component';
+import { IChapter, IMedia, ISubtitleTrack, PlayerComponent, linkedClip } from './player.component';
 import { MediaControlsComponent } from './media-controls/media-controls.component';
 import { configureTestBed } from '../../testing/test-bed';
 
@@ -1261,6 +1261,206 @@ describe('PlayerComponent', () => {
 
     expect(component.activeChapterIndex).toBe(0);
     expect(component.currentChapterLabel).toBe('Intro');
+  });
+
+  it('should read the part a link asks for, and none that does not end after it starts', () => {
+    expect(linkedClip('30', '45')).toEqual({start: 30, end: 45});
+    expect(linkedClip(null, '45')).toEqual({start: 0, end: 45});
+    for (const [timestamp, end] of [['30', null], ['30', '30'], ['30', '20'], ['30', 'soon'], [null, '0'], ['30', 'Infinity']]) {
+      expect(linkedClip(timestamp, end), `${timestamp} to ${end}`).toBeNull();
+    }
+  });
+
+  describe('a link to a part of a file', () => {
+    let video: HTMLVideoElement;
+    let paused: boolean;
+    let seeking: boolean;
+
+    const FILES = [
+      {uid: 'f1', title: 'First video', isAudio: false, url: 'https://example.com/first'},
+      {uid: 'f2', title: 'Second video', isAudio: false, url: 'https://example.com/second'}
+    ] as DatabaseFile[];
+
+    beforeEach(() => {
+      // Loop and Autoplay as the viewer last left them, which other tests here change.
+      localStorage.removeItem('player_repeat_enabled');
+      localStorage.removeItem('player_autoplay_enabled');
+    });
+
+    // The player as the redirect from /s/<id>?t=30&end=45 opens it, with its video ready.
+    function open(params: Record<string, string>): void {
+      Object.assign(TestBed.inject(ActivatedRoute).snapshot, {paramMap: convertToParamMap(params)});
+      postsServiceStub.getFile.mockReturnValue(of({file: FILES[0]}));
+      postsServiceStub.getPlaylist = vi.fn().mockName('getPlaylist').mockReturnValue(of({
+        playlist: {id: 'p1', name: 'A playlist', uids: ['f1', 'f2']}, file_objs: FILES, type: 'video'
+      }));
+      component.ngOnInit();
+      fixture.detectChanges();
+      tick();
+
+      video = fixture.nativeElement.querySelector('video');
+      paused = true;
+      seeking = false;
+      Object.defineProperty(video, 'paused', {configurable: true, get: () => paused});
+      Object.defineProperty(video, 'seeking', {configurable: true, get: () => seeking});
+      video.play = vi.fn().mockName('play').mockImplementation(() => {
+        paused = false;
+        return Promise.resolve();
+      });
+      video.pause = vi.fn().mockName('pause').mockImplementation(() => {
+        paused = true;
+      });
+    }
+
+    // Playback reaching `time`, as the browser reports it every quarter of a second or so.
+    function playTo(time: number): void {
+      paused = false;
+      video.currentTime = time;
+      video.dispatchEvent(new Event('timeupdate'));
+    }
+
+    // The viewer seeking to `time`, with the scrubber or the keyboard.
+    function seekTo(time: number): void {
+      seeking = true;
+      video.currentTime = time;
+      video.dispatchEvent(new Event('seeking'));
+      seeking = false;
+      video.dispatchEvent(new Event('timeupdate'));
+    }
+
+    it('starts at the part\'s start and stops at its end, and stays stopped', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      expect(video.currentTime).toBe(30);
+
+      playTo(44);
+      expect(video.pause).not.toHaveBeenCalled();
+      playTo(45.1);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+
+      // Nobody is there to press play.
+      tick(10 * 60 * 1000);
+      expect(video.play).not.toHaveBeenCalled();
+      expect(paused).toBe(true);
+    }));
+
+    it('goes on into the rest of the file when played again after its end', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      playTo(45.1);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+
+      video.play();
+      playTo(46);
+      playTo(59);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+    }));
+
+    it('stops on time between the browser\'s reports', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      playTo(44.5);
+      // Playback gets to the end before the browser next says where it is.
+      video.currentTime = 45;
+      tick(499);
+      expect(video.pause).not.toHaveBeenCalled();
+      tick(1);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+    }));
+
+    it('looks again when playback has not got to the end on time, as when it stalls', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      playTo(44.5);
+      // Still where it was half a second on: buffering, say.
+      tick(500);
+      expect(video.pause).not.toHaveBeenCalled();
+
+      video.currentTime = 45;
+      tick(500);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+    }));
+
+    it('stops on time at a faster speed too', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      Object.defineProperty(video, 'playbackRate', {configurable: true, value: 2});
+      playTo(44);
+      // A second of the file, played in half a second.
+      tick(499);
+      expect(video.pause).not.toHaveBeenCalled();
+      video.currentTime = 45;
+      tick(1);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+    }));
+
+    it('plays the part again from its start with Loop on', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      component.repeat_enabled = true;
+
+      playTo(45.1);
+      expect(video.currentTime).toBe(30);
+      // The browser reports the seek back, which is within the part.
+      video.dispatchEvent(new Event('seeking'));
+      playTo(45.1);
+      expect(video.currentTime).toBe(30);
+      expect(video.pause).not.toHaveBeenCalled();
+    }));
+
+    it('keeps to the part through a seek within it', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      seekTo(40);
+      playTo(45.1);
+      expect(video.pause).toHaveBeenCalledTimes(1);
+    }));
+
+    it('lets the whole file play after a seek out of the part, ahead or back', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      seekTo(50);
+      playTo(51);
+      expect(video.pause).not.toHaveBeenCalled();
+
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      seekTo(10);
+      playTo(46);
+      expect(video.pause).not.toHaveBeenCalled();
+    }));
+
+    it('does not take a seek past the end, while it plays, for reaching the end', fakeAsync(() => {
+      open({uid: 'f1', timestamp: '30', end: '45'});
+      playTo(40);
+      // A report the browser sends before the one that says a seek has started.
+      seeking = true;
+      video.currentTime = 50;
+      video.dispatchEvent(new Event('timeupdate'));
+      tick(5000);
+      expect(video.pause).not.toHaveBeenCalled();
+
+      video.dispatchEvent(new Event('seeking'));
+      seeking = false;
+      playTo(51);
+      expect(video.pause).not.toHaveBeenCalled();
+    }));
+
+    it('plays the next file whole', fakeAsync(() => {
+      open({playlist_id: 'p1', timestamp: '30', end: '45'});
+      playTo(40);
+      component.advanceToNextVideo();
+      fixture.detectChanges();
+
+      playTo(46);
+      tick(5000);
+      expect(video.pause).not.toHaveBeenCalled();
+    }));
+
+    it('plays a part that ends after the file does to the end, and again from its start with Loop on', fakeAsync(() => {
+      // Months past the end of a minute-long file.
+      open({uid: 'f1', timestamp: '30', end: '9999999'});
+      component.repeat_enabled = true;
+      playTo(60);
+      tick(5000);
+      expect(video.pause).not.toHaveBeenCalled();
+      expect(video.currentTime).toBe(60);
+
+      video.dispatchEvent(new Event('ended'));
+      expect(video.currentTime).toBe(30);
+      expect(video.play).toHaveBeenCalled();
+    }));
   });
 
   describe('snip mode', () => {

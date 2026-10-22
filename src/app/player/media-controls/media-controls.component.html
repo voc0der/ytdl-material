@@ -190,6 +190,12 @@
         <mat-icon>link</mat-icon>
         <span class="menu-label" i18n="Copy video URL at a time menu item">Copy video URL at {{formatTime(context_time)}}</span>
       </button>
+      @if (context_range; as range) {
+        <button class="menu-item" type="button" role="menuitem" (click)="copyRangeLink()">
+          <mat-icon>link</mat-icon>
+          <span class="menu-label" i18n="Copy video URL for a part of it menu item">Copy video URL at {{formatTime(range.start)}}–{{formatTime(range.end)}}</span>
+        </button>
+      }
     }
   </div>
 }

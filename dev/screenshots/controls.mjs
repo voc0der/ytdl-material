@@ -100,15 +100,15 @@ async function seed() {
     return { chaptered: files[0], plain: files[1], audio: files[2], playlist };
 }
 
-async function newPage(browser, name, errors, viewport = { width: 1280, height: 900 }) {
+async function newPage(browser, name, errors, viewport = { width: 1280, height: 900 }, { loop = false } = {}) {
     const context = await browser.newContext({
         viewport, deviceScaleFactor: 1, locale: 'en-US', timezoneId: 'UTC', colorScheme: 'dark',
         isMobile: name.includes('phone') && name.startsWith('chromium'), hasTouch: name.includes('phone')
     });
-    await context.addInitScript(() => {
+    await context.addInitScript(loop => {
         localStorage.setItem('theme', 'dark');
         localStorage.setItem('player_autoplay_enabled', 'false');
-        localStorage.setItem('player_repeat_enabled', 'false');
+        localStorage.setItem('player_repeat_enabled', String(loop));
         // What the page last copied, which neither browser lets a headless run read back from
         // the clipboard itself. The player copies through a selected, hidden text field.
         document.addEventListener('copy', () => {
@@ -119,7 +119,7 @@ async function newPage(browser, name, errors, viewport = { width: 1280, height: 
         window.addEventListener('contextmenu', event => {
             window.__context_menu_prevented = event.defaultPrevented;
         });
-    });
+    }, loop);
     const page = await context.newPage();
     page.on('console', message => {
         if (message.type() === 'error') errors.push(`${name}: ${message.text()}`);
@@ -144,13 +144,26 @@ const controlsShown = page => page.locator('app-media-controls .chrome').evaluat
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const badge = page => page.locator('app-media-controls .speed-hold-badge').count();
 
+// Asks the page until `predicate` gives something truthy, and returns that. Not
+// waitForFunction: on the app's pages Firefox hands back zone.js's promise at once, as if the
+// wait were over.
+async function waitFor(page, predicate, arg = null, timeout = 30_000) {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+        const value = await page.evaluate(predicate, arg);
+        if (value) return value;
+        if (Date.now() > deadline) throw new Error(`gave up after ${timeout} ms waiting for ${predicate}`);
+        await page.waitForTimeout(25);
+    }
+}
+
 async function openPlaying(page, route) {
     await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
     await page.locator('app-media-controls').waitFor({ timeout: 30_000 });
-    await page.waitForFunction(() => {
+    await waitFor(page, () => {
         const video = document.querySelector('video');
         return video && !video.paused && video.currentTime > 0.3;
-    }, null, { timeout: 30_000 });
+    });
 }
 
 async function centre(page) {
@@ -287,6 +300,7 @@ async function onDesktop(browser, name, seeded, errors) {
     check('the chapters menu jumps to a chapter', Math.abs((await media(page)).time - 50) < 0.6);
 
     await rightClickMenu(page, name, seeded, { x, y }, errors, browser);
+    await partLink(page, name, seeded, errors, browser);
 
     await page.mouse.move(x, y);
     await page.mouse.dblclick(x, y);
@@ -319,10 +333,10 @@ async function onDesktop(browser, name, seeded, errors) {
     const first_src = (await media(listed)).src;
     await listed.mouse.move(...Object.values(await centre(listed)));
     await listed.getByRole('button', { name: 'Next', exact: true }).click();
-    await listed.waitForFunction(src => {
+    await waitFor(listed, src => {
         const video = document.querySelector('video');
         return video.currentSrc !== src && !video.paused;
-    }, first_src, { timeout: 15_000 }).catch(() => {});
+    }, first_src, 15_000).catch(() => {});
     check('in a playlist, Next plays the next file', (await media(listed)).src !== first_src);
     await listed.context().close();
 
@@ -375,10 +389,10 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
     const opened = await newPage(browser, name, errors);
     await opened.goto(timed_link, { waitUntil: 'domcontentloaded' });
     await opened.locator('app-media-controls').waitFor({ timeout: 30_000 });
-    await opened.waitForFunction(() => {
+    await waitFor(opened, () => {
         const video = document.querySelector('video');
         return video && video.readyState >= 1 && video.currentTime > 0;
-    }, null, { timeout: 30_000 });
+    });
     const landed = opened.url();
     const started = (await media(opened)).time;
     check('the short link opens the file in the player, at its time',
@@ -430,6 +444,105 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
 
     if (!was_paused) await page.evaluate(() => document.querySelector('video').play());
     await page.waitForTimeout(600);
+}
+
+// Where `seconds` falls on the scrubber, in the segment of the chapter it is in.
+async function scrubberAt(page, seconds) {
+    const index = CHAPTERS.findIndex(chapter => seconds >= chapter.start_time && seconds < chapter.end_time);
+    const chapter = CHAPTERS[index];
+    const box = await page.locator('app-media-controls .segment').nth(index).boundingBox();
+    const along = (seconds - chapter.start_time) / (chapter.end_time - chapter.start_time);
+    return { x: box.x + box.width * along, y: box.y + box.height / 2 };
+}
+
+// Right-clicked ahead of the video, the scrubber also copies a link to the part from where the
+// video is to there. The link plays that part and stops.
+async function partLink(page, name, seeded, errors, browser) {
+    const menu = page.locator('app-media-controls .context-menu');
+    const labels = () => menu.locator('.menu-label').allInnerTexts();
+    const openAt = async ({ x, y }) => {
+        await page.mouse.move(x, y, { steps: 3 });
+        await page.mouse.click(x, y, { button: 'right' });
+        await page.waitForTimeout(250);
+    };
+    const seconds = clock_text => clock_text.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+    const seekTo = async time => {
+        await page.evaluate(time => {
+            const video = document.querySelector('video');
+            video.pause();
+            video.currentTime = time;
+        }, time);
+        await waitFor(page, time => {
+            const video = document.querySelector('video');
+            return !video.seeking && Math.abs(video.currentTime - time) < 0.05;
+        }, time, 10_000);
+    };
+
+    // Paused at 0:30, so the part holds still.
+    await seekTo(30);
+    await openAt(await scrubberAt(page, 33.5));
+    const ahead = await labels();
+    await shoot(page, `${name}-right-click-part`);
+    check('a right-click on the scrubber ahead of the video also offers the part between the two',
+        ahead.length === 4 && ahead[3] === 'Copy video URL at 0:30–0:33', ahead.join(' | '));
+    await page.keyboard.press('Escape');
+
+    await openAt(await scrubberAt(page, 20.5));
+    const behind = await labels();
+    check('and none behind it', behind.length === 3 && !behind.some(label => label.includes('–')), behind.join(' | '));
+    await page.keyboard.press('Escape');
+
+    await openAt(await scrubberAt(page, 33.5));
+    await page.getByRole('menuitem', { name: 'Copy video URL at 0:30–0:33', exact: true }).click();
+    const part_link = await page.evaluate(() => window.__copied);
+    check('it copies the short link with the start and the end', /\/s\/[A-Za-z0-9]{11}\?t=30&end=33$/.test(part_link ?? ''), part_link);
+
+    // Someone who leaves the menu open and comes back after the part has played.
+    await seekTo(30);
+    await page.evaluate(() => {
+        document.querySelector('video').play();
+    });
+    await waitFor(page, () => !document.querySelector('video').paused, null, 10_000);
+    await openAt(await scrubberAt(page, 32.5));
+    const shown = (await labels())[3] ?? '';
+    await waitFor(page, () => document.querySelector('video').currentTime > 33, null, 10_000);
+    const clicked_at = (await media(page)).time;
+    await page.getByRole('menuitem', { name: shown, exact: true }).click();
+    const late_link = await page.evaluate(() => window.__copied);
+    const [, from, to] = shown.match(/ at (\d+:\d\d)–(\d+:\d\d)$/) ?? [];
+    check('clicked after the video has played past the part, it still copies the part the menu showed',
+        !!from && late_link?.endsWith(`?t=${seconds(from)}&end=${seconds(to)}`), `${shown}, clicked at ${clicked_at.toFixed(1)} s: ${late_link}`);
+
+    const opened = await newPage(browser, name, errors);
+    await opened.goto(part_link, { waitUntil: 'domcontentloaded' });
+    await opened.locator('app-media-controls').waitFor({ timeout: 30_000 });
+    const stopped_at = await waitFor(opened, () => {
+        const video = document.querySelector('video');
+        return video && video.paused && video.currentTime > 31 ? video.currentTime : null;
+    }).catch(() => null);
+    check('the link opens the file in the player at the start of the part',
+        opened.url().includes(`/#/player;uid=${seeded.chaptered.uid};timestamp=30;end=33`), opened.url().replace(BASE, ''));
+    check('and plays it, stopping at its end', stopped_at !== null && Math.abs(stopped_at - 33) < 0.3, `stopped at ${stopped_at?.toFixed(2)} s`);
+    await opened.waitForTimeout(1500);
+    const later = await media(opened);
+    check('where it stays', later.paused && later.time === stopped_at);
+    await opened.keyboard.press('k');
+    await opened.waitForTimeout(1000);
+    const resumed = await media(opened);
+    check('until play goes on into the rest of the file', !resumed.paused && resumed.time > 33.5, `${resumed.time.toFixed(1)} s`);
+    await opened.context().close();
+
+    const looped = await newPage(browser, name, errors, undefined, { loop: true });
+    await looped.goto(part_link, { waitUntil: 'domcontentloaded' });
+    const furthest = await waitFor(looped, () => {
+        const video = document.querySelector('video');
+        if (!video) return null;
+        window.__furthest = Math.max(window.__furthest ?? 0, video.currentTime);
+        return window.__furthest > 32.5 && video.currentTime < 31 && !video.paused ? window.__furthest : null;
+    }).catch(() => null);
+    check('with Loop on, it plays the part again from its start, not past its end', furthest !== null && furthest < 33.3,
+        `furthest ${furthest?.toFixed(2)} s`);
+    await looped.context().close();
 }
 
 async function onAPhone(browser, name, seeded, errors) {
