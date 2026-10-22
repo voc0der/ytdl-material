@@ -1,0 +1,30 @@
+# Gitleaks: the default rules, plus reviewed false positives.
+[extend]
+useDefault = true
+
+# A finding is skipped only when both its file and its exact value match. Each list is
+# scoped to one rule: gitleaks 8.30 applies a global allowlist's paths to whole files in
+# `gitleaks dir`, ignoring its other conditions.
+[[allowlists]]
+description = "Angular i18n message IDs"
+targetRules = ["generic-api-key"]
+condition = "AND"
+# The translation files key each message by a 40-digit hex hash of its source text, so a
+# message about an API key or a password puts a hash right after those words.
+paths = ['''^(src|backend/public)/assets/i18n/messages\.[A-Za-z-]+\.json$''']
+regexes = ['''^[0-9a-f]{40}$''']
+
+[[allowlists]]
+description = "The retired API constant"
+targetRules = ["generic-api-key"]
+condition = "AND"
+# A fixed key the frontend once sent and the backend required. It gated nothing, since
+# both halves were public, and nothing accepts it now. The test that keeps it out of
+# app.js names it, and old builds of the frontend carry it.
+paths = [
+  '''^backend/app\.js$''',
+  '''^src/app/posts\.services\.ts$''',
+  '''^backend/public/1-es(2015|5)\.[0-9a-f]+\.js$''',
+  '''^backend/test/api-hardening\.test\.js$''',
+]
+regexes = ['''^4241b401-7236-493e-92b5-b72696b9d853$''']

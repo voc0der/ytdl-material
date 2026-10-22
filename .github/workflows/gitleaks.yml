@@ -1,0 +1,42 @@
+name: Gitleaks
+
+# Credentials committed anywhere in the history that would reach main. Every run
+# scans each commit, back to the first.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Git history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Findings are redacted in the log. Reviewed false positives belong in
+      # .gitleaks.toml, and reviewed findings in commits already on main in
+      # .gitleaksignore. Git refuses a checkout owned by another user, and gitleaks
+      # 8.30 then exits 0 having scanned nothing, so any error it logs fails the scan.
+      - name: Scan the history
+        shell: bash
+        env:
+          # renovate: datasource=docker depName=ghcr.io/gitleaks/gitleaks
+          GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        run: |
+          docker run --rm --volume "$PWD:/repo:ro" \
+            --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/repo \
+            "$GITLEAKS_IMAGE" git /repo --log-opts=HEAD --redact --verbose --no-banner --no-color \
+            2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
+          if grep -q ' ERR ' "$RUNNER_TEMP/gitleaks.log"; then
+            echo '::error::Gitleaks reported an error, so the scan may be incomplete.'
+            exit 1
+          fi

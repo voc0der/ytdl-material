@@ -23,6 +23,91 @@ For setup and local run instructions, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 - Run `npx ng build --configuration production`
 - If backend JavaScript changed, run `node --check` on each touched backend file
 
+## Security scans
+
+Each of these workflows fails on findings, except CodeQL, whose findings go to code
+scanning. Fix a finding where you can; each tool's way to record a reviewed false
+positive is described below. Renovate merges its own PRs only once every check passes,
+so add any new workflow that runs on PRs to the `workflow_run` list in
+[renovate.yml](.github/workflows/renovate.yml).
+
+| Workflow | Finds | Runs on |
+| --- | --- | --- |
+| CodeQL | JavaScript data-flow problems | PRs, pushes to `main`, weekly |
+| Dependency Audit | Known vulnerabilities in npm packages: on PRs, only in packages the PR adds or changes | PRs, pushes to `main`, daily |
+| Gitleaks | Credentials committed anywhere in the history | PRs, pushes to `main` |
+| zizmor | Workflow problems such as injection, broad permissions, persisted credentials, and unpinned actions | PRs and pushes that change `.github/`, weekly |
+| Container Scan | Known vulnerabilities in the published `latest` and `nightly` images (Grype) | Daily |
+
+Releases also scan the image with Grype before anything is published (see
+[Container Scan](#container-scan)). Scheduled runs catch advisories published since the
+code last changed.
+
+### Dependency Audit
+
+On a pull request, GitHub's dependency review compares the PR's dependencies with its base
+branch and fails on a high or critical advisory against any package version the PR brings
+in, from either lockfile. An advisory against a package `main` already has is not the PR's
+doing, so it fails the runs on `main` instead: on every push and daily, `npm audit` fails on
+high or critical advisories for any package in `package-lock.json` or
+`backend/package-lock.json`, development packages included, since they run during builds
+and tests. `npm audit` can't ignore an advisory, so update the dependency; Renovate opens
+security updates without the usual three-day wait. Locally:
+
+```bash
+npm audit --audit-level=high
+(cd backend && npm audit --audit-level=high)
+```
+
+### Gitleaks
+
+Gitleaks scans every commit reachable from the checkout (for a PR, the merge result) and
+redacts what it finds in the log. Locally it reads only committed changes:
+
+```bash
+docker run --rm -v "$PWD:/repo:ro" "$(sed -n 's/^ *GITLEAKS_IMAGE: //p' .github/workflows/gitleaks.yml)" git /repo --log-opts=HEAD --redact --verbose
+```
+
+A reviewed placeholder goes in [.gitleaks.toml](.gitleaks.toml), matched by both file and
+exact value. Revoke a real credential first, then remove it from the PR branch's commits.
+If it has already reached `main`, add the finding's `Fingerprint` to
+[.gitleaksignore](.gitleaksignore) instead, with the reason above it.
+
+### zizmor
+
+zizmor runs the release that zizmor-action pins. Its online audits, which also check the
+pinned actions for known vulnerabilities, need a GitHub token; without one, zizmor runs
+offline. Every action is pinned to a commit, with the version in a comment that Renovate
+reads and updates. Silence a reviewed finding with `# zizmor: ignore[<audit>]` on the
+flagged line and the reason above it. Use [.github/zizmor.yml](.github/zizmor.yml) only
+where that line can't take the comment, such as a `uses:` line that ends in the version
+comment.
+
+```bash
+GH_TOKEN="$(gh auth token)" uvx zizmor .
+```
+
+### Container Scan
+
+Container Scan and the release scan fail on high or critical vulnerabilities that have a
+fix. A failing scheduled scan means a published image needs rebuilding: run the nightly
+build (`gh workflow run docker.yml`) for `nightly`, and cut a release for `latest`. Record a
+reviewed false positive as an `ignore` rule in a `.grype.yaml` at the repository root. To
+scan a local build the same way with [Grype](https://github.com/anchore/grype):
+
+```bash
+docker buildx build --pull --load -t ytdl-material:local .
+grype docker:ytdl-material:local --fail-on high --only-fixed
+```
+
+Without `--pull`, an outdated cached base image can report vulnerabilities that CI's build
+doesn't have.
+
+A tag's **continuous integration** run builds and scans the image before it creates the
+GitHub release and starts the image push. A finding there stops the release before
+anything is published. Fix it on `main`, delete the tag (`git push --delete origin <tag>`),
+and tag the fixed commit.
+
 ## Coverage
 
 The README badge is a **line coverage** figure across both trees, produced by:

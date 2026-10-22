@@ -42,4 +42,17 @@
       minimumReleaseAge: '7 days',
     },
   ],
+  customManagers: [
+    {
+      // Scanners that workflows run directly. Each is an env var with a "# renovate:"
+      // comment on the line above: a *_VERSION holds a version, and an *_IMAGE holds a
+      // container image with its tag and digest.
+      customType: 'regex',
+      managerFilePatterns: ['/^\\.github/workflows/[^/]+\\.ya?ml$/'],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*[A-Z_]+_VERSION: (?<currentValue>\\S+)',
+        '# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*[A-Z_]+_IMAGE: [^\\s:]+:(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[0-9a-f]{64})',
+      ],
+    },
+  ],
 }
