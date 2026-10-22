@@ -34,7 +34,7 @@ list in [renovate.yml](.github/workflows/renovate.yml).
 | --- | --- | --- |
 | CodeQL | JavaScript data-flow problems ([below](#codeql)) | PRs, pushes to `main`, weekly |
 | Dependency Audit | Known vulnerabilities in npm packages: on PRs, only in packages the PR adds or changes | PRs, pushes to `main`, daily |
-| Gitleaks | Credentials committed anywhere in the history | PRs, pushes to `main` |
+| Gitleaks | Credentials in committed changes: a PR's or a push's own commits, or the whole history | PRs, pushes to `main`, weekly |
 | zizmor | Workflow problems such as injection, broad permissions, persisted credentials, and unpinned actions | PRs and pushes that change `.github/`, weekly |
 | Fuzz | Inputs that break a security property of backend code that handles requests and stored records ([below](#fuzz-tests)) | PRs that change backend code; nightly after `main` changes |
 | ZAP | Missing security headers, weak cookies, and information leaks in the app as built | PRs that change the app or the image |
@@ -70,11 +70,16 @@ npm audit --audit-level=high
 
 ### Gitleaks
 
-Gitleaks scans every commit reachable from the checkout (for a PR, the merge result) and
-redacts what it finds in the log. Locally it reads only committed changes:
+A PR's run scans the PR's own commits, and a push to `main` the commits it added, which
+takes seconds. The weekly run, a manual run, and any change to the Gitleaks image,
+`.gitleaks.toml` or `.gitleaksignore` scan the whole history instead, about six minutes:
+only a new rule or a narrower exception can turn up something in a commit already
+scanned. Findings are redacted in the log. Locally it reads only committed changes:
 
 ```bash
-docker run --rm -v "$PWD:/repo:ro" "$(sed -n 's/^ *GITLEAKS_IMAGE: //p' .github/workflows/gitleaks.yml)" git /repo --log-opts=HEAD --redact --verbose
+image="$(sed -n 's/^ *GITLEAKS_IMAGE: //p' .github/workflows/gitleaks.yml)"
+docker run --rm -v "$PWD:/repo:ro" "$image" git /repo --log-opts=origin/main..HEAD --redact --verbose   # this branch
+docker run --rm -v "$PWD:/repo:ro" "$image" git /repo --log-opts=HEAD --redact --verbose                # everything
 ```
 
 A reviewed placeholder goes in [.gitleaks.toml](.gitleaks.toml), matched by both file and

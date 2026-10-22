@@ -1,12 +1,16 @@
 name: Gitleaks
 
-# Credentials committed anywhere in the history that would reach main. Every run
-# scans each commit, back to the first.
+# Credentials committed in what would reach main. A pull request scans its own commits,
+# and a push to main the commits it added. The weekly run, a manual run, and any change to
+# the Gitleaks setup scan the whole history instead: a new rule or a narrower exception is
+# what can turn up something in a commit already scanned.
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+  schedule:
+    - cron: '29 5 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -17,24 +21,54 @@ jobs:
     name: Git history
     runs-on: ubuntu-latest
     steps:
+      # The whole history takes seconds to fetch; scanning all of it is what takes minutes.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Choose the commits
+        id: commits
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          setup=(.gitleaks.toml .gitleaksignore .github/workflows/gitleaks.yml)
+          range=''
+          if [ "$EVENT_NAME" = pull_request ]; then
+            if git diff --quiet "$PR_BASE...$PR_HEAD" -- "${setup[@]}"; then range="$PR_BASE..$PR_HEAD"; fi
+          elif [ "$EVENT_NAME" = push ]; then
+            # A new branch or a force push leaves no earlier tip to start from.
+            if git merge-base --is-ancestor "$PUSH_BEFORE" "$PUSH_AFTER" 2>/dev/null \
+              && git diff --quiet "$PUSH_BEFORE" "$PUSH_AFTER" -- "${setup[@]}"; then
+              range="$PUSH_BEFORE..$PUSH_AFTER"
+            fi
+          fi
+          if [ -n "$range" ]; then
+            echo "Scanning $(git rev-list --count "$range") commits: $range"
+          else
+            range=HEAD
+            echo "Scanning the whole history."
+          fi
+          echo "log-opts=$range" >> "$GITHUB_OUTPUT"
+
       # Findings are redacted in the log. Reviewed false positives belong in
       # .gitleaks.toml, and reviewed findings in commits already on main in
       # .gitleaksignore. Git refuses a checkout owned by another user, and gitleaks
       # 8.30 then exits 0 having scanned nothing, so any error it logs fails the scan.
-      - name: Scan the history
+      - name: Scan
         shell: bash
         env:
           # renovate: datasource=docker depName=ghcr.io/gitleaks/gitleaks
           GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          LOG_OPTS: ${{ steps.commits.outputs.log-opts }}
         run: |
           docker run --rm --volume "$PWD:/repo:ro" \
             --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/repo \
-            "$GITLEAKS_IMAGE" git /repo --log-opts=HEAD --redact --verbose --no-banner --no-color \
+            "$GITLEAKS_IMAGE" git /repo --log-opts="$LOG_OPTS" --redact --verbose --no-banner --no-color \
             2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
           if grep -q ' ERR ' "$RUNNER_TEMP/gitleaks.log"; then
             echo '::error::Gitleaks reported an error, so the scan may be incomplete.'
