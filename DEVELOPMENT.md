@@ -575,6 +575,9 @@ It downloads nothing, and like the others it is not part of CI.
 
 - **It needs ffmpeg**, and **it installs Playwright's Firefox** on its first run, which no other
   harness needs.
+- **`waitForFunction` does not wait in Firefox on the app's pages.** It hands back zone.js's
+  promise at once, as if the condition held. The harness asks the page over and over with
+  `page.evaluate` instead, which is what its `waitFor` does.
 - **Firefox is why the controls are the player's own.** With native controls it sends the page
   no pointerdown, mouseup or click for a press on the video, so nothing drawn over them can see
   a hold. Every check runs in both browsers for that reason.

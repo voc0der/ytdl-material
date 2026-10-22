@@ -144,13 +144,26 @@ const controlsShown = page => page.locator('app-media-controls .chrome').evaluat
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const badge = page => page.locator('app-media-controls .speed-hold-badge').count();
 
+// Asks the page until `predicate` gives something truthy, and returns that. Not
+// waitForFunction: on the app's pages Firefox hands back zone.js's promise at once, as if the
+// wait were over.
+async function waitFor(page, predicate, arg = null, timeout = 30_000) {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+        const value = await page.evaluate(predicate, arg);
+        if (value) return value;
+        if (Date.now() > deadline) throw new Error(`gave up after ${timeout} ms waiting for ${predicate}`);
+        await page.waitForTimeout(25);
+    }
+}
+
 async function openPlaying(page, route) {
     await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
     await page.locator('app-media-controls').waitFor({ timeout: 30_000 });
-    await page.waitForFunction(() => {
+    await waitFor(page, () => {
         const video = document.querySelector('video');
         return video && !video.paused && video.currentTime > 0.3;
-    }, null, { timeout: 30_000 });
+    });
 }
 
 async function centre(page) {
@@ -319,10 +332,10 @@ async function onDesktop(browser, name, seeded, errors) {
     const first_src = (await media(listed)).src;
     await listed.mouse.move(...Object.values(await centre(listed)));
     await listed.getByRole('button', { name: 'Next', exact: true }).click();
-    await listed.waitForFunction(src => {
+    await waitFor(listed, src => {
         const video = document.querySelector('video');
         return video.currentSrc !== src && !video.paused;
-    }, first_src, { timeout: 15_000 }).catch(() => {});
+    }, first_src, 15_000).catch(() => {});
     check('in a playlist, Next plays the next file', (await media(listed)).src !== first_src);
     await listed.context().close();
 
@@ -375,10 +388,10 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
     const opened = await newPage(browser, name, errors);
     await opened.goto(timed_link, { waitUntil: 'domcontentloaded' });
     await opened.locator('app-media-controls').waitFor({ timeout: 30_000 });
-    await opened.waitForFunction(() => {
+    await waitFor(opened, () => {
         const video = document.querySelector('video');
         return video && video.readyState >= 1 && video.currentTime > 0;
-    }, null, { timeout: 30_000 });
+    });
     const landed = opened.url();
     const started = (await media(opened)).time;
     check('the short link opens the file in the player, at its time',
