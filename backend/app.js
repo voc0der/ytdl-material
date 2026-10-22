@@ -52,9 +52,18 @@ const hooks_api = require('./hooks');
 const healthz = require('./healthz');
 
 const app = express();
+// Names the framework on every response, which helps nobody but a scanner.
+app.disable('x-powered-by');
 
 // Ahead of every other middleware on purpose; see healthz.js.
 app.get('/healthz', healthz.handler);
+
+// Without it a browser may guess a response's type from its content, and run as a script
+// or a stylesheet something that was served as neither.
+app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    next();
+});
 const CONFIG_ROOT_KEY = 'YtdlMaterial';
 const LEGACY_CONFIG_ROOT_KEY = ['Youtube', 'DLMaterial'].join('');
 

@@ -2172,15 +2172,20 @@ describe('Subscriptions', function() {
                 {name: 'no_date_filter_sub'},
                 // Skipped entries would be where --break-on-existing stops.
                 {name: 'break_on_existing_sub', timerange: 'now-1week', custom_args: '--break-on-existing'},
-                // Entries added to the user's own archive would count as downloaded for good.
-                {name: 'own_archive_sub', timerange: 'now-1week', custom_args: '--download-archive,,own-archive.txt'}
+                // Entries added to an archive of the administrator's own would count as
+                // downloaded for good. A subscription's arguments can't name one:
+                // --download-archive chooses a path, which they may not.
+                {name: 'own_archive_sub', timerange: 'now-1week', global_args: '--download-archive,,own-archive.txt'}
             ]) {
-                const sub = Object.assign({}, new_sub, settings, {id: uuid(), source_info_checked_at: Date.now()});
+                const {global_args = '', ...sub_settings} = settings;
+                config_api.setConfigItem('ytdl_custom_args', global_args);
+                const sub = Object.assign({}, new_sub, sub_settings, {id: uuid(), source_info_checked_at: Date.now()});
                 await subscriptions_api.subscribe(sub, null, true);
                 await checkAndWait(sub.id);
             }
         } finally {
             youtubedl_api.runYoutubeDLLineStream = original_runYoutubeDLLineStream;
+            config_api.setConfigItem('ytdl_custom_args', '');
         }
 
         assert.deepStrictEqual(listing_requests, []);
@@ -2369,7 +2374,7 @@ describe('Subscriptions', function() {
             {url: 'https://www.youtube.com/playlist?list=PL0123456789', isPlaylist: true},
             // The user already set where a check stops, or what it goes through.
             {custom_args: '--playlist-end,,20'},
-            {custom_args: '-I1:5'},
+            {custom_args: '-I,,1:5'},
             {custom_args: '--break-match-filters,,duration>60'},
             {custom_args: '--max-downloads,,3'}
         ].map((settings, index) => Object.assign({}, new_sub, {

@@ -19,9 +19,11 @@ on:
       - Dependency Audit
       - docker-pr
       - Documentation
+      - Fuzz
       - Gitleaks
       - Lint
       - Tests
+      - ZAP
       - zizmor
     types: [completed]
     branches: ['renovate/**']

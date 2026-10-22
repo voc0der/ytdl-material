@@ -25,23 +25,32 @@ For setup and local run instructions, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ## Security scans
 
-Each of these workflows fails on findings, except CodeQL, whose findings go to code
-scanning. Fix a finding where you can; each tool's way to record a reviewed false
-positive is described below. Renovate merges its own PRs only once every check passes,
-so add any new workflow that runs on PRs to the `workflow_run` list in
-[renovate.yml](.github/workflows/renovate.yml).
+Each of these workflows fails on findings. Fix a finding where you can; each tool's way
+to record a reviewed false positive is described below. Renovate merges its own PRs only
+once every check passes, so add any new workflow that runs on PRs to the `workflow_run`
+list in [renovate.yml](.github/workflows/renovate.yml).
 
 | Workflow | Finds | Runs on |
 | --- | --- | --- |
-| CodeQL | JavaScript data-flow problems | PRs, pushes to `main`, weekly |
+| CodeQL | JavaScript data-flow problems ([below](#codeql)) | PRs, pushes to `main`, weekly |
 | Dependency Audit | Known vulnerabilities in npm packages: on PRs, only in packages the PR adds or changes | PRs, pushes to `main`, daily |
 | Gitleaks | Credentials committed anywhere in the history | PRs, pushes to `main` |
 | zizmor | Workflow problems such as injection, broad permissions, persisted credentials, and unpinned actions | PRs and pushes that change `.github/`, weekly |
+| Fuzz | Inputs that break a security property of backend code that handles requests and stored records ([below](#fuzz-tests)) | PRs that change backend code; nightly after `main` changes |
+| ZAP | Missing security headers, weak cookies, and information leaks in the app as built | PRs that change the app or the image |
 | Container Scan | Known vulnerabilities in the published `latest` and `nightly` images (Grype) | Daily |
 
 Releases also scan the image with Grype before anything is published (see
 [Container Scan](#container-scan)). Scheduled runs catch advisories published since the
 code last changed.
+
+### CodeQL
+
+CodeQL uploads its results to code scanning, and the job then fails while any CodeQL alert
+is open on the ref it analyzed (for a PR, the merge result). Fix a finding; for a
+reviewed false positive, dismiss the alert in code scanning with the reason in its
+comment, which closes it everywhere. `main` has no open alerts, and the six dismissed so
+far all trace back to test code or the screenshot harness.
 
 ### Dependency Audit
 
@@ -107,6 +116,56 @@ A tag's **continuous integration** run builds and scans the image before it crea
 GitHub release and starts the image push. A finding there stops the release before
 anything is published. Fix it on `main`, delete the tag (`git push --delete origin <tag>`),
 and tag the fixed commit.
+
+### ZAP
+
+ZAP runs its passive baseline scan against a disposable container of the image built from
+the PR, started with the image's default settings, so it sees what a visitor to a fresh
+install sees. ZAP and its rules are pinned (`-silent` stops add-on updates), so a result
+changes only with the app or the pin. Any warning fails;
+[dev/zap/rules.tsv](dev/zap/rules.tsv) lists reviewed rules, where `IGNORE` silences a rule
+and `INFO` reports it without failing, each with its reason. The missing Content Security
+Policy and anti-framing header are `INFO`: a policy needs testing page by page, and
+dashboards such as Organizr show the app in a frame. The scan needs Docker and pulls the
+ZAP image, several GB unpacked:
+
+```bash
+npm run scan:zap                      # builds ytdl-material:local, then scans it
+bash dev/zap/scan.sh <image>          # scans an image you already have
+```
+
+### Fuzz tests
+
+The `backend/test/fuzz-*.test.js` files hold [fast-check](https://fast-check.dev)
+properties: each asserts a security property over inputs it generates. They run with the
+regular tests on a fixed set of inputs, so a PR never fails on an input an earlier run
+happened not to draw, and under [dev/fuzz/run.sh](dev/fuzz/run.sh) for a set time each,
+from a fresh seed.
+
+| Property | Holds that |
+| --- | --- |
+| Download arguments | Custom arguments the allowlist accepts reach yt-dlp, as its parser reads them, as allowed options only; additional arguments add no other option and take none of the app's as a value; the allowlist's options that take a value are all known to the code that places them |
+| Subscription arguments | Whatever a stored subscription holds, only allowed options reach yt-dlp |
+| Output templates | A template the check accepts writes inside its download folder, whatever its fields expand to and wherever the folder's links point |
+| Media paths | A path counts as inside the media roots exactly when the file the OS opens for it is, and only regular files inside them are served |
+| Subscription folders | A subscription's name becomes one folder inside its type folder, whatever the name and the filename settings |
+| Byte ranges | A 206 answers with a range inside the file, of the length sent |
+| Logged command lines | A credential passed to yt-dlp never reaches the log, however its option is written |
+| Rate limits | A limiter is skipped by path alone, never for a query or fragment, and never for a route that checks a credential |
+| Trusted proxy addresses | An address is trusted only inside a listed range, however a dual-stack socket writes it |
+
+PRs that change backend code run each property for 10 seconds; the nightly run gives each
+2 minutes, on nights after `main` has changed. A failure prints the smallest input
+fast-check could shrink it to, with the `FUZZ_SEED` and `FUZZ_PATH` that replay it, and CI
+keeps the report as the run's `fuzz-failures` artifact. Add the input to the property's
+examples with the fix: from then on it runs with the regular tests. A new `fuzz-*.test.js`
+file needs no registration.
+
+```bash
+npm run fuzz                          # each property for 10s
+FUZZTIME=2m npm run fuzz              # as long as the nightly run
+cd backend && FUZZ_SEED=<seed> FUZZ_PATH=<path> npx mocha test/fuzz-files.test.js
+```
 
 ## Coverage
 

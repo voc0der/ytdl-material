@@ -1,0 +1,69 @@
+name: Fuzz
+
+# The fuzz tests, which assert security properties of the backend code that handles
+# what requests and stored records carry. A pull request that changes backend code
+# runs each property briefly; the nightly run gives each one minutes, on nights after
+# main has changed. The regular tests run the same properties on a fixed set of inputs.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['backend/**/*.js', 'backend/package.json', 'backend/package-lock.json', 'dev/fuzz/**', '.github/workflows/fuzz.yml']
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: How long to run each property, as a duration such as 30s or 2m
+        default: 2m
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Backend properties
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Without a new commit there is nothing new to fuzz.
+      - name: Check for changes on main since the last night
+        id: changed
+        if: github.event_name == 'schedule'
+        run: |
+          if [ $(( $(date +%s) - $(git log -1 --format=%ct) )) -lt 90000 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main has no commits from the last day."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.changed.outputs.run != 'false'
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install backend dependencies
+        if: steps.changed.outputs.run != 'false'
+        run: npm ci --ignore-scripts
+        working-directory: backend
+
+      - name: Fuzz
+        if: steps.changed.outputs.run != 'false'
+        env:
+          FUZZTIME: ${{ github.event_name == 'pull_request' && '10s' || inputs.fuzztime || '2m' }}
+          FUZZ_FAILURES: ${{ runner.temp }}/fuzz-failures
+        run: bash dev/fuzz/run.sh
+
+      # Each failure's smallest input, with the seed and path that replay it.
+      - name: Keep the failing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-failures
+          path: ${{ runner.temp }}/fuzz-failures/
+          retention-days: 14

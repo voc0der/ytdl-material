@@ -753,26 +753,55 @@ exports.restartServer = async (is_update = false) => {
     process.exit(1);
 }
 
+// How many values follow an option: one for each in YTDL_ARGS_WITH_VALUES, except
+// --replace-in-metadata, which takes three.
+function argValueCount(arg) {
+    if (arg === '--replace-in-metadata') return 3;
+    return CONSTS.YTDL_ARGS_WITH_VALUES.has(arg) ? 1 : 0;
+}
+
+// How many of the arguments after this one are its values. Written --name=value, an option
+// carries its first value with it.
+function argFollowingValueCount(arg) {
+    if (typeof arg !== 'string') return 0;
+    const attached = arg.startsWith('--') && arg.includes('=');
+    const value_count = argValueCount(attached ? arg.slice(0, arg.indexOf('=')) : arg);
+    return Math.max(0, value_count - (attached ? 1 : 0));
+}
+
 // adds or replaces args according to the following rules:
 //  - if it already exists and has value, then replace both arg and value
 //  - if already exists and doesn't have value, ignore
 //  - if it doesn't exist and has value, add both arg and value
 //  - if it doesn't exist and doesn't have value, add arg
+//  - if it takes a value and none follows it, leave it out
 exports.injectArgs = (original_args, new_args) => {
     const updated_args = original_args.slice();
+    const replaced = new Set();
     try {
         for (let i = 0; i < new_args.length; i++) {
             const new_arg = new_args[i];
             if (!new_arg.startsWith('-') && !new_arg.startsWith('--') && i > 0 && original_args.includes(new_args[i - 1])) continue;
 
-            if (CONSTS.YTDL_ARGS_WITH_VALUES.has(new_arg)) {
-                if (original_args.includes(new_arg)) {
-                    const original_index = original_args.indexOf(new_arg);
-                    updated_args.splice(original_index, 2);
+            const following_count = argFollowingValueCount(new_arg);
+            if (following_count > 0) {
+                const values = new_args.slice(i + 1, i + 1 + following_count);
+                i += following_count; // the values are placed with the option, not on their own
+                // Short of its values, the option would take the arguments placed after it
+                // as values -- the app's own, which follow these.
+                if (values.length < following_count || values.some(value => typeof value !== 'string')) {
+                    logger.warn(`Ignoring ${new_arg.split('=')[0]} in the custom arguments: it is missing a value.`);
+                    continue;
                 }
-
-                updated_args.push(new_arg, new_args[i + 1]);
-                i++; // we need to skip the arg value on the next loop
+                // An option the original arguments set is replaced, value and all, by the
+                // first new one. Repeats among the new ones add up, as yt-dlp lets options
+                // such as --extractor-args do; one written with = is added as it is.
+                if (!new_arg.includes('=') && original_args.includes(new_arg) && !replaced.has(new_arg)) {
+                    const existing_index = updated_args.indexOf(new_arg);
+                    if (existing_index !== -1) updated_args.splice(existing_index, 1 + following_count);
+                    replaced.add(new_arg);
+                }
+                updated_args.push(new_arg, ...values);
             } else {
                 if (!original_args.includes(new_arg)) {
                     updated_args.push(new_arg);
@@ -787,24 +816,72 @@ exports.injectArgs = (original_args, new_args) => {
     return updated_args;
 }
 
+// Removes options from a command line by name. A value that happens to equal one of the
+// names stays: in '-f -x', -x is a format, and removing it would leave -f to take the next
+// option on the command line as its value instead.
 exports.filterArgs = (args, args_to_remove) => {
-    return args.filter(x => !args_to_remove.includes(x));
+    const filtered_args = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (args_to_remove.includes(arg)) continue;
+        filtered_args.push(arg);
+        const value_count = argFollowingValueCount(arg);
+        for (let value = 0; value < value_count && i + 1 < args.length; value++) filtered_args.push(args[++i]);
+    }
+    return filtered_args;
+}
+
+/*************************************************
+ * The command lines that reach the log, with every
+ * value that can hold a credential taken out. Debug
+ * logs get attached to issues, so whatever is left
+ * in one is published.
+ *
+ * It has to read options the way yt-dlp does, not
+ * only the way this app writes them, because
+ * Downloader.custom_args and a subscription's
+ * arguments are written by hand. yt-dlp accepts any
+ * unambiguous abbreviation of a long option
+ * (--passw), a short form with its value attached
+ * (-pSECRET), and short options in a cluster (-xp).
+ * Matching only the full names let every one of
+ * those through.
+ ************************************************/
+
+// Every name yt-dlp knows each credential-carrying option by.
+const SENSITIVE_LONG_OPTIONS = [
+    '--username', '--password', '--twofactor', '--video-password', '--ap-username', '--ap-password',
+    '--client-certificate-password', '--netrc-cmd', '--proxy', '--geo-verification-proxy',
+    '--cookies', '--cookies-from-browser', '--add-headers'
+];
+// Real options whose names begin one of those, and which carry nothing secret themselves.
+const NOT_SENSITIVE_LONG_OPTIONS = new Set(['--client-certificate', '--netrc']);
+// -u, -p and -2: the username, password and two-factor code.
+const SENSITIVE_SHORT_OPTIONS = new Set(['u', 'p', '2']);
+// yt-dlp's other short options that take a value. In a cluster, whatever follows one of
+// them is its value rather than more options: -fbestaudio is a format, not -u.
+const SHORT_OPTIONS_WITH_VALUES = new Set(['I', 'N', 'O', 'P', 'R', 'S', 'a', 'f', 'o', 'r', 't']);
+
+function isSensitiveLongOption(name) {
+    const lowercase_name = name.toLowerCase();
+    if (lowercase_name.length <= 2 || NOT_SENSITIVE_LONG_OPTIONS.has(lowercase_name)) return false;
+    // Any prefix counts, so an abbreviation is covered. Over-matching costs only a value
+    // missing from a debug log; an ambiguous prefix is one yt-dlp refuses anyway.
+    return SENSITIVE_LONG_OPTIONS.some(option => option.startsWith(lowercase_name));
+}
+
+// Where the credential in a cluster of short options begins: the index of an attached
+// value, the argument's length when the value is the next argument, or -1 for none.
+function sensitiveShortValueIndex(arg) {
+    for (let i = 1; i < arg.length; i++) {
+        if (SENSITIVE_SHORT_OPTIONS.has(arg[i])) return i + 1;
+        if (SHORT_OPTIONS_WITH_VALUES.has(arg[i])) return -1;
+    }
+    return -1;
 }
 
 exports.redactCommandArgsForLogging = (args = []) => {
     if (!Array.isArray(args)) return [];
-
-    const sensitive_flags = new Set([
-        '--username',
-        '--password',
-        '--video-password',
-        '--ap-username',
-        '--ap-password',
-        '--proxy',
-        '--cookies',
-        '--cookies-from-browser',
-        '--add-header'
-    ]);
 
     const redacted_args = [];
     for (let i = 0; i < args.length; i++) {
@@ -814,22 +891,38 @@ exports.redactCommandArgsForLogging = (args = []) => {
             continue;
         }
 
-        if (sensitive_flags.has(arg)) {
-            redacted_args.push(arg);
-            if (i + 1 < args.length) {
-                redacted_args.push('[REDACTED]');
-                i++;
+        // Everything after -- is a URL, never an option.
+        if (arg === '--') {
+            redacted_args.push(...args.slice(i));
+            break;
+        }
+
+        // The credential is either attached to this argument (--password=x, -px) or is
+        // the next argument (--password x, -p x).
+        let attached_at = -1;
+        let in_next_arg = false;
+        if (arg.startsWith('--')) {
+            const equals_index = arg.indexOf('=');
+            const name = equals_index === -1 ? arg : arg.slice(0, equals_index);
+            if (isSensitiveLongOption(name)) {
+                if (equals_index === -1) in_next_arg = true;
+                else attached_at = equals_index + 1;
             }
-            continue;
+        } else if (arg.length > 1 && arg.startsWith('-')) {
+            const value_index = sensitiveShortValueIndex(arg);
+            if (value_index !== -1 && value_index < arg.length) attached_at = value_index;
+            else if (value_index !== -1) in_next_arg = true;
         }
 
-        const inline_sensitive_flag = [...sensitive_flags].find(flag => arg.startsWith(`${flag}=`));
-        if (inline_sensitive_flag) {
-            redacted_args.push(`${inline_sensitive_flag}=[REDACTED]`);
+        if (attached_at !== -1) {
+            redacted_args.push(`${arg.slice(0, attached_at)}[REDACTED]`);
             continue;
         }
-
         redacted_args.push(arg);
+        if (in_next_arg && i + 1 < args.length) {
+            redacted_args.push('[REDACTED]');
+            i++;
+        }
     }
 
     return redacted_args;
@@ -1038,7 +1131,9 @@ exports.getMediaRoots = () => {
 exports.pathIsWithin = (candidate_path, container_path) => {
     const relative_path = path.relative(container_path, candidate_path);
     if (relative_path === '') return true;
-    return !relative_path.startsWith('..') && !path.isAbsolute(relative_path);
+    // A '..' segment walks out; a name that merely starts with two dots, such as
+    // '..clip.mp4', is still inside.
+    return relative_path !== '..' && !relative_path.startsWith(`..${path.sep}`) && !path.isAbsolute(relative_path);
 }
 
 /*************************************************
@@ -1058,16 +1153,29 @@ exports.pathIsWithin = (candidate_path, container_path) => {
  * something is: opening it for writing creates its
  * target, wherever that is. So it is followed by
  * hand to where the write would land.
+ *
+ * The path is resolved as the OS resolves it when
+ * the file is opened, '..' segments included. After
+ * a symlink, '..' is the parent of the link's
+ * target, not of the link, so collapsing them first
+ * (path.resolve, and fs.realpathSync, which starts
+ * by calling it) can answer for a different file
+ * than the one that gets read.
  ************************************************/
 
 // The OS stops following after about this many links in one lookup (40 on Linux, 32 on
 // macOS), so nothing can be opened through a longer chain -- a loop included.
 const MAX_SYMLINK_HOPS = 40;
 
+// Absolute, with every segment left as written.
+function absoluteAsWritten(target_path) {
+    return path.isAbsolute(target_path) ? target_path : `${process.cwd()}${path.sep}${target_path}`;
+}
+
 function realPathOrResolved(target_path, symlink_hops = 0) {
     const resolved_path = path.resolve(target_path);
     const trailing_segments = [];
-    let candidate_path = resolved_path;
+    let candidate_path = absoluteAsWritten(target_path);
 
     // Walk up until something exists to canonicalize. Calling realpath on the whole path
     // and giving up when it throws is not enough: an output template names a file that
@@ -1075,7 +1183,7 @@ function realPathOrResolved(target_path, symlink_hops = 0) {
     // lexical one -- which walks straight through a symlinked directory on the way down.
     for (;;) {
         try {
-            const real_path = fs.realpathSync(candidate_path);
+            const real_path = fs.realpathSync.native(candidate_path);
             if (!trailing_segments.length) return real_path;
             return path.join(real_path, ...trailing_segments.slice().reverse());
         } catch {
@@ -1097,7 +1205,7 @@ function realPathOrResolved(target_path, symlink_hops = 0) {
 function symlinkTargetOrNull(link_path) {
     try {
         const link_target = fs.readlinkSync(link_path);
-        return path.resolve(fs.realpathSync(path.dirname(link_path)), link_target);
+        return path.resolve(fs.realpathSync.native(path.dirname(link_path)), link_target);
     } catch {
         // Not a symlink, or not there at all.
         return null;
@@ -1189,8 +1297,10 @@ exports.isPathInsideMediaRoots = (candidate_path, user_uid = null) => {
  ************************************************/
 exports.isServableMediaFile = (candidate_path, user_uid = null) => {
     if (!exports.isPathInsideMediaRoots(candidate_path, user_uid)) return false;
+    // The path as given, which is what the caller then opens. For a path that doesn't
+    // exist, the containment check above answers for the textual reading of it.
     try {
-        return fs.statSync(realPathOrResolved(candidate_path)).isFile();
+        return fs.statSync(candidate_path).isFile();
     } catch {
         return false;
     }
