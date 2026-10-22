@@ -820,6 +820,7 @@ exports.injectArgs = (original_args, new_args) => {
 // names stays: in '-f -x', -x is a format, and removing it would leave -f to take the next
 // option on the command line as its value instead.
 exports.filterArgs = (args, args_to_remove) => {
+    if (!Array.isArray(args)) return [];
     const filtered_args = [];
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];

@@ -31,8 +31,9 @@ jobs:
           license-check: false
           comment-summary-in-pr: never
 
+  # GitHub adds the lockfile to the name; a skipped job couldn't fill it in.
   audit:
-    name: npm packages (${{ matrix.lockfile }})
+    name: npm packages
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
