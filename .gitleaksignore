@@ -1,0 +1,6 @@
+# Reviewed Gitleaks findings in commits already on main, by fingerprint. A false positive
+# that is still in the working tree belongs in .gitleaks.toml instead.
+
+# A Chrome extension packaging key, committed upstream in February 2020 and deleted in
+# September 2021. Nothing in the repository uses one now, and the history is public.
+de380e0e67cf9015096577bc7b24dc24cd47bc12:chrome-extension.pem:private-key:1

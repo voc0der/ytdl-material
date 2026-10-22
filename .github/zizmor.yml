@@ -1,0 +1,9 @@
+# Reviewed zizmor findings on lines that can't carry an ignore comment. Prefer an
+# inline "zizmor: ignore[<audit>]" comment where one fits.
+rules:
+  github-app:
+    ignore:
+      # The app token keeps the permissions of an app only Renovate uses (see the
+      # comment there). The flagged line ends in the "# v3.3.0" comment Renovate
+      # reads to update the action.
+      - renovate.yml

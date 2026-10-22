@@ -1,0 +1,54 @@
+name: ZAP
+
+# ZAP's passive baseline scan of the app as built here, in a disposable container:
+# security headers, cookies, information leaks, and the like, as a visitor to a
+# fresh install sees them. ZAP and its rules are pinned, so only changes to the app
+# or the pin change the result.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['backend/**', 'src/**', 'Dockerfile', 'docker-utils/**', 'package.json', 'package-lock.json', 'angular.json', 'dev/zap/**', '.github/workflows/zap.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: Baseline scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:5ccfff9a411743ab2615136a2edd7416bec9ce41572fa94e935df38c14adb2b6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Reads the layer caches of the pull request and nightly builds, and writes none.
+      - name: Build the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: ytdl-material:zap
+          cache-from: |
+            type=gha,scope=docker-pr
+            type=gha,scope=docker-main
+
+      # Reviewed rules are recorded in dev/zap/rules.tsv; any other warning fails.
+      - name: Scan
+        env:
+          ZAP_REPORT_DIR: ${{ runner.temp }}/zap
+        run: bash dev/zap/scan.sh ytdl-material:zap
+
+      - name: Keep the report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zap-report
+          path: ${{ runner.temp }}/zap/
+          retention-days: 7

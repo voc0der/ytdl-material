@@ -1,0 +1,60 @@
+name: Dependency Audit
+
+# Known vulnerabilities in the npm packages. A pull request fails only for a
+# vulnerable package it adds or changes: an advisory published against a package
+# main already has is not the pull request's doing, and fails main's run instead.
+# New advisories appear without any change here, so main is also audited daily.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Dependency changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # Compares the pull request's dependency graph with its base branch's, both
+      # lockfiles included, and fails on a high or critical advisory against any
+      # package version the pull request brings in.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          license-check: false
+          comment-summary-in-pr: never
+
+  # GitHub adds the lockfile to the name; a skipped job couldn't fill it in.
+  audit:
+    name: npm packages
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lockfile: [package-lock.json, backend/package-lock.json]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      # The audit reads the lockfile, so nothing is installed. It includes
+      # development packages, which run during builds and tests.
+      - name: npm audit
+        env:
+          LOCKFILE: ${{ matrix.lockfile }}
+        run: |
+          cd "$(dirname "$LOCKFILE")"
+          npm audit --audit-level=high

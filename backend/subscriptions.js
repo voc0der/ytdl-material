@@ -233,6 +233,20 @@ function applyCustomArgs(downloadConfig = [], args_string = '') {
     return utils.injectArgs(downloadConfig, custom_args);
 }
 
+/*************************************************
+ * A subscription's own arguments, held to the same
+ * allowlist as a download's. They are checked when
+ * the subscription is saved, but every check of it
+ * replays whatever it holds, and arguments saved
+ * before the allowlist existed, or restored from a
+ * backup, were never checked at all. Only the
+ * administrator's Downloader.custom_args go in
+ * unchecked.
+ ************************************************/
+function applySubscriptionArgs(downloadConfig, sub) {
+    return applyCustomArgs(downloadConfig, utils.quarantineDisallowedDownloadArgs(sub && sub.custom_args, 'subscription'));
+}
+
 async function appendSubscriptionCookieArgs(args = []) {
     if (!config_api.getConfigItem('ytdl_use_cookies')) return args;
     if (await fs.pathExists(path.join(__dirname, 'appdata', 'cookies.txt'))) {
@@ -1233,7 +1247,7 @@ async function fetchSubscriptionSourceInfo(sub, on_spawn = null) {
     const downloader_fork = downloader_api.getPreferredDownloaderFork({});
     let args = ['--dump-single-json', '--flat-playlist'];
     args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
-    args = applyCustomArgs(args, sub.custom_args);
+    args = applySubscriptionArgs(args, sub);
     args = utils.injectArgs(args, ['--playlist-items', '0']);
     args = downloader_api.appendYtDlpImpersonationArgs(args, downloader_fork);
     args = await appendSubscriptionCookieArgs(args);
@@ -1800,10 +1814,13 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     // A date filter keeps -o for the check, whose _filename then named no real file: a download
     // of such a subscription showed no progress, and missed a file it would overwrite.
     let fullOutput = `${appendedBasePath}/${file_output}.%(ext)s`;
+    // The output template is replayed on every check like the arguments, so it is held to
+    // the check a download's gets.
+    const custom_output = sub.custom_output ? utils.sanitizeCustomOutput(sub.custom_output, appendedBasePath) : null;
     if (desired_path) {
         fullOutput = `${desired_path}.%(ext)s`;
-    } else if (sub.custom_output) {
-        fullOutput = `${appendedBasePath}/${sub.custom_output}.%(ext)s`;
+    } else if (custom_output) {
+        fullOutput = `${appendedBasePath}/${custom_output}.%(ext)s`;
     }
 
     let downloadConfig = ['--dump-json', '-o', fullOutput, !redownload ? '-ciw' : '-ci', '--write-info-json', '--print-json'];
@@ -1832,7 +1849,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     }
 
     downloadConfig = applyCustomArgs(downloadConfig, config_api.getConfigItem('ytdl_custom_args'));
-    downloadConfig = applyCustomArgs(downloadConfig, sub.custom_args);
+    downloadConfig = applySubscriptionArgs(downloadConfig, sub);
 
     const default_downloader = downloader_api.getPreferredDownloaderFork({});
     downloadConfig = downloader_api.appendFilenameSanitizationArgs(downloadConfig, default_downloader);
@@ -2013,7 +2030,7 @@ function getSubscriptionDatedListingURL(sub) {
 async function generateArgsForSubscriptionDatedListing(sub) {
     let args = [];
     args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
-    args = applyCustomArgs(args, sub.custom_args);
+    args = applySubscriptionArgs(args, sub);
     args.push('--flat-playlist', '--print', SUBSCRIPTION_LISTING_ENTRY_TEMPLATE);
     // Without it a listing entry has no date at all; with it, the relative "3 weeks ago" the
     // listing shows, turned into a timestamp.
@@ -2264,7 +2281,7 @@ function getSubscriptionChannelPlaylistsURL(sub) {
 async function generateArgsForSubscriptionChannelPlaylistListing(sub, downloader_fork) {
     let args = [];
     args = applyCustomArgs(args, config_api.getConfigItem('ytdl_custom_args'));
-    args = applyCustomArgs(args, sub.custom_args);
+    args = applySubscriptionArgs(args, sub);
     // Downloaded or not, every video is listed, so each playlist is kept whole and in order.
     args.push('--flat-playlist', '--no-download-archive');
     args = downloader_api.appendYtDlpImpersonationArgs(args, downloader_fork);

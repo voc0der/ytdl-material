@@ -519,7 +519,29 @@ const YTDL_ARGS_WITH_VALUES = [
     '--fixup',
     '--ffmpeg-location',
     '--exec',
-    '--convert-subs'
+    '--convert-subs',
+    // The rest of the options a download may set that take a value (utils.ALLOWED_DOWNLOAD_ARGS).
+    // Missing from here, injectArgs placed one as a flag, and yt-dlp then took the next
+    // argument on the command line as its value, whatever that was.
+    '-I',
+    '-N',
+    '--concurrent-fragments',
+    '--convert-subtitles',
+    '--extractor-args',
+    '--file-access-retries',
+    '--min-sleep-interval',
+    '--parse-metadata',
+    '--remux-video',
+    '--replace-in-metadata',
+    '--retry-sleep',
+    '--sleep-requests',
+    '--sleep-subtitles',
+    '--sponsorblock-chapter-title',
+    '--sponsorblock-mark',
+    '--sponsorblock-remove',
+    '--sub-langs',
+    '--throttled-rate',
+    '--trim-filenames'
 ];
 
 exports.SUBSCRIPTION_BACKUP_PATH = 'subscription_backup.json'

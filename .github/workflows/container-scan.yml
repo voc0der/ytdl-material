@@ -1,0 +1,37 @@
+name: Container Scan
+
+# Known vulnerabilities in the published images. An image stays the same after it
+# is built while advisories keep arriving, so a finding here means a rebuild is due:
+# the next release for latest, the next nightly build for nightly. Releases apply
+# the same check before anything is published (build.yml).
+on:
+  schedule:
+    - cron: '47 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Published image (${{ matrix.tag }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: [latest, nightly]
+    steps:
+      # For reviewed exceptions in .grype.yaml, which Grype reads from here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Fails on high or critical vulnerabilities that have a fix. The images are
+      # public, so Grype pulls them without logging in.
+      - name: Scan the image
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: registry:ghcr.io/voc0der/ytdl-material:${{ matrix.tag }}
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table

@@ -8,17 +8,23 @@ on:
   # went green, and after every push to main, to rebase the PRs that push left behind.
   push:
     branches: [main]
-  workflow_run:
+  # This only wakes Renovate: nothing from the run that finished is checked out or downloaded.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     # Every workflow that runs on pull requests, since Renovate merges only once all of them
     # pass. A workflow renamed without updating this list stops triggering a run, silently.
     workflows:
       - continuous integration
       - CodeQL
       - Dependencies
+      - Dependency Audit
       - docker-pr
       - Documentation
+      - Fuzz
+      - Gitleaks
       - Lint
       - Tests
+      - ZAP
+      - zizmor
     types: [completed]
     branches: ['renovate/**']
   workflow_dispatch:
@@ -38,15 +44,17 @@ jobs:
     steps:
       # A GitHub App token rather than GITHUB_TOKEN: pull requests opened with GITHUB_TOKEN
       # do not trigger workflows, so no checks would run and nothing could auto-merge.
+      # Only Renovate uses this app, so the token keeps all of the app's permissions; limit
+      # them in the app's settings. .github/zizmor.yml records this review.
       - name: Get app token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - name: Renovate
-        uses: renovatebot/github-action@v46.3.9
+        uses: renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213 # v46.3.9
         with:
           token: ${{ steps.app-token.outputs.token }}
         env:

@@ -25,8 +25,12 @@ ENV npm_config_cache=/app/.npm
 
 # Use NVM to get the current Node 24 LTS line
 ENV NODE_VERSION=24
+# The Ubuntu image ships Canonical's pebble service manager, which nothing here runs. It is
+# a Go binary that only a new base image would update, so it goes rather than carrying the
+# Go runtime's advisories into every scan of this image.
 RUN (groupadd -g $GID $USER || groupadd $USER) && \
     (useradd --system -m -g $USER --uid $UID $USER || useradd --system -m -g $USER $USER) && \
+    rm -rf /usr/bin/pebble /var/lib/pebble && \
     apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates tzdata libatomic1 && \
     ICU_PKG=$(apt-cache search '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1) && \
@@ -40,11 +44,15 @@ ENV NVM_DIR=/usr/local/nvm
 # install.sh already installs NODE_VERSION because it is set. nvm keeps the downloaded
 # tarball in its cache, and Node ships C++ headers that are only needed to compile native
 # addons (nothing here does), so both are removed in this same layer or they stay in the image.
+# Node releases bundle an npm that can be months old, and advisories against the packages
+# npm bundles land in this image with it, so npm moves to the newest release of its major.
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
     nvm alias default v${NODE_VERSION} && \
+    npm install -g "npm@$(npm --version | cut -d. -f1)" --cache /tmp/npm-cache && \
+    rm -rf /tmp/npm-cache && \
     nvm cache clear && \
     rm -rf "$NVM_DIR"/versions/node/*/include && \
     rm -f "$NVM_DIR/current" && \

@@ -4,7 +4,7 @@ name: nightly-on-merge
 # for the scheduled build. pull_request_target so the token can dispatch for a fork's pull
 # request too; nothing from the pull request is checked out or run.
 on:
-  pull_request_target:
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [closed]
     branches: [main]
 

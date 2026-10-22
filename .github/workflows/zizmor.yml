@@ -1,0 +1,35 @@
+name: zizmor
+
+# Security problems in the GitHub Actions workflows, such as template injection,
+# broad permissions, persisted credentials and unpinned actions. The weekly run
+# catches new advisories for the pinned actions.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/**']
+  push:
+    branches: [main]
+    paths: ['.github/**']
+  schedule:
+    - cron: '37 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The action installs the zizmor release pinned in its own tree, verified by
+      # hash. Findings print to the log and fail the job rather than uploading to code
+      # scanning. Silence a reviewed finding with "zizmor: ignore[<audit>]" on its
+      # line, with the reason above it.
+      - uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          advanced-security: false
