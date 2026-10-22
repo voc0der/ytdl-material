@@ -562,7 +562,12 @@ menu, which has to open clear of the scrubber, and jumps from the chapters menu.
 the picture for the player's own menu, copies the file's short link with and without the time,
 opens it and checks it lands in the player at that time, right-clicks the scrubber's knob for the
 time the video is at and elsewhere along it for the time there, leaves a second right-click to
-the browser, and turns Loop on and off from the menu. It goes full screen with a double-click,
+the browser, and turns Loop on and off from the menu. Ahead of the video the scrubber's menu
+also offers the part between the two, and behind it does not. It copies that part, and again
+from a menu left open while the video played past the part's end, which still copies the part
+it showed. It opens the part's link and checks the video stops at the end and stays there until
+play goes on into the rest, and that with Loop on it plays the part again. It goes full screen
+with a double-click,
 checks the menu shows there too, and leaves with `f`, and turns theater mode on from the bar and
 off with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
 browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the

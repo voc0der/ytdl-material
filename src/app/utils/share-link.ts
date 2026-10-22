@@ -12,3 +12,10 @@ export function shareLinkAt(link: string, seconds: number): string {
   if (start > 0) timed.searchParams.set('t', `${start}`);
   return timed.href;
 }
+
+// The same link, playing only the part from one time to another, in whole seconds.
+export function shareLinkBetween(link: string, start_seconds: number, end_seconds: number): string {
+  const part = new URL(shareLinkAt(link, start_seconds));
+  part.searchParams.set('end', `${Math.floor(end_seconds)}`);
+  return part.href;
+}

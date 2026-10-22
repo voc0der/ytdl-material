@@ -1,4 +1,4 @@
-import { shareLink, shareLinkAt } from './share-link';
+import { shareLink, shareLinkAt, shareLinkBetween } from './share-link';
 
 describe('shareLink', () => {
   it('puts the link at the root, beside the API', () => {
@@ -11,5 +11,12 @@ describe('shareLink', () => {
     const link = 'https://media.example.com/s/AbCdEf12345';
     expect(shareLinkAt(link, 90.7)).toBe(`${link}?t=90`);
     expect(shareLinkAt(link, 0.4)).toBe(link);
+  });
+
+  it('plays only a part, from one whole second to another', () => {
+    const link = 'https://media.example.com/s/AbCdEf12345';
+    expect(shareLinkBetween(link, 815.7, 895.2)).toBe(`${link}?t=815&end=895`);
+    // A part from the very start needs no start time.
+    expect(shareLinkBetween(link, 0.4, 895.2)).toBe(`${link}?end=895`);
   });
 });

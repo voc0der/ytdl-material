@@ -88,6 +88,11 @@ describe('Short share links', function() {
             assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90), `/player;uid=${FILE.uid};timestamp=90`);
         });
 
+        it('stops at the end it is given, from the start or from a time', async function() {
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90, 120), `/player;uid=${FILE.uid};timestamp=90;end=120`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, null, 120), `/player;uid=${FILE.uid};end=120`);
+        });
+
         it('names the owner for a share in multi-user mode, and only then', async function() {
             multi_user_mode = true;
             assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/player;uid=${FILE.uid}`);
@@ -114,6 +119,16 @@ describe('Short share links', function() {
                 assert.strictEqual(share_links.parseStartTime(value), null, `${JSON.stringify(value)} is not a start time`);
             }
         });
+
+        it('reads an end time after the start, and ignores one at or before it', function() {
+            assert.strictEqual(share_links.parseEndTime('120', 90), 120);
+            assert.strictEqual(share_links.parseEndTime('90.5', 90), 90.5);
+            // Without a start, the link plays from the beginning.
+            assert.strictEqual(share_links.parseEndTime('30'), 30);
+            for (const value of ['90', '60', '0', '-5', '1e3', '1:30', 'abc', '', ['120', '150'], undefined]) {
+                assert.strictEqual(share_links.parseEndTime(value, 90), null, `${JSON.stringify(value)} is not an end after 90`);
+            }
+        });
     });
 
     describe('the route', function() {
@@ -134,6 +149,18 @@ describe('Short share links', function() {
 
             const unreadable = await request(app).get(`/s/${FILE.share_id}`).query({t: 'soon'}).expect(302);
             assert.strictEqual(unreadable.headers.location, `../#/player;uid=${FILE.uid}`);
+        });
+
+        it('passes an end on after the start, and drops one at or before it', async function() {
+            const part = await request(app).get(`/s/${FILE.share_id}`).query({t: '90', end: '120'}).expect(302);
+            assert.strictEqual(part.headers.location, `../#/player;uid=${FILE.uid};timestamp=90;end=120`);
+
+            const from_the_start = await request(app).get(`/s/${FILE.share_id}`).query({end: '120'}).expect(302);
+            assert.strictEqual(from_the_start.headers.location, `../#/player;uid=${FILE.uid};end=120`);
+
+            // The link still opens at its start, and plays on from there.
+            const backwards = await request(app).get(`/s/${FILE.share_id}`).query({t: '90', end: '60'}).expect(302);
+            assert.strictEqual(backwards.headers.location, `../#/player;uid=${FILE.uid};timestamp=90`);
         });
 
         it('answers a link to nothing with a 404', async function() {

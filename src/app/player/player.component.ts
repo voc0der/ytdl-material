@@ -24,7 +24,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
-import { CastRequest, CastSource, MediaControlsComponent, attempt } from './media-controls/media-controls.component';
+import { CastRequest, CastSource, MediaControlsComponent, TimeRange, attempt } from './media-controls/media-controls.component';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
 
@@ -64,6 +64,14 @@ export interface IChapter {
   end_time: number;
 }
 
+// The part of a file a link asks to play: from ;timestamp=, or the start, to ;end=. None for
+// an end that is missing, unreadable, or not after the start.
+export function linkedClip(timestamp: string | null, end: string | null): TimeRange | null {
+  const start = Math.max(Number(timestamp) || 0, 0);
+  const stop = Number(end);
+  return end && Number.isFinite(stop) && stop > start ? {start, end: stop} : null;
+}
+
 const AUTOPLAY_STORAGE_KEY = 'player_autoplay_enabled';
 const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 
@@ -72,6 +80,10 @@ const REPEAT_STORAGE_KEY = 'player_repeat_enabled';
 const MIN_SNIP_DURATION_SECONDS = 1;
 const SNIP_STATUS_POLL_INTERVAL_MS = 1000;
 const SNIP_SEEK_DEBOUNCE_MS = 80;
+// Only this near the end of a part a link asks for does a timer wait to stop the video. Further
+// off, the browser's reports of where playback is are enough, and an end weeks away would be a
+// delay setTimeout cannot hold, which it runs at once.
+const CLIP_TIMER_WINDOW_S = 1;
 const THEATER_TOOLBAR_HIDE_DELAY_MS = 2000;
 // A row of the list under the player is dragged at once with a mouse, but only after a press
 // and hold on a touch screen. Otherwise every swipe that starts on a row drags it, and the
@@ -125,6 +137,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   // The owner of a shared library this is played from, which is only ever watched, never changed.
   library: string = null;
   timestamp = null;
+  // The part of the file a link asks to play. The video stops at its end, or with Loop on
+  // plays it again, until the viewer seeks out of it or moves on to another file.
+  clip: TimeRange | null = null;
+  private clip_timer: ReturnType<typeof setTimeout> | null = null;
   auto = null;
   queue_sort_by = 'registered';
   queue_sort_order = -1;
@@ -219,6 +235,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.uuid = this.route.snapshot.paramMap.get('uuid');
     this.library = this.route.snapshot.paramMap.get('library');
     this.timestamp = this.route.snapshot.paramMap.get('timestamp');
+    this.clip = linkedClip(this.timestamp, this.route.snapshot.paramMap.get('end'));
     this.auto = this.route.snapshot.paramMap.get('auto');
     this.queue_sort_by = this.route.snapshot.paramMap.get('queue_sort_by') ?? 'registered';
     this.queue_sort_order = this.parseSortOrder(this.route.snapshot.paramMap.get('queue_sort_order'));
@@ -262,6 +279,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     clearInterval(this.save_volume_timer);
     this.clearTheaterToolbarHideTimer();
     this.clearSnipPoll();
+    this.clearClipTimer();
     if (this.subtitleTrackActivationTimer) {
       clearTimeout(this.subtitleTrackActivationTimer);
       this.subtitleTrackActivationTimer = null;
@@ -435,6 +453,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       media.addEventListener('ended', () => this.nextVideo());
       media.addEventListener('playing', () => this.onPlaybackStarted());
       media.addEventListener('timeupdate', () => this.onPlaybackTimeUpdate());
+      media.addEventListener('seeking', () => this.onSeeking());
       media.addEventListener('error', () => this.onMediaError());
 
       if (this.timestamp) {
@@ -461,6 +480,48 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       localStorage.setItem('player_volume', String(media.volume))
       this.original_volume = media.volume;
     }
+  }
+
+  // A part of the file
+
+  // On each report of where playback is. At the end of the part it stops the video, or with
+  // Loop on plays the part again.
+  private watchClipEnd(): void {
+    this.clearClipTimer();
+    const media = this.media;
+    const clip = this.clip;
+    // A seek under way is the viewer's to decide.
+    if (!media || !clip || media.paused || media.seeking) return;
+    // In seconds as they pass, at whatever speed it plays.
+    const left = (clip.end - media.currentTime) / (media.playbackRate || 1);
+    if (left > 0) {
+      // The browser says where playback is only every quarter of a second or so, so over the
+      // last second a timer stops the video on time. It looks again when it fires, in case
+      // playback stalled in the meantime.
+      if (left <= CLIP_TIMER_WINDOW_S) this.clip_timer = setTimeout(() => this.watchClipEnd(), left * 1000);
+    } else if (this.repeat_enabled) {
+      media.currentTime = clip.start;
+    } else {
+      // It has played, and pressing play again goes on into the rest of the file.
+      this.releaseClip();
+      media.pause();
+    }
+  }
+
+  // A seek out of the part, back or ahead, leaves the viewer the whole file.
+  private onSeeking(): void {
+    const time = this.media?.currentTime ?? 0;
+    if (this.clip && (time < this.clip.start || time >= this.clip.end)) this.releaseClip();
+  }
+
+  private releaseClip(): void {
+    this.clip = null;
+    this.clearClipTimer();
+  }
+
+  private clearClipTimer(): void {
+    if (this.clip_timer) clearTimeout(this.clip_timer);
+    this.clip_timer = null;
   }
 
   nextVideo(): void {
@@ -496,6 +557,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       this.subtitleTrackRefreshToken += 1;
       this.loadedSubtitleTrackSignature = '';
     }
+    // A link's part is of the file the page opened with. The next one plays whole.
+    if (file_changed && this.currentItem) this.releaseClip();
     const was_casting = this.isCasting();
     const previous_src = this.cast_src ?? this.currentItem?.src ?? null;
     this.currentItem  = newCurrentItem;
@@ -1731,6 +1794,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   onPlaybackTimeUpdate(): void {
     this.playbackTime = this.media?.currentTime ?? 0;
     this.refreshCurrentChapterState(this.playbackTime);
+    this.watchClipEnd();
   }
 
   refreshCurrentChapterState(current_time = this.media?.currentTime ?? this.playbackTime): void {
@@ -1862,7 +1926,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   repeatCurrentVideo(): void {
     if (!this.media) return;
-    this.media.currentTime = 0;
+    // A part that runs to the end of the file plays again from its own start.
+    this.media.currentTime = this.clip?.start ?? 0;
     this.playVideo();
   }
 
