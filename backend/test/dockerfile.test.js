@@ -84,4 +84,21 @@ describe('Dockerfile', function() {
             `No apt install in the final stage installs python3:\n${aptInstalls.join('\n')}`
         );
     });
+
+    // Regression guard for #643. The Ubuntu image already has an account at 1000:1000, so a
+    // groupadd or useradd that left the ID to the tool ran on every build and put files owned
+    // by 999:1001 into the image, which rootless podman could not always pull.
+    it('creates accounts only at the IDs it sets', function() {
+        const idFlags = { groupadd: /\s(-g|--gid)\b/, useradd: /\s(-u|--uid)\b/ };
+        const accountCommands = instructions
+            .filter((instruction) => /^RUN\s/i.test(instruction))
+            .flatMap((instruction) => instruction.replace(/^RUN\s+/i, '').split(/&&|\|\||;/))
+            .map((command) => command.trim().replace(/^[({!]\s*/, ''))
+            .filter((command) => /^(groupadd|useradd)\b/.test(command));
+
+        for (const command of accountCommands) {
+            const tool = command.split(/\s/)[0];
+            assert(idFlags[tool].test(command), `${command} leaves the ID for ${tool} to pick`);
+        }
+    });
 });

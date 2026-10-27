@@ -25,11 +25,15 @@ ENV npm_config_cache=/app/.npm
 
 # Use NVM to get the current Node 24 LTS line
 ENV NODE_VERSION=24
+# The entrypoint runs the app as UID:GID, and the Ubuntu image already has an account at
+# 1000:1000, so one is only created when a base image lacks it. It is never created at other
+# IDs: files owned by IDs the base image does not use can stop rootless podman pulling the
+# image (#643).
 # The Ubuntu image ships Canonical's pebble service manager, which nothing here runs. It is
 # a Go binary that only a new base image would update, so it goes rather than carrying the
 # Go runtime's advisories into every scan of this image.
-RUN (groupadd -g $GID $USER || groupadd $USER) && \
-    (useradd --system -m -g $USER --uid $UID $USER || useradd --system -m -g $USER $USER) && \
+RUN { getent group "$GID" >/dev/null || groupadd -g "$GID" "$USER"; } && \
+    { getent passwd "$UID" >/dev/null || useradd --system -m -u "$UID" -g "$GID" "$USER"; } && \
     rm -rf /usr/bin/pebble /var/lib/pebble && \
     apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates tzdata libatomic1 && \
