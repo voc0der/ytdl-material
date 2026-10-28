@@ -197,7 +197,8 @@ describe('OIDC authorization', function() {
 
     it('defaults external and malformed return paths to the home page', async function() {
         await oidc.initialize();
-        for (const returnTo of [undefined, null, '', 42, 'home', '//evil.example', 'https://evil.example']) {
+        for (const returnTo of [undefined, null, '', 42, 'home', '//evil.example', 'https://evil.example',
+            '/\\evil.example', '/\t/evil.example', '/home\u0000']) {
             const login = await begin(returnTo);
             assert.strictEqual((await oidc.consumeAuthorizationCallback(login)).return_to, '/home');
         }
