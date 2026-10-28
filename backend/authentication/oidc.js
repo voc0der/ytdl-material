@@ -30,6 +30,9 @@ function normalizeRelativePath(return_to) {
   const trimmed = return_to.trim();
   if (!trimmed.startsWith('/')) return '/home';
   if (trimmed.startsWith('//')) return '/home';
+  // Browsers read "\" as "/" and drop tabs and newlines, so "/\host" and
+  // "/<tab>/host" both become "//host". Refuse every control character.
+  if (/[\\\p{Cc}]/u.test(trimmed)) return '/home';
   return trimmed;
 }
 
