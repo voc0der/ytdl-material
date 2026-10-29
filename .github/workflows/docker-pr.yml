@@ -1,8 +1,11 @@
 name: docker-pr
 
+# Every pull request builds the image. One labelled pr-release also publishes it as pr-<number>,
+# on every push while the label stays, and adding the label starts that run without a new push.
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
       push_image:
@@ -21,6 +24,8 @@ on:
 
 jobs:
   build-and-push:
+    # Any other label being added is no reason to build again.
+    if: github.event.action != 'labeled' || github.event.label.name == 'pr-release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,7 +59,7 @@ jobs:
           IMAGE_TAG: ${{ github.event.inputs.image_tag }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           OWNER: ${{ github.repository_owner }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_RELEASE: ${{ contains(github.event.pull_request.labels.*.name, 'pr-release') }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -64,7 +69,7 @@ jobs:
             else
               echo "tags=ytdl-material:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
             fi
-          elif [ "$PR_AUTHOR" = "voc0der" ]; then
+          elif [ "$PR_RELEASE" = "true" ]; then
             PR_TAG="pr-$PR_NUMBER"
             echo "push=true" >> "$GITHUB_OUTPUT"
             echo "tags=$DOCKERHUB_USERNAME/ytdl-material:${PR_TAG},ghcr.io/$OWNER/ytdl-material:${PR_TAG}" >> "$GITHUB_OUTPUT"
