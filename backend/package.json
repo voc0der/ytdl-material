@@ -32,7 +32,7 @@
     "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
-    "croner": "^10.0.1",
+    "croner": "^11.0.0",
     "execa": "^10.0.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
