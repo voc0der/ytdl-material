@@ -64,7 +64,7 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | b
 
 # Build frontend
 ARG BUILDPLATFORM
-FROM --platform=${BUILDPLATFORM} node:24 AS frontend
+FROM --platform=${BUILDPLATFORM} node:26 AS frontend
 WORKDIR /build
 COPY [ ".npmrc", "package.json", "package-lock.json", "angular.json", "tsconfig.json", "/build/" ]
 COPY [ "src/", "/build/src/" ]

@@ -20,7 +20,7 @@
     "i18n-source": "ng extract-i18n --output-path=src/assets/i18n --out-file=messages.en.xlf"
   },
   "engines": {
-    "node": ">=24 <26",
+    "node": ">=24 <27",
     "npm": ">=10"
   },
   "private": true,
