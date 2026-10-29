@@ -100,22 +100,27 @@ describe('PostgreSQL store persistence', function() {
 describe('PostgreSQL connection lifecycle', function() {
     afterEach(function() { store.resetPoolFactory(); });
 
-    it('validates the connection URL and removes only driver SSL parameters', function() {
+    it('validates the connection URL and leaves its SSL parameters to pg', function() {
         for (const value of [undefined, null, '', '   ', 42]) {
             assert.throws(() => store.parsePostgresConnectionConfig(value), /connection string is required/);
         }
         assert.throws(() => store.parsePostgresConnectionConfig('https://db.test/database'), /Unsupported PostgreSQL protocol/);
         assert.throws(() => store.parsePostgresConnectionConfig('not a URL'), /Invalid URL/);
-        assert.deepEqual(store.parsePostgresConnectionConfig('postgres://db.test/library?sslmode=disable&application_name=test'), {
+        assert.deepEqual(store.parsePostgresConnectionConfig('postgres://db.test/library?application_name=test'), {
             connectionString: 'postgres://db.test/library?application_name=test'
         });
-        assert.equal(store.parsePostgresConnectionConfig('postgresql://db.test/library?sslmode=require').ssl.rejectUnauthorized, false);
-        const verified = store.parsePostgresConnectionConfig('postgresql://db.test/library?sslmode=verify-full');
-        assert.equal(verified.ssl.rejectUnauthorized, true);
-        assert.equal(verified.ssl.checkServerIdentity, undefined);
+        assert.deepEqual(store.parsePostgresConnectionConfig('postgres://db.test/library?sslmode=disable&application_name=test'), {
+            connectionString: 'postgres://db.test/library?sslmode=disable&application_name=test&uselibpqcompat=true'
+        });
+        // A string that picks pg's own meanings of the modes keeps them.
+        assert.deepEqual(store.parsePostgresConnectionConfig('postgres://db.test/library?sslmode=verify-ca&uselibpqcompat=false'), {
+            connectionString: 'postgres://db.test/library?sslmode=verify-ca&uselibpqcompat=false'
+        });
     });
 
-    it('loads client certificates and distinguishes CA verification from hostname verification', function() {
+    it('has pg load the certificates and check the CA but not the host name for verify-ca', function() {
+        const {Client} = require('pg');
+        const sslFor = connectionString => new Client(store.parsePostgresConnectionConfig(connectionString)).ssl;
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postgres-store-certs-'));
         try {
             const url = new URL('postgresql://db.test/library');
@@ -125,18 +130,20 @@ describe('PostgreSQL connection lifecycle', function() {
                 url.searchParams.set(parameter, filename);
             }
             url.searchParams.set('sslmode', 'verify-ca');
-            const config = store.parsePostgresConnectionConfig(url.toString());
-            assert.equal(config.connectionString, 'postgresql://db.test/library');
-            assert.equal(config.ssl.ca, 'test CA');
-            assert.equal(config.ssl.cert, 'test certificate');
-            assert.equal(config.ssl.key, 'test key');
-            assert.equal(config.ssl.rejectUnauthorized, true);
-            assert.equal(config.ssl.checkServerIdentity('db.test', {}), undefined);
+            const ssl = sslFor(url.toString());
+            assert.equal(ssl.ca, 'test CA');
+            assert.equal(ssl.cert, 'test certificate');
+            assert.equal(ssl.key, 'test key');
+            assert.notEqual(ssl.rejectUnauthorized, false);
+            assert.equal(ssl.checkServerIdentity('db.test', {}), undefined);
+            url.searchParams.set('sslmode', 'verify-full');
+            assert.equal(sslFor(url.toString()).checkServerIdentity, undefined);
             fs.unlinkSync(path.join(root, 'sslkey'));
-            assert.throws(() => store.parsePostgresConnectionConfig(url.toString()), {code: 'ENOENT'});
+            assert.throws(() => sslFor(url.toString()), {code: 'ENOENT'});
         } finally {
             fs.rmSync(root, {recursive: true, force: true});
         }
+        assert.equal(sslFor('postgresql://db.test/library?sslmode=require').rejectUnauthorized, false);
     });
 
     for (const testOnly of [true, false]) {

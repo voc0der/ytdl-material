@@ -1,6 +1,5 @@
-const os = require('os');
 const postgres_store = require('../postgres-store');
-const { assert, db_api, config_api, fs, path } = require('./test-shared');
+const { assert, db_api, config_api } = require('./test-shared');
 const { createFakeMongo } = require('./helpers/fake-mongo');
 
 describe('PostgreSQL backend integration points', function() {
@@ -25,20 +24,13 @@ describe('PostgreSQL backend integration points', function() {
         config_api.setConfigItem('ytdl_postgresdb_connection_string', 'postgresql://user:pass@db.example:5432/ytdl-material');
     }
 
-    it('parses PostgreSQL SSL connection settings from the connection string', function() {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-pg-'));
-        const caPath = path.join(tempDir, 'ca.crt');
-        fs.writeFileSync(caPath, 'test-ca');
+    it('leaves PostgreSQL SSL connection settings in the connection string for pg', function() {
+        const config = db_api.parsePostgresConnectionConfig('postgresql://user:pass@db.example:5432/ytdl-material?sslmode=verify-ca&sslrootcert=/certs/ca.crt');
 
-        const config = db_api.parsePostgresConnectionConfig(`postgresql://user:pass@db.example:5432/ytdl-material?sslmode=verify-ca&sslrootcert=${caPath}`);
-
-        assert.strictEqual(config.connectionString, 'postgresql://user:pass@db.example:5432/ytdl-material');
-        assert(config.ssl);
-        assert.strictEqual(config.ssl.ca, 'test-ca');
-        assert.strictEqual(config.ssl.rejectUnauthorized, true);
-        assert.strictEqual(typeof config.ssl.checkServerIdentity, 'function');
-
-        fs.removeSync(tempDir);
+        assert.deepStrictEqual(Object.keys(config), ['connectionString']);
+        const { searchParams } = new URL(config.connectionString);
+        assert.strictEqual(searchParams.get('sslmode'), 'verify-ca');
+        assert.strictEqual(searchParams.get('sslrootcert'), '/certs/ca.crt');
     });
 
     it('wraps PostgreSQL index expressions when ensuring schema', async function() {

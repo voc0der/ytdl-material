@@ -1,4 +1,3 @@
-const fs = require('fs');
 const _ = require('lodash');
 
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -552,47 +551,25 @@ async function ensureSchema(pool, tables = {}) {
     }
 }
 
-function sanitizeConnectionString(connectionString) {
-    const url = new URL(connectionString);
-    const cleanedUrl = new URL(connectionString);
-    ['sslmode', 'sslrootcert', 'sslcert', 'sslkey'].forEach(param => cleanedUrl.searchParams.delete(param));
-    return { originalUrl: url, cleanedConnectionString: cleanedUrl.toString() };
-}
-
 function parsePostgresConnectionConfig(connectionString) {
     if (typeof connectionString !== 'string' || connectionString.trim().length === 0) {
         throw new Error('A PostgreSQL connection string is required.');
     }
 
-    const { originalUrl, cleanedConnectionString } = sanitizeConnectionString(connectionString);
-    const protocol = originalUrl.protocol.toLowerCase();
+    const url = new URL(connectionString);
+    const protocol = url.protocol.toLowerCase();
     if (protocol !== 'postgres:' && protocol !== 'postgresql:') {
         throw new Error(`Unsupported PostgreSQL protocol '${protocol}'.`);
     }
 
-    const sslMode = (originalUrl.searchParams.get('sslmode') || '').toLowerCase();
-    const sslRootCert = originalUrl.searchParams.get('sslrootcert');
-    const sslCert = originalUrl.searchParams.get('sslcert');
-    const sslKey = originalUrl.searchParams.get('sslkey');
-    const shouldUseSSL = (sslMode && sslMode !== 'disable') || sslRootCert || sslCert || sslKey;
+    // pg reads sslmode, sslrootcert, sslcert and sslkey from the string itself. Unless the
+    // string says otherwise, it is asked for libpq's meaning of each mode, so verify-ca
+    // checks the certificate authority but not the host name.
+    if (url.searchParams.has('sslmode') && !url.searchParams.has('uselibpqcompat')) {
+        url.searchParams.set('uselibpqcompat', 'true');
+    }
 
-    const config = {
-        connectionString: cleanedConnectionString
-    };
-
-    if (!shouldUseSSL) return config;
-
-    const ssl = {
-        rejectUnauthorized: sslMode === 'verify-ca' || sslMode === 'verify-full'
-    };
-
-    if (sslRootCert) ssl.ca = fs.readFileSync(sslRootCert, 'utf8');
-    if (sslCert) ssl.cert = fs.readFileSync(sslCert, 'utf8');
-    if (sslKey) ssl.key = fs.readFileSync(sslKey, 'utf8');
-    if (sslMode === 'verify-ca') ssl.checkServerIdentity = () => undefined;
-
-    config.ssl = ssl;
-    return config;
+    return { connectionString: url.toString() };
 }
 
 async function createConnection(connectionString, tables = {}, options = {}) {

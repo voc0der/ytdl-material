@@ -1,5 +1,8 @@
 const assert = require('assert');
+const fs = require('fs');
 const net = require('net');
+const os = require('os');
+const path = require('path');
 const { createClient } = require('redis');
 const { RedisStore } = require('rate-limit-redis');
 
@@ -114,6 +117,35 @@ describe('Redis packages behind the rate limiters', function() {
             assert.deepStrictEqual(while_connecting, [250, false]);
             // Once connected, every reconnect is retried, backing off to a limit.
             assert.deepStrictEqual([0, 2, 20].map(retries => options.socket.reconnectStrategy(retries)), [250, 750, 2000]);
+        });
+
+        it('hands the certificate files the connection string names to TLS', async function() {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'redis-store-certs-'));
+            try {
+                const url = new URL('rediss://cache.example.test:6380/2');
+                for (const [parameter, contents] of [['sslrootcert', 'test CA'], ['sslcert', 'test certificate'], ['sslkey', 'test key']]) {
+                    const filename = path.join(root, parameter);
+                    fs.writeFileSync(filename, contents);
+                    url.searchParams.set(parameter, filename);
+                }
+                let options = null;
+                redis_store.__setCreateRedisClient(client_options => {
+                    options = client_options;
+                    const client = createClient(client_options);
+                    client.connect = async () => client;
+                    return client;
+                });
+                await redis_store.createConnection(url.toString());
+
+                assert.strictEqual(options.socket.tls, true);
+                assert.deepStrictEqual([options.socket.ca, options.socket.cert, options.socket.key].map(String),
+                    ['test CA', 'test certificate', 'test key']);
+
+                fs.unlinkSync(path.join(root, 'sslkey'));
+                await assert.rejects(redis_store.createConnection(url.toString()), {code: 'ENOENT'});
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
         });
     });
 
