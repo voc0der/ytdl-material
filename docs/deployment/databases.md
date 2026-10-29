@@ -21,6 +21,17 @@ Replace the credentials and database name with those created on your server. Ins
 
 For a new database, pin the image's major version. The official PostgreSQL image uses **`/var/lib/postgresql` for 18 and later**; older majors normally use **`/var/lib/postgresql/data`**. The repository's default and extended Compose examples currently differ in this mount, so align the mount with the image you choose. Consult the [official image's storage notes](https://hub.docker.com/_/postgres) before an upgrade or volume change.
 
+### TLS
+
+Add libpq's parameters to the connection string. The PostgreSQL driver reads the files and gives each `sslmode` its libpq meaning, so `verify-ca` checks the certificate authority but not the host name. Add `sslcert` and `sslkey` when the server requires a client certificate:
+
+```yaml
+environment:
+  ytdl_postgresdb_connection_string: 'postgresql://APP_USER:APP_PASSWORD@ytdl-postgres-db:5432/APP_DB?sslmode=verify-ca&sslrootcert=/certs/ca.crt&sslcert=/certs/client.crt&sslkey=/certs/client.key'
+```
+
+Mount the files into the app container at those paths. Without these parameters the app connects as before.
+
 ## MongoDB
 
 ```yaml
@@ -50,3 +61,12 @@ environment:
 ```
 
 If Redis is invalid or unavailable, the backend logs a warning and uses an in-memory limiter while retrying the connection. To disable a previously saved Redis URL, apply `ytdl_redis_connection_string: ''` for one startup, then remove the environment line.
+
+For TLS, use `rediss://`. The same `sslrootcert`, `sslcert` and `sslkey` parameters as PostgreSQL name the certificate authority, client certificate and key files:
+
+```yaml
+environment:
+  ytdl_redis_connection_string: 'rediss://:REDIS_PASSWORD@ytdl-redis:6379/0?sslrootcert=/certs/ca.crt&sslcert=/certs/client.crt&sslkey=/certs/client.key'
+```
+
+The server's certificate must name the host in the URL, `ytdl-redis` here.

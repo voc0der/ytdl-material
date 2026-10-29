@@ -1,4 +1,9 @@
+const fs = require('fs');
 const { URL } = require('url');
+
+// The parameters a PostgreSQL connection string names its certificate files with. Only
+// rediss:// turns TLS on; the files are handed to it as they are.
+const TLS_FILE_PARAMETERS = { ca: 'sslrootcert', cert: 'sslcert', key: 'sslkey' };
 
 let createRedisClient = null;
 let RedisStoreCtor = null;
@@ -47,6 +52,16 @@ function isRedisConnectionString(connectionString = '') {
     return normalized.startsWith('redis://') || normalized.startsWith('rediss://');
 }
 
+function readTlsFiles(connectionString) {
+    const { searchParams } = new URL(connectionString);
+    const files = {};
+    for (const [option, parameter] of Object.entries(TLS_FILE_PARAMETERS)) {
+        const filename = searchParams.get(parameter);
+        if (filename) files[option] = fs.readFileSync(filename);
+    }
+    return files;
+}
+
 async function createConnection(connectionString, options = {}) {
     const normalizedConnectionString = normalizeRedisConnectionString(connectionString);
     const {
@@ -61,6 +76,7 @@ async function createConnection(connectionString, options = {}) {
     const client = getCreateRedisClient()({
         url: normalizedConnectionString,
         socket: {
+            ...readTlsFiles(normalizedConnectionString),
             connectTimeout: connectTimeoutMs,
             reconnectStrategy: (retries) => {
                 if (!hasConnectedOnce) {

@@ -34,7 +34,7 @@ If you use the provided default compose files, PostgreSQL is already wired up fo
 
 ### PostgreSQL
 
-* `ytdl_postgresdb_connection_string`: PostgreSQL connection string (the default compose file points to `postgresql://PlaceholderUser:PlaceholderPassword@ytdl-postgres-db:5432/PlaceholderDB`)
+* `ytdl_postgresdb_connection_string`: PostgreSQL connection string (the default compose file points to `postgresql://PlaceholderUser:PlaceholderPassword@ytdl-postgres-db:5432/PlaceholderDB`). For TLS, add libpq's `sslmode`, `sslrootcert`, `sslcert` and `sslkey` parameters, for example `?sslmode=verify-ca&sslrootcert=/certs/ca.crt&sslcert=/certs/client.crt&sslkey=/certs/client.key`
 
 Example:
 
@@ -74,7 +74,7 @@ A successful DB-to-DB migration clears the config setting automatically, but you
 
 Redis is optional. It is only used for shared Express rate-limiter state.
 
-* `ytdl_redis_connection_string`: optional Redis connection string (`redis://` or `rediss://`)
+* `ytdl_redis_connection_string`: optional Redis connection string (`redis://` or `rediss://`). With `rediss://`, the same `sslrootcert`, `sslcert` and `sslkey` parameters as PostgreSQL name the CA, client certificate and key files
 
 If `ytdl_redis_connection_string` is configured, ytdl-material will attempt to use Redis during startup. If Redis is unreachable or the connection string is invalid, the backend logs a warning, continues with the default in-memory limiter store, and keeps retrying the Redis connection in the background until Redis becomes available.
 
