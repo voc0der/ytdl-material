@@ -57,6 +57,7 @@ Useful focused tools include:
 | --- | --- |
 | `node dev/deps/check-declared.mjs` | Finds imports missing from dependency declarations |
 | `node dev/deps/check-cycles.mjs` | Finds runtime frontend import cycles |
+| `node dev/i18n/catalog.mjs` | Exports untranslated strings and imports validated translations |
 | `dev/ldap/ldap-server.sh start` | Starts the local LDAP test directory |
 | `docker-utils/container-repro.sh` | Reproduces downloader behavior inside the published container |
 | `dev/screenshots/*.sh` | Stages local UI scenarios and captures screenshots |
@@ -65,6 +66,6 @@ Useful focused tools include:
 
 Update `Public API v1.yaml` when changing the documented API, then run `npm run generate` to regenerate TypeScript models under `src/api-types`. Keep authentication and ownership behavior consistent with the route guards.
 
-For UI translation work, preserve Angular i18n markers and `$localize` messages. `npm run i18n-source` extracts the English XLIFF source under `src/assets/i18n`; the build's preprocessing creates the runtime JSON files. Do not treat generated JSON translations as the primary source.
+For UI translation work, preserve Angular i18n markers and `$localize` messages. `npm run i18n-source` extracts the English XLIFF source under `src/assets/i18n` and merges new and removed strings into every language catalog; the build's preprocessing creates the runtime JSON files. Do not treat generated JSON translations as the primary source. The [development guide](https://github.com/voc0der/ytdl-material/blob/main/DEVELOPMENT.md#translating-the-interface) covers filling the catalogs.
 
 Documentation development has its own [small build workflow](documentation.md) and does not require installing Angular or starting the app.

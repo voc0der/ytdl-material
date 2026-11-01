@@ -110,9 +110,48 @@
           }
         },
         "extract-i18n": {
-          "builder": "@angular/build:extract-i18n",
+          "builder": "ng-extract-i18n-merge:ng-extract-i18n-merge",
           "options": {
-            "buildTarget": "ytdl-material:build"
+            "buildTarget": "ytdl-material:build",
+            "format": "xlf",
+            "outputPath": "src/assets/i18n",
+            "sourceFile": "messages.en.xlf",
+            "targetFiles": [
+              "messages.ca.xlf",
+              "messages.cs.xlf",
+              "messages.da.xlf",
+              "messages.de.xlf",
+              "messages.el.xlf",
+              "messages.es.xlf",
+              "messages.et.xlf",
+              "messages.fi.xlf",
+              "messages.fr.xlf",
+              "messages.hi.xlf",
+              "messages.hu.xlf",
+              "messages.id.xlf",
+              "messages.is.xlf",
+              "messages.it.xlf",
+              "messages.ja.xlf",
+              "messages.ko.xlf",
+              "messages.mk.xlf",
+              "messages.nb-NO.xlf",
+              "messages.nl.xlf",
+              "messages.pl.xlf",
+              "messages.pt-BR.xlf",
+              "messages.pt.xlf",
+              "messages.ru.xlf",
+              "messages.sv.xlf",
+              "messages.ta.xlf",
+              "messages.te.xlf",
+              "messages.tr.xlf",
+              "messages.vi.xlf",
+              "messages.zh-Hant.xlf",
+              "messages.zh.xlf"
+            ],
+            "fuzzyMatch": false,
+            "newTranslationTargetsBlank": "omit",
+            "includeContext": "sourceFileOnly",
+            "includeContextLineNumber": false
           }
         },
         "test": {

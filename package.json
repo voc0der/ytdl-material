@@ -17,7 +17,7 @@
     "fuzz": "bash dev/fuzz/run.sh",
     "scan:zap": "docker build -t ytdl-material:local . && bash dev/zap/scan.sh ytdl-material:local",
     "generate": "openapi --input ./\"Public API v1.yaml\" --output ./src/api-types --exportCore false --exportServices false --exportModels true",
-    "i18n-source": "ng extract-i18n --output-path=src/assets/i18n --out-file=messages.en.xlf"
+    "i18n-source": "ng extract-i18n"
   },
   "engines": {
     "node": ">=24 <27",
@@ -64,6 +64,7 @@
     "fs-extra": "^11.4.1",
     "globals": "^17.12.0",
     "jsdom": "^30.1.1",
+    "ng-extract-i18n-merge": "^3.5.0",
     "openapi-typescript-codegen": "^0.31.0",
     "vitest": "^5.0.1",
     "xliff-to-json": "^1.1.0"
