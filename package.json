@@ -61,12 +61,10 @@
     "@vitest/coverage-v8": "^5.0.1",
     "ajv": "^8.20.0",
     "eslint": "^10.11.0",
-    "fs-extra": "^11.4.1",
     "globals": "^17.12.0",
     "jsdom": "^30.1.1",
     "ng-extract-i18n-merge": "^3.5.0",
     "openapi-typescript-codegen": "^0.31.0",
-    "vitest": "^5.0.1",
-    "xliff-to-json": "^1.1.0"
+    "vitest": "^5.0.1"
   }
 }
