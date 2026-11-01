@@ -156,6 +156,42 @@ cycle -- and exits non-zero naming each group of files that can reach itself. Wo
 moving a component into another's template, or whenever a production build shows an NG0919 that
 `ng serve` does not. Like `check-declared.mjs`, it is not part of CI.
 
+# Translating the interface
+
+The catalogs in `src/assets/i18n` are XLIFF 1.2: `messages.en.xlf` is extracted from the code,
+and each `messages.<lang>.xlf` holds the same strings with a `<target>` for every one that is
+translated. No translation service tracks this fork, so they are filled from here.
+
+```bash
+npm run i18n-source                                      # sync every catalog with the code
+node dev/i18n/catalog.mjs status                         # translated / total per catalog
+node dev/i18n/catalog.mjs export /tmp/i18n               # numbered strings, and what each lacks
+node dev/i18n/catalog.mjs import de /tmp/i18n de-1.json  # {"12": "..."} into <target>s
+node dev/i18n/catalog.mjs check                          # re-validate every catalog
+```
+
+`npm run i18n-source` runs ng-extract-i18n-merge. It adds new strings to every catalog without a
+`<target>`, so they show in English until translated, and deletes the strings the code no longer
+uses. Run it after changing interface text, then translate what `export` lists as missing. A
+string's ID is a hash of its English text, so rewording a string turns it into a new, untranslated
+one in every catalog.
+
+`export` writes `source.tsv`: one line per string with its number, its text (placeholders written
+`{$NAME}`), and its description, what its placeholders stand for and where it appears. `import`
+reads JSON objects mapping those numbers to translations. It leaves existing translations alone
+and rejects any whose placeholders differ from the source's, whose tag placeholders are not
+nested, or whose plural cases differ. Angular drops a translation with the wrong placeholders and
+shows the English instead. Plural cases have to match because the app runs on Angular's default
+`en-US` locale whatever language is picked, so a `few` or `many` case would never be chosen.
+
+The build converts the catalogs into the JSON the app loads (`src/postbuild.mjs`), and the
+language picker offers every language with at least one translated string. To add a language,
+list `messages.<lang>.xlf` under `targetFiles` in `angular.json` and run `npm run i18n-source`,
+which creates it, then give it a name in `src/app/dialogs/user-profile-dialog/locales_list.ts` if
+it has none.
+
+None of this runs in CI.
+
 # Exercising subscriptions
 
 Subscriptions are the hardest part of the app to test by hand: a real one has to be created,

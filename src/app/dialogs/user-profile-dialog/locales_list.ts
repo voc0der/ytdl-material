@@ -125,6 +125,10 @@ export const isoLangs = {
        'nativeName': '中文 (Zhōngwén), 汉语, 漢語',
        'ngID': 'zh'
    },
+   'zh-Hant': {
+       'name': 'Traditional Chinese',
+       'nativeName': '繁體中文'
+   },
    'cv': {
        'name': 'Chuvash',
        'nativeName': 'чӑваш чӗлхи'
@@ -525,6 +529,10 @@ export const isoLangs = {
    'pt': {
        'name': 'Portuguese',
        'nativeName': 'Português'
+   },
+   'pt-BR': {
+       'name': 'Brazilian Portuguese',
+       'nativeName': 'Português (Brasil)'
    },
    'qu': {
        'name': 'Quechua',
