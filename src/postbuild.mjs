@@ -26,7 +26,7 @@ async function recFindByExt(base,ext,files,result)
 
 // outputs array of supported locales
 async function createLocalizationJSON() {
-    xliffToJSON.convert('src/assets/i18n');
+    await xliffToJSON.convert('src/assets/i18n');
     const files = await recFindByExt(path.join('src', 'assets', 'i18n'), 'json');
     const locales = [];
 
