@@ -49,13 +49,14 @@ ENV NVM_DIR=/usr/local/nvm
 # tarball in its cache, and Node ships C++ headers that are only needed to compile native
 # addons (nothing here does), so both are removed in this same layer or they stay in the image.
 # Node releases bundle an npm that can be months old, and advisories against the packages
-# npm bundles land in this image with it, so npm moves to the newest release of its major.
+# npm bundles land in this image with it, so npm moves to the newest npm 12 release. Node 24
+# bundles npm 11, and npm 12 supports it from 24.15.0.
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
     nvm use v${NODE_VERSION} && \
     nvm alias default v${NODE_VERSION} && \
-    npm install -g "npm@$(npm --version | cut -d. -f1)" --cache /tmp/npm-cache && \
+    npm install -g npm@12 --cache /tmp/npm-cache && \
     rm -rf /tmp/npm-cache && \
     nvm cache clear && \
     rm -rf "$NVM_DIR"/versions/node/*/include && \
