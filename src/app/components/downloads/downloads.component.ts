@@ -9,6 +9,7 @@ import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, filter, take } from 'rxjs/operators';
 import { PlaylistDownloadProgressDialogComponent } from 'app/dialogs/playlist-download-progress-dialog/playlist-download-progress-dialog.component';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
+import { playerLink } from 'app/utils/player-link';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
@@ -508,11 +509,8 @@ export class DownloadsComponent implements OnInit, OnDestroy {
     if (!container) return;
     sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
     const is_playlist = !!container['id'] && !container['uid'];
-    if (is_playlist) {
-      this.router.navigate(['/player', {playlist_id: container['id'], type: download['type']}]);
-    } else {
-      this.router.navigate(['/player', {type: download['type'], uid: container['uid']}]);
-    }
+    const link = playerLink(container, is_playlist);
+    this.router.navigate(link.commands, {queryParams: link.queryParams});
   }
 
   combineDownloads(downloads_old: Download[], downloads_new: Download[]): Download[] {

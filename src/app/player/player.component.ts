@@ -11,6 +11,7 @@ import { openConfirmDialog } from 'app/dialogs/confirm-dialog/confirm-dialog.com
 import { saveBlob } from '../utils/save-blob';
 import { fileThumbnailURL, formatDuration } from '../utils/file-display';
 import { shareLink } from '../utils/share-link';
+import { playerLink, takePlayerTabQueue, PLAYER_QUEUE_PARAMS, PLAYER_QUEUE_STATE } from '../utils/player-link';
 import { filesize } from 'filesize';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
@@ -130,6 +131,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   playlist_id = null; // used for playlists (not subscription)
   file_objs: DatabaseFile[] = []; // used for playlists
   uid = null; // used for non-subscription files (audio, video, playlist)
+  private share_id: string | null = null;
+  private queue_params: Record<string, string> = {};
   subscription = null;
   sub_id = null;
   subPlaylist = null;
@@ -229,21 +232,34 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.initPlaybackModeToggles();
     this.playlist_id = this.route.snapshot.paramMap.get('playlist_id');
     this.uid = this.route.snapshot.paramMap.get('uid');
+    this.share_id = this.route.snapshot.queryParamMap.get('id');
     this.sub_id = this.route.snapshot.paramMap.get('sub_id');
     this.url = this.route.snapshot.paramMap.get('url');
     this.name = this.route.snapshot.paramMap.get('name');
     this.uuid = this.route.snapshot.paramMap.get('uuid');
-    this.library = this.route.snapshot.paramMap.get('library');
-    this.timestamp = this.route.snapshot.paramMap.get('timestamp');
-    this.clip = linkedClip(this.timestamp, this.route.snapshot.paramMap.get('end'));
-    this.auto = this.route.snapshot.paramMap.get('auto');
-    this.queue_sort_by = this.route.snapshot.paramMap.get('queue_sort_by') ?? 'registered';
-    this.queue_sort_order = this.parseSortOrder(this.route.snapshot.paramMap.get('queue_sort_order'));
-    this.queue_file_type_filter = this.parseFileTypeFilter(this.route.snapshot.paramMap.get('queue_file_type_filter'));
-    this.queue_favorite_filter = this.route.snapshot.paramMap.get('queue_favorite_filter') === 'true';
-    this.queue_category_filter_uids = this.parseCategoryFilterUids(this.route.snapshot.paramMap.get('queue_category_filter_uids'));
-    this.queue_search = this.route.snapshot.paramMap.get('queue_search');
-    this.queue_sub_id = this.route.snapshot.paramMap.get('queue_sub_id');
+    this.library = this.linkParam('library');
+    this.timestamp = this.linkParam('timestamp');
+    this.clip = linkedClip(this.timestamp, this.linkParam('end'));
+    this.auto = this.linkParam('auto');
+    const tab_queue = takePlayerTabQueue();
+    const saved_queue = this.router.currentNavigation()?.extras.state?.[PLAYER_QUEUE_STATE]
+      ?? window.history.state?.[PLAYER_QUEUE_STATE] ?? tab_queue;
+    this.queue_params = {};
+    for (const key of PLAYER_QUEUE_PARAMS) {
+      // Old bookmarks still work. Explicit URL values take priority over history state.
+      const value = this.route.snapshot.paramMap.get(key) ?? saved_queue?.[key];
+      if (typeof value === 'string') this.queue_params[key] = value;
+    }
+    this.queue_sort_by = this.queue_params.queue_sort_by ?? 'registered';
+    this.queue_sort_order = this.parseSortOrder(this.queue_params.queue_sort_order);
+    this.queue_file_type_filter = this.parseFileTypeFilter(this.queue_params.queue_file_type_filter);
+    this.queue_favorite_filter = this.queue_params.queue_favorite_filter === 'true';
+    this.queue_category_filter_uids = this.parseCategoryFilterUids(this.queue_params.queue_category_filter_uids);
+    this.queue_search = this.queue_params.queue_search ?? null;
+    this.queue_sub_id = this.queue_params.queue_sub_id ?? null;
+    if (tab_queue) {
+      window.history.replaceState({...window.history.state, [PLAYER_QUEUE_STATE]: this.queue_params}, '');
+    }
 
     // loading config
     if (this.postsService.initialized) {
@@ -253,6 +269,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
         .pipe(filter(Boolean), take(1))
         .subscribe(() => this.processConfig());
     }
+  }
+
+  private linkParam(key: string): string | null {
+    return this.route.snapshot.paramMap.get(key) ?? this.route.snapshot.queryParamMap.get(key);
   }
 
   ngAfterViewInit(): void {
@@ -315,7 +335,18 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.subscriptionFolderPath = this.postsService.config['Subscriptions']['subscriptions_base_path'];
     this.postsService.setPageTitle();
 
-    if (this.sub_id) {
+    if (this.share_id) {
+      this.postsService.resolvePlayerLink(this.share_id, this.library).subscribe({
+        next: link => {
+          if (this.destroyed) return;
+          this.uid = link.uid ?? null;
+          this.playlist_id = link.playlist_id ?? null;
+          if (this.uid) this.getFile();
+          else if (this.playlist_id) this.getPlaylistFiles();
+        },
+        error: () => this.postsService.openSnackBar($localize`Failed to get file information from the server.`, 'Dismiss')
+      });
+    } else if (this.sub_id) {
       this.getSubscription();
     } else if (this.playlist_id) {
       this.getPlaylistFiles();
@@ -342,11 +373,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   getFile(): void {
     this.postsService.getFile(this.uid, this.uuid, this.library).subscribe(res => {
+      if (this.destroyed) return;
       this.db_file = res['file'];
       if (!this.db_file) {
         this.postsService.openSnackBar($localize`Failed to get file information from the server.`, 'Dismiss');
         return;
       }
+      if (this.useShortPlayerLink(this.db_file)) return;
       // regular video/audio file (not playlist)
       this.uids = [this.db_file['uid']];
       this.type = this.db_file['isAudio'] ? 'audio' as FileType : 'video' as FileType;
@@ -372,8 +405,10 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   getPlaylistFiles(): void {
     this.postsService.getPlaylist(this.playlist_id, this.uuid, true, this.library).subscribe(res => {
+      if (this.destroyed) return;
       if (res['playlist']) {
         this.db_playlist = res['playlist'];
+        if (this.useShortPlayerLink(this.db_playlist, true)) return;
         this.file_objs = res['file_objs'];
         this.uids = this.db_playlist.uids;
         this.type = res['type'];
@@ -384,6 +419,24 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }, () => {
       this.postsService.openSnackBar($localize`Failed to load playlist!`);
     });
+  }
+
+  private useShortPlayerLink(record: DatabaseFile | Playlist, playlist = false): boolean {
+    // Public shares keep their existing owner-scoped route and authorization. Raw stream
+    // URLs and subscription queues also retain their own identities.
+    if (this.share_id || this.uuid || this.sub_id || this.url || !record.share_id) return false;
+    const params: Record<string, string> = {};
+    for (const key of ['library', 'timestamp', 'end', 'auto']) {
+      const value = this.linkParam(key);
+      if (value !== null) params[key] = value;
+    }
+    const link = playerLink(record, playlist, params);
+    void this.router.navigate(link.commands, {
+      queryParams: link.queryParams,
+      replaceUrl: true,
+      state: {[PLAYER_QUEUE_STATE]: this.queue_params}
+    });
+    return true;
   }
 
   parseFileNames(): void {

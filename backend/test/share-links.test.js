@@ -3,6 +3,8 @@ const request = require('supertest');
 
 const { assert, config_api, db_api, files_api } = require('./test-shared');
 const share_links = require('../share-links');
+const {requireAuthenticated} = require('../authentication/permissions');
+const {resolveLibraryOwner} = require('../authentication/library-sharing');
 
 const SHARE_ID_SHAPE = /^[A-Za-z0-9]{11}$/;
 
@@ -166,6 +168,53 @@ describe('Short share links', function() {
         it('answers a link to nothing with a 404', async function() {
             await request(app).get('/s/NoSuchLink1').expect(404);
             await request(app).get('/s/short').expect(404);
+        });
+    });
+
+    describe('authenticated player lookup', function() {
+        function appFor(user_uid) {
+            const app = express();
+            app.use((req, res, next) => {
+                if (user_uid) req.user = {uid: user_uid};
+                next();
+            });
+            app.get('/api/resolvePlayerLink/:share_id', requireAuthenticated, resolveLibraryOwner, share_links.resolvePlayerLink);
+            return app;
+        }
+
+        it('resolves files and playlists in single-user mode', async function() {
+            const app = appFor(null);
+            assert.deepStrictEqual((await request(app).get(`/api/resolvePlayerLink/${FILE.share_id}`).expect(200)).body, {uid: FILE.uid});
+            assert.deepStrictEqual((await request(app).get(`/api/resolvePlayerLink/${PLAYLIST.share_id}`).expect(200)).body, {playlist_id: PLAYLIST.id});
+            await request(app).get('/api/resolvePlayerLink/NoSuchLink1').expect(404);
+            await request(app).get('/api/resolvePlayerLink/invalid').expect(404);
+        });
+
+        it('requires a login and scopes aliases to the caller even when an item is shared', async function() {
+            multi_user_mode = true;
+            await db_api.updateRecord('files', {uid: FILE.uid}, {sharingEnabled: true});
+            for (const record of [FILE, PLAYLIST]) {
+                const url = `/api/resolvePlayerLink/${record.share_id}`;
+                await request(appFor(null)).get(url).expect(401);
+                await request(appFor('someone_else')).get(url).expect(404);
+                await request(appFor(FILE.user_uid)).get(url).expect(200);
+            }
+        });
+
+        it('reads a shared library only while its owner permits it', async function() {
+            multi_user_mode = true;
+            await db_api.insertRecordIntoTable('users', {uid: FILE.user_uid, library_shared: true});
+            try {
+                const app = appFor('someone_else');
+                const url = `/api/resolvePlayerLink/${FILE.share_id}`;
+                const res = await request(app).get(url).query({library: FILE.user_uid}).expect(200);
+                assert.deepStrictEqual(res.body, {uid: FILE.uid});
+                await db_api.updateRecord('users', {uid: FILE.user_uid}, {library_shared: false});
+                await request(app).get(url).query({library: FILE.user_uid}).expect(403);
+                await request(app).get(url).query({library: 'unknown_owner'}).expect(403);
+            } finally {
+                await db_api.removeAllRecords('users', {uid: FILE.user_uid});
+            }
         });
     });
 });

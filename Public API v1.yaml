@@ -9,6 +9,44 @@ info:
 servers:
   - url: 'http://localhost:17442'
 paths:
+  /api/resolvePlayerLink/{share_id}:
+    get:
+      tags:
+        - files
+      summary: Resolve a compact player link
+      description: Resolves an existing short id to a file or playlist in the caller's library. A shared library may be selected with the library parameter. This does not enable public sharing or issue a playback credential.
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9]{11}$'
+        - name: library
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The file uid or playlist id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uid:
+                    type: string
+                  playlist_id:
+                    type: string
+        '401':
+          description: Authentication required in multi-user mode
+        '403':
+          description: The requested library is not shared
+        '404':
+          description: No matching file or playlist in the authorized library
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/downloadFile:
     post:
       tags:

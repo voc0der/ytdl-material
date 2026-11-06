@@ -118,6 +118,14 @@ describe('The library through the server', function() {
             const missing = await app.api.post('/api/getFile').send({uid: 'no-such-file'}).expect(200);
             assert.deepStrictEqual(missing.body, {success: false});
         });
+
+        it('resolves a compact player link through the authenticated lookup route', async function() {
+            const file = files.second;
+            assert.match(file.share_id, /^[A-Za-z0-9]{11}$/);
+            const res = await app.api.get(`/api/resolvePlayerLink/${file.share_id}`).expect(200);
+            assert.deepStrictEqual(res.body, {uid: file.uid});
+            await app.api.get('/api/resolvePlayerLink/NoSuchLink1').expect(404);
+        });
     });
 
     describe('Editing a file', function() {

@@ -16,6 +16,7 @@ const crypto = require('node:crypto');
 const config_api = require('./config');
 const db_api = require('./db');
 const logger = require('./logger');
+const { libraryOwnerUid } = require('./authentication/library-sharing');
 
 // Letters and digits only. Some chat apps end a link at a trailing - or _, which an id drawn
 // from base64url would end in now and then.
@@ -34,6 +35,19 @@ exports.generateShareId = () => {
 }
 
 exports.isShareId = (value) => typeof value === 'string' && SHARE_ID_PATTERN.test(value);
+
+// An authenticated player's alias lookup. The route checks the requested library before
+// this runs; a short id never grants access to another owner's private records.
+exports.resolvePlayerLink = async (req, res) => {
+    if (!exports.isShareId(req.params.share_id)) return res.sendStatus(404);
+    const filter = {share_id: req.params.share_id};
+    if (config_api.getConfigItem('ytdl_multi_user_mode')) filter.user_uid = libraryOwnerUid(req);
+    const file = await db_api.getRecord('files', filter);
+    if (file) return res.json({uid: file.uid});
+    const playlist = await db_api.getRecord('playlists', filter);
+    if (playlist) return res.json({playlist_id: playlist.id});
+    return res.sendStatus(404);
+}
 
 /*************************************************
  * Gives an id to every file and playlist without

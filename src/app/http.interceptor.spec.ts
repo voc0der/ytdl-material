@@ -47,4 +47,20 @@ describe('h401InterceptorFn', () => {
     expect(router.navigate).not.toHaveBeenCalled();
     expect(snackBar.open).not.toHaveBeenCalled();
   });
+
+  it('keeps a compact player link as the login return target', async () => {
+    await unauthorizedOn('/video?id=FileLink123');
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+  });
+
+  it('keeps the direct player target when session restoration fails before routing starts', async () => {
+    const original = window.location.href;
+    try {
+      window.history.replaceState(null, '', '/media/video?id=FileLink123');
+      await unauthorizedOn('/');
+      expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+    } finally {
+      window.history.replaceState(null, '', original);
+    }
+  });
 });

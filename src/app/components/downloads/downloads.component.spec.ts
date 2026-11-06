@@ -266,8 +266,8 @@ describe('DownloadsComponent', () => {
 
     expect(router_mock.navigate).toHaveBeenCalledWith([
       '/player',
-      { playlist_id: 'playlist-id', type: 'video' }
-    ]);
+      { playlist_id: 'playlist-id' }
+    ], {queryParams: {}});
   });
 
   it('retries failed downloads only', () => {

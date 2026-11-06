@@ -213,7 +213,7 @@ describe('Playlist batches on the downloads page', () => {
     expect(aggregate.title).toBe('Full playlist');
     expect(aggregate.percent_complete).toBe(100);
     rowButton('Watch content')!.click();
-    expect(router.navigate).toHaveBeenCalledWith(['/player', { playlist_id: 'playlist', type: 'video' }]);
+    expect(router.navigate).toHaveBeenCalledWith(['/player', {playlist_id: 'playlist'}], {queryParams: {}});
     expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/downloads');
   });
 

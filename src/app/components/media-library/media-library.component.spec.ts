@@ -1164,15 +1164,17 @@ describe('MediaLibraryComponent', () => {
     expect(restored.files.map(file => file.uid)).toEqual(['file-1', 'file-2']);
   });
 
-  it('should include category filters in player route params', () => {
+  it('should carry category filters in history state rather than the player URL', () => {
     postsServiceStub.categories = [
       { uid: 'cat-music', name: 'Music', show_as_filter: true }
     ];
     component.selectedFilters = ['category:cat-music'];
 
-    const route_params = component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any);
-
-    expect(route_params.queue_category_filter_uids).toBe('cat-music');
+    component.navigateToFile({uid: 'file-1', share_id: 'FileLink123', isAudio: false} as any, false);
+    expect(routerStub.navigate).toHaveBeenCalledWith(['/video'], {
+      queryParams: {id: 'FileLink123'},
+      state: {playerQueue: expect.objectContaining({queue_category_filter_uids: 'cat-music'})}
+    });
   });
 
   it('should not save restore state when opening the player in a new tab', () => {
@@ -1205,7 +1207,7 @@ describe('MediaLibraryComponent', () => {
 
       expect(postsServiceStub.getAllFiles.mock.lastCall[8]).toBe('bob');
       expect(postsServiceStub.getPlaylists).toHaveBeenCalledWith(true, 'bob');
-      expect(component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any).library).toBe('bob');
+      expect(component.getPlayerRouteParams().library).toBe('bob');
       expect(component.getPlaylistRouteParams({ id: 'playlist-1' } as any).library).toBe('bob');
     });
 
@@ -1216,7 +1218,7 @@ describe('MediaLibraryComponent', () => {
 
       expect(component.libraryUid).toBeNull();
       expect(postsServiceStub.getAllFiles.mock.lastCall[8]).toBeNull();
-      expect(component.getPlayerRouteParams({ uid: 'file-1', isAudio: false } as any).library).toBeUndefined();
+      expect(component.getPlayerRouteParams().library).toBeUndefined();
     });
 
     it('should load the other library from its first page when it is switched to', () => {

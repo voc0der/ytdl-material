@@ -201,11 +201,21 @@ describe('Accounts on a multi-user server', function() {
             await app.api.get('/api/stream').query({uid: file.uid}).expect(401);
         });
 
+        it('resolves a short player id only for its owner', async function() {
+            const route = `/api/resolvePlayerLink/${file.share_id}`;
+            const res = await as('alice', 'get', route).expect(200);
+            assert.deepStrictEqual(res.body, {uid: file.uid});
+            await as('bob', 'get', route).expect(404);
+            await app.api.get(route).expect(401);
+        });
+
         it('opens to a share link while sharing is on, and only then', async function() {
             const shared = {uuid: 'alice', uid: file.uid};
             await app.api.post('/api/getFile').send(shared).expect(401);
 
             await as('alice', 'post', '/api/enableSharing').send({uid: file.uid, is_playlist: false}).expect(200);
+            // An ordinary player alias never becomes an anonymous credential.
+            await app.api.get(`/api/resolvePlayerLink/${file.share_id}`).expect(401);
             const res = await app.api.post('/api/getFile').send(shared).expect(200);
             assert.strictEqual(res.body.file.uid, file.uid);
             await app.api.get('/api/stream').query(shared).set('Range', 'bytes=0-0').expect(206);
@@ -228,9 +238,12 @@ describe('Accounts on a multi-user server', function() {
             assert(libraries.some(library => library.uid === 'alice'));
             const res = await browse().expect(200);
             assert.deepStrictEqual(res.body.files.map(item => item.uid), [file.uid]);
+            const link = await as('bob', 'get', `/api/resolvePlayerLink/${file.share_id}`).query({library: 'alice'}).expect(200);
+            assert.deepStrictEqual(link.body, {uid: file.uid});
 
             await as('alice', 'post', '/api/setLibrarySharing').send({enabled: false}).expect(200);
             await browse().expect(403);
+            await as('bob', 'get', `/api/resolvePlayerLink/${file.share_id}`).query({library: 'alice'}).expect(403);
         });
     });
 

@@ -398,6 +398,13 @@ describe('AppComponent while browsing someone else\'s library', () => {
     expect(component.viewingLibraryLabel).toBe('Browsing Bob\'s library. Back to yours');
   });
 
+  it.each(['/player;uid=file-1', '/video?id=FileLink123', '/audio?id=AudioLink12', '/playlist?id=ListLink123'])('uses the player navigation controls on %s', url => {
+    router_mock.url = url;
+    expect(component.isPlayerPage).toBe(true);
+    router_mock.url = '/home';
+    expect(component.isPlayerPage).toBe(false);
+  });
+
   it('goes back to your own library in one press, from wherever you are', () => {
     component.returnToOwnLibrary();
 

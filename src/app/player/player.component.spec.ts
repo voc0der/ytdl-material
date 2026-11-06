@@ -65,6 +65,7 @@ describe('PlayerComponent', () => {
           useValue: {
             navigate: vi.fn().mockName('navigate'),
             navigateByUrl: vi.fn().mockName('navigateByUrl'),
+            currentNavigation: () => null,
             url: '/'
           }
         },
@@ -95,6 +96,95 @@ describe('PlayerComponent', () => {
     const row = fixture.debugElement.query(By.css('.action-buttons-row'));
     return row ? Array.from(row.nativeElement.querySelectorAll('button')) : [];
   }
+
+  describe('compact links and queue history', () => {
+    const file = {uid: 'f1', share_id: 'FileLink123', title: 'A video', isAudio: false, url: 'https://example.com/video'};
+
+    afterEach(() => window.history.replaceState(null, ''));
+
+    function route(params = {}, query = {}) {
+      Object.assign(TestBed.inject(ActivatedRoute).snapshot, {
+        paramMap: convertToParamMap(params), queryParamMap: convertToParamMap(query)
+      });
+      postsServiceStub.getFile.mockReturnValue(of({file}));
+      postsServiceStub.resolvePlayerLink = vi.fn().mockReturnValue(of({uid: 'f1'}));
+    }
+
+    it('loads a short id after refresh and restores the queue from browser history', () => {
+      route({}, {id: 'FileLink123'});
+      window.history.replaceState({playerQueue: {
+        queue_sort_by: 'title', queue_sort_order: '1', queue_file_type_filter: 'both',
+        queue_favorite_filter: 'true', queue_category_filter_uids: 'cat-1,cat-2',
+        queue_search: 'space', queue_sub_id: 'sub-1'
+      }}, '');
+      component.ngOnInit();
+      expect(postsServiceStub.resolvePlayerLink).toHaveBeenCalledWith('FileLink123', null);
+      expect(postsServiceStub.getFile).toHaveBeenCalledWith('f1', null, null);
+      expect(component.currentFile.uid).toBe('f1');
+      expect(component.queue_sort_by).toBe('title');
+      expect(component.queue_sort_order).toBe(1);
+      expect(component.queue_favorite_filter).toBe(true);
+      expect(component.queue_category_filter_uids).toEqual(['cat-1', 'cat-2']);
+      expect(component.queue_search).toBe('space');
+      expect(component.queue_sub_id).toBe('sub-1');
+      expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+    });
+
+    it('opens a copied short link with defaults and infers its file type', () => {
+      route({}, {id: 'FileLink123'});
+      component.ngOnInit();
+      expect(component.queue_sort_by).toBe('registered');
+      expect(component.queue_sort_order).toBe(-1);
+      expect(component.queue_file_type_filter).toBe('video_only');
+      expect(component.type).toBe('video');
+    });
+
+    it('replaces a legacy URL while retaining its queue and meaningful link parameters', () => {
+      route({uid: 'f1', type: 'video', queue_sort_by: 'title', queue_sort_order: '1', timestamp: '10', end: '20', library: 'bob'});
+      component.ngOnInit();
+      expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/video'], {
+        queryParams: {id: 'FileLink123', library: 'bob', timestamp: '10', end: '20'},
+        replaceUrl: true, state: {playerQueue: {queue_sort_by: 'title', queue_sort_order: '1'}}
+      });
+    });
+
+    it('keeps public shares on their existing authorization path', () => {
+      route({uid: 'f1', uuid: 'owner'});
+      component.ngOnInit();
+      expect(postsServiceStub.getFile).toHaveBeenCalledWith('f1', 'owner', null);
+      expect(component.currentFile.uid).toBe('f1');
+      expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+    });
+
+    it('loads a playlist alias through the existing playlist API', () => {
+      route({}, {id: 'ListLink123', library: 'bob'});
+      postsServiceStub.resolvePlayerLink.mockReturnValue(of({playlist_id: 'p1'}));
+      postsServiceStub.getPlaylist = vi.fn().mockReturnValue(of({
+        playlist: {id: 'p1', share_id: 'ListLink123', uids: ['f1']}, file_objs: [file]
+      }));
+      component.ngOnInit();
+      expect(postsServiceStub.getPlaylist).toHaveBeenCalledWith('p1', null, true, 'bob');
+      expect(component.playlist.map(item => item.uid)).toEqual(['f1']);
+    });
+
+    it('does not fetch a file when the alias is refused', () => {
+      route({}, {id: 'FileLink123'});
+      postsServiceStub.resolvePlayerLink.mockReturnValue(throwError(() => 'Not found'));
+      component.ngOnInit();
+      expect(postsServiceStub.getFile).not.toHaveBeenCalled();
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
+    });
+
+    it('does not redirect back to a legacy link after the viewer leaves the player', () => {
+      route({uid: 'f1'});
+      const response = new Subject<any>();
+      postsServiceStub.getFile.mockReturnValue(response);
+      component.ngOnInit();
+      component.ngOnDestroy();
+      response.next({file});
+      expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+    });
+  });
 
   // The player's own bar, over the video.
   function controlBarButtons(): HTMLButtonElement[] {

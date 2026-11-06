@@ -13,6 +13,9 @@ import { TasksComponent } from './components/tasks/tasks.component';
 export const routes: Routes = [
   { path: 'home', component: MainComponent, canActivate: [PostsService] },
   { path: 'player', component: PlayerComponent, canActivate: [PostsService]},
+  { path: 'video', component: PlayerComponent, canActivate: [PostsService]},
+  { path: 'audio', component: PlayerComponent, canActivate: [PostsService]},
+  { path: 'playlist', component: PlayerComponent, canActivate: [PostsService]},
   { path: 'subscriptions', component: SubscriptionsComponent, canActivate: [PostsService] },
   { path: 'subscription', component: SubscriptionComponent, canActivate: [PostsService] },
   { path: 'settings', component: SettingsComponent, canActivate: [PostsService] },

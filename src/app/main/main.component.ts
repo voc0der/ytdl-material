@@ -5,6 +5,7 @@ import { UntypedFormControl, Validators, FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { saveBlob } from '../utils/save-blob';
+import { playerLink } from '../utils/player-link';
 import { YoutubeSearchService, Result } from '../youtube-search.service';
 import { YoutubeSearchResultsComponent } from '../components/youtube-search-results/youtube-search-results.component';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -401,11 +402,8 @@ export class MainComponent implements OnInit {
       } else {
         this.reloadMediaLibrary(is_playlist);
         sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url.split(';')[0]);
-        if (is_playlist) {
-          this.router.navigate(['/player', {playlist_id: container['id'], type: type}]);
-        } else {
-          this.router.navigate(['/player', {type: type, uid: container['uid']}]);
-        }
+        const link = playerLink(container as DatabaseFile | Playlist, is_playlist);
+        this.router.navigate(link.commands, {queryParams: link.queryParams});
       }
     }
   }

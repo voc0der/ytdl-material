@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter, take, takeUntil } from 'rxjs/operators';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { saveBlob } from '../../utils/save-blob';
+import { playerLink, openPlayerTab, PLAYER_QUEUE_STATE } from '../../utils/player-link';
 import { MatDialog } from '@angular/material/dialog';
 import { openPlaylistDialog } from 'app/create-playlist/create-playlist.component';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
@@ -1033,20 +1034,23 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   navigateToFile(file: DatabaseFile, new_tab: boolean, event: { target?: EventTarget | null } | null = null): void {
-    const routeParams = this.getPlayerRouteParams(file);
+    const link = playerLink(file, false, this.getPlayerRouteParams());
+    const queue = this.getPlayerQueueParams();
     if (!new_tab) {
       this.saveNavigationRestoreState(file?.uid ?? null, this.getAnchorElementFromEventTarget(event?.target ?? null));
-      this.router.navigate(['/player', routeParams]);
+      this.router.navigate(link.commands, {queryParams: link.queryParams, state: {[PLAYER_QUEUE_STATE]: queue}});
     } else {
-      const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
-      window.open(`/#${routeURL}`);
+      const routeURL = this.router.serializeUrl(this.router.createUrlTree(link.commands, {queryParams: link.queryParams}));
+      openPlayerTab(routeURL, queue);
     }
   }
 
-  getPlayerRouteParams(file: DatabaseFile): Record<string, string> {
+  getPlayerRouteParams(): Record<string, string> {
+    return this.libraryUid ? {library: this.libraryUid} : {};
+  }
+
+  getPlayerQueueParams(): Record<string, string> {
     const routeParams: Record<string, string> = {
-      type: file.isAudio ? 'audio' : 'video',
-      uid: file.uid,
       queue_sort_by: this.sortProperty,
       queue_sort_order: this.descendingMode ? '-1' : '1',
       queue_file_type_filter: this.getFileTypeFilter(),
@@ -1061,9 +1065,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
     }
     if (this.sub_id) {
       routeParams.queue_sub_id = this.sub_id;
-    }
-    if (this.libraryUid) {
-      routeParams.library = this.libraryUid;
     }
     return routeParams;
   }
@@ -1835,22 +1836,20 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
   }
 
   navigateToPlaylist(playlist: Playlist, new_tab: boolean): void {
-    const routeParams = this.getPlaylistRouteParams(playlist);
+    const link = playerLink(playlist, true, this.getPlaylistRouteParams(playlist));
 
     if (!new_tab) {
       this.saveNavigationRestoreState();
-      this.router.navigate(['/player', routeParams]);
+      this.router.navigate(link.commands, {queryParams: link.queryParams});
       return;
     }
 
-    const routeURL = this.router.serializeUrl(this.router.createUrlTree(['/player', routeParams]));
-    window.open(`/#${routeURL}`);
+    const routeURL = this.router.serializeUrl(this.router.createUrlTree(link.commands, {queryParams: link.queryParams}));
+    openPlayerTab(routeURL);
   }
 
   getPlaylistRouteParams(playlist: Playlist): Record<string, string> {
-    const routeParams: Record<string, string> = {
-      playlist_id: playlist.id
-    };
+    const routeParams: Record<string, string> = {};
 
     if (playlist.auto) {
       routeParams['auto'] = `${playlist.auto}`;

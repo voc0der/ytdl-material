@@ -1,6 +1,7 @@
 import { Component, OnInit, ElementRef, ViewChild, HostBinding, AfterViewInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import {MatDialogRef} from '@angular/material/dialog';
 import {PostsService} from './posts.services';
+import { isPlayerRoute } from './utils/player-link';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSidenav, MatSidenavContainer, MatSidenavContent } from '@angular/material/sidenav';
 import { MatMenuTrigger, MatMenu, MatMenuItem } from '@angular/material/menu';
@@ -67,6 +68,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('activeDownloadsTrigger') activeDownloadsTrigger: MatMenuTrigger;
   @ViewChild('hamburgerMenu', { read: ElementRef }) hamburgerMenuButton: ElementRef;
   navigator: string = null;
+
+  get isPlayerPage(): boolean {
+    return isPlayerRoute(this.router.url);
+  }
 
   notification_count = 0;
   active_downloads: Download[] = [];

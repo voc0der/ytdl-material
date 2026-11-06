@@ -159,6 +159,14 @@ describe('PostsService session lifecycle', () => {
     http.expectNone(req => req.url.includes('/auth/'));
   });
 
+  it.each([false, true])('preserves a direct player link before the first navigation, with OIDC %s', oidc => {
+    const bootstrap = start({route: '/'});
+    window.history.replaceState(null, '', '/video?id=FileLink123');
+    bootstrap.flush({config_file: {YtdlMaterial: configuration(true, oidc)}});
+    if (!oidc) expectAdminCheck();
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+  });
+
   it('redirects an anonymous OIDC session without offering local administrator setup or a password-login warning', () => {
     start({ route: '/tasks' }).flush({ config_file: { YtdlMaterial: configuration(true, true) } });
 
