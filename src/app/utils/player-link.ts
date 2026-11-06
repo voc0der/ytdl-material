@@ -1,12 +1,14 @@
 import type { DatabaseFile, Playlist } from '../../api-types';
 
-export function compactPlayerPath(pathname: string, search = ''): string | null {
-  const match = pathname.match(/\/(video|audio|playlist)$/);
-  return match ? `/${match[1]}${search}` : null;
-}
+export const PLAYER_KEYS = ['v', 'list', 'uid', 'playlist_id', 'sub_id'] as const;
 
 export function isPlayerRoute(url: string): boolean {
-  return /^\/(player|video|audio|playlist)([;/?]|$)/.test(url);
+  const parsed = new URL(url, 'http://local');
+  return parsed.pathname === '/' && PLAYER_KEYS.some(key => parsed.searchParams.has(key));
+}
+
+export function isPublicPlayerRoute(url: string): boolean {
+  return isPlayerRoute(url) && new URL(url, 'http://local').searchParams.has('uuid');
 }
 
 // Queue preferences belong to this browser history entry, not to a copied player link.
@@ -19,21 +21,20 @@ export const PLAYER_QUEUE_PARAMS = [
 
 export function playerLink(record: DatabaseFile | Playlist, playlist = false, params: Record<string, string> = {}) {
   if (record.share_id) return {
-    commands: [playlist ? '/playlist' : (record as DatabaseFile).isAudio ? '/audio' : '/video'],
-    queryParams: {id: record.share_id, ...params}
+    commands: ['/'],
+    queryParams: {[playlist ? 'list' : 'v']: record.share_id, ...params}
   };
   // Automatic category playlists and older records may not have a short id.
   return {
-    commands: ['/player', {...params, [playlist ? 'playlist_id' : 'uid']: playlist ? record.id : (record as DatabaseFile).uid}],
-    queryParams: {}
+    commands: ['/'],
+    queryParams: {...params, [playlist ? 'playlist_id' : 'uid']: playlist ? record.id : (record as DatabaseFile).uid}
   };
 }
 
 // window.open copies the opener's session storage into the new tab. Hand off this one
 // queue without putting it in the link, then remove the handoff from the original tab.
 export function openPlayerTab(route: string, queue: Record<string, string> = {}): void {
-  const path = /^\/(video|audio|playlist)(\?|$)/.test(route) ? route.slice(1) : '#' + route;
-  const url = new URL(path, document.baseURI).href;
+  const url = new URL(route.slice(1) || './', document.baseURI).href;
   try {
     sessionStorage.setItem(NEW_TAB_QUEUE, JSON.stringify({url, queue}));
   } catch { /* Playback still opens with its default queue if storage is unavailable. */ }

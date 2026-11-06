@@ -4,7 +4,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { compactPlayerPath } from './utils/player-link';
+import { isPublicPlayerRoute } from './utils/player-link';
+import { Location } from '@angular/common';
 
 function runInAngularZone<T>(source$: Observable<T>, ngZone: NgZone): Observable<T> {
     return new Observable<T>((subscriber) => {
@@ -20,6 +21,7 @@ function runInAngularZone<T>(source$: Observable<T>, ngZone: NgZone): Observable
 
 export const h401InterceptorFn: HttpInterceptorFn = (request, next) => {
     const router = inject(Router);
+    const location = inject(Location);
     const snackBar = inject(MatSnackBar);
     const ngZone = inject(NgZone);
 
@@ -30,13 +32,9 @@ export const h401InterceptorFn: HttpInterceptorFn = (request, next) => {
                 // The login page's own URL usually carries ?returnTo=, and a wrong password is a
                 // 401 too. Neither is a session expiring, and sending the page to itself would
                 // lose where to go after logging in.
-                if (!router.url.startsWith('/login') && !router.url.includes('player')) {
-                    const compact_player = /^\/(video|audio|playlist)(\?|$)/.test(router.url) ? router.url
-                        : router.url === '/' ? compactPlayerPath(window.location.pathname, window.location.search) : null;
-                    const login = compact_player
-                        ? router.navigate(['/login'], {queryParams: {returnTo: compact_player}})
-                        : router.navigate(['/login']);
-                    login.then(() => {
+                const route = router.url === '/' ? '/' + location.path().replace(/^\//, '') : router.url;
+                if (!route.startsWith('/login') && !isPublicPlayerRoute(route)) {
+                    router.navigate(['/login'], {queryParams: {returnTo: route}}).then(() => {
                         snackBar.open('Login expired, please login again.', '', { duration: 2000 });
                     });
                 }

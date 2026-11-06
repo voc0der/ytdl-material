@@ -105,8 +105,8 @@ async def call(route, body):
 
 
 def player_link(**params):
-    matrix = "".join(f";{key}={quote(str(value), safe='')}" for key, value in params.items())
-    return f"{PUBLIC_URL}/#/player{matrix}"
+    query = "&".join(f"{key}={quote(str(value), safe='')}" for key, value in params.items())
+    return f"{PUBLIC_URL}/?{query}"
 
 
 def timestamp(ms):
@@ -127,7 +127,7 @@ def present_file(item):
         "uploaded": item.get("upload_date"),
         "added": timestamp(item.get("registered")),
         "favorite": bool(item.get("favorite")),
-        "link": player_link(uid=uid) if uid else None,
+        "link": (player_link(v=item["share_id"]) if item.get("share_id") else player_link(uid=uid)) if uid else None,
     }
 
 

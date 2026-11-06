@@ -163,7 +163,7 @@ async function closeBell(page) {
 // behind it, so anything that navigates puts the menu away first -- as a person would.
 async function goHome(page) {
     if (await page.locator('.cdk-overlay-backdrop').count() > 0) await closeBell(page);
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('app-unified-file-card').first().waitFor({ timeout: 30_000 });
 }

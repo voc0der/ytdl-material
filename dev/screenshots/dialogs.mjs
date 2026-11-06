@@ -134,7 +134,7 @@ async function shoot(page, name) {
 
 // The dialog is only reachable from the toolbar menu, which is the point of opening it there.
 async function openArchive(page) {
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.getByRole('button', { name: 'More options' }).click();
     await page.getByRole('menuitem', { name: 'Archive' }).click();
@@ -147,7 +147,7 @@ async function openArchive(page) {
 // fit, so a label too long for the panel is a label cut in half rather than one that wraps.
 async function theMenu(page) {
     say('Opening the toolbar menu');
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.getByRole('button', { name: 'More options' }).click();
     const menu = page.locator('.mat-mdc-menu-panel').last();
@@ -307,7 +307,7 @@ async function importingAndExporting(page, dialog) {
 // for a single value, and the one whose fields a toggle turns on.
 async function theSettingsDialogs(page) {
     say('Opening the dialogs the Settings page holds');
-    await page.goto(`${BASE}/#/settings`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
 
     await page.getByRole('tab', { name: 'Downloader' }).click();

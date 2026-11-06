@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { LoginComponent } from './login.component';
@@ -57,10 +57,20 @@ describe('LoginComponent', () => {
     postsServiceStub.isHeaderAuthEnabled = () => true;
     await create();
 
-    expect(postsServiceStub.headerLogin).toHaveBeenCalledExactlyOnceWith('/home', expect.any(Function));
+    expect(postsServiceStub.headerLogin).toHaveBeenCalledExactlyOnceWith('/', expect.any(Function));
     expect(element().querySelector('.login-form')).toBeNull();
     expect(element().querySelector('.login-title').textContent).toContain('Signing you in');
     expect(element().textContent).toContain('Signing in through your reverse proxy');
+  });
+
+  it('accepts the OIDC token from a fragment and preserves the video return query', async () => {
+    await create();
+    postsServiceStub.completeOIDCLogin = vi.fn();
+    Object.assign(TestBed.inject(ActivatedRoute).snapshot, {
+      fragment: 'oidc_token=test-token&redirect=%2F%3Fv%3DFileLink123'
+    });
+    component.ngOnInit();
+    expect(postsServiceStub.completeOIDCLogin).toHaveBeenCalledWith('test-token', '/?v=FileLink123');
   });
 
   it('says why signing in through the proxy failed, and tries again when asked', async () => {
@@ -95,7 +105,7 @@ describe('LoginComponent', () => {
     component.submit();
 
     expect(postsServiceStub.login).toHaveBeenCalledWith('admin', 'secret');
-    expect(postsServiceStub.afterLogin).toHaveBeenCalledWith({ uid: 'u' }, 'token', [], [], '/home');
+    expect(postsServiceStub.afterLogin).toHaveBeenCalledWith({ uid: 'u' }, 'token', [], [], '/');
   });
 
   it('says on the card when the password is wrong', async () => {
@@ -184,6 +194,6 @@ describe('LoginComponent', () => {
   it('sends anyone who does not need to log in back home', async () => {
     postsServiceStub.config.Advanced.multi_user_mode = false;
     await create();
-    expect(routerStub.navigate).toHaveBeenCalledWith(['/home']);
+    expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
   });
 });

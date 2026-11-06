@@ -42,10 +42,10 @@ describe('MainComponent', () => {
     };
     const youtube_search_mock: any = { initializeAPI: () => { } };
     const snack_bar_mock: any = { open: () => { } };
-    const router_mock: any = { navigate: () => { }, url: '/home' };
+    const router_mock: any = { navigate: () => { }, url: '/' };
     const dialog_mock: any = { open: () => ({ afterClosed: () => of(null) }) };
     const platform_mock: any = { IOS: false };
-    const route_mock: any = { snapshot: { paramMap: { get: () => null } } };
+    const route_mock: any = { snapshot: { queryParamMap: { get: () => null } } };
 
     component = new MainComponent(posts_service_mock, youtube_search_mock, snack_bar_mock, router_mock, dialog_mock, platform_mock, route_mock);
   });
@@ -342,7 +342,7 @@ describe('MainComponent', () => {
 
     expect(reload_spy).toHaveBeenCalledWith(false);
     expect((component as any).postsService.files_changed.next).toHaveBeenCalledWith(true);
-    expect(router_navigate_spy).toHaveBeenCalledWith(['/player', {uid: 'file-1'}], {queryParams: {}});
+    expect(router_navigate_spy).toHaveBeenCalledWith(['/'], {queryParams: {uid: 'file-1'}});
   });
 
   it('shows a dialog instead of reopening a skipped duplicate single download', () => {
@@ -1062,7 +1062,7 @@ describe('MainComponent', () => {
 
     it('downloads a list given in the address as a list', async () => {
       const downloadFile = vi.spyOn((component as any).postsService, 'downloadFile');
-      const route = { snapshot: { paramMap: { get: (key: string) => key === 'url' ? encodeURIComponent(links(3).join('\n')) : null } } };
+      const route = { snapshot: { queryParamMap: { get: (key: string) => key === 'url' ? links(3).join('\n') : null } } };
       const services = component as any;
       const addressed = new MainComponent(services.postsService, services.youtubeSearch, services.snackBar, services.router,
         services.dialog, services.platform, route as any);

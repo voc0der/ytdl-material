@@ -268,9 +268,9 @@ describe('The library through the server', function() {
             assert.match(file.share_id, /^[A-Za-z0-9]{11}$/);
 
             const res = await app.api.get(`/s/${file.share_id}`).expect(302);
-            assert.strictEqual(res.headers.location, `../#/player;uid=${file.uid}`);
+            assert.strictEqual(res.headers.location, `../?v=${file.share_id}`);
             const timed = await app.api.get(`/s/${file.share_id}?t=90`).expect(302);
-            assert.strictEqual(timed.headers.location, `../#/player;uid=${file.uid};timestamp=90`);
+            assert.strictEqual(timed.headers.location, `../?v=${file.share_id}&timestamp=90`);
         });
 
         it('opens a playlist in the player', async function() {
@@ -278,7 +278,7 @@ describe('The library through the server', function() {
             const playlist = created.body.new_playlist;
             try {
                 const res = await app.api.get(`/s/${playlist.share_id}`).expect(302);
-                assert.strictEqual(res.headers.location, `../#/player;playlist_id=${playlist.id}`);
+                assert.strictEqual(res.headers.location, `../?list=${playlist.share_id}`);
             } finally {
                 await app.api.post('/api/deletePlaylist').send({playlist_id: playlist.id}).expect(200);
             }

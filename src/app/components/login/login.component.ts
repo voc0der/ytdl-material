@@ -45,7 +45,7 @@ export class LoginComponent implements OnInit {
   oidcRedirecting = false;
   headerAuthEnabled = false;
   headerSigningIn = false;
-  returnTo = '/home';
+  returnTo = '/';
 
   constructor(public postsService: PostsService, private router: Router, private route: ActivatedRoute) { }
 
@@ -66,10 +66,13 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     const routeReturnTo = this.route.snapshot.queryParamMap.get('returnTo');
-    this.returnTo = routeReturnTo && routeReturnTo.startsWith('/') ? routeReturnTo : '/home';
+    this.returnTo = routeReturnTo && routeReturnTo.startsWith('/') ? routeReturnTo : '/';
 
-    const oidcToken = this.route.snapshot.paramMap.get('oidc_token');
-    const oidcRedirectPath = this.route.snapshot.paramMap.get('redirect');
+    // The sign-in token stays in a fragment so it is not sent in a page request or referrer.
+    // This is a one-time credential handoff, not a client-side routing path.
+    const handoff = new URLSearchParams(this.route.snapshot.fragment ?? '');
+    const oidcToken = handoff.get('oidc_token');
+    const oidcRedirectPath = handoff.get('redirect');
     if (oidcToken) {
       const redirectPath = oidcRedirectPath && oidcRedirectPath.startsWith('/') ? oidcRedirectPath : this.returnTo;
       this.postsService.completeOIDCLogin(oidcToken, redirectPath);
@@ -77,13 +80,13 @@ export class LoginComponent implements OnInit {
     }
 
     if (this.postsService.isLoggedIn && localStorage.getItem('jwt_token') !== 'null') {
-      this.router.navigate(['/home']);
+      this.router.navigate(['/']);
     }
     this.postsService.service_initialized
       .pipe(filter(Boolean), take(1))
       .subscribe(() => {
         if (!this.postsService.config['Advanced']['multi_user_mode']) {
-          this.router.navigate(['/home']);
+          this.router.navigate(['/']);
           return;
         }
         this.oidcEnabled = this.postsService.isOIDCEnabled();
@@ -214,7 +217,7 @@ export class LoginComponent implements OnInit {
     }
     this.headerSigningIn = true;
     this.error = null;
-    this.postsService.headerLogin(this.returnTo || '/home', error => {
+    this.postsService.headerLogin(this.returnTo || '/', error => {
       this.headerSigningIn = false;
       this.error = error || $localize`:Header login failed unknown error:Signing in through the reverse proxy failed.`;
     });
@@ -225,7 +228,7 @@ export class LoginComponent implements OnInit {
       return;
     }
     this.oidcRedirecting = true;
-    window.location.href = this.postsService.getOIDCLoginURL(this.returnTo || '/home');
+    window.location.href = this.postsService.getOIDCLoginURL(this.returnTo || '/');
   }
 
 }

@@ -653,7 +653,7 @@ describe('SubscriptionComponent', () => {
     it('plays everything downloaded', () => {
       component.watchSubscription();
 
-      expect(router.navigate).toHaveBeenCalledWith(['/player', { sub_id: 'sub-1' }]);
+      expect(router.navigate).toHaveBeenCalledWith(['/'], {queryParams: {sub_id: 'sub-1'}});
     });
 
     it('says so when a check could not start', () => {

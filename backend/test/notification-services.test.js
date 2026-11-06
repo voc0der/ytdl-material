@@ -19,7 +19,7 @@ const FILE = {uid: 'file-1', title: 'A clip', url: 'https://source.example.test/
 const DOWNLOAD = {uid: 'download-1', url: FILE.url};
 const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/123456789/webhook-token';
 const DOWNLOAD_BODY = `${FILE.title}\nOriginal URL: ${FILE.url}`;
-const PLAYER_URL = `${APP_URL}/#/player;uid=${FILE.uid}`;
+const PLAYER_URL = `${APP_URL}/?uid=${FILE.uid}`;
 
 async function until(condition, what) {
     const deadline = Date.now() + 2000;
@@ -216,7 +216,7 @@ describe('Notification services', function() {
 
             assert.equal(fetches.length, 1);
             // A null header went out as the text "null".
-            assert.deepEqual(fetches[0].headers, {Title: 'Task finished', Tags: 'task_finished', Click: `${APP_URL}/#/tasks`});
+            assert.deepEqual(fetches[0].headers, {Title: 'Task finished', Tags: 'task_finished', Click: `${APP_URL}/tasks`});
         });
 
         it('is not sent without a topic', async function() {
@@ -371,7 +371,7 @@ describe('Notification services', function() {
                     data: {ok: false, description: 'Bad Request: chat not found'}
                 });
             };
-            await notifications.sendTelegramNotification({title: 'Task finished', body: 'Backup DB', url: `${APP_URL}/#/tasks`, thumbnail: null});
+            await notifications.sendTelegramNotification({title: 'Task finished', body: 'Backup DB', url: `${APP_URL}/tasks`, thumbnail: null});
 
             assert(logged.includes('Telegram API sendMessage failed: Bad Request: chat not found'), logged.join('\n'));
             assert.equal(telegram('sendPhoto').length, 0);

@@ -77,7 +77,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   notificationAction(action_info: {notification: Notification, action: NotificationAction}): void {
     switch (action_info['action']) {
       case NotificationAction.PLAY:
-        this.router.navigate(['player', {uid: action_info['notification']['data']['file_uid']}]);
+        this.router.navigate(['/'], {queryParams: {uid: action_info['notification']['data']['file_uid']}});
         break;
       case NotificationAction.VIEW_DOWNLOAD_ERROR:
         this.router.navigate(['downloads']);

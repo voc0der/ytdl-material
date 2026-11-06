@@ -147,7 +147,7 @@ describe('DuplicatesComponent', () => {
   it('sends anyone without the file manager home', async () => {
     postsServiceStub.config.Extra.file_manager_enabled = false;
     await create();
-    expect(routerStub.navigate).toHaveBeenCalledWith(['/home']);
+    expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
     expect(postsServiceStub.getDuplicates).not.toHaveBeenCalled();
   });
 });

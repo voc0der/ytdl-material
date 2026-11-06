@@ -609,10 +609,10 @@ describe('Settings workflows', () => {
     it('targets the home page on this installation and encodes the source page URL', () => {
       const originalUrl = window.location.href;
       try {
-        window.history.replaceState(null, '', '/media/#/settings;tab=extra');
+        window.history.replaceState(null, '', '/media/settings;tab=extra');
         const code = decodeURIComponent(component.generateBookmarkletCode());
-        expect(code).toContain(`window.open('${window.location.origin}/media/#/home;url=' + encodeURIComponent(window.location)`);
-        expect(code).toContain(';audioOnly=false');
+        expect(code).toContain(`window.open('${window.location.origin}/media/?url=' + encodeURIComponent(window.location)`);
+        expect(code).toContain('&audioOnly=false');
         expect(code).not.toContain('#/settings');
       } finally {
         window.history.replaceState(null, '', originalUrl);
@@ -622,7 +622,7 @@ describe('Settings workflows', () => {
     it.each([true, false])('regenerates the trusted link when audio-only mode is %s', audioOnly => {
       component.bookmarkletAudioOnlyChanged(audioOnly);
       expect(component.bookmarkletAudioOnly).toBe(audioOnly);
-      expect(harness.sanitizer.bypassSecurityTrustUrl).toHaveBeenCalledWith(expect.stringContaining(`;audioOnly=${audioOnly}`));
+      expect(harness.sanitizer.bypassSecurityTrustUrl).toHaveBeenCalledWith(expect.stringContaining(`&audioOnly=${audioOnly}`));
       expect(component.generated_bookmarklet_code).toBe(harness.sanitizer.bypassSecurityTrustUrl.mock.results[0].value);
     });
 

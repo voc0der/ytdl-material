@@ -177,7 +177,7 @@ const fileRow = (page, title) => editor(page).locator('.file-row', { hasText: ti
 const orderTitles = page => editor(page).locator('.order-row .file-title').allInnerTexts();
 
 async function goToPlaylists(page, { reload = false } = {}) {
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     // Already there, going to the same address is no navigation, so nothing is read again.
     if (reload) await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -401,13 +401,13 @@ async function editorOnAPhone(browser, errors, theme) {
 
 async function theDuplicatesPage(page, seeded) {
     say('Cleaning up duplicates');
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     const nav = page.locator('a[href*="duplicates"], a[routerlink="/duplicates"]');
     // The drawer is closed on a narrow window and open on this one; either way the link is in it.
     check('the navigation offers Duplicates while there are some', await nav.count() > 0);
 
-    await page.goto(`${BASE}/#/duplicates`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/duplicates`, { waitUntil: 'domcontentloaded' });
     await page.locator('.duplicate-row').first().waitFor({ timeout: 20_000 });
 
     const groups = Object.keys(DOWNLOADED_AGAIN).length;
@@ -460,7 +460,7 @@ async function theDuplicatesPage(page, seeded) {
 
 async function duplicatesOnAPhone(browser, errors) {
     const page = await newPage(browser, 'phone', errors, 'light');
-    await page.goto(`${BASE}/#/duplicates`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/duplicates`, { waitUntil: 'domcontentloaded' });
     await page.locator('.duplicate-row').first().waitFor({ timeout: 20_000 });
     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
     await page.locator('.duplicate-row').first().getByRole('button', { name: 'Show every copy' }).click();

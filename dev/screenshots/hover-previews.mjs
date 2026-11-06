@@ -63,7 +63,7 @@ try {
         const page = await context.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await page.goto(`${base}/#/home`);
+        await page.goto(`${base}/`);
         const cards = page.locator('app-unified-file-card');
         await cards.nth(2).locator('img').waitFor();
         assert.equal(await cards.first().evaluate(card => card.classList.contains('list-layout')), layout === 'list');

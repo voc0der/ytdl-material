@@ -2,9 +2,9 @@
 
 Open a downloaded file or playlist from the library. The browser plays the saved media; codec support depends on your browser and the format you downloaded.
 
-Normal player links use `/video?id=<short-id>`, `/audio?id=<short-id>`, or `/playlist?id=<short-id>`.
+Home is the site's root address. Video and audio links use `/?v=<short-id>`, and playlists use `/?list=<short-id>`.
 In multi-user mode they require a login and access to that library. Copying the address does not enable sharing.
-Existing long player links still open, and ordinary files and playlists switch to the compact address when loaded.
+Pages such as `/downloads`, `/subscriptions`, and `/settings` use ordinary paths. Old hash routes and `/video?id=…` links are no longer supported; update saved bookmarks.
 
 The queue's sorting, search, and filters stay with the browser history entry, so refreshing or using Back and Forward preserves them.
 Opening a file in a new tab from the library carries those preferences over too. A copied link opened independently uses the default queue settings.

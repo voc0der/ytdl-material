@@ -264,14 +264,14 @@ async function shoot(page, device, name, shots) {
 }
 
 async function open(page, route, ready) {
-    await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/${route}`, { waitUntil: 'domcontentloaded' });
     await page.locator(ready).first().waitFor({ timeout: 30_000 });
 }
 
 // Paused at the start, as it opens before anyone presses play, whatever the browser's autoplay
 // policy made of it.
 async function openPlayer(page, playlist) {
-    await open(page, `player;playlist_id=${playlist.id}`, '.player-playlist-section .playlist-row');
+    await open(page, `?playlist_id=${playlist.id}`, '.player-playlist-section .playlist-row');
     await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2, null, { timeout: 30_000 });
     await page.locator('video').evaluate(async video => {
         video.pause();
@@ -290,7 +290,7 @@ async function capturePages(browser, seeded, device, shots, errors) {
     const nasa = seeded.subscriptions.find(sub => sub.fixture_id === 'nasa');
     const station = seeded.playlists.find(playlist => playlist.name === 'Space Station');
 
-    await open(page, 'home', 'app-unified-file-card img');
+    await open(page, '', 'app-unified-file-card img');
     await shoot(page, device, 'library', shots);
 
     if (device === 'desktop') {
@@ -331,7 +331,7 @@ async function capturePages(browser, seeded, device, shots, errors) {
         await shoot(page, device, 'settings', shots);
     }
 
-    await open(page, 'home', 'app-unified-file-card img');
+    await open(page, '', 'app-unified-file-card img');
     await page.locator('mat-toolbar button:has(mat-icon:text-matches("^notifications"))').first().click();
     await page.locator('.notifications-panel').waitFor();
     await shoot(page, device, 'notifications', shots);
@@ -354,7 +354,7 @@ async function captureLight(browser, seeded, device, shots, errors) {
     const context = await newContext(browser, device, { theme: 'light', clock: seeded.library.downloaded });
     const page = await context.newPage();
     watch(page, `${device}/light`, errors);
-    await open(page, 'home', 'app-unified-file-card img');
+    await open(page, '', 'app-unified-file-card img');
     await shoot(page, device, 'light', shots);
     await context.close();
 }

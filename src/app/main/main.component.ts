@@ -362,10 +362,10 @@ export class MainComponent implements OnInit {
     }
 
     // check if params exist
-    if (this.route.snapshot.paramMap.get('url')) {
-      this.url = decodeURIComponent(this.route.snapshot.paramMap.get('url'));
+    if (this.route.snapshot.queryParamMap.get('url')) {
+      this.url = this.route.snapshot.queryParamMap.get('url');
       this.setPastedLinks(this.url);
-      this.audioOnly = this.route.snapshot.paramMap.get('audioOnly') === 'true';
+      this.audioOnly = this.route.snapshot.queryParamMap.get('audioOnly') === 'true';
 
       // set auto start flag to true
       this.autoStartDownload = true;

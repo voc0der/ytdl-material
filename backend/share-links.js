@@ -105,15 +105,17 @@ exports.resolveShareLink = async (share_id, start_time = null, end_time = null) 
     const record = file || await db_api.getRecord('playlists', {share_id: share_id});
     if (!record) return null;
 
-    let route = file
-        ? `/player;uid=${encodeURIComponent(file.uid)}`
-        : `/player;playlist_id=${encodeURIComponent(record.id)}`;
+    const params = new URLSearchParams(file ? {v: share_id} : {list: share_id});
     if (config_api.getConfigItem('ytdl_multi_user_mode') && record.sharingEnabled && record.user_uid) {
-        route += `;uuid=${encodeURIComponent(record.user_uid)}`;
+        // Public sharing keeps the existing uid/owner authorization, while ordinary
+        // player aliases are resolved only within an authenticated library.
+        params.delete(file ? 'v' : 'list');
+        params.set(file ? 'uid' : 'playlist_id', file ? file.uid : record.id);
+        params.set('uuid', record.user_uid);
     }
-    if (start_time) route += `;timestamp=${start_time}`;
-    if (end_time) route += `;end=${end_time}`;
-    return route;
+    if (start_time) params.set('timestamp', start_time);
+    if (end_time) params.set('end', end_time);
+    return `/?${params}`;
 }
 
 /*************************************************
@@ -122,7 +124,7 @@ exports.resolveShareLink = async (share_id, start_time = null, end_time = null) 
  * The redirect is relative, as the app's own pages
  * are, so it lands on whatever address the link was
  * opened at. /s/<id> and /s/<id>/ both resolve it to
- * /#/player;... there.
+ * the root player query there.
  ************************************************/
 exports.redirect = async (req, res) => {
     const start_time = exports.parseStartTime(req.query.t);
@@ -133,5 +135,5 @@ exports.redirect = async (req, res) => {
         return;
     }
     const up = req.path.endsWith('/') ? '../../' : '../';
-    res.redirect(`${up}#${route}`);
+    res.redirect(`${up}${route.slice(1)}`);
 }

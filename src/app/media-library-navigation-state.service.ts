@@ -3,7 +3,8 @@ import { filter } from 'rxjs/operators';
 import { PostsService } from './posts.services';
 import { DatabaseFile, Playlist } from 'api-types';
 
-export const PLAYER_NAVIGATOR_STORAGE_KEY = 'player_navigator';
+// Start fresh after removing hash routes; a saved return path may name a removed page.
+export const PLAYER_NAVIGATOR_STORAGE_KEY = 'player_navigator_path';
 
 export interface MediaLibraryRestoreSnapshot {
   routeKey: string;

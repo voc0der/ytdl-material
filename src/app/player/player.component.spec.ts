@@ -104,14 +104,14 @@ describe('PlayerComponent', () => {
 
     function route(params = {}, query = {}) {
       Object.assign(TestBed.inject(ActivatedRoute).snapshot, {
-        paramMap: convertToParamMap(params), queryParamMap: convertToParamMap(query)
+        paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({...params, ...query})
       });
       postsServiceStub.getFile.mockReturnValue(of({file}));
       postsServiceStub.resolvePlayerLink = vi.fn().mockReturnValue(of({uid: 'f1'}));
     }
 
     it('loads a short id after refresh and restores the queue from browser history', () => {
-      route({}, {id: 'FileLink123'});
+      route({}, {v: 'FileLink123'});
       window.history.replaceState({playerQueue: {
         queue_sort_by: 'title', queue_sort_order: '1', queue_file_type_filter: 'both',
         queue_favorite_filter: 'true', queue_category_filter_uids: 'cat-1,cat-2',
@@ -131,7 +131,7 @@ describe('PlayerComponent', () => {
     });
 
     it('opens a copied short link with defaults and infers its file type', () => {
-      route({}, {id: 'FileLink123'});
+      route({}, {v: 'FileLink123'});
       component.ngOnInit();
       expect(component.queue_sort_by).toBe('registered');
       expect(component.queue_sort_order).toBe(-1);
@@ -139,11 +139,12 @@ describe('PlayerComponent', () => {
       expect(component.type).toBe('video');
     });
 
-    it('replaces a legacy URL while retaining its queue and meaningful link parameters', () => {
-      route({uid: 'f1', type: 'video', queue_sort_by: 'title', queue_sort_order: '1', timestamp: '10', end: '20', library: 'bob'});
+    it('replaces a file uid with its short id while retaining queue and clip parameters', () => {
+      route({uid: 'f1', timestamp: '10', end: '20', library: 'bob'});
+      window.history.replaceState({playerQueue: {queue_sort_by: 'title', queue_sort_order: '1'}}, '');
       component.ngOnInit();
-      expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/video'], {
-        queryParams: {id: 'FileLink123', library: 'bob', timestamp: '10', end: '20'},
+      expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/'], {
+        queryParams: {v: 'FileLink123', library: 'bob', timestamp: '10', end: '20'},
         replaceUrl: true, state: {playerQueue: {queue_sort_by: 'title', queue_sort_order: '1'}}
       });
     });
@@ -157,7 +158,7 @@ describe('PlayerComponent', () => {
     });
 
     it('loads a playlist alias through the existing playlist API', () => {
-      route({}, {id: 'ListLink123', library: 'bob'});
+      route({}, {list: 'ListLink123', library: 'bob'});
       postsServiceStub.resolvePlayerLink.mockReturnValue(of({playlist_id: 'p1'}));
       postsServiceStub.getPlaylist = vi.fn().mockReturnValue(of({
         playlist: {id: 'p1', share_id: 'ListLink123', uids: ['f1']}, file_objs: [file]
@@ -168,14 +169,14 @@ describe('PlayerComponent', () => {
     });
 
     it('does not fetch a file when the alias is refused', () => {
-      route({}, {id: 'FileLink123'});
+      route({}, {v: 'FileLink123'});
       postsServiceStub.resolvePlayerLink.mockReturnValue(throwError(() => 'Not found'));
       component.ngOnInit();
       expect(postsServiceStub.getFile).not.toHaveBeenCalled();
       expect(postsServiceStub.openSnackBar).toHaveBeenCalled();
     });
 
-    it('does not redirect back to a legacy link after the viewer leaves the player', () => {
+    it('does not redirect back to a file after the viewer leaves the player', () => {
       route({uid: 'f1'});
       const response = new Subject<any>();
       postsServiceStub.getFile.mockReturnValue(response);
@@ -1379,7 +1380,7 @@ describe('PlayerComponent', () => {
 
     // The player as the redirect from /s/<id>?t=30&end=45 opens it, with its video ready.
     function open(params: Record<string, string>): void {
-      Object.assign(TestBed.inject(ActivatedRoute).snapshot, {paramMap: convertToParamMap(params)});
+      Object.assign(TestBed.inject(ActivatedRoute).snapshot, {queryParamMap: convertToParamMap(params)});
       postsServiceStub.getFile.mockReturnValue(of({file: FILES[0]}));
       postsServiceStub.getPlaylist = vi.fn().mockName('getPlaylist').mockReturnValue(of({
         playlist: {id: 'p1', name: 'A playlist', uids: ['f1', 'f2']}, file_objs: FILES, type: 'video'

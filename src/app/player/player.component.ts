@@ -230,13 +230,13 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
   ngOnInit(): void {
     this.initPlaybackModeToggles();
-    this.playlist_id = this.route.snapshot.paramMap.get('playlist_id');
-    this.uid = this.route.snapshot.paramMap.get('uid');
-    this.share_id = this.route.snapshot.queryParamMap.get('id');
-    this.sub_id = this.route.snapshot.paramMap.get('sub_id');
-    this.url = this.route.snapshot.paramMap.get('url');
-    this.name = this.route.snapshot.paramMap.get('name');
-    this.uuid = this.route.snapshot.paramMap.get('uuid');
+    this.playlist_id = this.linkParam('playlist_id');
+    this.uid = this.linkParam('uid');
+    this.share_id = this.linkParam('v') ?? this.linkParam('list');
+    this.sub_id = this.linkParam('sub_id');
+    this.url = this.linkParam('url');
+    this.name = this.linkParam('name');
+    this.uuid = this.linkParam('uuid');
     this.library = this.linkParam('library');
     this.timestamp = this.linkParam('timestamp');
     this.clip = linkedClip(this.timestamp, this.linkParam('end'));
@@ -246,8 +246,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
       ?? window.history.state?.[PLAYER_QUEUE_STATE] ?? tab_queue;
     this.queue_params = {};
     for (const key of PLAYER_QUEUE_PARAMS) {
-      // Old bookmarks still work. Explicit URL values take priority over history state.
-      const value = this.route.snapshot.paramMap.get(key) ?? saved_queue?.[key];
+      const value = saved_queue?.[key];
       if (typeof value === 'string') this.queue_params[key] = value;
     }
     this.queue_sort_by = this.queue_params.queue_sort_by ?? 'registered';
@@ -272,7 +271,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   private linkParam(key: string): string | null {
-    return this.route.snapshot.paramMap.get(key) ?? this.route.snapshot.queryParamMap.get(key);
+    return this.route.snapshot.queryParamMap.get(key);
   }
 
   ngAfterViewInit(): void {
@@ -1039,10 +1038,7 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   playlistPostCreationHandler(playlistID: string): void {
-    // changes the route without moving from the current view or
-    // triggering a navigation event
-    this.playlist_id = playlistID;
-    this.router.navigateByUrl(this.router.url + ';id=' + playlistID);
+    this.router.navigate(['/'], {queryParams: {playlist_id: playlistID}});
   }
 
   drop(event: CdkDragDrop<string[]>): void {

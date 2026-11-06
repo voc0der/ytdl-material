@@ -128,6 +128,17 @@ describe('The server as it runs', function() {
             await app.api.get('/healthz').expect(200);
         });
 
+        it('does not serve removed app routes', async function() {
+            for (const route of ['/home', '/player;uid=old', '/video?id=OldLink1234', '/audio', '/playlist']) {
+                await app.api.get(route).set('Accept', 'text/html').expect(404);
+            }
+        });
+
+        it('normalizes a trailing slash without losing query parameters', async function() {
+            const res = await app.api.get('/settings/?tab=users').set('Accept', 'text/html').expect(308);
+            assert.strictEqual(res.headers.location, '../settings?tab=users');
+        });
+
         it('answers an API route that does not exist with a 404', async function() {
             await app.api.post('/api/noSuchRoute').set('Accept', 'application/json').send({}).expect(404);
         });
@@ -287,8 +298,8 @@ describe('The server as it runs', function() {
             assert(res.text.startsWith('<?xml'));
             assert(res.text.includes('<rss version="2.0">'));
             assert.strictEqual(res.text.split('<item>').length - 1, 2);
-            assert(res.text.includes(`/#/player;uid=${files.video.uid}`));
-            assert(res.text.includes(`/#/player;uid=${files.audio.uid}`));
+            assert(res.text.includes(`/?v=${files.video.share_id}`));
+            assert(res.text.includes(`/?v=${files.audio.share_id}`));
         });
 
         it('describes each file by its title, uploader and when it was added', async function() {

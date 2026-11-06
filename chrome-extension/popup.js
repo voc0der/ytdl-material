@@ -16,7 +16,7 @@ function downloadVideo() {
         frontend_url: 'http://localhost',
         audio_only: false
     }, function(items) {
-        const download_url = items.frontend_url + '/#/home;url=' + encodeURIComponent(input_url) + ';audioOnly=' + items.audio_only;
+        const download_url = items.frontend_url.replace(/\/$/, '') + '/?url=' + encodeURIComponent(input_url) + '&audioOnly=' + items.audio_only;
         chrome.tabs.create({ url: download_url });
     });
 }

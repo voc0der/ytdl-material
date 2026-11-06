@@ -26,13 +26,13 @@ function parseCSV(input) {
 }
 
 function normalizeRelativePath(return_to) {
-  if (!return_to || typeof return_to !== 'string') return '/home';
+  if (!return_to || typeof return_to !== 'string') return '/';
   const trimmed = return_to.trim();
-  if (!trimmed.startsWith('/')) return '/home';
-  if (trimmed.startsWith('//')) return '/home';
+  if (!trimmed.startsWith('/')) return '/';
+  if (trimmed.startsWith('//')) return '/';
   // Browsers read "\" as "/" and drop tabs and newlines, so "/\host" and
   // "/<tab>/host" both become "//host". Refuse every control character.
-  if (/[\\\p{Cc}]/u.test(trimmed)) return '/home';
+  if (/[\\\p{Cc}]/u.test(trimmed)) return '/';
   return trimmed;
 }
 
@@ -176,7 +176,7 @@ exports.getStatus = () => {
   };
 }
 
-exports.createAuthorizationURL = async (return_to = '/home') => {
+exports.createAuthorizationURL = async (return_to = '/') => {
   ensureOIDCReady();
   cleanupTransactions();
   const oidc_config = getOIDCConfiguration();
@@ -244,7 +244,7 @@ exports.consumeAuthorizationCallback = async (req) => {
 
   return {
     claims: Object.assign({}, userinfo_claims || {}, id_claims || {}),
-    return_to: tx.return_to || '/home'
+    return_to: tx.return_to || '/'
   };
 }
 

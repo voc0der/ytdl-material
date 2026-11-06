@@ -93,14 +93,14 @@ const fields = page => card(page).locator('.login-form input');
 const submit = page => card(page).locator('.login-submit');
 
 async function openLogin(page) {
-    await page.goto(`${BASE}/#/login`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
     await card(page).locator('.login-form').waitFor({ timeout: 30_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 }
 
 async function loggingIn(page) {
     say('Logging in with the wrong password');
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await card(page).locator('.login-form').waitFor({ timeout: 30_000 });
     check('a page that needs an account sends you to log in', page.url().includes('/login'), page.url().split('#')[1]);
     check('it is headed by what it is for', (await card(page).locator('.login-title').innerText()).trim() === 'Log in');
@@ -176,8 +176,8 @@ async function registering(page) {
 
     await fields(page).nth(1).fill(NEW_PASSWORD);
     await submit(page).click();
-    await page.waitForURL(url => url.hash.startsWith('#/home'), { timeout: 20_000 }).catch(() => {});
-    check('the new account logs in and lands on the home page', page.url().includes('/home'), page.url().split('#')[1]);
+    await page.waitForURL(url => url.pathname === '/' && !url.search, { timeout: 20_000 }).catch(() => {});
+    check('the new account logs in and lands on the home page', page.url() === `${BASE}/`, page.url().replace(BASE, ''));
     check('with a session to come back to', !!(await page.evaluate(() => localStorage.getItem('jwt_token'))));
 }
 

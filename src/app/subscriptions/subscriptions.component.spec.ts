@@ -211,7 +211,7 @@ describe('SubscriptionsComponent', () => {
     expect(actions.check).toHaveBeenCalledWith(sub);
     expect(actions.cancelCheck).toHaveBeenCalledWith(sub);
     expect(actions.redownload).toHaveBeenCalledWith(sub);
-    expect(router.navigate).toHaveBeenCalledWith(['/player', { sub_id: 'sub-1' }]);
+    expect(router.navigate).toHaveBeenCalledWith(['/'], {queryParams: {sub_id: 'sub-1'}});
     expect(postsService.getAllSubscriptions).toHaveBeenCalledTimes(3);
   });
 

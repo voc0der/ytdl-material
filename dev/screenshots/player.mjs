@@ -197,7 +197,7 @@ async function drag(page, from, to) {
 }
 
 async function openPlaylist(page, playlist) {
-    await page.goto(`${BASE}/#/player;playlist_id=${playlist.id}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/?playlist_id=${playlist.id}`, { waitUntil: 'domcontentloaded' });
     await rows(page).first().waitFor({ timeout: 30_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 }
@@ -272,7 +272,7 @@ async function playingOneFile(browser, seeded, errors) {
     const oldest = [...seeded.files].sort((a, b) => a.registered - b.registered)[0];
 
     const page = await newPage(browser, 'desktop', errors, { autoplay: false });
-    await page.goto(`${BASE}/#/player;uid=${oldest.uid};type=video`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/?uid=${oldest.uid}`, { waitUntil: 'domcontentloaded' });
     await rows(page).first().waitFor({ timeout: 30_000 });
     check('a file played on its own is headed as what is playing', await queueTitle(page) === 'Now playing', await queueTitle(page));
     check('with a hint at what Autoplay would do', await queueMeta(page) === 'Turn on Autoplay to keep playing from your library.', await queueMeta(page));
@@ -310,7 +310,7 @@ async function playingOneFile(browser, seeded, errors) {
 
     // Autoplay already on: the library is queued as the page opens, with the page at the top.
     const opened = await newPage(browser, 'desktop', errors, { autoplay: true });
-    await opened.goto(`${BASE}/#/player;uid=${oldest.uid};type=video`, { waitUntil: 'domcontentloaded' });
+    await opened.goto(`${BASE}/?uid=${oldest.uid}`, { waitUntil: 'domcontentloaded' });
     await opened.waitForFunction(() => document.querySelectorAll('.player-playlist-section .playlist-row').length > 1, null, { timeout: 15_000 }).catch(() => {});
     await opened.waitForTimeout(300);
     const scroll = await opened.evaluate(() => {

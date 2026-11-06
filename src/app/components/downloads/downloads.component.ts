@@ -152,7 +152,7 @@ export class DownloadsComponent implements OnInit, OnDestroy {
   getCurrentDownloadsRecurring(): void {
     if (this.component_destroyed) return;
     if (!this.postsService.config['Extra']['enable_downloads_manager']) {
-      this.router.navigate(['/home']);
+      this.router.navigate(['/']);
       return;
     }
 

@@ -99,7 +99,7 @@ async function newPage(browser, device, errors, theme = 'dark') {
 }
 
 async function open(page, route) {
-    await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/${route}`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
 }
 

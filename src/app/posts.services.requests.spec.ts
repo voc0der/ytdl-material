@@ -209,7 +209,7 @@ describe('PostsService requests', () => {
     TestBed.configureTestingModule({
       providers: [
         PostsService, provideHttpClient(), provideHttpClientTesting(),
-        {provide: Router, useValue: {url: '/home', navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true)}},
+        {provide: Router, useValue: {url: '/', navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true)}},
         {provide: MatSnackBar, useValue: {open: vi.fn()}},
         {provide: Title, useValue: {setTitle: vi.fn()}}
       ]
@@ -368,8 +368,8 @@ describe('PostsService requests', () => {
 
   it('builds the OIDC login link with the page to return to', () => {
     start();
-    expect(service.getOIDCLoginURL('/player;uid=file 1')).toBe(API + 'auth/oidc/login?returnTo=%2Fplayer%3Buid%3Dfile%201');
-    expect(service.getOIDCLoginURL()).toBe(API + 'auth/oidc/login?returnTo=%2Fhome');
+    expect(service.getOIDCLoginURL('/?v=FileLink123')).toBe(API + 'auth/oidc/login?returnTo=%2F%3Fv%3DFileLink123');
+    expect(service.getOIDCLoginURL()).toBe(API + 'auth/oidc/login?returnTo=%2F');
   });
 
   it('reads release information from the project\'s releases', async () => {
