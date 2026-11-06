@@ -674,6 +674,9 @@ describe('MediaLibraryComponent', () => {
       const grid_element = document.createElement('div');
       grid_element.style.padding = '0 12px';
       Object.defineProperty(grid_element, 'clientWidth', { configurable: true, value: 412 });
+      // Computed styles resolve only for an element in a document; detached, the padding reads as 0.
+      document.body.appendChild(grid_element);
+      onTestFinished(() => grid_element.remove());
       (component as any).videoGridContainerElement = grid_element;
 
       component.setNarrowScreen(true);
