@@ -32,10 +32,14 @@ ENV NODE_VERSION=24
 # The Ubuntu image ships Canonical's pebble service manager, which nothing here runs. It is
 # a Go binary that only a new base image would update, so it goes rather than carrying the
 # Go runtime's advisories into every scan of this image.
+# Ubuntu publishes security fixes to its archive before it republishes the image, and
+# installing packages leaves the ones the image already has at their old versions, so those
+# are upgraded first.
 RUN { getent group "$GID" >/dev/null || groupadd -g "$GID" "$USER"; } && \
     { getent passwd "$UID" >/dev/null || useradd --system -m -u "$UID" -g "$GID" "$USER"; } && \
     rm -rf /usr/bin/pebble /var/lib/pebble && \
     apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl ca-certificates tzdata libatomic1 && \
     ICU_PKG=$(apt-cache search '^libicu[0-9]+$' | awk '{print $1}' | sort -V | tail -1) && \
     apt-get install -y --no-install-recommends "${ICU_PKG}" && \
