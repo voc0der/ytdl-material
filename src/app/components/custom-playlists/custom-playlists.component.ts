@@ -6,6 +6,7 @@ import { openPlaylistDialog } from 'app/create-playlist/create-playlist.componen
 import { DeletePlaylistResponse, Playlist } from 'api-types';
 import { DeletePlaylistDialogComponent, DeletePlaylistDialogAction } from 'app/dialogs/delete-playlist-dialog/delete-playlist-dialog.component';
 import { saveBlob } from '../../utils/save-blob';
+import { playerLink } from '../../utils/player-link';
 import { filter, take } from 'rxjs/operators';
 import { PLAYER_NAVIGATOR_STORAGE_KEY } from 'app/media-library-navigation-state.service';
 import { NgClass } from '@angular/common';
@@ -63,9 +64,10 @@ export class CustomPlaylistsComponent implements OnInit {
         this.downloadPlaylist(playlist.id, playlist.name);
       } else {
         sessionStorage.setItem(PLAYER_NAVIGATOR_STORAGE_KEY, this.router.url);
-        const routeParams = {playlist_id: playlistID};
+        const routeParams = {};
         if (playlist.auto) { routeParams['auto'] =  playlist.auto; }
-        this.router.navigate(['/player', routeParams]);
+        const link = playerLink(playlist, true, routeParams);
+        this.router.navigate(link.commands, {queryParams: link.queryParams});
       }
     } else {
       // playlist not found

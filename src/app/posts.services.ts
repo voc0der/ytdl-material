@@ -2,6 +2,7 @@ import {Injectable, isDevMode, Inject, DOCUMENT, inject} from '@angular/core';
 import { HttpBackend, HttpClient, HttpParams } from '@angular/common/http';
 import { THEMES_CONFIG } from '../themes';
 import { Router, ActivatedRouteSnapshot } from '@angular/router';
+import { compactPlayerPath } from './utils/player-link';
 
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter, take, tap } from 'rxjs/operators';
@@ -765,6 +766,11 @@ export class PostsService {
         return this.http.post<CreatePlaylistResponse>(this.path + 'createPlaylist', body, this.httpOptions);
     }
 
+    resolvePlayerLink(share_id: string, library: string = null) {
+        return this.http.get<{uid?: string; playlist_id?: string}>(
+            this.path + 'resolvePlayerLink/' + encodeURIComponent(share_id), this.libraryOptions(library));
+    }
+
     getPlaylist(playlist_id: string, uuid: string = null, include_file_metadata: boolean = false, library: string = null) {
         const body: GetPlaylistRequest = {playlist_id: playlist_id,
             include_file_metadata: include_file_metadata, uuid: uuid};
@@ -1215,7 +1221,11 @@ export class PostsService {
             return;
         }
 
-        const return_to = this.router.url && this.router.url !== '/login' ? this.router.url : '/home';
+        // The config request can finish before the router's first navigation. In that case
+        // router.url is still '/', although the browser opened a compact player link.
+        const initial_player = this.router.url === '/'
+            ? compactPlayerPath(window.location.pathname, window.location.search) : null;
+        const return_to = initial_player || (this.router.url && this.router.url !== '/login' ? this.router.url : '/home');
         this.router.navigate(['/login'], {queryParams: {returnTo: return_to}});
 
         if (this.isOIDCEnabled() || this.isHeaderAuthEnabled()) {

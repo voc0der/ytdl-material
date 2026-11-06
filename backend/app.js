@@ -1878,6 +1878,7 @@ app.post('/api/disableSharing', optionalJwt, requirePermission('sharing'), async
 
 // Short share links. Ahead of the pages below, which would send the link to the OIDC login.
 app.get('/s/:share_id', apiRateLimiter, share_links.redirect);
+app.get('/api/resolvePlayerLink/:share_id', optionalJwt, requireAuthenticated, resolveLibraryOwner, share_links.resolvePlayerLink);
 
 /*************************************************
  * Unauthenticated by necessity: the player calls it
@@ -4289,9 +4290,9 @@ app.use(function(req, res, next) {
         return next();
     }
 
-    // Hash routes (/#/...) are received as "/" on the server. Let the SPA load so
-    // client-side routing can preserve return targets like /player;uid=... .
-    if (req.path === '/') {
+    // Let the SPA bootstrap authentication for both legacy hash links and compact player
+    // paths, preserving the full return target, including the short id in its query string.
+    if (req.path === '/' || ['/video', '/audio', '/playlist'].includes(req.path)) {
         return next();
     }
 

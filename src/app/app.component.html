@@ -5,10 +5,10 @@
         <div class="row" width="100%" height="100%">
           <div class="col-6" style="text-align: left; margin-top: 1px;">
             <div style="display: flex; align-items: center;">
-              @if (router.url.split(';')[0] !== '/player') {
+              @if (!isPlayerPage) {
                 <button #hamburgerMenu mat-icon-button aria-label="Toggle side navigation" [attr.aria-expanded]="sidenav.opened" aria-controls="primary-navigation" (click)="toggleSidenav()"><mat-icon>menu</mat-icon></button>
               }
-              @if (router.url.split(';')[0] === '/player') {
+              @if (isPlayerPage) {
                 <button (click)="goBack()" mat-icon-button><mat-icon>arrow_back</mat-icon></button>
               }
               <div style="margin-left: 8px; display: inline-block;"><button mat-icon-button routerLink='/home'><img style="width: 32px;" src="assets/images/logo_128px.png"></button></div>
@@ -126,7 +126,7 @@
   </div>
   <div class="sidenav-container" style="height: calc(100% - 64px)">
     <mat-sidenav-container class="navigation-container" [class.drawer-open]="sidenav.opened" style="height: 100%">
-      <mat-sidenav id="primary-navigation" class="navigation-drawer" [opened]="postsService.sidepanel_mode === 'side' && !window.location.href.includes('/player')" [mode]="postsService.sidepanel_mode" #sidenav>
+      <mat-sidenav id="primary-navigation" class="navigation-drawer" [opened]="postsService.sidepanel_mode === 'side' && !isPlayerPage" [mode]="postsService.sidepanel_mode" #sidenav>
         <mat-nav-list class="navigation-list" aria-label="Main navigation" i18n-aria-label="Main navigation label">
           @if (postsService.config && (!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn)) {
             <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/home'>

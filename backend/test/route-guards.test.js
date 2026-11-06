@@ -58,7 +58,7 @@ const SHARED_LINK_ROUTES = ['/api/getFile', '/api/stream', '/api/streamSubtitle'
 
 // The only routes that may answer from another user's shared library. Each one reads; a
 // shared library is shown, never changed, and downloading a copy is not part of it.
-const SHARED_LIBRARY_ROUTES = ['/api/getAllFiles', '/api/getFile', '/api/getPlaylists', '/api/getPlaylist', '/api/stream', '/api/streamSubtitle', '/api/thumbnail/:uid'];
+const SHARED_LIBRARY_ROUTES = ['/api/getAllFiles', '/api/getFile', '/api/getPlaylists', '/api/getPlaylist', '/api/stream', '/api/streamSubtitle', '/api/thumbnail/:uid', '/api/resolvePlayerLink/:share_id'];
 
 function parseRoutes() {
     const routes = [];

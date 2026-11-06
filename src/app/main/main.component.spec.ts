@@ -342,7 +342,7 @@ describe('MainComponent', () => {
 
     expect(reload_spy).toHaveBeenCalledWith(false);
     expect((component as any).postsService.files_changed.next).toHaveBeenCalledWith(true);
-    expect(router_navigate_spy).toHaveBeenCalledWith(['/player', { type: 'video', uid: 'file-1' }]);
+    expect(router_navigate_spy).toHaveBeenCalledWith(['/player', {uid: 'file-1'}], {queryParams: {}});
   });
 
   it('shows a dialog instead of reopening a skipped duplicate single download', () => {

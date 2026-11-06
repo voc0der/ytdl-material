@@ -158,7 +158,7 @@ describe('Media library actions', () => {
       component.activeLibraryTab = 1;
       component.goToPlaylist({ file: playlist });
 
-      expect(router.navigate).toHaveBeenCalledWith(['/player', { playlist_id: 'mix' }]);
+      expect(router.navigate).toHaveBeenCalledWith(['/player', {playlist_id: 'mix'}], {queryParams: {}});
       expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/home');
       const saved = TestBed.inject(MediaLibraryNavigationStateService).consumePendingRestoreState('/home', null);
       expect(saved.files).toEqual([file]);
@@ -170,8 +170,8 @@ describe('Media library actions', () => {
       posts.viewedLibraryUid = 'owner';
       component.goToPlaylist({ file: { ...playlist, auto: true }, event: { ctrlKey: true } });
 
-      expect(router.createUrlTree).toHaveBeenCalledWith(['/player', { playlist_id: 'mix', auto: 'true', library: 'owner' }]);
-      expect(open).toHaveBeenCalledWith('/#/player;playlist_id=mix');
+      expect(router.createUrlTree).toHaveBeenCalledWith(['/player', {playlist_id: 'mix', auto: 'true', library: 'owner'}], {queryParams: {}});
+      expect(open).toHaveBeenCalledWith(new URL('#/player;playlist_id=mix', document.baseURI).href);
       expect(router.navigate).not.toHaveBeenCalled();
       expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBeNull();
     });
@@ -191,11 +191,11 @@ describe('Media library actions', () => {
 
       component.goToFile({ file: { ...file, isAudio: true }, event: { ctrlKey: false } });
 
-      expect(router.navigate).toHaveBeenCalledWith(['/player', {
-        type: 'audio', uid: 'clip', queue_sort_by: 'registered', queue_sort_order: '1',
+      expect(router.navigate).toHaveBeenCalledWith(['/player', {uid: 'clip'}], {queryParams: {}, state: {playerQueue: {
+        queue_sort_by: 'registered', queue_sort_order: '1',
         queue_file_type_filter: 'audio_only', queue_favorite_filter: 'true',
         queue_search: 'music', queue_sub_id: 'channel'
-      }]);
+      }}});
       component.goToSubscription({ ...file, sub_id: 'channel' });
       expect(router.navigate).toHaveBeenLastCalledWith(['/subscription', { id: 'channel' }]);
     });
