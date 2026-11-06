@@ -63,10 +63,10 @@ describe('MediaLibraryComponent', () => {
       viewLibrary: vi.fn().mockName('viewLibrary')
     };
     routerStub = {
-      url: '/home',
+      url: '/',
       navigate: vi.fn().mockName('navigate'),
-      createUrlTree: vi.fn().mockName('createUrlTree').mockReturnValue('/player'),
-      serializeUrl: vi.fn().mockName('serializeUrl').mockReturnValue('/player')
+      createUrlTree: vi.fn().mockName('createUrlTree').mockReturnValue('/?uid=file-1'),
+      serializeUrl: vi.fn().mockName('serializeUrl').mockReturnValue('/?uid=file-1')
     };
     dialogStub = {
       open: vi.fn().mockName('open')
@@ -555,7 +555,7 @@ describe('MediaLibraryComponent', () => {
     it('should keep the page of a search it returns to from the player', fakeAsync(() => {
       navigationStateService.savePendingRestoreState({
         snapshot: {
-          routeKey: '/home',
+          routeKey: '/',
           activeLibraryTab: 0,
           sortProperty: 'registered',
           descendingMode: true,
@@ -920,7 +920,7 @@ describe('MediaLibraryComponent', () => {
   it('should restore cached library state without refetching files', () => {
     navigationStateService.savePendingRestoreState({
       snapshot: {
-        routeKey: '/home',
+        routeKey: '/',
         activeLibraryTab: 0,
         sortProperty: 'registered',
         descendingMode: true,
@@ -959,7 +959,7 @@ describe('MediaLibraryComponent', () => {
   it('should refetch files instead of restoring stale cached library data after background file changes', () => {
     navigationStateService.savePendingRestoreState({
       snapshot: {
-        routeKey: '/home',
+        routeKey: '/',
         activeLibraryTab: 0,
         sortProperty: 'registered',
         descendingMode: true,
@@ -1064,7 +1064,7 @@ describe('MediaLibraryComponent', () => {
       querySelectorAll: () => [anchor_element]
     };
     (manualComponent as any).pendingScrollRestoreSnapshot = {
-      routeKey: '/home',
+      routeKey: '/',
       activeLibraryTab: 0,
       sortProperty: 'registered',
       descendingMode: true,
@@ -1155,9 +1155,9 @@ describe('MediaLibraryComponent', () => {
 
     component.navigateToFile(component.paged_data[0], false);
 
-    expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/home');
+    expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/');
     expect(routerStub.navigate).toHaveBeenCalled();
-    const restored = navigationStateService.consumePendingRestoreState('/home', null);
+    const restored = navigationStateService.consumePendingRestoreState('/', null);
     expect(restored.snapshot.searchText).toBe('cats');
     expect(restored.snapshot.selectedFilters).toEqual(['favorited']);
     expect(restored.snapshot.anchorUid).toBe('file-1');
@@ -1171,8 +1171,8 @@ describe('MediaLibraryComponent', () => {
     component.selectedFilters = ['category:cat-music'];
 
     component.navigateToFile({uid: 'file-1', share_id: 'FileLink123', isAudio: false} as any, false);
-    expect(routerStub.navigate).toHaveBeenCalledWith(['/video'], {
-      queryParams: {id: 'FileLink123'},
+    expect(routerStub.navigate).toHaveBeenCalledWith(['/'], {
+      queryParams: {v: 'FileLink123'},
       state: {playerQueue: expect.objectContaining({queue_category_filter_uids: 'cat-music'})}
     });
   });
@@ -1188,7 +1188,7 @@ describe('MediaLibraryComponent', () => {
 
     expect(window_open_spy).toHaveBeenCalled();
     expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBeNull();
-    expect(navigationStateService.consumePendingRestoreState('/home', null)).toBeNull();
+    expect(navigationStateService.consumePendingRestoreState('/', null)).toBeNull();
     expect(routerStub.navigate).not.toHaveBeenCalled();
   });
 

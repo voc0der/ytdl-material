@@ -79,15 +79,15 @@ describe('Notification webhooks', function() {
     const payloads = {
         download_complete: {
             title: 'Download complete', body: FILE.title + '\nOriginal URL: ' + FILE.url,
-            type: 'download_complete', url: APP_URL + '/#/player;uid=file-1', thumbnail: FILE.thumbnailURL
+            type: 'download_complete', url: APP_URL + '/?uid=file-1', thumbnail: FILE.thumbnailURL
         },
         download_error: {
             title: 'Download error', body: 'Error: Upstream unavailable\nError code: network\n\nOriginal URL: ' + FILE.url,
-            type: 'download_error', url: APP_URL + '/#/downloads', thumbnail: null
+            type: 'download_error', url: APP_URL + '/downloads', thumbnail: null
         },
         task_finished: {
             title: 'Task finished', body: TASK.title,
-            type: 'task_finished', url: APP_URL + '/#/tasks', thumbnail: null
+            type: 'task_finished', url: APP_URL + '/tasks', thumbnail: null
         }
     };
 

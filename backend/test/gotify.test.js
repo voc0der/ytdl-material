@@ -67,7 +67,7 @@ describe('Gotify notifications', function() {
                 message: 'A video\nOriginal URL: https://example.com/watch',
                 priority: 5,
                 extras: {'client::notification': {
-                    click: {url: `${require('../utils').getBaseURL()}/#/player;uid=video-id`},
+                    click: {url: `${require('../utils').getBaseURL()}/?uid=video-id`},
                     bigImageUrl: 'https://example.com/image.jpg'
                 }}
             });

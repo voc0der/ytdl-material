@@ -78,7 +78,7 @@ export class DuplicatesComponent implements OnInit, OnDestroy {
 
   private startRefreshing(): void {
     if (!this.postsService.config?.Extra?.file_manager_enabled || !this.postsService.hasPermission('filemanager')) {
-      this.router.navigate(['/home']);
+      this.router.navigate(['/']);
       return;
     }
 

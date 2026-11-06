@@ -186,7 +186,7 @@ async function overflowItems(page) {
 }
 
 async function openHome(page) {
-    await page.goto(`${BASE}/#/home`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
     await page.locator('.library-switcher').waitFor({ timeout: 30_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
 }
@@ -254,7 +254,7 @@ async function browsing(page, seeded, token) {
 
     await choices.filter({ hasText: OWNER.name }).click();
     await profile(page).waitFor({ state: 'detached' });
-    check('picking Bob closes Profile on the library', page.url().endsWith('#/home'), page.url().split('#')[1]);
+    check('picking Bob closes Profile on the library', page.url() === `${BASE}/`, page.url().replace(BASE, ''));
     check('the library is Bob\'s', await waitForFileCount(page, seeded.owner_files.length));
     check('the toolbar says whose it is, and offers the way back',
         (await backToMine(page).getAttribute('aria-label')) === 'Browsing Bob\'s library. Back to yours');
@@ -296,7 +296,7 @@ async function browsing(page, seeded, token) {
     say('Playing one of Bob\'s videos');
     const played = seeded.owner_files[0];
     await cards(page).filter({ hasText: played.title.slice(0, 30) }).first().locator('.file-metadata').click();
-    await page.waitForURL(/#\/player/, { timeout: 15_000 });
+    await page.waitForURL(url => url.pathname === '/' && url.searchParams.has('v'), { timeout: 15_000 });
     check('the player is opened on his library', decodeURIComponent(page.url()).includes('library=bob'));
     await page.locator('.action-buttons-row').waitFor({ timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -311,7 +311,7 @@ async function browsing(page, seeded, token) {
 
     say('Going back to the viewer\'s own library');
     await backToMine(page).click();
-    await page.waitForURL(/#\/home$/, { timeout: 15_000 });
+    await page.waitForURL(url => url.pathname === '/' && !url.search, { timeout: 15_000 });
     check('one press goes back to their own library', await waitForFileCount(page, VIEWER_VIDEOS));
     check('and the toolbar button goes with it', await backToMine(page).count() === 0);
 
@@ -329,7 +329,7 @@ async function browsing(page, seeded, token) {
     await page.getByRole('menuitemradio').filter({ hasText: OWNER.name }).click();
     await profile(page).waitFor({ state: 'detached' });
     await waitForFileCount(page, seeded.owner_files.length);
-    await page.goto(`${BASE}/#/subscriptions`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/subscriptions`, { waitUntil: 'domcontentloaded' });
     await page.locator('app-subscriptions').waitFor({ timeout: 15_000 });
     check('opening Subscriptions by its address goes back to their own library first',
         await backToMine(page).count() === 0 && await subscriptionsLink(page).count() === 1);

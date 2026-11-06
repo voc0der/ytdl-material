@@ -34,7 +34,7 @@ The default JSON shape is:
   "body": "A download has completed.",
   "title": "Download complete",
   "type": "download_complete",
-  "url": "https://media.example.com/#/player;uid=FILE_ID",
+  "url": "https://media.example.com/?uid=FILE_ID",
   "thumbnail": null
 }
 ```

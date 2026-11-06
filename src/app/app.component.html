@@ -11,7 +11,7 @@
               @if (isPlayerPage) {
                 <button (click)="goBack()" mat-icon-button><mat-icon>arrow_back</mat-icon></button>
               }
-              <div style="margin-left: 8px; display: inline-block;"><button mat-icon-button routerLink='/home'><img style="width: 32px;" src="assets/images/logo_128px.png"></button></div>
+              <div style="margin-left: 8px; display: inline-block;"><button mat-icon-button routerLink='/'><img style="width: 32px;" src="assets/images/logo_128px.png"></button></div>
             </div>
           </div>
           <div class="col-6" style="text-align: right; align-items: flex-end; display: inline-block">
@@ -129,7 +129,7 @@
       <mat-sidenav id="primary-navigation" class="navigation-drawer" [opened]="postsService.sidepanel_mode === 'side' && !isPlayerPage" [mode]="postsService.sidepanel_mode" #sidenav>
         <mat-nav-list class="navigation-list" aria-label="Main navigation" i18n-aria-label="Main navigation label">
           @if (postsService.config && (!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn)) {
-            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/home'>
+            <a mat-list-item class="navigation-link" routerLinkActive="navigation-active" [routerLinkActiveOptions]="navigationMatchOptions" ariaCurrentWhenActive="page" (click)="postsService.sidepanel_mode === 'over' ? sidenav.close() : null" routerLink='/'>
               <mat-icon matListItemIcon class="navigation-icon">home</mat-icon>
               <span matListItemTitle i18n="Navigation menu Home Page title">Home</span>
             </a>

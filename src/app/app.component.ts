@@ -287,7 +287,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   goBack(): void {
     if (!this.navigator) {
-      this.router.navigate(['/home']);
+      this.router.navigate(['/']);
     } else {
       this.router.navigateByUrl(this.navigator);
     }
@@ -336,7 +336,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   // One press from anywhere back to your own library, which is what the button is for.
   returnToOwnLibrary(): void {
     this.postsService.viewLibrary(null);
-    this.router.navigate(['/home']);
+    this.router.navigate(['/']);
   }
 
   get notificationsLabel(): string {

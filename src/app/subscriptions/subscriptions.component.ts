@@ -169,7 +169,7 @@ export class SubscriptionsComponent implements OnInit, OnDestroy {
   }
 
   watch(sub: Subscription): void {
-    this.router.navigate(['/player', { sub_id: sub.id }]);
+    this.router.navigate(['/'], {queryParams: {sub_id: sub.id}});
   }
 
   async check(sub: Subscription): Promise<void> {

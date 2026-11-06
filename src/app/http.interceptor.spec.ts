@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom, throwError } from 'rxjs';
 
 import { h401InterceptorFn } from './http.interceptor';
+import { Location } from '@angular/common';
 
 describe('h401InterceptorFn', () => {
   let router: any;
@@ -18,10 +19,11 @@ describe('h401InterceptorFn', () => {
   }
 
   beforeEach(() => {
-    router = { url: '/home', navigate: vi.fn().mockName('navigate').mockResolvedValue(true) };
+    router = { url: '/', navigate: vi.fn().mockName('navigate').mockResolvedValue(true) };
     snackBar = { open: vi.fn().mockName('open') };
     TestBed.configureTestingModule({
       providers: [
+        {provide: Location, useValue: {path: () => Location.stripTrailingSlash(window.location.pathname + window.location.search)}},
         { provide: Router, useValue: router },
         { provide: MatSnackBar, useValue: snackBar }
       ]
@@ -29,11 +31,11 @@ describe('h401InterceptorFn', () => {
   });
 
   it('sends a page whose session expired to log in again', async () => {
-    const error = await unauthorizedOn('/home');
+    const error = await unauthorizedOn('/');
     await Promise.resolve();
 
     expect(error).toBe('Unauthorized');
-    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/'}});
     expect(snackBar.open).toHaveBeenCalledWith('Login expired, please login again.', '', { duration: 2000 });
   });
 
@@ -49,16 +51,16 @@ describe('h401InterceptorFn', () => {
   });
 
   it('keeps a compact player link as the login return target', async () => {
-    await unauthorizedOn('/video?id=FileLink123');
-    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+    await unauthorizedOn('/?v=FileLink123');
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/?v=FileLink123'}});
   });
 
   it('keeps the direct player target when session restoration fails before routing starts', async () => {
     const original = window.location.href;
     try {
-      window.history.replaceState(null, '', '/media/video?id=FileLink123');
+      window.history.replaceState(null, '', '/?v=FileLink123');
       await unauthorizedOn('/');
-      expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+      expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/?v=FileLink123'}});
     } finally {
       window.history.replaceState(null, '', original);
     }

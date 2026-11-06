@@ -647,11 +647,10 @@ export class SettingsComponent implements OnInit {
   }
 
   generateBookmarkletCode(): string {
-    const currentURL = window.location.href.split('#')[0];
-    const homePageWithArgsURL = currentURL + '#/home;url=';
+    const homePageWithArgsURL = new URL('./', document.baseURI).href + '?url=';
     const audioOnly = this.bookmarkletAudioOnly;
     // tslint:disable-next-line: max-line-length
-    const bookmarkletCode = `javascript:(function()%7Bwindow.open('${homePageWithArgsURL}' + encodeURIComponent(window.location) + ';audioOnly=${audioOnly}')%7D)()`;
+    const bookmarkletCode = `javascript:(function()%7Bwindow.open('${homePageWithArgsURL}' + encodeURIComponent(window.location) + '&audioOnly=${audioOnly}')%7D)()`;
     return bookmarkletCode;
   }
 

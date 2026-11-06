@@ -104,7 +104,7 @@ async function shoot(page, name, focus = null) {
 }
 
 async function openSettings(page, tab = null) {
-    await page.goto(`${BASE}/#/settings${tab ? `;tab=${tab}` : ''}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/settings${tab ? `;tab=${tab}` : ''}`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.getByRole('tab', { name: 'Main' }).waitFor({ timeout: 20_000 });
 }

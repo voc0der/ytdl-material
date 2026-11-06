@@ -175,7 +175,7 @@ describe('OIDC authorization', function() {
         settings.ytdl_oidc_scope = 'openid profile';
         await oidc.initialize();
         const first = await begin('/subscriptions?sort=name');
-        const second = await begin('/home');
+        const second = await begin('/');
         assert.strictEqual(first.url.origin + first.url.pathname, ISSUER + '/authorize');
         assert.strictEqual(first.url.searchParams.get('response_type'), 'code');
         assert.strictEqual(first.url.searchParams.get('code_challenge_method'), 'S256');
@@ -187,7 +187,7 @@ describe('OIDC authorization', function() {
         assert.strictEqual(first.url.searchParams.has('client_secret'), false);
         assert.strictEqual(first.url.searchParams.has('code_verifier'), false);
         // Finishing in reverse order must not mix up either browser's transaction.
-        assert.strictEqual((await oidc.consumeAuthorizationCallback(second)).return_to, '/home');
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(second)).return_to, '/');
         const result = await oidc.consumeAuthorizationCallback(first);
         assert.strictEqual(result.return_to, '/subscriptions?sort=name');
         assert.strictEqual(result.claims.email, 'alice@example.test');
@@ -200,7 +200,7 @@ describe('OIDC authorization', function() {
         for (const returnTo of [undefined, null, '', 42, 'home', '//evil.example', 'https://evil.example',
             '/\\evil.example', '/\t/evil.example', '/home\u0000']) {
             const login = await begin(returnTo);
-            assert.strictEqual((await oidc.consumeAuthorizationCallback(login)).return_to, '/home');
+            assert.strictEqual((await oidc.consumeAuthorizationCallback(login)).return_to, '/');
         }
         const login = await begin(' /subscriptions ');
         assert.strictEqual((await oidc.consumeAuthorizationCallback(login)).return_to, '/subscriptions');
@@ -253,7 +253,7 @@ describe('OIDC authorization', function() {
         assert.strictEqual(tokenRequests().length, 0);
         // Expiring an old transaction must leave newly issued ones usable.
         const fresh = await begin();
-        assert.strictEqual((await oidc.consumeAuthorizationCallback(fresh)).return_to, '/home');
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(fresh)).return_to, '/');
     });
 
     it('revokes pending transactions when OIDC is disabled and re-enabled', async function() {

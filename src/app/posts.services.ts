@@ -2,7 +2,8 @@ import {Injectable, isDevMode, Inject, DOCUMENT, inject} from '@angular/core';
 import { HttpBackend, HttpClient, HttpParams } from '@angular/common/http';
 import { THEMES_CONFIG } from '../themes';
 import { Router, ActivatedRouteSnapshot } from '@angular/router';
-import { compactPlayerPath } from './utils/player-link';
+import { isPublicPlayerRoute } from './utils/player-link';
+import { Location } from '@angular/common';
 
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter, take, tap } from 'rxjs/operators';
@@ -280,6 +281,7 @@ export class PostsService {
     // tell a refused link from a busy server, and which logs out on any 401, although a playback
     // link being refused says nothing about the session.
     private readonly http_without_interceptors = new HttpClient(inject(HttpBackend));
+    private readonly location = inject(Location);
 
     constructor(private http: HttpClient, private router: Router, @Inject(DOCUMENT) private document: Document,
                 public snackBar: MatSnackBar, private titleService: Title) {
@@ -299,7 +301,8 @@ export class PostsService {
             })
         };
 
-        const redirect_not_required = window.location.href.includes('/player') || window.location.href.includes('/login');
+        const initial_route = this.location.path() || '/';
+        const redirect_not_required = isPublicPlayerRoute(initial_route) || initial_route.startsWith('/login');
 
         // get config
         this.getConfig().subscribe(res => {
@@ -1016,7 +1019,7 @@ export class PostsService {
         return this.http.get('https://api.github.com/repos/voc0der/ytdl-material/releases');
     }
 
-    afterLogin(user, token, permissions, available_permissions, redirect_path = '/home') {
+    afterLogin(user, token, permissions, available_permissions, redirect_path = '/') {
         this.isLoggedIn = true;
         this.user = user;
         this.viewLibrary(null);
@@ -1037,7 +1040,7 @@ export class PostsService {
             this.setInitialized();
 
             if (this.router.url.startsWith('/login')) {
-                this.router.navigateByUrl(redirect_path || '/home');
+                this.router.navigateByUrl(redirect_path || '/');
             }
         });
     }
@@ -1048,7 +1051,7 @@ export class PostsService {
         return this.http.post<LoginResponse>(this.path + 'auth/login', body, this.httpOptions);
     }
 
-    completeOIDCLogin(token: string, redirect_path = '/home') {
+    completeOIDCLogin(token: string, redirect_path = '/') {
         this.token = token;
         this.httpOptions.params = this.httpOptions.params.set('jwt', this.token);
         const call = this.http.post<LoginResponse>(this.path + 'auth/jwtAuth', {}, this.httpOptions);
@@ -1077,7 +1080,7 @@ export class PostsService {
         return !!(this.config && this.config['Users'] && this.config['Users']['oidc'] && this.config['Users']['oidc']['enabled']);
     }
 
-    getOIDCLoginURL(return_to = '/home'): string {
+    getOIDCLoginURL(return_to = '/'): string {
         return `${this.path}auth/oidc/login?returnTo=${encodeURIComponent(return_to)}`;
     }
 
@@ -1096,7 +1099,7 @@ export class PostsService {
      * header. Without onFailure, a refusal sends the page to the login page, which tries again
      * and shows why it failed -- except for a shared video, which is meant to play for anybody.
      */
-    headerLogin(redirect_path = '/home', onFailure: (error: string) => void = null) {
+    headerLogin(redirect_path = '/', onFailure: (error: string) => void = null) {
         this.http.post<LoginResponse>(this.path + 'auth/header/login', {}, this.httpOptions).subscribe(res => {
             if (res['token']) {
                 this.afterLogin(res['user'], res['token'], res['permissions'], res['available_permissions'], redirect_path);
@@ -1104,7 +1107,7 @@ export class PostsService {
         }, err => {
             if (onFailure) {
                 onFailure(this.getErrorMessage(err));
-            } else if (window.location.href.includes('/player')) {
+            } else if (isPublicPlayerRoute(this.location.path() || '/')) {
                 this.setInitialized();
             } else {
                 this.sendToLogin(false);
@@ -1221,11 +1224,10 @@ export class PostsService {
             return;
         }
 
-        // The config request can finish before the router's first navigation. In that case
-        // router.url is still '/', although the browser opened a compact player link.
-        const initial_player = this.router.url === '/'
-            ? compactPlayerPath(window.location.pathname, window.location.search) : null;
-        const return_to = initial_player || (this.router.url && this.router.url !== '/login' ? this.router.url : '/home');
+        // Config can finish before the first navigation; Location already has the full path
+        // and query, including a video id or a settings tab that must survive sign-in.
+        // Location strips the root slash before a query; login return URLs must retain it.
+        const return_to = this.router.url === '/' ? '/' + this.location.path().replace(/^\//, '') : this.router.url;
         this.router.navigate(['/login'], {queryParams: {returnTo: return_to}});
 
         if (this.isOIDCEnabled() || this.isHeaderAuthEnabled()) {

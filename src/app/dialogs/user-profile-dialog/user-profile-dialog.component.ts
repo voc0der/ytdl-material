@@ -96,7 +96,7 @@ export class UserProfileDialogComponent implements OnInit {
   viewLibrary(library: SharedLibrary | null): void {
     this.postsService.viewLibrary(library);
     this.dialogRef.close();
-    this.router.navigate(['/home']);
+    this.router.navigate(['/']);
   }
 
   librarySharingChanged(change: MatSlideToggleChange): void {

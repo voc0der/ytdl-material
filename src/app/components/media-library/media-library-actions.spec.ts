@@ -42,10 +42,10 @@ describe('Media library actions', () => {
       openSnackBar: vi.fn()
     };
     router = {
-      url: '/home',
+      url: '/',
       navigate: vi.fn(),
       createUrlTree: vi.fn().mockReturnValue('playlist-tree'),
-      serializeUrl: vi.fn().mockReturnValue('/player;playlist_id=mix')
+      serializeUrl: vi.fn().mockReturnValue('/?playlist_id=mix')
     };
     dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) };
     await configureTestBed({
@@ -158,9 +158,9 @@ describe('Media library actions', () => {
       component.activeLibraryTab = 1;
       component.goToPlaylist({ file: playlist });
 
-      expect(router.navigate).toHaveBeenCalledWith(['/player', {playlist_id: 'mix'}], {queryParams: {}});
-      expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/home');
-      const saved = TestBed.inject(MediaLibraryNavigationStateService).consumePendingRestoreState('/home', null);
+      expect(router.navigate).toHaveBeenCalledWith(['/'], {queryParams: {playlist_id: 'mix'}});
+      expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBe('/');
+      const saved = TestBed.inject(MediaLibraryNavigationStateService).consumePendingRestoreState('/', null);
       expect(saved.files).toEqual([file]);
       expect(saved.snapshot.activeLibraryTab).toBe(1);
     });
@@ -170,8 +170,8 @@ describe('Media library actions', () => {
       posts.viewedLibraryUid = 'owner';
       component.goToPlaylist({ file: { ...playlist, auto: true }, event: { ctrlKey: true } });
 
-      expect(router.createUrlTree).toHaveBeenCalledWith(['/player', {playlist_id: 'mix', auto: 'true', library: 'owner'}], {queryParams: {}});
-      expect(open).toHaveBeenCalledWith(new URL('#/player;playlist_id=mix', document.baseURI).href);
+      expect(router.createUrlTree).toHaveBeenCalledWith(['/'], {queryParams: {playlist_id: 'mix', auto: 'true', library: 'owner'}});
+      expect(open).toHaveBeenCalledWith(new URL('?playlist_id=mix', document.baseURI).href);
       expect(router.navigate).not.toHaveBeenCalled();
       expect(sessionStorage.getItem(PLAYER_NAVIGATOR_STORAGE_KEY)).toBeNull();
     });
@@ -191,7 +191,7 @@ describe('Media library actions', () => {
 
       component.goToFile({ file: { ...file, isAudio: true }, event: { ctrlKey: false } });
 
-      expect(router.navigate).toHaveBeenCalledWith(['/player', {uid: 'clip'}], {queryParams: {}, state: {playerQueue: {
+      expect(router.navigate).toHaveBeenCalledWith(['/'], {queryParams: {uid: 'clip'}, state: {playerQueue: {
         queue_sort_by: 'registered', queue_sort_order: '1',
         queue_file_type_filter: 'audio_only', queue_favorite_filter: 'true',
         queue_search: 'music', queue_sub_id: 'channel'

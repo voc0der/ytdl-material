@@ -264,10 +264,7 @@ describe('DownloadsComponent', () => {
 
     expect(router_mock.navigate).toHaveBeenCalledTimes(1);
 
-    expect(router_mock.navigate).toHaveBeenCalledWith([
-      '/player',
-      { playlist_id: 'playlist-id' }
-    ], {queryParams: {}});
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/'], {queryParams: {playlist_id: 'playlist-id'}});
   });
 
   it('retries failed downloads only', () => {

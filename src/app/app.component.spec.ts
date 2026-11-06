@@ -50,7 +50,7 @@ describe('AppComponent', () => {
     };
     const snack_bar_mock: any = {};
     dialog_mock = { open: () => ({ afterClosed: () => of(null) }), openDialogs: [] };
-    const router_mock: any = { events: of(), navigate: () => { }, navigateByUrl: () => { }, url: '/home' };
+    const router_mock: any = { events: of(), navigate: () => { }, navigateByUrl: () => { }, url: '/' };
     const overlay_container_mock: any = { getContainerElement: () => ({ classList: { remove: () => { }, add: () => { } } }) };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
 
@@ -347,7 +347,7 @@ describe('AppComponent notification bell', () => {
       config: { Advanced: { multi_user_mode: false } },
       getCurrentDownloads: () => of({ downloads: [] })
     };
-    const router_mock: any = { events: of(), navigate: () => { }, url: '/home' };
+    const router_mock: any = { events: of(), navigate: () => { }, url: '/' };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
     component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock, { artworkURL: () => null } as any);
   });
@@ -389,7 +389,7 @@ describe('AppComponent while browsing someone else\'s library', () => {
       viewed_library: { uid: 'bob', name: 'Bob' },
       viewLibrary: vi.fn()
     };
-    router_mock = { events: of(), navigate: vi.fn(), url: '/player' };
+    router_mock = { events: of(), navigate: vi.fn(), url: '/?uid=file-1' };
     const element_ref_mock: any = { nativeElement: { ownerDocument: { body: { style: {} } } } };
     component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any, router_mock, {} as any, element_ref_mock, { artworkURL: () => null } as any);
   });
@@ -398,10 +398,10 @@ describe('AppComponent while browsing someone else\'s library', () => {
     expect(component.viewingLibraryLabel).toBe('Browsing Bob\'s library. Back to yours');
   });
 
-  it.each(['/player;uid=file-1', '/video?id=FileLink123', '/audio?id=AudioLink12', '/playlist?id=ListLink123'])('uses the player navigation controls on %s', url => {
+  it.each(['/?uid=file-1', '/?v=FileLink123', '/?v=AudioLink12', '/?list=ListLink123'])('uses the player navigation controls on %s', url => {
     router_mock.url = url;
     expect(component.isPlayerPage).toBe(true);
-    router_mock.url = '/home';
+    router_mock.url = '/';
     expect(component.isPlayerPage).toBe(false);
   });
 
@@ -409,7 +409,7 @@ describe('AppComponent while browsing someone else\'s library', () => {
     component.returnToOwnLibrary();
 
     expect(posts_service_mock.viewLibrary).toHaveBeenCalledWith(null);
-    expect(router_mock.navigate).toHaveBeenCalledWith(['/home']);
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/']);
   });
 
   it('keeps the link to your own downloads out of the toolbar until you are back', () => {

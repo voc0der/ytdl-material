@@ -25,9 +25,9 @@ const NOTIFICATION_TYPE_TO_BODY = {
 }
 
 const NOTIFICATION_TYPE_TO_URL = {
-    task_finished: () => {return `${utils.getBaseURL()}/#/tasks`},
-    download_complete: (notification) => {return `${utils.getBaseURL()}/#/player;uid=${notification['data']['file_uid']}`},
-    download_error: () => {return `${utils.getBaseURL()}/#/downloads`},
+    task_finished: () => {return `${utils.getBaseURL()}/tasks`},
+    download_complete: (notification) => {return `${utils.getBaseURL()}/?uid=${notification['data']['file_uid']}`},
+    download_error: () => {return `${utils.getBaseURL()}/downloads`},
 }
 
 const NOTIFICATION_TYPE_TO_THUMBNAIL = {

@@ -3758,7 +3758,7 @@ app.get('/api/auth/oidc/login', async (req, res) => {
     }
 
     try {
-        const return_to = req.query.returnTo ? String(req.query.returnTo) : '/home';
+        const return_to = req.query.returnTo ? String(req.query.returnTo) : '/';
         const authorization_url = await oidc_api.createAuthorizationURL(return_to);
         res.redirect(authorization_url);
     } catch (err) {
@@ -3797,9 +3797,8 @@ app.get('/api/auth/oidc/callback', async (req, res) => {
         }
 
         const auth_response = await auth_api.getAuthResponseObject(user_obj);
-        const return_to = callback_result.return_to ? callback_result.return_to : '/home';
-        const redirect_path = `${getOrigin()}/#/login;oidc_token=${encodeURIComponent(auth_response.token)};redirect=${encodeURIComponent(return_to)}`;
-        res.setHeader('Set-Cookie', 'ytdl_oidc_bootstrap=1; Path=/; Max-Age=60; HttpOnly; SameSite=Lax');
+        const return_to = callback_result.return_to ? callback_result.return_to : '/';
+        const redirect_path = `${getOrigin()}/login#oidc_token=${encodeURIComponent(auth_response.token)}&redirect=${encodeURIComponent(return_to)}`;
         res.redirect(redirect_path);
     } catch (err) {
         logger.error(`OIDC callback failed: ${err.message}`);
@@ -4258,7 +4257,7 @@ app.get('/api/rss', optionalJwt, requireAuthenticated, async function (req, res)
     files.forEach(file => {
         feed.addItem({
             title: file.title,
-            link: `${utils.getBaseURL()}/#/player;uid=${file.uid}`,
+            link: `${utils.getBaseURL()}/?${file.share_id ? 'v=' + encodeURIComponent(file.share_id) : 'uid=' + encodeURIComponent(file.uid)}`,
             description: file.description,
             author: [
                 {
@@ -4281,44 +4280,16 @@ app.get('/api/rss', optionalJwt, requireAuthenticated, async function (req, res)
 
 // web server
 
+// Page requests load the SPA, which restores the session and preserves the full return URL.
 app.use(function(req, res, next) {
-    if (!oidc_api.isEnabled() || !config_api.getConfigItem('ytdl_multi_user_mode')) {
-        return next();
+    const page_path = (req.path.replace(/\/$/, '').split(';')[0] || '/');
+    const pages = ['/', '/downloads', '/subscriptions', '/subscription', '/settings', '/login', '/duplicates', '/tasks'];
+    if (!pages.includes(page_path)) return next();
+    // A relative base href must resolve beside the page, not inside a trailing-slash folder.
+    if (req.path !== '/' && req.path.endsWith('/')) {
+        const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+        return res.redirect(308, '../' + req.path.slice(1, -1) + query);
     }
-
-    if (req.path.includes('/api/')) {
-        return next();
-    }
-
-    // Let the SPA bootstrap authentication for both legacy hash links and compact player
-    // paths, preserving the full return target, including the short id in its query string.
-    if (req.path === '/' || ['/video', '/audio', '/playlist'].includes(req.path)) {
-        return next();
-    }
-
-    const accept = req.accepts('html', 'json', 'xml');
-    if (accept !== 'html') {
-        return next();
-    }
-
-    const ext = path.extname(req.path);
-    if (ext !== '') {
-        return next();
-    }
-
-    const cookie_header = req.headers.cookie || '';
-    const has_bootstrap_cookie = cookie_header.split(';').map(cookie => cookie.trim()).includes('ytdl_oidc_bootstrap=1');
-    if (has_bootstrap_cookie) {
-        res.setHeader('Set-Cookie', 'ytdl_oidc_bootstrap=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
-        return next();
-    }
-
-    const return_to = req.path && req.path !== '/' ? req.path : '/home';
-    const redirect_path = `/api/auth/oidc/login?returnTo=${encodeURIComponent(return_to)}`;
-    return res.redirect(redirect_path);
-});
-
-app.use(function(req, res, next) {
     //if the request is not html then move along
     const accept = req.accepts('html', 'json', 'xml');
     if (accept !== 'html') {

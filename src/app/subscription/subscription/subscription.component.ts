@@ -330,7 +330,7 @@ export class SubscriptionComponent implements OnInit, OnDestroy {
   }
 
   watchSubscription(): void {
-    this.router.navigate(['/player', {sub_id: this.subscription.id}])
+    this.router.navigate(['/'], {queryParams: {sub_id: this.subscription.id}})
   }
 
   checkSubscription(): void {

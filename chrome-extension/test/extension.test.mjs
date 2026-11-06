@@ -64,6 +64,29 @@ function runBackground(actionApiName, initialTabs = []) {
     return { calls, listeners };
 }
 
+test('the popup opens the root download form with query parameters and no hash', () => {
+    const input = 'https://example.com/watch?id=a%20b&list=c';
+    const opened = [];
+    const context = {
+        console,
+        document: {
+            getElementById: () => ({value: input, addEventListener() {}}),
+            addEventListener() {}
+        },
+        chrome: {
+            storage: {sync: {get: (_defaults, callback) => callback({frontend_url: 'https://media.example/app/', audio_only: true})}},
+            tabs: {create: options => opened.push(options.url)}
+        }
+    };
+    vm.runInNewContext(readFileSync(join(extensionRoot, 'popup.js'), 'utf8'), context);
+    context.downloadVideo();
+    const url = new URL(opened[0]);
+    assert.equal(url.pathname, '/app/');
+    assert.equal(url.hash, '');
+    assert.equal(url.searchParams.get('url'), input);
+    assert.equal(url.searchParams.get('audioOnly'), 'true');
+});
+
 test('Chrome manifest uses Manifest V3 APIs', () => {
     const manifest = readJson('manifest.json');
 

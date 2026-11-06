@@ -82,31 +82,31 @@ describe('Short share links', function() {
 
     describe('where a link goes', function() {
         it('opens a file or a playlist in the player', async function() {
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/player;uid=${FILE.uid}`);
-            assert.strictEqual(await share_links.resolveShareLink(PLAYLIST.share_id), `/player;playlist_id=${PLAYLIST.id}`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/?v=${FILE.share_id}`);
+            assert.strictEqual(await share_links.resolveShareLink(PLAYLIST.share_id), `/?list=${PLAYLIST.share_id}`);
         });
 
         it('starts at the time it is given', async function() {
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90), `/player;uid=${FILE.uid};timestamp=90`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90), `/?v=${FILE.share_id}&timestamp=90`);
         });
 
         it('stops at the end it is given, from the start or from a time', async function() {
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90, 120), `/player;uid=${FILE.uid};timestamp=90;end=120`);
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, null, 120), `/player;uid=${FILE.uid};end=120`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, 90, 120), `/?v=${FILE.share_id}&timestamp=90&end=120`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id, null, 120), `/?v=${FILE.share_id}&end=120`);
         });
 
         it('names the owner for a share in multi-user mode, and only then', async function() {
             multi_user_mode = true;
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/player;uid=${FILE.uid}`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/?v=${FILE.share_id}`);
 
             await db_api.updateRecord('files', {uid: FILE.uid}, {sharingEnabled: true});
             await db_api.updateRecord('playlists', {id: PLAYLIST.id}, {sharingEnabled: true});
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/player;uid=${FILE.uid};uuid=share_link_owner`);
-            assert.strictEqual(await share_links.resolveShareLink(PLAYLIST.share_id), `/player;playlist_id=${PLAYLIST.id};uuid=share_link_owner`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/?uid=${FILE.uid}&uuid=share_link_owner`);
+            assert.strictEqual(await share_links.resolveShareLink(PLAYLIST.share_id), `/?playlist_id=${PLAYLIST.id}&uuid=share_link_owner`);
 
             // Single-user mode finds the file without one.
             multi_user_mode = false;
-            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/player;uid=${FILE.uid}`);
+            assert.strictEqual(await share_links.resolveShareLink(FILE.share_id), `/?v=${FILE.share_id}`);
         });
 
         it('goes nowhere for an id nothing has', async function() {
@@ -139,30 +139,30 @@ describe('Short share links', function() {
 
         it('redirects to the player at the address the link was opened at', async function() {
             const res = await request(app).get(`/s/${FILE.share_id}`).expect(302);
-            assert.strictEqual(res.headers.location, `../#/player;uid=${FILE.uid}`);
+            assert.strictEqual(res.headers.location, `../?v=${FILE.share_id}`);
 
             const with_slash = await request(app).get(`/s/${FILE.share_id}/`).expect(302);
-            assert.strictEqual(with_slash.headers.location, `../../#/player;uid=${FILE.uid}`);
+            assert.strictEqual(with_slash.headers.location, `../../?v=${FILE.share_id}`);
         });
 
         it('passes a start time on, and drops one it cannot read', async function() {
             const timed = await request(app).get(`/s/${FILE.share_id}`).query({t: '90'}).expect(302);
-            assert.strictEqual(timed.headers.location, `../#/player;uid=${FILE.uid};timestamp=90`);
+            assert.strictEqual(timed.headers.location, `../?v=${FILE.share_id}&timestamp=90`);
 
             const unreadable = await request(app).get(`/s/${FILE.share_id}`).query({t: 'soon'}).expect(302);
-            assert.strictEqual(unreadable.headers.location, `../#/player;uid=${FILE.uid}`);
+            assert.strictEqual(unreadable.headers.location, `../?v=${FILE.share_id}`);
         });
 
         it('passes an end on after the start, and drops one at or before it', async function() {
             const part = await request(app).get(`/s/${FILE.share_id}`).query({t: '90', end: '120'}).expect(302);
-            assert.strictEqual(part.headers.location, `../#/player;uid=${FILE.uid};timestamp=90;end=120`);
+            assert.strictEqual(part.headers.location, `../?v=${FILE.share_id}&timestamp=90&end=120`);
 
             const from_the_start = await request(app).get(`/s/${FILE.share_id}`).query({end: '120'}).expect(302);
-            assert.strictEqual(from_the_start.headers.location, `../#/player;uid=${FILE.uid};end=120`);
+            assert.strictEqual(from_the_start.headers.location, `../?v=${FILE.share_id}&end=120`);
 
             // The link still opens at its start, and plays on from there.
             const backwards = await request(app).get(`/s/${FILE.share_id}`).query({t: '90', end: '60'}).expect(302);
-            assert.strictEqual(backwards.headers.location, `../#/player;uid=${FILE.uid};timestamp=90`);
+            assert.strictEqual(backwards.headers.location, `../?v=${FILE.share_id}&timestamp=90`);
         });
 
         it('answers a link to nothing with a 404', async function() {

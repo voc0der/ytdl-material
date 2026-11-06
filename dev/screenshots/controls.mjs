@@ -158,7 +158,7 @@ async function waitFor(page, predicate, arg = null, timeout = 30_000) {
 }
 
 async function openPlaying(page, route) {
-    await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/${route}`, { waitUntil: 'domcontentloaded' });
     await page.locator('app-media-controls').waitFor({ timeout: 30_000 });
     await waitFor(page, () => {
         const video = document.querySelector('video');
@@ -178,7 +178,7 @@ async function onDesktop(browser, name, seeded, errors) {
     page.on('request', request => {
         if (request.url().includes('/assets/cast-probe.mp4')) probe_requests.push(request.url());
     });
-    await openPlaying(page, `player;uid=${seeded.chaptered.uid};type=video`);
+    await openPlaying(page, `?uid=${seeded.chaptered.uid}`);
     const { x, y } = await centre(page);
 
     check('the video has no native controls', !(await media(page)).controls);
@@ -329,7 +329,7 @@ async function onDesktop(browser, name, seeded, errors) {
     await page.context().close();
 
     const listed = await newPage(browser, name, errors);
-    await openPlaying(listed, `player;playlist_id=${seeded.playlist.id}`);
+    await openPlaying(listed, `?playlist_id=${seeded.playlist.id}`);
     const first_src = (await media(listed)).src;
     await listed.mouse.move(...Object.values(await centre(listed)));
     await listed.getByRole('button', { name: 'Next', exact: true }).click();
@@ -341,7 +341,7 @@ async function onDesktop(browser, name, seeded, errors) {
     await listed.context().close();
 
     const audio = await newPage(browser, name, errors);
-    await audio.goto(`${BASE}/#/player;uid=${seeded.audio.uid};type=audio`, { waitUntil: 'domcontentloaded' });
+    await audio.goto(`${BASE}/?uid=${seeded.audio.uid}`, { waitUntil: 'domcontentloaded' });
     await audio.locator('video').waitFor({ timeout: 30_000 });
     check('an audio file keeps the browser\'s own bar', (await media(audio)).controls && await audio.locator('app-media-controls').count() === 0);
     await audio.context().close();
@@ -394,9 +394,11 @@ async function rightClickMenu(page, name, seeded, { x, y }, errors, browser) {
         return video && video.readyState >= 1 && video.currentTime > 0;
     });
     const landed = opened.url();
+    const landed_params = new URL(landed).searchParams;
     const started = (await media(opened)).time;
     check('the short link opens the file in the player, at its time',
-        landed.includes(`/#/player;uid=${seeded.chaptered.uid};timestamp=${Math.floor(paused_at)}`) && Math.abs(started - Math.floor(paused_at)) < 2,
+        landed_params.get('v') === new URL(plain_link).pathname.split('/').pop()
+        && landed_params.get('timestamp') === String(Math.floor(paused_at)) && Math.abs(started - Math.floor(paused_at)) < 2,
         `${landed.replace(BASE, '')} at ${started.toFixed(1)} s`);
     await opened.context().close();
 
@@ -520,8 +522,10 @@ async function partLink(page, name, seeded, errors, browser) {
         const video = document.querySelector('video');
         return video && video.paused && video.currentTime > 31 ? video.currentTime : null;
     }).catch(() => null);
+    const landed_params = new URL(opened.url()).searchParams;
     check('the link opens the file in the player at the start of the part',
-        opened.url().includes(`/#/player;uid=${seeded.chaptered.uid};timestamp=30;end=33`), opened.url().replace(BASE, ''));
+        landed_params.get('v') === new URL(part_link).pathname.split('/').pop()
+        && landed_params.get('timestamp') === '30' && landed_params.get('end') === '33', opened.url().replace(BASE, ''));
     check('and plays it, stopping at its end', stopped_at !== null && Math.abs(stopped_at - 33) < 0.3, `stopped at ${stopped_at?.toFixed(2)} s`);
     await opened.waitForTimeout(1500);
     const later = await media(opened);
@@ -548,7 +552,7 @@ async function partLink(page, name, seeded, errors, browser) {
 async function onAPhone(browser, name, seeded, errors) {
     say(`${name}: a phone`);
     const page = await newPage(browser, `${name}-phone`, errors, { width: 412, height: 915 });
-    await openPlaying(page, `player;uid=${seeded.chaptered.uid};type=video`);
+    await openPlaying(page, `?uid=${seeded.chaptered.uid}`);
     await page.waitForTimeout(3200);
     const { x, y } = await centre(page);
     await page.touchscreen.tap(x, y);

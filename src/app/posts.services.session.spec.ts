@@ -8,6 +8,7 @@ import { filter } from 'rxjs';
 
 import { PostsService } from './posts.services';
 import { h401InterceptorFn } from './http.interceptor';
+import { Location } from '@angular/common';
 
 describe('PostsService session lifecycle', () => {
   const API = 'http://localhost/api/';
@@ -34,11 +35,12 @@ describe('PostsService session lifecycle', () => {
     vi.stubGlobal('ngDevMode', false);
     http = null;
     localStorage.clear();
-    router = { url: '/home', navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true) };
+    router = { url: '/', navigate: vi.fn().mockResolvedValue(true), navigateByUrl: vi.fn().mockResolvedValue(true) };
     snackBar = { open: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         PostsService, provideHttpClient(), provideHttpClientTesting(),
+        {provide: Location, useValue: {path: () => Location.stripTrailingSlash(window.location.pathname + window.location.search)}},
         { provide: Router, useValue: router },
         { provide: MatSnackBar, useValue: snackBar },
         { provide: Title, useValue: { setTitle: vi.fn() } }
@@ -57,10 +59,10 @@ describe('PostsService session lifecycle', () => {
     }
   });
 
-  function start({ token = null, route = '/home' }: { token?: string; route?: string } = {}) {
+  function start({ token = null, route = '/' }: { token?: string; route?: string } = {}) {
     if (token !== null) localStorage.setItem('jwt_token', token);
     router.url = route;
-    window.history.replaceState(null, '', '/#' + route);
+    window.history.replaceState(null, '', route);
     http = TestBed.inject(HttpTestingController);
     service = TestBed.inject(PostsService);
     const request = http.expectOne(API + 'config');
@@ -149,7 +151,7 @@ describe('PostsService session lifecycle', () => {
     expect(snackBar.open).toHaveBeenCalledExactlyOnceWith('You must log in to access this page!', '', { duration: 2000 });
   });
 
-  it.each(['/login?returnTo=%2Fsettings', '/player;uid=file-1'])('allows anonymous bootstrap on %s without redirecting', route => {
+  it.each(['/login?returnTo=%2Fsettings', '/?uid=file-1&uuid=owner'])('allows anonymous bootstrap on %s without redirecting', route => {
     start({ route }).flush({ config_file: { YtdlMaterial: configuration(true, true) } });
 
     expect(service.initialized).toBe(true);
@@ -161,10 +163,10 @@ describe('PostsService session lifecycle', () => {
 
   it.each([false, true])('preserves a direct player link before the first navigation, with OIDC %s', oidc => {
     const bootstrap = start({route: '/'});
-    window.history.replaceState(null, '', '/video?id=FileLink123');
+    window.history.replaceState(null, '', '/?v=FileLink123');
     bootstrap.flush({config_file: {YtdlMaterial: configuration(true, oidc)}});
     if (!oidc) expectAdminCheck();
-    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/video?id=FileLink123'}});
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], {queryParams: {returnTo: '/?v=FileLink123'}});
   });
 
   it('redirects an anonymous OIDC session without offering local administrator setup or a password-login warning', () => {
@@ -228,7 +230,7 @@ describe('PostsService session lifecycle', () => {
     service.afterLogin(SESSION.user, SESSION.token, SESSION.permissions, SESSION.available_permissions, '');
     expectConfigRequest(SESSION.token).flush({ config_file: { YtdlMaterial: configuration(true, true) } });
 
-    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith('/home');
+    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith('/');
   });
 
   it('releases waiting routes when the authenticated config refresh fails', async () => {
@@ -240,7 +242,7 @@ describe('PostsService session lifecycle', () => {
     expect(await route).toBe(true);
     expect(service.initialized).toBe(true);
     expect(service.hasSession()).toBe(true);
-    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith('/home');
+    expect(router.navigateByUrl).toHaveBeenCalledExactlyOnceWith('/');
   });
 
   it('exchanges the OIDC callback token and waits for authenticated config before returning to the requested page', () => {
@@ -260,7 +262,7 @@ describe('PostsService session lifecycle', () => {
   });
 
   it.each([401, 503])('discards a failed OIDC callback credential after HTTP %s', status => {
-    start({ route: '/player;uid=file-1' }).flush({ config_file: { YtdlMaterial: configuration(true, true) } });
+    start({ route: '/?uid=file-1&uuid=owner' }).flush({ config_file: { YtdlMaterial: configuration(true, true) } });
     service.completeOIDCLogin('rejected-callback');
     expectAuthRequest('rejected-callback').flush({}, { status, statusText: 'Rejected' });
 
@@ -270,7 +272,7 @@ describe('PostsService session lifecycle', () => {
     expect(service.isLoggedIn).toBe(false);
     expect(service.user).toBeNull();
     expect(service.hasSession()).toBe(false);
-    expect(router.navigate).toHaveBeenCalledExactlyOnceWith(['/login'], { queryParams: { returnTo: '/player;uid=file-1' } });
+    expect(router.navigate).toHaveBeenCalledExactlyOnceWith(['/login'], { queryParams: { returnTo: '/?uid=file-1&uuid=owner' } });
     http.expectNone(API + 'config');
   });
 
@@ -352,7 +354,7 @@ describe('PostsService session lifecycle', () => {
     http.expectNone(req => req.url === API + 'auth/adminExists' || req.url === API + 'config');
   });
 
-  it.each(['/home', '/login?returnTo=%2Ftasks'])('clears session and library state on logout from %s', route => {
+  it.each(['/', '/login?returnTo=%2Ftasks'])('clears session and library state on logout from %s', route => {
     start({ token: 'saved-token' }).flush({ config_file: { YtdlMaterial: configuration() } });
     expectAuthRequest('saved-token').flush(SESSION);
     expectConfigRequest(SESSION.token).flush({ config_file: { YtdlMaterial: configuration() } });

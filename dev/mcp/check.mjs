@@ -70,6 +70,7 @@ async function seed() {
         uploader: video.uploader, size: 2538, path: `users/${owner.uid}/video/${video.id}.mp4`,
         upload_date: `${video.upload_date.slice(0, 4)}-${video.upload_date.slice(4, 6)}-${video.upload_date.slice(6, 8)}`,
         favorite: false, uid: stableUid(`${owner.uid}:${video.id}`), user_uid: owner.uid,
+        share_id: stableUid(`${owner.uid}:${video.id}`).replaceAll('-', '').slice(0, 11),
         registered: downloaded - index * 60_000, ...extra
     });
     const admin_files = library.videos.slice(0, 5).map((video, index) => file(ADMIN, video, index, {
@@ -201,7 +202,7 @@ async function withClient(env, body) {
     }
 }
 
-const link = params => `${PUBLIC}/#/player${Object.entries(params).map(([key, value]) => `;${key}=${value}`).join('')}`;
+const link = params => `${PUBLIC}/?${new URLSearchParams(params)}`;
 
 async function startingUp() {
     say('Checking the server refuses to start without a usable YTDL_URL');
@@ -238,7 +239,7 @@ async function searching(client, seeded) {
     check('newest first', JSON.stringify(uids) === JSON.stringify(admin_files.map(item => item.uid)));
     check('and not the other account\'s file', !uids.includes(viewer_file.uid));
     const first = all.data?.results?.[0] ?? {};
-    check('each result links to its player on the public address', first.link === link({ uid: admin_files[0].uid }), first.link);
+    check('each result links to its player on the public address', first.link === link({ v: admin_files[0].share_id }), first.link);
     check('with its title, uploader, length and upload date',
         first.title === admin_files[0].title && first.uploader === 'NASA' && first.duration_seconds === admin_files[0].duration
         && first.uploaded === admin_files[0].upload_date && first.type === 'video');

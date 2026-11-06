@@ -103,7 +103,7 @@ describe('UserProfileDialogComponent with shared libraries', () => {
 
     expect(postsServiceStub.viewLibrary).toHaveBeenCalledWith({ uid: 'bob', name: 'Bob' });
     expect(dialogRefStub.close).toHaveBeenCalled();
-    expect(routerStub.navigate).toHaveBeenCalledWith(['/home']);
+    expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
   });
 
   it('should share the library from its preference', () => {
