@@ -10,13 +10,23 @@ const FILES = [
     {uid: 'alice-latest', user_uid: 'alice', title: 'Latest clip', registered: 3000, isAudio: false, sub_id: 'subscription & one', category: {uid: 'cat-two'}},
     {uid: 'bob-video', user_uid: 'bob', title: 'Private Bob clip', registered: 4000, isAudio: false, favorite: true, category: {uid: 'cat-one'}},
     {uid: 'unowned-video', user_uid: null, title: 'Unowned clip', registered: 5000, isAudio: false}
-];
+].map((file, index) => ({...file, share_id: `RssFile${String(index + 1).padStart(4, '0')}`}));
 
-// Check the items the reader actually receives, including their order. These fixture
-// UIDs contain no XML characters, and each item has one link to its player.
+// Check every item and its compact player link, then map back to the fixture UID
+// so the filtering and account-isolation assertions remain readable.
 function itemUIDs(response) {
     assert.match(response.headers['content-type'], /^application\/rss\+xml/);
-    return [...response.text.matchAll(/<item>[\s\S]*?<link>[^<]*;uid=([^<]+)<\/link>/g)].map(match => match[1]);
+    return [...response.text.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, item]) => {
+        const link = item.match(/<link>([^<]+)<\/link>/)?.[1];
+        assert(link, 'Each RSS item must have a player link');
+        const url = new URL(link);
+        assert.strictEqual(url.pathname, '/');
+        assert.strictEqual(url.hash, '');
+        assert.deepStrictEqual([...url.searchParams.keys()], ['v']);
+        const file = FILES.find(file => file.share_id === url.searchParams.get('v'));
+        assert(file, 'The player link must identify a fixture file');
+        return file.uid;
+    });
 }
 
 describe('Private RSS feeds through the server', function() {
