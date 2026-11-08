@@ -167,7 +167,12 @@ const defaultOptions = {
 /*************************************************
  * Our recurring schedule is {hour, minute,
  * dayOfWeek}, where an absent field means "every".
- * That maps onto cron directly.
+ * That maps onto cron directly, but for the days.
+ *
+ * dayOfWeek counts from Monday, 0 to 6, which is
+ * what the page has always sent. Cron counts from
+ * Sunday, so read as they were, the days came one
+ * early and a task set for Monday ran on Sunday.
  *
  * Seconds are pinned to 0 rather than left as '*'
  * to match what this did before: node-schedule's
@@ -193,7 +198,10 @@ function buildCronPattern(data) {
         ? field(data['hour'])
         : `${(data['hour'] ?? 0) % every_hours}-23/${every_hours}`;
 
-    return `0 ${field(data['minute'])} ${hours} * * ${field(data['dayOfWeek'])}`;
+    const days = data['dayOfWeek'];
+    const cron_days = days === null || days === undefined ? days : [].concat(days).map(day => (Number(day) + 1) % 7);
+
+    return `0 ${field(data['minute'])} ${hours} * * ${field(cron_days)}`;
 }
 
 /*************************************************

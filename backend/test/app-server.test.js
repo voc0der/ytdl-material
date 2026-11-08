@@ -436,8 +436,9 @@ describe('The server as it runs', function() {
                 new_schedule: {type: 'recurring', data: {dayOfWeek: [3], hour: 4, minute: 30}}
             }).expect(200);
 
+            // The schedule counts days from Monday, so 3 is Thursday; getDay() counts from Sunday.
             const next_run = new Date((await getTask('missing_files_check')).next_invocation);
-            assert.deepStrictEqual([next_run.getDay(), next_run.getHours(), next_run.getMinutes()], [3, 4, 30]);
+            assert.deepStrictEqual([next_run.getDay(), next_run.getHours(), next_run.getMinutes()], [4, 4, 30]);
             assert(next_run.getTime() > Date.now());
             assert(next_run.getTime() - Date.now() <= 7 * 24 * 60 * 60 * 1000);
         });

@@ -3741,6 +3741,7 @@ components:
           properties:
             dayOfWeek:
               type: array
+              description: Days of the week it runs on, 0 for Monday to 6 for Sunday.
               items:
                 type: number
             hour:

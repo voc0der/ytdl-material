@@ -5,6 +5,9 @@
 export type Schedule = {
     type: Schedule.type;
     data: {
+/**
+ * Days of the week it runs on, 0 for Monday to 6 for Sunday.
+ */
 dayOfWeek?: Array<number>;
 hour?: number;
 minute?: number;

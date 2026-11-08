@@ -503,8 +503,11 @@ describe('Tasks', function() {
         });
 
         it('maps a weekly schedule onto a day-of-week list', function() {
-            assert.strictEqual(tasks_api.buildCronPattern({hour: 3, minute: 30, dayOfWeek: [1, 3, 5]}), '0 30 3 * * 1,3,5');
-            assert.strictEqual(tasks_api.buildCronPattern({hour: 3, minute: 30, dayOfWeek: 0}), '0 30 3 * * 0');
+            // The schedule counts days from Monday and cron from Sunday. Read as cron days,
+            // every day the page sent came one early, and a task set for Monday ran on Sunday.
+            assert.strictEqual(tasks_api.buildCronPattern({hour: 3, minute: 30, dayOfWeek: [1, 3, 5]}), '0 30 3 * * 2,4,6');
+            assert.strictEqual(tasks_api.buildCronPattern({hour: 3, minute: 30, dayOfWeek: 0}), '0 30 3 * * 1');
+            assert.strictEqual(tasks_api.buildCronPattern({hour: 3, minute: 30, dayOfWeek: [6]}), '0 30 3 * * 0');
         });
 
         it('treats an absent field as every value, but pins seconds to zero', function() {
@@ -545,6 +548,15 @@ describe('Tasks', function() {
             assert(next_run.getTime() > Date.now(), 'expected the next run to be in the future');
             assert.strictEqual(next_run.getUTCHours(), 3);
             assert.strictEqual(next_run.getUTCMinutes(), 30);
+        });
+
+        it('runs a weekly schedule on the day it was set for', async function() {
+            await tasks_api.updateTaskSchedule('dummy_task', {type: 'recurring', data: {hour: 3, minute: 30, dayOfWeek: [0], tz: 'Etc/UTC'}});
+
+            const runs = tasks_api.TASKS['dummy_task']['job'].nextRuns(2);
+
+            // 0 is Monday, the first button on the page; getUTCDay() counts from Sunday.
+            assert.deepStrictEqual(runs.map(run => run.getUTCDay()), [1, 1]);
         });
 
         it('runs a schedule that repeats every few hours that many hours apart, lined up with its time', async function() {
