@@ -74,6 +74,40 @@ describe('TaskSettingsComponent', () => {
     expect(component.isDaySelected(4)).toBe(true);
   });
 
+  it('reads a schedule that repeats every few hours as that choice, at the time it lines up with', () => {
+    openOn(task({ schedule: { type: Schedule.type.RECURRING, data: { hour: 13, minute: 30, everyHours: 6 } } }));
+
+    expect(component.repeat).toBe('every_6_hours');
+    expect(component.everyHours).toBe(6);
+    expect(component.time).toBe('13:30');
+    expect(component.changed).toBe(false);
+  });
+
+  it('saves a choice that repeats every few hours with how many hours apart it runs', () => {
+    component.chooseRepeat('every_3_hours');
+    component.time = '01:15';
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('It runs at this time and repeats from there.');
+
+    component.save();
+
+    expect(postsService.updateTaskSchedule).toHaveBeenCalledWith(TaskType.BACKUP_LOCAL_DB, {
+      type: Schedule.type.RECURRING,
+      data: { hour: 1, minute: 15, everyHours: 3, tz: component.timeZone }
+    });
+  });
+
+  it('counts a change between hourly and daily as a change to save', () => {
+    openOn(task({ schedule: { type: Schedule.type.RECURRING, data: { hour: 3, minute: 0 } } }));
+
+    component.chooseRepeat('hourly');
+
+    expect(component.changed).toBe(true);
+    component.save();
+    expect(postsService.updateTaskSchedule.mock.lastCall[1].data.everyHours).toBe(1);
+  });
+
   it('will not save a schedule that has no day picked yet', () => {
     component.chooseRepeat('weekly');
     component.days_of_week = [];

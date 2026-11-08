@@ -817,6 +817,9 @@
         <target state="translated">새 재생목록</target>
         <note priority="1" from="description">Create playlist button</note>
       </trans-unit>
+      <trans-unit id="7945574393654903960" datatype="html">
+        <source>Shadow (read only)</source>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">잘라내기 만들기</target>
@@ -946,6 +949,10 @@
         <target state="translated">자막</target>
         <note priority="1" from="description">Video subtitles property</note>
       </trans-unit>
+      <trans-unit id="2640607428459636406" datatype="html">
+        <source>Hourly</source>
+        <target state="translated">매시간</target>
+      </trans-unit>
       <trans-unit id="2652115598692885242" datatype="html">
         <source>Downloads you start, and the ones your subscriptions start, show up here.</source>
         <target state="translated">내가 시작한 다운로드와 구독이 시작한 다운로드가 여기에 나타납니다.</target>
@@ -1038,6 +1045,10 @@
         <source>Gotify server URL</source>
         <target state="translated">Gotify 서버 URL</target>
         <note priority="1" from="description">Gotify server URL</note>
+      </trans-unit>
+      <trans-unit id="8396599066205859839" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Full library access</source>
+        <note priority="1" from="description">Full shadow banner</note>
       </trans-unit>
       <trans-unit id="7716597347390240350" datatype="html">
         <source>What has already been downloaded. Anything listed here is skipped next time.</source>
@@ -1330,6 +1341,11 @@
         <target state="translated">볼륨</target>
         <note priority="1" from="description">Volume slider label</note>
       </trans-unit>
+      <trans-unit id="434585212758604852" datatype="html">
+        <source>It runs at this time and repeats from there.</source>
+        <target state="translated">이 시각에 실행되고 그때부터 반복됩니다.</target>
+        <note priority="1" from="description">Task schedule every few hours time hint</note>
+      </trans-unit>
       <trans-unit id="4356579994080425" datatype="html">
         <source>Remove <x id="count" equiv-text="count"/> duplicates</source>
         <target state="translated">중복 항목 <x id="count" equiv-text="count"/>개 삭제</target>
@@ -1475,6 +1491,9 @@
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
         <target state="translated">채널이나 재생목록을 팔로우하면 새 업로드가 자동으로 다운로드됩니다.</target>
         <note priority="1" from="description">Subscriptions page introduction</note>
+      </trans-unit>
+      <trans-unit id="4559533544914843900" datatype="html">
+        <source>Select an account to shadow.</source>
       </trans-unit>
       <trans-unit id="4562725960220528898" datatype="html">
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
@@ -1767,6 +1786,10 @@
         <source>Creating download</source>
         <target>다운로드 생성 중</target>
       </trans-unit>
+      <trans-unit id="2849300510471762557" datatype="html">
+        <source>Every 12 hours</source>
+        <target state="translated">12시간마다</target>
+      </trans-unit>
       <trans-unit id="2850544880368077674" datatype="html">
         <source>Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</source>
         <target state="translated">&apos;자동&apos;은 PostgreSQL 연결 문자열이 설정되어 있으면 PostgreSQL을, 아니면 MongoDB를 씁니다.</target>
@@ -1924,6 +1947,9 @@
         <source>Couldn&apos;t start casting.</source>
         <target state="translated">전송을 시작하지 못했습니다.</target>
       </trans-unit>
+      <trans-unit id="7340990487099474620" datatype="html">
+        <source>Shadow (full access)</source>
+      </trans-unit>
       <trans-unit id="7342137815712176366" datatype="html">
         <source>Cookies test failed. Review the popup logs.</source>
         <target state="translated">쿠키 테스트에 실패했습니다. 팝업의 로그를 확인하세요.</target>
@@ -1954,10 +1980,13 @@
         <source>Getting the file ready to cast</source>
         <target state="translated">전송할 파일 준비 중</target>
       </trans-unit>
+      <trans-unit id="7374761165000102313" datatype="html">
+        <source>Every 6 hours</source>
+        <target state="translated">6시간마다</target>
+      </trans-unit>
       <trans-unit id="7385160636957089888" datatype="html">
         <source>Library</source>
         <target state="translated">라이브러리</target>
-        <note priority="1" from="description">Playlist editor library tab</note>
       </trans-unit>
       <trans-unit id="740041292148114911" datatype="html">
         <source>Could not generate an RSS token.</source>
@@ -2140,6 +2169,10 @@
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{selected_count}}"/>개 선택됨</target>
         <note priority="1" from="description">Selected archive item count</note>
       </trans-unit>
+      <trans-unit id="7655389644887918645" datatype="html">
+        <source>The shadow account is unavailable.</source>
+        <note priority="1" from="description">Unavailable shadow account</note>
+      </trans-unit>
       <trans-unit id="7658073495909471632" datatype="html">
         <source>years</source>
         <target state="translated">년</target>
@@ -2207,6 +2240,9 @@
         <source>The hardware acceleration flight test is still running. Refresh this page shortly to see the result.</source>
         <target state="translated">하드웨어 가속 테스트가 아직 진행 중입니다. 잠시 후 페이지를 새로고침해 결과를 확인하세요.</target>
         <note priority="1" from="description">Hardware acceleration test pending message</note>
+      </trans-unit>
+      <trans-unit id="7240704506367079518" datatype="html">
+        <source>Select an account</source>
       </trans-unit>
       <trans-unit id="7245158171094358343" datatype="html">
         <source>Group ID</source>
@@ -2566,6 +2602,9 @@
         <source>Failed to get file information from the server.</source>
         <target state="translated">서버에서 파일 정보를 가져오지 못했습니다.</target>
       </trans-unit>
+      <trans-unit id="2741978587628149987" datatype="html">
+        <source>Shadow (full access) · <x id="PH" equiv-text="target"/></source>
+      </trans-unit>
       <trans-unit id="2744658556055412432" datatype="html">
         <source>Loop off</source>
         <target state="translated">반복 끔</target>
@@ -2717,6 +2756,9 @@
         <source>View on GitHub</source>
         <target state="translated">GitHub에서 보기</target>
         <note priority="1" from="description">About GitHub link</note>
+      </trans-unit>
+      <trans-unit id="7128933362180740705" datatype="html">
+        <source>Own library</source>
       </trans-unit>
       <trans-unit id="7131377065256068978" datatype="html">
         <source>Small</source>
@@ -2970,6 +3012,10 @@
         <source>Click here</source>
         <target state="translated">여기를 클릭</target>
         <note priority="1" from="description">Chrome ext click here</note>
+      </trans-unit>
+      <trans-unit id="5267489714560514087" datatype="html">
+        <source>Signed in as <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</source>
+        <note priority="1" from="description">Shadow signed in identity</note>
       </trans-unit>
       <trans-unit id="5273501066845923426" datatype="html">
         <source>Client ID</source>
@@ -3539,6 +3585,9 @@
         <target state="translated">사용할 수 있는 변수</target>
         <note priority="1" from="description">Webhook template variables title</note>
       </trans-unit>
+      <trans-unit id="640194966237152177" datatype="html">
+        <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
+      </trans-unit>
       <trans-unit id="6403593821155505572" datatype="html">
         <source>Login expiration</source>
         <target state="translated">로그인 만료</target>
@@ -3695,6 +3744,10 @@
       <trans-unit id="6621329748219109148" datatype="html">
         <source>Duplicate</source>
         <target state="translated">중복</target>
+      </trans-unit>
+      <trans-unit id="6627481593136812763" datatype="html">
+        <source>Ask an administrator to return you to your own account.</source>
+        <note priority="1" from="description">Unavailable shadow account administrator hint</note>
       </trans-unit>
       <trans-unit id="6650633628037596693" datatype="html">
         <source>Try again</source>
@@ -4132,6 +4185,10 @@
         <target state="translated">링크 열기</target>
         <note priority="1" from="description">Open subscription link menu item</note>
       </trans-unit>
+      <trans-unit id="139145337498933349" datatype="html">
+        <source>Use my account</source>
+        <note priority="1" from="description">Stop shadow button</note>
+      </trans-unit>
       <trans-unit id="1392649733530265400" datatype="html">
         <source>Browser extensions</source>
         <target state="translated">브라우저 확장 프로그램</target>
@@ -4140,6 +4197,10 @@
       <trans-unit id="1399098964147907857" datatype="html">
         <source>Your library is no longer shared.</source>
         <target state="translated">라이브러리 공유를 중단했습니다.</target>
+      </trans-unit>
+      <trans-unit id="140338888755887689" datatype="html">
+        <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
+        <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
@@ -4194,6 +4255,9 @@
         <target state="translated">헤더 로그인이 켜져 있는 동안에는 로컬 사용자를 만들 수 없습니다. 새 계정은 &apos;첫 로그인 시 사용자 등록&apos;으로 제어됩니다.</target>
         <note priority="1" from="description">Local user creation disabled by header sign-in hint</note>
       </trans-unit>
+      <trans-unit id="1458825685922086502" datatype="html">
+        <source>Shadow account</source>
+      </trans-unit>
       <trans-unit id="1460489221058177214" datatype="html">
         <source>No database information</source>
         <target state="translated">데이터베이스 정보 없음</target>
@@ -4235,6 +4299,10 @@
         <source>Waits before starting the next queued download step. Use 0 to disable.</source>
         <target state="translated">대기열의 다음 다운로드 단계를 시작하기 전에 기다립니다. 0이면 사용하지 않습니다.</target>
         <note priority="1" from="description">Minimum sleep between downloads input hint</note>
+      </trans-unit>
+      <trans-unit id="153251786990560339" datatype="html">
+        <source>Shadow access opens the selected account&apos;s library instead of this user&apos;s own. Only an administrator can end it, by choosing Own library.</source>
+        <note priority="1" from="description">Shadow library hint</note>
       </trans-unit>
       <trans-unit id="155129120174034016" datatype="html">
         <source>It stops checking for new uploads.</source>
@@ -4285,6 +4353,10 @@
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{appTitle}}"/>(으)로 계속하려면</target>
         <note priority="1" from="description">Login page subtitle</note>
+      </trans-unit>
+      <trans-unit id="1670296913949833521" datatype="html">
+        <source>Every 3 hours</source>
+        <target state="translated">3시간마다</target>
       </trans-unit>
       <trans-unit id="1671378244656756701" datatype="html">
         <source>Create admin account</source>
@@ -4496,6 +4568,9 @@
         <source>Deleted files are never downloaded again. Needs archive mode.</source>
         <target state="translated">삭제한 파일은 다시 다운로드되지 않습니다. 아카이브 모드가 필요합니다.</target>
         <note priority="1" from="description">Blacklist deleted files hint</note>
+      </trans-unit>
+      <trans-unit id="1960706699322940595" datatype="html">
+        <source>Could not return to your account. Please try again.</source>
       </trans-unit>
       <trans-unit id="1963136290621768454" datatype="html">
         <source>Resolution</source>
@@ -4852,6 +4927,10 @@
         <target state="translated">라이브러리: <x id="owner name" equiv-text="this.viewedLibraryName"/></target>
         <note priority="1" from="description">Library switch label</note>
       </trans-unit>
+      <trans-unit id="977107053483043409" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Read only</source>
+        <note priority="1" from="description">Read only shadow banner</note>
+      </trans-unit>
       <trans-unit id="981766864133373363" datatype="html">
         <source>Item limit</source>
         <target state="translated">항목 제한</target>
@@ -5179,6 +5258,9 @@
         <source>Loading…</source>
         <target state="translated">불러오는 중…</target>
         <note priority="1" from="description">Notifications loading text</note>
+      </trans-unit>
+      <trans-unit id="2370775305889903577" datatype="html">
+        <source>Could not save this user.</source>
       </trans-unit>
       <trans-unit id="2375260419993138758" datatype="html">
         <source>URL</source>

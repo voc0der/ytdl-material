@@ -47,6 +47,10 @@
         <source>Duplicate</source>
         <target state="translated">डुप्लिकेट</target>
       </trans-unit>
+      <trans-unit id="6627481593136812763" datatype="html">
+        <source>Ask an administrator to return you to your own account.</source>
+        <note priority="1" from="description">Unavailable shadow account administrator hint</note>
+      </trans-unit>
       <trans-unit id="6650633628037596693" datatype="html">
         <source>Try again</source>
         <target state="translated">फिर से कोशिश करें</target>
@@ -531,6 +535,10 @@
         <target state="translated">Gotify सर्वर URL</target>
         <note priority="1" from="description">Gotify server URL</note>
       </trans-unit>
+      <trans-unit id="8396599066205859839" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Full library access</source>
+        <note priority="1" from="description">Full shadow banner</note>
+      </trans-unit>
       <trans-unit id="3629133364010634687" datatype="html">
         <source>What time of day it starts.</source>
         <target state="translated">दिन में किस समय शुरू होता है।</target>
@@ -711,6 +719,10 @@
         <target state="translated">लिंक खोलें</target>
         <note priority="1" from="description">Open subscription link menu item</note>
       </trans-unit>
+      <trans-unit id="139145337498933349" datatype="html">
+        <source>Use my account</source>
+        <note priority="1" from="description">Stop shadow button</note>
+      </trans-unit>
       <trans-unit id="1392649733530265400" datatype="html">
         <source>Browser extensions</source>
         <target state="translated">ब्राउज़र एक्सटेंशन</target>
@@ -719,6 +731,10 @@
       <trans-unit id="1399098964147907857" datatype="html">
         <source>Your library is no longer shared.</source>
         <target state="translated">आपकी लाइब्रेरी अब साझा नहीं है।</target>
+      </trans-unit>
+      <trans-unit id="140338888755887689" datatype="html">
+        <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
+        <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
@@ -773,6 +789,9 @@
         <target state="translated">हेडर साइन-इन चालू रहने तक स्थानीय उपयोगकर्ता बनाना बंद है। नए खाते &quot;पहले साइन-इन पर उपयोगकर्ताओं को पंजीकृत करें&quot; से नियंत्रित होते हैं।</target>
         <note priority="1" from="description">Local user creation disabled by header sign-in hint</note>
       </trans-unit>
+      <trans-unit id="1458825685922086502" datatype="html">
+        <source>Shadow account</source>
+      </trans-unit>
       <trans-unit id="1460489221058177214" datatype="html">
         <source>No database information</source>
         <target state="translated">डेटाबेस की कोई जानकारी नहीं</target>
@@ -814,6 +833,10 @@
         <source>Waits before starting the next queued download step. Use 0 to disable.</source>
         <target state="translated">कतार में अगला डाउनलोड चरण शुरू करने से पहले प्रतीक्षा करता है। बंद करने के लिए 0 रखें।</target>
         <note priority="1" from="description">Minimum sleep between downloads input hint</note>
+      </trans-unit>
+      <trans-unit id="153251786990560339" datatype="html">
+        <source>Shadow access opens the selected account&apos;s library instead of this user&apos;s own. Only an administrator can end it, by choosing Own library.</source>
+        <note priority="1" from="description">Shadow library hint</note>
       </trans-unit>
       <trans-unit id="155129120174034016" datatype="html">
         <source>It stops checking for new uploads.</source>
@@ -1317,6 +1340,9 @@
         <target state="translated">GitHub पर देखें</target>
         <note priority="1" from="description">About GitHub link</note>
       </trans-unit>
+      <trans-unit id="7128933362180740705" datatype="html">
+        <source>Own library</source>
+      </trans-unit>
       <trans-unit id="7131377065256068978" datatype="html">
         <source>Small</source>
         <target state="translated">छोटा</target>
@@ -1382,6 +1408,10 @@
         <source>Click here</source>
         <target state="translated">यहाँ क्लिक करें</target>
         <note priority="1" from="description">Chrome ext click here</note>
+      </trans-unit>
+      <trans-unit id="5267489714560514087" datatype="html">
+        <source>Signed in as <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</source>
+        <note priority="1" from="description">Shadow signed in identity</note>
       </trans-unit>
       <trans-unit id="5273501066845923426" datatype="html">
         <source>Client ID</source>
@@ -1649,6 +1679,9 @@
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
         <target state="translated">किसी चैनल या प्लेलिस्ट को फ़ॉलो करें और उसके नए अपलोड अपने आप डाउनलोड होंगे।</target>
         <note priority="1" from="description">Subscriptions page introduction</note>
+      </trans-unit>
+      <trans-unit id="4559533544914843900" datatype="html">
+        <source>Select an account to shadow.</source>
       </trans-unit>
       <trans-unit id="4562725960220528898" datatype="html">
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
@@ -2169,6 +2202,9 @@
         <source>Loading…</source>
         <target state="translated">लोड हो रहा है…</target>
         <note priority="1" from="description">Notifications loading text</note>
+      </trans-unit>
+      <trans-unit id="2370775305889903577" datatype="html">
+        <source>Could not save this user.</source>
       </trans-unit>
       <trans-unit id="2375260419993138758" datatype="html">
         <source>URL</source>
@@ -3006,6 +3042,9 @@
         <target state="translated">नई प्लेलिस्ट</target>
         <note priority="1" from="description">Create playlist button</note>
       </trans-unit>
+      <trans-unit id="7945574393654903960" datatype="html">
+        <source>Shadow (read only)</source>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">क्लिप बनाएँ</target>
@@ -3583,6 +3622,10 @@
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{selected_count}}"/> चुने गए</target>
         <note priority="1" from="description">Selected archive item count</note>
       </trans-unit>
+      <trans-unit id="7655389644887918645" datatype="html">
+        <source>The shadow account is unavailable.</source>
+        <note priority="1" from="description">Unavailable shadow account</note>
+      </trans-unit>
       <trans-unit id="7658073495909471632" datatype="html">
         <source>years</source>
         <target state="translated">साल</target>
@@ -3746,6 +3789,11 @@
         <source>Volume</source>
         <target state="translated">आवाज़</target>
         <note priority="1" from="description">Volume slider label</note>
+      </trans-unit>
+      <trans-unit id="434585212758604852" datatype="html">
+        <source>It runs at this time and repeats from there.</source>
+        <target state="translated">यह इस समय चलता है और यहीं से दोहराता रहता है।</target>
+        <note priority="1" from="description">Task schedule every few hours time hint</note>
       </trans-unit>
       <trans-unit id="4356579994080425" datatype="html">
         <source>Remove <x id="count" equiv-text="count"/> duplicates</source>
@@ -4001,6 +4049,9 @@
         <source>Database successfully restored!</source>
         <target state="translated">डेटाबेस सफलतापूर्वक पुनर्स्थापित हो गया!</target>
       </trans-unit>
+      <trans-unit id="640194966237152177" datatype="html">
+        <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
+      </trans-unit>
       <trans-unit id="6403593821155505572" datatype="html">
         <source>Login expiration</source>
         <target state="translated">लॉगिन की समाप्ति</target>
@@ -4055,6 +4106,9 @@
         <source>Deleted files are never downloaded again. Needs archive mode.</source>
         <target state="translated">हटाई गई फ़ाइलें फिर कभी डाउनलोड नहीं होतीं। संग्रह मोड आवश्यक है।</target>
         <note priority="1" from="description">Blacklist deleted files hint</note>
+      </trans-unit>
+      <trans-unit id="1960706699322940595" datatype="html">
+        <source>Could not return to your account. Please try again.</source>
       </trans-unit>
       <trans-unit id="1963136290621768454" datatype="html">
         <source>Resolution</source>
@@ -4158,6 +4212,10 @@
       <trans-unit id="2720327817780634026" datatype="html" xml:space="preserve">
         <source>Failed to enable sharing.</source>
         <target state="translated">शेयरिंग सक्षम करने में विफल।</target>
+      </trans-unit>
+      <trans-unit id="2849300510471762557" datatype="html">
+        <source>Every 12 hours</source>
+        <target state="translated">हर 12 घंटे</target>
       </trans-unit>
       <trans-unit id="2850544880368077674" datatype="html">
         <source>Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</source>
@@ -4332,6 +4390,10 @@
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{appTitle}}"/> पर जारी रखने के लिए</target>
         <note priority="1" from="description">Login page subtitle</note>
+      </trans-unit>
+      <trans-unit id="1670296913949833521" datatype="html">
+        <source>Every 3 hours</source>
+        <target state="translated">हर 3 घंटे</target>
       </trans-unit>
       <trans-unit id="1671378244656756701" datatype="html">
         <source>Create admin account</source>
@@ -4518,6 +4580,9 @@
         <target state="translated">हार्डवेयर त्वरण परीक्षण अभी चल रहा है। परिणाम देखने के लिए थोड़ी देर में यह पेज रीफ़्रेश करें।</target>
         <note priority="1" from="description">Hardware acceleration test pending message</note>
       </trans-unit>
+      <trans-unit id="7240704506367079518" datatype="html">
+        <source>Select an account</source>
+      </trans-unit>
       <trans-unit id="7245158171094358343" datatype="html">
         <source>Group ID</source>
         <target state="translated">समूह ID</target>
@@ -4554,6 +4619,9 @@
       <trans-unit id="2734512985872312443" datatype="html" xml:space="preserve">
         <source>Failed to get file information from the server.</source>
         <target state="translated">सर्वर से फ़ाइल जानकारी प्राप्त करने में विफल।</target>
+      </trans-unit>
+      <trans-unit id="2741978587628149987" datatype="html">
+        <source>Shadow (full access) · <x id="PH" equiv-text="target"/></source>
       </trans-unit>
       <trans-unit id="2744658556055412432" datatype="html">
         <source>Loop off</source>
@@ -4701,6 +4769,10 @@
         <target state="translated">लाइब्रेरी: <x id="owner name" equiv-text="this.viewedLibraryName"/></target>
         <note priority="1" from="description">Library switch label</note>
       </trans-unit>
+      <trans-unit id="977107053483043409" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Read only</source>
+        <note priority="1" from="description">Read only shadow banner</note>
+      </trans-unit>
       <trans-unit id="981766864133373363" datatype="html">
         <source>Item limit</source>
         <target state="translated">आइटम सीमा</target>
@@ -4810,6 +4882,9 @@
         <source>Couldn&apos;t start casting.</source>
         <target state="translated">कास्ट शुरू नहीं हो सका।</target>
       </trans-unit>
+      <trans-unit id="7340990487099474620" datatype="html">
+        <source>Shadow (full access)</source>
+      </trans-unit>
       <trans-unit id="7342137815712176366" datatype="html">
         <source>Cookies test failed. Review the popup logs.</source>
         <target state="translated">कुकी परीक्षण विफल रहा। पॉपअप के लॉग देखें।</target>
@@ -4840,10 +4915,13 @@
         <source>Getting the file ready to cast</source>
         <target state="translated">फ़ाइल कास्ट के लिए तैयार हो रही है</target>
       </trans-unit>
+      <trans-unit id="7374761165000102313" datatype="html">
+        <source>Every 6 hours</source>
+        <target state="translated">हर 6 घंटे</target>
+      </trans-unit>
       <trans-unit id="7385160636957089888" datatype="html">
         <source>Library</source>
         <target state="translated">लाइब्रेरी</target>
-        <note priority="1" from="description">Playlist editor library tab</note>
       </trans-unit>
       <trans-unit id="330031188099152519" datatype="html">
         <source>No item-level progress details available yet.</source>
@@ -4972,6 +5050,10 @@
         <source>Subtitles</source>
         <target state="translated">सबटाइटल</target>
         <note priority="1" from="description">Video subtitles property</note>
+      </trans-unit>
+      <trans-unit id="2640607428459636406" datatype="html">
+        <source>Hourly</source>
+        <target state="translated">हर घंटे</target>
       </trans-unit>
       <trans-unit id="2652115598692885242" datatype="html">
         <source>Downloads you start, and the ones your subscriptions start, show up here.</source>

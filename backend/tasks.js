@@ -174,6 +174,12 @@ const defaultOptions = {
  * RecurrenceRule defaulted an unset second to 0, so
  * an hour-only schedule fired once a minute, not
  * once a second.
+ *
+ * everyHours repeats it that many hours apart,
+ * lined up with hour: every 6 hours from 13:30 runs
+ * at 1:30, 7:30, 13:30 and 19:30. Anything but a
+ * whole number of hours makes a pattern croner
+ * turns down, so the schedule is never saved.
  ************************************************/
 function buildCronPattern(data) {
     const field = (value) => {
@@ -182,7 +188,12 @@ function buildCronPattern(data) {
         return String(value);
     };
 
-    return `0 ${field(data['minute'])} ${field(data['hour'])} * * ${field(data['dayOfWeek'])}`;
+    const every_hours = data['everyHours'];
+    const hours = every_hours === null || every_hours === undefined
+        ? field(data['hour'])
+        : `${(data['hour'] ?? 0) % every_hours}-23/${every_hours}`;
+
+    return `0 ${field(data['minute'])} ${hours} * * ${field(data['dayOfWeek'])}`;
 }
 
 /*************************************************
