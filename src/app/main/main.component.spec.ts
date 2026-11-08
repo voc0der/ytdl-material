@@ -54,6 +54,14 @@ describe('MainComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('keeps the library visible without write permissions for a read-only shadow', async () => {
+    component.postsService.config.Extra.file_manager_enabled = true;
+    component.postsService.hasPermission = () => false;
+    Object.defineProperty(component.postsService, 'isShadowReadOnly', {value: true});
+    await component.loadConfig();
+    expect(component.fileManagerEnabled).toBe(true);
+  });
+
   describe('URL and YouTube search modes', () => {
     let search: ReturnType<typeof vi.fn>;
     let serverSearch: ReturnType<typeof vi.fn>;

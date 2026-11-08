@@ -5,7 +5,7 @@ import { Router, ActivatedRouteSnapshot } from '@angular/router';
 import { isPublicPlayerRoute } from './utils/player-link';
 import { Location } from '@angular/common';
 
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
 import { filter, take, tap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
@@ -241,6 +241,7 @@ export class PostsService {
     isLoggedIn = false;
     token = null;
     user: User = null;
+    stoppingShadow = false;
     permissions = null;
 
     available_permissions = null;
@@ -785,6 +786,7 @@ export class PostsService {
     }
 
     incrementViewCount(file_uid, sub_id, uuid, playlist_id = null) {
+        if (this.isShadowReadOnly) return of({success: true});
         const body: IncrementViewCountRequest = {file_uid: file_uid, sub_id: sub_id, uuid: uuid, playlist_id: playlist_id};
         return this.http.post<SuccessObject>(this.path + 'incrementViewCount', body, this.httpOptions).pipe(
             tap(res => {
@@ -1049,6 +1051,30 @@ export class PostsService {
     login(username: string, password: string) {
         const body: LoginRequest = {username: username, password: password};
         return this.http.post<LoginResponse>(this.path + 'auth/login', body, this.httpOptions);
+    }
+
+    get isShadowReadOnly(): boolean {
+        return this.user?.shadow_session?.access === 'read_only' || !!this.user?.shadow_session?.unavailable;
+    }
+
+    stopShadow(): void {
+        if (this.stoppingShadow) return;
+        this.stoppingShadow = true;
+        this.http.post<LoginResponse>(this.path + 'stopShadow', {}, this.httpOptions).subscribe({
+            next: res => {
+                localStorage.setItem('jwt_token', res.token);
+                // Clear every page's cached target data and any requests still in flight.
+                this.reloadAccount();
+            },
+            error: () => {
+                this.stoppingShadow = false;
+                this.openSnackBar($localize`Could not return to your account. Please try again.`);
+            }
+        });
+    }
+
+    reloadAccount(): void {
+        window.location.assign(this.location.prepareExternalUrl('/'));
     }
 
     completeOIDCLogin(token: string, redirect_path = '/') {

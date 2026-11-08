@@ -6,7 +6,7 @@
     [matMenuTriggerFor]="context_menu">
   </div>
   <!-- A playlist in someone else's library has nothing to offer but opening it. -->
-  @if ((!file_obj || !file_obj.auto) && !(library && is_playlist)) {
+  @if ((!file_obj || !file_obj.auto) && !((library || readOnly) && is_playlist)) {
     <button [disabled]="loading" [matMenuTriggerFor]="action_menu" class="menuButton" [class.list-menu-button]="isListLayout" mat-icon-button aria-label="More actions" i18n-aria-label="File card actions"><mat-icon>more_vert</mat-icon></button>
   }
   <mat-menu #context_menu class="kit-menu kit-action-menu">
@@ -16,7 +16,7 @@
     }
   </mat-menu>
   <mat-menu #action_menu="matMenu" class="kit-menu kit-action-menu">
-    @if (library && !is_playlist && !loading) {
+    @if ((library || readOnly) && !is_playlist && !loading) {
       <button (click)="openFileInfoDialog()" mat-menu-item><mat-icon>info</mat-icon><ng-container i18n="Media info button">Media info</ng-container></button>
     } @else if (!is_playlist && !loading) {
       <button (click)="emitToggleFavorite()" mat-menu-item>
@@ -49,7 +49,7 @@
         <button (click)="emitDeleteFile(true)" mat-menu-item class="kit-menu-danger"><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete and don't download again">Delete and don't download again</ng-container></button>
       }
     }
-    @if (is_playlist && !loading) {
+    @if (is_playlist && !loading && !library && !readOnly) {
       <button (click)="emitEditPlaylist()" mat-menu-item><mat-icon>edit</mat-icon><ng-container i18n="Playlist edit button">Edit</ng-container></button>
       <mat-divider></mat-divider>
       <button (click)="emitDeleteFile()" mat-menu-item class="kit-menu-danger"><mat-icon>delete_forever</mat-icon><ng-container i18n="Delete playlist">Delete</ng-container></button>

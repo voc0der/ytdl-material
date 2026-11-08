@@ -219,6 +219,24 @@ describe('UnifiedFileCardComponent', () => {
     fixture.detectChanges();
   }
 
+  it('offers only media information while a shadow library is read only', () => {
+    component.readOnly = true;
+    setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, duration: 5});
+    fixture.debugElement.query(By.css('button.menuButton')).injector.get(MatMenuTrigger).openMenu();
+    fixture.detectChanges();
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    expect(Array.from(overlay.querySelectorAll('button.mat-mdc-menu-item')).map(button => button.textContent.trim()))
+      .toEqual(['infoMedia info']);
+  });
+
+  it('offers no playlist editing menu in a read-only shadow library', () => {
+    setUpFileCard({id: 'p1', name: 'Playlist', uids: ['f1']});
+    component.is_playlist = true;
+    component.readOnly = true;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button.menuButton')).toBeNull();
+  });
+
   it('should offer every playlist for a video file', () => {
     setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, registered: Date.now(), duration: 5});
 

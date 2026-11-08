@@ -8,6 +8,16 @@ Complete the initial administrator-password dialog, then sign in as `admin`. Und
 
 Roles and per-user overrides control file management, settings access, subscriptions, sharing, advanced downloads, the download manager, and the task manager. These permissions are enforced on the backend as well as in the interface. Saving server configuration, user management, database administration, and server control require an administrator even if another account can open Settings.
 
+## Shadow accounts
+
+Under **Settings → Users → Who can sign in**, edit an account, set **Library** to **Shadow (full access)** or **Shadow (read only)**, select the account whose library it should use, and save. The user continues signing in with their own credentials. Their files, playlists, subscriptions, and downloads then come from the selected account.
+
+Full access allows adding, changing, and deleting library content. Read-only access allows browsing and playback without changing the target's library or playback history. The existing per-user permission overrides can further restrict full access. Neither mode grants the target's administrator rights, passwords, API tokens, or library-sharing settings.
+
+The banner identifies both the library owner and the signed-in account. Only an administrator can end shadowing: edit the account and set **Library** back to **Own library**. The account returns to its own library with its role and permission overrides unchanged. A shadowed account that is itself an administrator can also end it with **Use my account** in the banner. Shadowing does not move or delete the account's own library.
+
+Assignments are separate from provider-managed roles, so they survive OIDC, LDAP, and trusted-header sign-ins. Existing browser sessions and API tokens use the current assignment on each request; reload an open page to refresh its controls after an administrator changes access. API tokens cannot end shadowing themselves. Deleting an account ends every assignment that targets it, so a later account given the same user ID inherits none. Self-shadowing and chains of shadow accounts are rejected. If a target is otherwise unavailable, library access is refused until an administrator ends the assignment.
+
 ## OpenID Connect
 
 OIDC requires multi-user mode and a reachable identity provider. Register a confidential web client with authorization-code flow, **PKCE S256**, and **`client_secret_post`** authentication. Set its redirect URI to exactly match the app configuration:

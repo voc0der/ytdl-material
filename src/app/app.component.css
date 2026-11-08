@@ -233,3 +233,19 @@
 .viewing-library-button {
     color: var(--kit-accent);
 }
+.shadow-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 20px;
+  background: var(--kit-surface);
+  border-bottom: 1px solid var(--kit-divider);
+}
+
+.shadow-banner > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

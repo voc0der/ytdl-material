@@ -45,6 +45,17 @@
   border-top: 0;
 }
 
+.user-row-editing {
+  flex-wrap: wrap;
+}
+
+.user-edit-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--kit-on-surface-variant);
+}
+
 .user-symbol {
   display: inline-flex;
   align-items: center;

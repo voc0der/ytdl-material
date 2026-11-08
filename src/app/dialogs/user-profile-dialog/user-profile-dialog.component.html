@@ -70,7 +70,7 @@
         </div>
         <app-picker title="File card size" i18n-title="File card size" [options]="card_size_options" [(value)]="card_size" (valueChange)="cardSizeOptionChanged($event)"></app-picker>
       </div>
-      @if (postsService.isLoggedIn && postsService.user) {
+      @if (postsService.isLoggedIn && postsService.user && !postsService.user.shadow_session) {
         <div class="settings-row">
           <div class="settings-row-text">
             <span class="settings-row-title" id="share-library-title" i18n="Share library setting">Share library</span>

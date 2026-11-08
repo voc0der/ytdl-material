@@ -267,10 +267,11 @@ exports.sanitizeUsersForResponse = function(users) {
 
 exports.getAuthResponseObject = async function(user) {
   const token = exports.createJWTForUser(user.uid);
+  const access = await require('./shadow').resolve(user);
   return {
-    user: exports.sanitizeUserForResponse(user),
+    user: exports.sanitizeUserForResponse(access.user),
     token: token,
-    permissions: await exports.userPermissions(user.uid),
+    permissions: access.permissions || await exports.userPermissions(user.uid),
     available_permissions: CONSTS.AVAILABLE_PERMISSIONS
   };
 }
@@ -427,6 +428,7 @@ exports.deleteUser = async (uid) => {
       // user exists, let's delete
       await fs.remove(user_folder);
       await db_api.removeRecord('users', {uid: uid});
+      await require('./shadow').endAssignmentsTo(uid);
       success = true;
   } else {
       logger.error(`Could not find user with uid ${uid}`);

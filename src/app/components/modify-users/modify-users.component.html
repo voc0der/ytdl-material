@@ -32,26 +32,37 @@
     } @else {
       <ul class="user-list">
         @for (user of pageUsers; track user.uid) {
-          <li class="user-row">
+          <li class="user-row" [class.user-row-editing]="editObject?.uid === user.uid">
             @if (editObject && editObject.uid === user.uid) {
               <span class="kit-field user-name-field">
-                <input [(ngModel)]="constructedObject['name']" [attr.aria-label]="userNameLabel">
+                <input [(ngModel)]="constructedObject['name']" [attr.aria-label]="userNameLabel" [disabled]="saving">
               </span>
               <app-picker [title]="roleLabel" [options]="roleOptions" [value]="constructedObject['role']"
-                (valueChange)="constructedObject['role'] = $any($event)"></app-picker>
-              <button type="button" class="kit-icon-button" (click)="finishEditing(user.uid)"
+                [disabled]="saving" (valueChange)="constructedObject['role'] = $any($event); editError = ''"></app-picker>
+              <app-picker [title]="libraryLabel" [options]="libraryOptions" [value]="constructedObject['library']"
+                [disabled]="saving" (valueChange)="constructedObject['library'] = $any($event); editError = ''"></app-picker>
+              @if (editingShadow) {
+                <app-picker [title]="shadowTargetLabel" [label]="shadowTargetLabel" [placeholder]="chooseTargetLabel"
+                  [options]="shadowTargetOptions" [value]="constructedObject['shadow_target_uid']" [disabled]="saving"
+                  (valueChange)="constructedObject['shadow_target_uid'] = $any($event); editError = ''"></app-picker>
+              }
+              <button type="button" class="kit-icon-button" (click)="finishEditing(user.uid)" [disabled]="saving || (editingShadow && !constructedObject['shadow_target_uid'])"
                 matTooltip="Save" i18n-matTooltip="save user edit action button tooltip"
                 aria-label="Save" i18n-aria-label="save user edit action button tooltip"><mat-icon>done</mat-icon></button>
-              <button type="button" class="kit-icon-button" (click)="disableEditMode()"
+              <button type="button" class="kit-icon-button" (click)="disableEditMode()" [disabled]="saving"
                 matTooltip="Cancel" i18n-matTooltip="cancel user edit action button tooltip"
                 aria-label="Cancel" i18n-aria-label="cancel user edit action button tooltip"><mat-icon>close</mat-icon></button>
+              @if (editingShadow || user.shadow) {
+                <p class="user-edit-hint" i18n="Shadow library hint">Shadow access opens the selected account's library instead of this user's own. Only an administrator can end it, by choosing Own library.</p>
+              }
+              @if (editError) { <p class="user-edit-hint" role="alert">{{editError}}</p> }
             } @else {
               <span class="user-symbol" aria-hidden="true"><mat-icon>person</mat-icon></span>
               <span class="user-text">
                 <span class="user-name kit-one-line">{{user.name}}</span>
-                <span class="user-role">{{user.role}}</span>
+                <span class="user-role">{{roleDescription(user)}}</span>
               </span>
-              <button type="button" class="kit-icon-button" (click)="enableEditMode(user.uid)"
+              <button type="button" class="kit-icon-button" (click)="enableEditMode(user.uid)" [disabled]="saving"
                 matTooltip="Edit user" i18n-matTooltip="edit user action button tooltip"
                 aria-label="Edit user" i18n-aria-label="edit user action button tooltip"><mat-icon>edit</mat-icon></button>
               <button type="button" class="kit-icon-button" (click)="manageUser(user.uid)"

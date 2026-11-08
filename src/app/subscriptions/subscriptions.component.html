@@ -4,6 +4,7 @@
     <p class="page-intro" i18n="Subscriptions page introduction">Follow a channel or a playlist and its new uploads download on their own.</p>
   </header>
 
+  @if (!postsService.isShadowReadOnly) {
   <form class="subscribe-box" (submit)="subscribe($event)">
     <div class="kit-field subscribe-field">
       <mat-icon>add_link</mat-icon>
@@ -45,6 +46,7 @@
       <button type="button" class="kit-text-button subscribe-clear" (click)="cancelSubscribe()" i18n="Clear subscribe form button">Clear</button>
     }
   </form>
+  }
 
   @if (subscriptions === null) {
     <div class="list-loading" aria-busy="true">
@@ -58,7 +60,9 @@
         <button type="button" class="kit-chip" (click)="loadSubscriptions()"><mat-icon>refresh</mat-icon><span i18n="Retry button">Try again</span></button>
       } @else {
         <h2 i18n="No subscriptions title">No subscriptions yet</h2>
-        <p i18n="No subscriptions text">Paste a channel or playlist link above to get started.</p>
+        @if (!postsService.isShadowReadOnly) {
+          <p i18n="No subscriptions text">Paste a channel or playlist link above to get started.</p>
+        }
       }
     </section>
   } @else {
@@ -146,28 +150,28 @@
 <mat-menu #cardMenu="matMenu" class="kit-menu">
   <ng-template matMenuContent let-sub="sub">
     @if (isChecking(sub)) {
-      <button mat-menu-item (click)="cancelCheck(sub)">
+      <button [disabled]="postsService.isShadowReadOnly" mat-menu-item (click)="cancelCheck(sub)">
         <mat-icon>stop_circle</mat-icon>
         <span i18n="Stop checking subscription menu item">Stop checking</span>
       </button>
     } @else {
-      <button mat-menu-item (click)="check(sub)" [disabled]="!sub.name">
+      <button mat-menu-item (click)="check(sub)" [disabled]="postsService.isShadowReadOnly || !sub.name">
         <mat-icon>refresh</mat-icon>
         <span i18n="Check subscription menu item">Check now</span>
       </button>
     }
     @if (sub.paused) {
-      <button mat-menu-item (click)="setPaused(sub, false)">
+      <button [disabled]="postsService.isShadowReadOnly" mat-menu-item (click)="setPaused(sub, false)">
         <mat-icon>play_circle</mat-icon>
         <span i18n="Resume subscription menu item">Resume</span>
       </button>
     } @else {
-      <button mat-menu-item (click)="setPaused(sub, true)" [disabled]="!sub.name">
+      <button mat-menu-item (click)="setPaused(sub, true)" [disabled]="postsService.isShadowReadOnly || !sub.name">
         <mat-icon>pause_circle</mat-icon>
         <span i18n="Pause subscription menu item">Pause</span>
       </button>
     }
-    <button mat-menu-item (click)="openSettings(sub)" [disabled]="!sub.name">
+    <button mat-menu-item (click)="openSettings(sub)" [disabled]="postsService.isShadowReadOnly || !sub.name">
       <mat-icon>tune</mat-icon>
       <span i18n="Subscription settings menu item">Settings</span>
     </button>
@@ -176,11 +180,11 @@
       <span i18n="Play all">Play all</span>
     </button>
     <mat-divider></mat-divider>
-    <button mat-menu-item (click)="redownload(sub)" [disabled]="!sub.name">
+    <button mat-menu-item (click)="redownload(sub)" [disabled]="postsService.isShadowReadOnly || !sub.name">
       <mat-icon>restore</mat-icon>
       <span i18n="Delete and redownload subscription files">Delete and redownload</span>
     </button>
-    <button mat-menu-item class="menu-item-warn" (click)="unsubscribe(sub)">
+    <button [disabled]="postsService.isShadowReadOnly" mat-menu-item class="menu-item-warn" (click)="unsubscribe(sub)">
       <mat-icon>delete</mat-icon>
       <span i18n="Unsubscribe button">Unsubscribe</span>
     </button>

@@ -38,6 +38,9 @@
 
     <section class="dialog-section">
       <h3 class="dialog-section-title"><mat-icon>key</mat-icon><ng-container i18n="Permissions heading">Permissions</ng-container></h3>
+      @if (user.shadow) {
+        <p class="dialog-hint" i18n="Shadow permission overrides hint">These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</p>
+      }
       <div class="settings-rows">
         @for (permission of available_permissions; track permission) {
           <div class="settings-row">

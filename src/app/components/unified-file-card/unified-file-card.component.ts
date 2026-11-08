@@ -83,6 +83,7 @@ export class UnifiedFileCardComponent implements OnInit, OnChanges, OnDestroy {
   // The owner of the library the card is shown from, when it is not the viewer's own. The card
   // is read only then, and its media is asked for from that library.
   @Input() library: string = null;
+  @Input() readOnly = false;
   @Input() availablePlaylists = null;
   @Output() goToFile = new EventEmitter<any>();
   @Output() toggleFavorite = new EventEmitter<DatabaseFile>();

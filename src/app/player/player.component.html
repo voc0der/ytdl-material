@@ -114,7 +114,7 @@
                       </span>
                     }
                     <!-- Someone else's library is only watched: nothing is downloaded, shared or synced from it. -->
-                    @if (db_playlist && !library) {
+                    @if (db_playlist && !library && !postsService.isShadowReadOnly) {
                       <span class="buttons">
                         @if (!downloading) {
                           <button (click)="downloadContent()" matTooltip="Download the whole playlist as a zip" i18n-matTooltip="Download playlist tooltip" aria-label="Download the whole playlist as a zip" i18n-aria-label="Download playlist label" mat-icon-button><mat-icon>folder_zip</mat-icon></button>
@@ -125,7 +125,7 @@
                         }
                       </span>
                     }
-                    @if (db_file && !library) {
+                    @if (db_file && !library && !postsService.isShadowReadOnly) {
                       <span class="buttons">
                         <button (click)="downloadFile()" [disabled]="downloading" matTooltip="Download this file" i18n-matTooltip="Download file tooltip" aria-label="Download this file" i18n-aria-label="Download file label" mat-icon-button><mat-icon>cloud_download</mat-icon></button>
                         @if (downloading) {
@@ -133,16 +133,16 @@
                         }
                       </span>
                     }
-                    @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto && !library) {
+                    @if (db_playlist && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !auto && !library && !postsService.isShadowReadOnly) {
                       <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
                     }
-                    @if (db_file && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !library) {
+                    @if (db_file && (!postsService.isLoggedIn || postsService.permissions.includes('sharing')) && !library && !postsService.isShadowReadOnly) {
                       <button (click)="openShareDialog()" matTooltip="Share" i18n-matTooltip="Share tooltip" aria-label="Share" i18n-aria-label="Share label" mat-icon-button><mat-icon>share</mat-icon></button>
                     }
                     @if (db_file || db_playlist) {
                       <button (click)="openFileInfoDialog()" matTooltip="Details" i18n-matTooltip="Details tooltip" aria-label="Details" i18n-aria-label="Details label" mat-icon-button><mat-icon>info</mat-icon></button>
                     }
-                    @if (db_file && db_file.url.includes('twitch.tv') && !library) {
+                    @if (db_file && db_file.url.includes('twitch.tv') && !library && !postsService.isShadowReadOnly) {
                       <button (click)="drawer.toggle()" matTooltip="Chat" i18n-matTooltip="Chat toggle tooltip" aria-label="Chat" i18n-aria-label="Chat toggle label" mat-icon-button><mat-icon>chat</mat-icon></button>
                     }
                   </span>
@@ -192,7 +192,7 @@
                   </button>
                   @if (currentItem === playlist_item) {
                     <div class="playlist-row-actions" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (touchstart)="$event.stopPropagation()">
-                      @if (db_file && media_ready && postsService.config && !library) {
+                      @if (db_file && media_ready && postsService.config && !library && !postsService.isShadowReadOnly) {
                         <app-concurrent-stream (setPlaybackRate)="setPlaybackRate($event)" (togglePlayback)="togglePlayback($event)" (setPlaybackTimestamp)="setPlaybackTimestamp($event)" [playing]="!!media && !media.paused" [uid]="currentItem.uid" [playback_timestamp]="playbackTime" [server_mode]="!postsService.config.Advanced.multi_user_mode || postsService.isLoggedIn"></app-concurrent-stream>
                       }
                       <!-- Only on a touch screen, which cannot open the video's right-click menu to loop it. -->
@@ -208,8 +208,8 @@
               }
             </ol>
           </section>
-          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists'] && !library">
-            @if (media_ready && db_file && db_file.url.includes('twitch.tv') && !library) {
+          <mat-drawer #drawer class="example-sidenav" mode="side" position="end" [hidden]="theater_mode_enabled" [opened]="!theater_mode_enabled && db_file && db_file['chat_exists'] && !library && !postsService.isShadowReadOnly">
+            @if (media_ready && db_file && db_file.url.includes('twitch.tv') && !library && !postsService.isShadowReadOnly) {
               <app-twitch-chat #twitchchat [db_file]="db_file" [current_timestamp]="media?.currentTime ?? 0" [sub]="subscription"></app-twitch-chat>
             }
           </mat-drawer>

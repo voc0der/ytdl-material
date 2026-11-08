@@ -1882,10 +1882,28 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateUserRequest'
-      description: Updates certain properties for a user. Only two are possible right now.
+      description: Administrators can update an account's name, role, and shadow assignment. Shadow access grants access to the target library while preserving the account's normal role. Set shadow to null to restore the account's own library.
       security:
         - JWT token parameter: []
         - API bearer token: []
+      tags:
+        - multi-user mode
+  /api/stopShadow:
+    post:
+      summary: Return to your own account
+      operationId: post-api-stopShadow
+      description: Clears the signed-in account's shadow assignment and returns its own session. Only an administrator can end their own assignment; any other account stays on it until an administrator sets its shadow to null with updateUser. Requires a browser JWT; API tokens cannot remove their own shadow restrictions.
+      security:
+        - JWT token parameter: []
+      responses:
+        '200':
+          description: Own account restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '403':
+          description: The signed-in account is not an administrator, or the request used an API token.
       tags:
         - multi-user mode
   /api/deleteUser:
@@ -3909,6 +3927,36 @@ components:
         library_shared:
           type: boolean
           description: Whether every other account may browse this user's library, read only.
+        shadow:
+          $ref: '#/components/schemas/ShadowAssignment'
+        shadow_session:
+          type: object
+          readOnly: true
+          required: [actor_uid, actor_name, access, unavailable, can_stop]
+          properties:
+            actor_uid:
+              type: string
+            actor_name:
+              type: string
+            access:
+              type: string
+              enum: [read_only, full]
+            unavailable:
+              type: boolean
+            can_stop:
+              type: boolean
+              description: Whether the signed-in account may end the assignment itself. True only for administrators.
+    ShadowAssignment:
+      type: object
+      nullable: true
+      description: Library delegation, independent of the account's normal role. Null restores the account's own library.
+      required: [target_uid, access]
+      properties:
+        target_uid:
+          type: string
+        access:
+          type: string
+          enum: [read_only, full]
     SharedLibrary:
       type: object
       required:
@@ -4167,6 +4215,8 @@ components:
               type: string
             role:
               type: string
+            shadow:
+              $ref: '#/components/schemas/ShadowAssignment'
     DeleteUserRequest:
       required:
         - uid
