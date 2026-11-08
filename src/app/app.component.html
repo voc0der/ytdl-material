@@ -83,7 +83,7 @@
                 <mat-icon>switch_account</mat-icon>
               </button>
             }
-            @if (postsService.config?.Extra.enable_notifications && postsService.hasSession()) {
+            @if (postsService.config?.Extra.enable_notifications && postsService.hasSession() && !postsService.isShadowReadOnly) {
               <button [matMenuTriggerFor]="notificationsMenu" (menuOpened)="notificationMenuOpened()" mat-icon-button
                 [attr.aria-label]="notificationsLabel" [matTooltip]="notificationsLabel">
                 <mat-icon [matBadge]="notificationBadge" [matBadgeHidden]="notification_count === 0"
@@ -99,7 +99,7 @@
                 <mat-icon>person</mat-icon>
                 <span i18n="Profile menu label">Profile</span>
               </button>
-              @if ((!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) && !postsService.viewed_library) {
+              @if ((!postsService.config?.Advanced.multi_user_mode || postsService.isLoggedIn) && !postsService.viewed_library && !postsService.isShadowReadOnly) {
                 <button (click)="openArchiveDialog()" mat-menu-item>
                   <mat-icon>archive</mat-icon>
                   <span i18n="Archive menu label">Archive</span>
@@ -185,6 +185,22 @@
         </mat-nav-list>
       </mat-sidenav>
       <mat-sidenav-content [style.background]="postsService.theme ? postsService.theme.background_color : null">
+        @if (postsService.user?.shadow_session; as shadow) {
+          <div class="shadow-banner" role="status">
+            <span>
+              @if (shadow.unavailable) {
+                <ng-container i18n="Unavailable shadow account">The shadow account is unavailable.</ng-container>
+              } @else if (shadow.access === 'read_only') {
+                <ng-container i18n="Read only shadow banner">Shadowing {{postsService.user.name}} · Read only</ng-container>
+              } @else {
+                <ng-container i18n="Full shadow banner">Shadowing {{postsService.user.name}} · Full library access</ng-container>
+              }
+              <span i18n="Shadow signed in identity">Signed in as {{shadow.actor_name}}.</span>
+            </span>
+            <button type="button" class="kit-chip" (click)="postsService.stopShadow()" [disabled]="postsService.stoppingShadow"
+              i18n="Stop shadow button">Use my account</button>
+          </div>
+        }
         <router-outlet></router-outlet>
       </mat-sidenav-content>
     </mat-sidenav-container>

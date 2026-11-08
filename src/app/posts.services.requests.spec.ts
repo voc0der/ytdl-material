@@ -342,6 +342,38 @@ describe('PostsService requests', () => {
     expect(changed).toHaveBeenCalledTimes(1);
   });
 
+  it('does not write playback history while shadowing read only', () => {
+    start();
+    service.user = {uid: 'bob', shadow_session: {actor_uid: 'alice', actor_name: 'Alice', access: 'read_only', unavailable: false}} as any;
+    expect(service.isShadowReadOnly).toBe(true);
+    service.incrementViewCount('file-1', null, null).subscribe(res => expect(res.success).toBe(true));
+    http.expectNone(API + 'incrementViewCount');
+    service.user = {...service.user, shadow_session: {...service.user.shadow_session, access: 'full'}} as any;
+    expect(service.isShadowReadOnly).toBe(false);
+  });
+
+  it('restores the caller session and reloads after ending shadow access', () => {
+    startSignedIn();
+    const reload = vi.spyOn(service, 'reloadAccount').mockImplementation(() => {});
+    service.stopShadow();
+    service.stopShadow();
+    const req = http.expectOne(request => request.url === API + 'stopShadow');
+    expect(req.request.body).toEqual({});
+    expect(req.request.params.get('jwt')).toBe('session-token');
+    req.flush({token: 'own-session-token'});
+    expect(localStorage.getItem('jwt_token')).toBe('own-session-token');
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it('allows retrying an unsuccessful return to the caller account', () => {
+    start();
+    vi.spyOn(service, 'openSnackBar').mockImplementation(() => {});
+    service.stopShadow();
+    http.expectOne(API + 'stopShadow').flush({}, {status: 500, statusText: 'Failed'});
+    expect(service.stoppingShadow).toBe(false);
+    expect(service.openSnackBar).toHaveBeenCalled();
+  });
+
   it('keeps the subscriptions it reloads', () => {
     start();
     service.reloadSubscriptions();

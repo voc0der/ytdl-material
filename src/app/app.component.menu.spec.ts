@@ -75,4 +75,23 @@ describe('AppComponent menu subscriptions', () => {
     fixture.detectChanges();
     expect(entries()).toEqual([]);
   });
+
+  it('identifies a shadow session and offers a return to the signed-in account', () => {
+    postsService.user = {uid: 'bob', name: 'Bob', shadow_session: {actor_uid: 'alice', actor_name: 'Alice', access: 'read_only'}};
+    postsService.stopShadow = vi.fn();
+    fixture.detectChanges();
+    const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
+    expect(banner.textContent).toContain('Shadowing Bob · Read only');
+    expect(banner.textContent).toContain('Signed in as Alice.');
+    banner.querySelector('button').click();
+    expect(postsService.stopShadow).toHaveBeenCalledOnce();
+  });
+
+  it('still offers an exit when the shadow target is unavailable', () => {
+    postsService.user = {uid: 'missing', shadow_session: {actor_name: 'Alice', unavailable: true}};
+    fixture.detectChanges();
+    const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
+    expect(banner.textContent).toContain('The shadow account is unavailable.');
+    expect(banner.querySelector('button').textContent).toContain('Use my account');
+  });
 });

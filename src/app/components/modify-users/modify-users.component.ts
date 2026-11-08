@@ -29,6 +29,8 @@ export class ModifyUsersComponent implements OnInit {
   editObject = null;
   constructedObject = {};
   roles = null;
+  saving = false;
+  editError = '';
 
   filter = '';
   pageIndex = 0;
@@ -36,12 +38,16 @@ export class ModifyUsersComponent implements OnInit {
   readonly searchLabel = $localize`Search`;
   readonly userNameLabel = $localize`User name`;
   readonly roleLabel = $localize`Role`;
+  readonly shadowTargetLabel = $localize`Shadow account`;
+  readonly chooseTargetLabel = $localize`Select an account`;
   readonly previousPageLabel = $localize`Previous page`;
   readonly nextPageLabel = $localize`Next page`;
 
   readonly roleOptions: PickerOption[] = [
     { value: 'admin', label: 'Admin' },
-    { value: 'user', label: 'User' }
+    { value: 'user', label: 'User' },
+    { value: 'shadow', label: $localize`Shadow (full access)` },
+    { value: 'shadow_read_only', label: $localize`Shadow (read only)` }
   ];
 
   constructor(public postsService: PostsService, public snackBar: MatSnackBar, public dialog: MatDialog,
@@ -57,7 +63,7 @@ export class ModifyUsersComponent implements OnInit {
     const text = this.filter.trim().toLowerCase();
     const users = this.users ?? [];
     if (!text) return users;
-    return users.filter(user => [user.name, user.role]
+    return users.filter(user => [user.name, this.roleDescription(user)]
       .some(field => typeof field === 'string' && field.toLowerCase().includes(text)));
   }
 
@@ -120,30 +126,66 @@ export class ModifyUsersComponent implements OnInit {
   }
 
   finishEditing(user_uid: string) {
+    if (this.saving) return;
     if (this.constructedObject && this.constructedObject['name'] && this.constructedObject['role']) {
       if (!isEmptyOrSpaces(this.constructedObject['name']) && !isEmptyOrSpaces(this.constructedObject['role'])) {
         const index_of_object = this.indexOfUser(user_uid);
-        this.users[index_of_object] = this.constructedObject;
-        this.constructedObject = {};
-        this.editObject = null;
-        this.setUser(this.users[index_of_object]);
-        this.createAndSortData();
+        if (index_of_object < 0) return;
+        const user = this.users[index_of_object];
+        const change = {...this.constructedObject};
+        if (this.editingShadow) {
+          if (!this.shadowTargetOptions.some(option => option.value === change['shadow_target_uid'])) {
+            this.editError = $localize`Select an account to shadow.`;
+            return;
+          }
+          change['shadow'] = {target_uid: change['shadow_target_uid'], access: change['role'] === 'shadow' ? 'full' : 'read_only'};
+          change['role'] = user.role;
+        } else if (user.shadow) {
+          change['shadow'] = null;
+        }
+        delete change['shadow_target_uid'];
+        this.setUser(change);
       }
     }
   }
 
   enableEditMode(user_uid: string) {
+    if (this.saving) return;
     if (this.uidInUserList(user_uid) && this.indexOfUser(user_uid) > -1) {
       const users_index = this.indexOfUser(user_uid);
       this.editObject = this.users[users_index];
-      this.constructedObject['name'] = this.users[users_index].name;
-      this.constructedObject['uid'] = this.users[users_index].uid;
-      this.constructedObject['role'] = this.users[users_index].role;
+      this.editError = '';
+      this.constructedObject = {
+        name: this.editObject.name,
+        uid: this.editObject.uid,
+        role: this.editObject.shadow ? (this.editObject.shadow.access === 'full' ? 'shadow' : 'shadow_read_only') : this.editObject.role
+      };
+      if (this.editObject.shadow) this.constructedObject['shadow_target_uid'] = this.editObject.shadow.target_uid;
     }
   }
 
   disableEditMode() {
+    if (this.saving) return;
     this.editObject = null;
+    this.constructedObject = {};
+    this.editError = '';
+  }
+
+  get editingShadow(): boolean {
+    return ['shadow', 'shadow_read_only'].includes(this.constructedObject['role']);
+  }
+
+  get shadowTargetOptions(): PickerOption[] {
+    return (this.users || []).filter(user => user.uid !== this.editObject?.uid && !user.shadow)
+      .map(user => ({value: user.uid, label: user.name}));
+  }
+
+  roleDescription(user: User): string {
+    if (!user.shadow) return user.role;
+    const target = this.users?.find(entry => entry.uid === user.shadow.target_uid)?.name || user.shadow.target_uid;
+    return user.shadow.access === 'full'
+      ? $localize`Shadow (full access) · ${target}`
+      : $localize`Shadow (read only) · ${target}`;
   }
 
   // checks if user is in users array by name
@@ -167,8 +209,23 @@ export class ModifyUsersComponent implements OnInit {
   }
 
   setUser(change_obj) {
-    this.postsService.changeUser(change_obj).subscribe(() => {
+    this.saving = true;
+    this.editError = '';
+    this.postsService.changeUser(change_obj).subscribe(res => {
+      this.saving = false;
+      if (!res?.success) {
+        this.editError = $localize`Could not save this user.`;
+        return;
+      }
+      this.disableEditMode();
+      if (change_obj.uid === this.postsService.user?.uid && Object.hasOwn(change_obj, 'shadow')) {
+        this.postsService.reloadAccount();
+        return;
+      }
       this.getArray();
+    }, err => {
+      this.saving = false;
+      this.editError = typeof err === 'string' ? err : err?.error?.error || $localize`Could not save this user.`;
     });
   }
 

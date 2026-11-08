@@ -84,6 +84,8 @@ function createPostsServiceStub(): any {
     initialized: false,
     isLoggedIn: false,
     user: null,
+    isShadowReadOnly: false,
+    stoppingShadow: false,
     card_size: 'medium',
     sidepanel_mode: 'over',
     theme: { key: 'default' },

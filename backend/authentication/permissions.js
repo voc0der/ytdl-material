@@ -58,7 +58,10 @@ exports.requirePermission = function(permission) {
 
         if (!req.user) return refuse(req, res, 401, 'Authentication required');
 
-        if (!await auth_api.userHasPermission(req.user.uid, permission)) {
+        const allowed = req.shadow_permissions
+            ? req.shadow_permissions.includes(permission)
+            : await auth_api.userHasPermission(req.user.uid, permission);
+        if (!allowed) {
             return refuse(req, res, 403, `Missing the '${permission}' permission`);
         }
 

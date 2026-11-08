@@ -3,6 +3,7 @@ const config_api = require('../config');
 const auth_api = require('./auth');
 const api_tokens_api = require('./api-tokens');
 const files_api = require('../files');
+const shadow = require('./shadow');
 
 /*************************************************
  * Establishes *who* is calling, for every API
@@ -121,7 +122,7 @@ exports.requireJwtForTokenManagement = function (req, res, next) {
     next();
 };
 
-exports.resolveJwtIfPresent = async function (req, res, next) {
+const resolveJwtIfPresent = async function (req, res, next) {
     if (!config_api.getConfigItem('ytdl_multi_user_mode')) return next();
 
     if (getPresentedApiToken(req)) {
@@ -137,7 +138,7 @@ exports.resolveJwtIfPresent = async function (req, res, next) {
     })(req, res, next);
 }
 
-exports.optionalJwt = async function (req, res, next) {
+const optionalJwt = async function (req, res, next) {
     const multiUserMode = config_api.getConfigItem('ytdl_multi_user_mode');
     if (multiUserMode && ((req.body && req.body.uuid) || (req.query && req.query.uuid)) && SHARED_LINK_PATHS.has(req.path)) {
         // check if shared video
@@ -201,3 +202,14 @@ exports.optionalJwt = async function (req, res, next) {
     }
     return next();
 };
+
+// Resolve assignments on every request, for both JWTs and API tokens, so a permission
+// change or unshadow takes effect without waiting for credentials to expire.
+function withShadow(authenticate) {
+    return (req, res, next) => authenticate(req, res, err => {
+        if (err) return next(err);
+        return shadow.apply(req, res, next).catch(next);
+    });
+}
+exports.optionalJwt = withShadow(optionalJwt);
+exports.resolveJwtIfPresent = withShadow(resolveJwtIfPresent);

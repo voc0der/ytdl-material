@@ -267,10 +267,11 @@ exports.sanitizeUsersForResponse = function(users) {
 
 exports.getAuthResponseObject = async function(user) {
   const token = exports.createJWTForUser(user.uid);
+  const access = await require('./shadow').resolve(user);
   return {
-    user: exports.sanitizeUserForResponse(user),
+    user: exports.sanitizeUserForResponse(access.user),
     token: token,
-    permissions: await exports.userPermissions(user.uid),
+    permissions: access.permissions || await exports.userPermissions(user.uid),
     available_permissions: CONSTS.AVAILABLE_PERMISSIONS
   };
 }

@@ -96,6 +96,14 @@ describe('OIDC account mapping', function() {
         assert.deepStrictEqual(await db_api.getRecords('users', {uid: 'oidc_test_renamed'}), []);
     });
 
+    it('preserves shadow access when provider claims update the underlying role', async function() {
+        const shadow = {target_uid: 'oidc_target', access: 'read_only'};
+        await seed({shadow});
+        const user = await auth_api.upsertOIDCUser(claims({groups: ['admin']}), {admin_value: 'admin'});
+        assert.strictEqual(user.role, 'admin');
+        assert.deepStrictEqual(user.shadow, shadow);
+    });
+
     for (const match of ['uid', 'name']) {
         it('refuses a different subject colliding with an existing ' + match, async function() {
             const existing = await seed({

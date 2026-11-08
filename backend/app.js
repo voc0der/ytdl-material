@@ -1231,7 +1231,7 @@ app.get('/api/config', async function(req, res) {
         config_file = config_api.getConfigFile();
     } else if (!caller) {
         config_file = config_api.getAnonymousConfigFile();
-    } else if (caller.role === 'admin') {
+    } else if (caller.role === 'admin' && !caller.shadow) {
         // Admin rather than the 'settings' permission: /api/setConfig is admin-only, so a
         // delegated user cannot save these anyway -- there is no reason to show them every
         // integration credential on the way to a page they cannot submit.
@@ -1384,7 +1384,9 @@ app.post('/api/testConnectionString', optionalJwt, requireAdmin, async (req, res
 async function refuseUnsafeDownloadOptions(req, options, url = undefined) {
     if (utils.hasAdvancedDownloadOptions(options) && config_api.getConfigItem('ytdl_multi_user_mode')) {
         if (!req.user) return {status: 401, error: 'Authentication required'};
-        if (!await auth_api.userHasPermission(req.user.uid, 'advanced_download')) {
+        const allowed = req.shadow_permissions ? req.shadow_permissions.includes('advanced_download')
+            : await auth_api.userHasPermission(req.user.uid, 'advanced_download');
+        if (!allowed) {
             return {status: 403, error: 'Missing the \'advanced_download\' permission'};
         }
     }
@@ -4038,19 +4040,21 @@ app.post('/api/getRoles', optionalJwt, requireAdmin, async (req, res) => {
 });
 
 app.post('/api/updateUser', optionalJwt, requireAdmin, async (req, res) => {
-    let change_obj = req.body.change_object;
     try {
-        if (change_obj.name) {
-            await db_api.updateRecord('users', {uid: change_obj.uid}, {name: change_obj.name});
-        }
-        if (change_obj.role) {
-            await db_api.updateRecord('users', {uid: change_obj.uid}, {role: change_obj.role});
-        }
-        res.send({success: true});
+        const result = await require('./authentication/shadow').updateUser(req.body.change_object);
+        res.status(result.status || 200).send(result);
     } catch (err) {
         logger.error(err);
         res.send({success: false});
     }
+});
+
+app.post('/api/stopShadow', optionalJwt, requireAuthenticated, requireJwtForTokenManagement, async (req, res) => {
+    if (!req.user) return res.sendStatus(400);
+    const success = await db_api.updateRecord('users', {uid: req.user.uid}, {shadow: null});
+    if (!success) return res.status(500).send({success: false, error: 'Could not end shadow access.'});
+    const user = await db_api.getRecord('users', {uid: req.user.uid});
+    res.send(await auth_api.getAuthResponseObject(user));
 });
 
 app.post('/api/deleteUser', optionalJwt, requireAdmin, async (req, res) => {

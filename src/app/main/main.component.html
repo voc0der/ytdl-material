@@ -1,3 +1,4 @@
+@if (!postsService.isShadowReadOnly) {
 <div class="download-box">
   <form class="download-form">
     <div class="kit-field download-field">
@@ -114,7 +115,8 @@
     </mat-menu>
   }
 </div>
-@if (inputMode === 'url' && isAdvancedModeActive() && !listMode) {
+}
+@if (!postsService.isShadowReadOnly && inputMode === 'url' && isAdvancedModeActive() && !listMode) {
   <div class="download-box">
     <form>
       <mat-card class="advanced-panel">

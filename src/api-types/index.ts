@@ -105,6 +105,7 @@ export type { SearchVideosResponse } from './models/SearchVideosResponse';
 export type { SetConfigRequest } from './models/SetConfigRequest';
 export type { SetNotificationsToReadRequest } from './models/SetNotificationsToReadRequest';
 export type { SharedLibrary } from './models/SharedLibrary';
+export { ShadowAssignment } from './models/ShadowAssignment';
 export type { SharingToggle } from './models/SharingToggle';
 export type { SnipFileRequest } from './models/SnipFileRequest';
 export type { SnipFileResponse } from './models/SnipFileResponse';

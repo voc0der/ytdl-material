@@ -255,7 +255,7 @@ export class MainComponent implements OnInit {
 
   async configLoad(): Promise<void> {
     await this.loadConfig();
-    if (this.autoStartDownload) {
+    if (this.autoStartDownload && !this.postsService.isShadowReadOnly) {
       this.downloadClicked();
     }
   }
@@ -263,7 +263,7 @@ export class MainComponent implements OnInit {
   async loadConfig(): Promise<boolean> {
     // loading config
     this.fileManagerEnabled = this.postsService.config['Extra']['file_manager_enabled']
-                              && this.postsService.hasPermission('filemanager');
+                              && (this.postsService.hasPermission('filemanager') || this.postsService.isShadowReadOnly);
     this.downloadOnlyMode = this.postsService.config['Extra']['download_only_mode'];
     this.forceAutoplay = this.postsService.config['Extra']['force_autoplay'];
     this.globalCustomArgs = this.postsService.config['Downloader']['custom_args'];
