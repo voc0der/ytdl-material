@@ -428,6 +428,7 @@ exports.deleteUser = async (uid) => {
       // user exists, let's delete
       await fs.remove(user_folder);
       await db_api.removeRecord('users', {uid: uid});
+      await require('./shadow').endAssignmentsTo(uid);
       success = true;
   } else {
       logger.error(`Could not find user with uid ${uid}`);

@@ -39,6 +39,8 @@
               </span>
               <app-picker [title]="roleLabel" [options]="roleOptions" [value]="constructedObject['role']"
                 [disabled]="saving" (valueChange)="constructedObject['role'] = $any($event); editError = ''"></app-picker>
+              <app-picker [title]="libraryLabel" [options]="libraryOptions" [value]="constructedObject['library']"
+                [disabled]="saving" (valueChange)="constructedObject['library'] = $any($event); editError = ''"></app-picker>
               @if (editingShadow) {
                 <app-picker [title]="shadowTargetLabel" [label]="shadowTargetLabel" [placeholder]="chooseTargetLabel"
                   [options]="shadowTargetOptions" [value]="constructedObject['shadow_target_uid']" [disabled]="saving"
@@ -51,7 +53,7 @@
                 matTooltip="Cancel" i18n-matTooltip="cancel user edit action button tooltip"
                 aria-label="Cancel" i18n-aria-label="cancel user edit action button tooltip"><mat-icon>close</mat-icon></button>
               @if (editingShadow || user.shadow) {
-                <p class="user-edit-hint" i18n="Shadow role hint">Shadow access uses the selected account's library. Choose a regular role to return to this user's own account.</p>
+                <p class="user-edit-hint" i18n="Shadow library hint">Shadow access opens the selected account's library instead of this user's own. Only an administrator can end it, by choosing Own library.</p>
               }
               @if (editError) { <p class="user-edit-hint" role="alert">{{editError}}</p> }
             } @else {

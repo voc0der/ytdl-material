@@ -76,8 +76,8 @@ describe('AppComponent menu subscriptions', () => {
     expect(entries()).toEqual([]);
   });
 
-  it('identifies a shadow session and offers a return to the signed-in account', () => {
-    postsService.user = {uid: 'bob', name: 'Bob', shadow_session: {actor_uid: 'alice', actor_name: 'Alice', access: 'read_only'}};
+  it('identifies a shadow session and offers an administrator a return to their account', () => {
+    postsService.user = {uid: 'bob', name: 'Bob', shadow_session: {actor_uid: 'alice', actor_name: 'Alice', access: 'read_only', can_stop: true}};
     postsService.stopShadow = vi.fn();
     fixture.detectChanges();
     const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
@@ -87,11 +87,28 @@ describe('AppComponent menu subscriptions', () => {
     expect(postsService.stopShadow).toHaveBeenCalledOnce();
   });
 
-  it('still offers an exit when the shadow target is unavailable', () => {
-    postsService.user = {uid: 'missing', shadow_session: {actor_name: 'Alice', unavailable: true}};
+  it('gives an account that is not an administrator no way to end its shadow', () => {
+    postsService.user = {uid: 'bob', name: 'Bob', shadow_session: {actor_uid: 'alice', actor_name: 'Alice', access: 'full', can_stop: false}};
+    fixture.detectChanges();
+    const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
+    expect(banner.textContent).toContain('Shadowing Bob · Full library access');
+    expect(banner.querySelector('button')).toBeNull();
+    expect(banner.textContent).not.toContain('Ask an administrator');
+  });
+
+  it('still offers an administrator an exit when the shadow target is unavailable', () => {
+    postsService.user = {uid: 'missing', shadow_session: {actor_name: 'Alice', unavailable: true, can_stop: true}};
     fixture.detectChanges();
     const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
     expect(banner.textContent).toContain('The shadow account is unavailable.');
     expect(banner.querySelector('button').textContent).toContain('Use my account');
+  });
+
+  it('sends anyone else to an administrator when the shadow target is unavailable', () => {
+    postsService.user = {uid: 'missing', shadow_session: {actor_name: 'Alice', unavailable: true, can_stop: false}};
+    fixture.detectChanges();
+    const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
+    expect(banner.textContent).toContain('Ask an administrator to return you to your own account.');
+    expect(banner.querySelector('button')).toBeNull();
   });
 });

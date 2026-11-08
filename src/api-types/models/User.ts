@@ -24,6 +24,10 @@ export type User = {
         actor_name: string;
         access: User.access;
         unavailable: boolean;
+        /**
+         * Whether the signed-in account may end the assignment itself. True only for administrators.
+         */
+        can_stop: boolean;
     };
 };
 export namespace User {

@@ -146,9 +146,14 @@ describe('Shadow access on a running server', function() {
         }
     });
 
-    it('lets the signed-in caller end shadowing and restores their original account', async function() {
+    it('keeps a non-administrator on the assignment until an administrator ends it', async function() {
         await assign('read_only');
-        const restored = (await as('alice', '/api/stopShadow').send({uid: 'bob'}).expect(200)).body;
+        await as('alice', '/api/stopShadow').send({uid: 'bob'}).expect(403);
+        const shadowed = (await as('alice', '/api/auth/jwtAuth').send({}).expect(200)).body;
+        assert.strictEqual(shadowed.user.uid, 'bob');
+        assert.strictEqual(shadowed.user.shadow_session.can_stop, false);
+        await update({uid: 'alice', shadow: null}).expect(200);
+        const restored = (await as('alice', '/api/auth/jwtAuth').send({}).expect(200)).body;
         assert.strictEqual(restored.user.uid, 'alice');
         assert.strictEqual(restored.user.role, 'user');
         assert.strictEqual(restored.user.shadow, null);
@@ -160,6 +165,8 @@ describe('Shadow access on a running server', function() {
         await update({uid: 'admin', shadow: {target_uid: 'bob', access: 'read_only'}}).expect(200);
         try {
             await as('admin', '/api/getUsers').send({}).expect(403);
+            const shadowed = (await as('admin', '/api/auth/jwtAuth').send({}).expect(200)).body;
+            assert.strictEqual(shadowed.user.shadow_session.can_stop, true);
             const config = (await as('admin', '/api/config', 'get').expect(200)).body.config_file;
             assert.strictEqual(config.YtdlMaterial.API.telegram_bot_token, undefined);
         } finally {
@@ -178,16 +185,29 @@ describe('Shadow access on a running server', function() {
         await as('alice', '/api/stream', 'get').query({uid: files.alice.uid}).set('Range', 'bytes=0-0').expect(206);
     });
 
-    it('fails closed after target deletion and still lets the caller return to their account', async function() {
+    it('ends assignments to a deleted account, so a new account with its uid inherits none', async function() {
         await assign();
         await as('admin', '/api/deleteUser').send({uid: 'bob'}).expect(200);
-        await as('alice', '/api/getMp4s', 'get').expect(403);
-        await as('alice', '/api/createPlaylist').send({playlistName: 'No', uids: []}).expect(403);
+        const users = (await as('admin', '/api/getUsers').send({}).expect(200)).body.users;
+        assert.strictEqual(users.find(user => user.uid === 'alice').shadow, null);
+        await app.api.post('/api/auth/register').send({userid: 'bob', username: 'bob', password: 'new-bob-password'}).expect(200);
         const session = (await as('alice', '/api/auth/jwtAuth').send({}).expect(200)).body;
-        assert.strictEqual(session.user.shadow_session.unavailable, true);
-        assert.deepStrictEqual(session.permissions, []);
-        const restored = (await as('alice', '/api/stopShadow').send({}).expect(200)).body;
-        assert.strictEqual(restored.user.uid, 'alice');
+        assert.strictEqual(session.user.uid, 'alice');
+        assert.strictEqual(session.user.shadow_session, undefined);
+        assert.deepStrictEqual((await as('alice', '/api/getMp4s', 'get').expect(200)).body.mp4s.map(file => file.uid), [files.alice.uid]);
+    });
+});
+
+describe('Shadow resolution', function() {
+    require('./test-shared');
+    const shadow = require('../authentication/shadow');
+
+    it('fails closed on an assignment whose target no longer exists', async function() {
+        const access = await shadow.resolve({uid: 'shadow_unit_actor', name: 'Actor', role: 'user',
+            shadow: {target_uid: 'shadow_unit_missing', access: 'full'}});
+        assert.strictEqual(access.user.shadow_session.unavailable, true);
+        assert.strictEqual(access.user.shadow_session.can_stop, false);
+        assert.deepStrictEqual(access.permissions, []);
     });
 });
 
@@ -215,6 +235,7 @@ describe('Shadow access with header sign-in', function() {
         assert.strictEqual(login.user.uid, 'bob');
         assert.strictEqual(login.user.role, 'shadow');
         assert.strictEqual(login.user.shadow_session.access, 'read_only');
+        assert.strictEqual(login.user.shadow_session.can_stop, true);
         await app.api.post('/api/getUsers').query({jwt: login.token}).send({}).expect(403);
         const own = (await app.api.post('/api/stopShadow').query({jwt: login.token}).send({}).expect(200)).body;
         assert.strictEqual(own.user.uid, 'alice');

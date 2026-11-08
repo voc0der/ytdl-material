@@ -197,7 +197,8 @@ describe('ModifyUsersComponent actions', () => {
 
   it('requires a shadow target and preserves the account role when assigning access', () => {
     component.enableEditMode('zed');
-    component.constructedObject['role'] = 'shadow_read_only';
+    expect(component.constructedObject['library']).toBe('own');
+    component.constructedObject['library'] = 'read_only';
     component.finishEditing('zed');
     expect(postsService.changeUser).not.toHaveBeenCalled();
     expect(component.editError).toContain('Select an account');
@@ -209,24 +210,26 @@ describe('ModifyUsersComponent actions', () => {
     expect(component.editObject).toBeNull();
   });
 
-  it('shows the target and clears the assignment when returning to a regular role', () => {
+  it('shows the role and target, and keeps the role when returning the account to its own library', () => {
+    component.users[1].role = 'admin';
     component.users[1].shadow = {target_uid: 'amy', access: 'full'} as any;
     component.enableEditMode('zed');
-    expect(component.constructedObject['role']).toBe('shadow');
+    expect(component.constructedObject['role']).toBe('admin');
+    expect(component.constructedObject['library']).toBe('full');
     expect(component.constructedObject['shadow_target_uid']).toBe('amy');
-    expect(component.roleDescription(component.users[1])).toBe('Shadow (full access) · amy');
+    expect(component.roleDescription(component.users[1])).toBe('admin · Shadow (full access) · amy');
     component.filterChanged('shadow');
     expect(component.visibleUsers.map(user => user.uid)).toEqual(['zed']);
 
-    component.constructedObject['role'] = 'user';
+    component.constructedObject['library'] = 'own';
     component.finishEditing('zed');
-    expect(postsService.changeUser).toHaveBeenCalledWith({uid: 'zed', name: 'zed', role: 'user', shadow: null});
+    expect(postsService.changeUser).toHaveBeenCalledWith({uid: 'zed', name: 'zed', role: 'admin', shadow: null});
   });
 
   it('keeps edits and the original list intact when the server rejects an assignment', () => {
     postsService.changeUser.mockReturnValueOnce(throwError(() => 'The shadow target does not exist.'));
     component.enableEditMode('zed');
-    component.constructedObject['role'] = 'shadow';
+    component.constructedObject['library'] = 'full';
     component.constructedObject['shadow_target_uid'] = 'amy';
     component.finishEditing('zed');
 
@@ -241,7 +244,7 @@ describe('ModifyUsersComponent actions', () => {
     postsService.user = {uid: 'amy'};
     postsService.reloadAccount = vi.fn();
     component.enableEditMode('amy');
-    component.constructedObject['role'] = 'shadow';
+    component.constructedObject['library'] = 'full';
     component.constructedObject['shadow_target_uid'] = 'zed';
     component.finishEditing('amy');
     expect(postsService.changeUser).toHaveBeenCalledWith({uid: 'amy', name: 'amy', role: 'admin', shadow: {target_uid: 'zed', access: 'full'}});

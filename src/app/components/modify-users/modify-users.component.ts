@@ -38,6 +38,7 @@ export class ModifyUsersComponent implements OnInit {
   readonly searchLabel = $localize`Search`;
   readonly userNameLabel = $localize`User name`;
   readonly roleLabel = $localize`Role`;
+  readonly libraryLabel = $localize`Library`;
   readonly shadowTargetLabel = $localize`Shadow account`;
   readonly chooseTargetLabel = $localize`Select an account`;
   readonly previousPageLabel = $localize`Previous page`;
@@ -45,9 +46,15 @@ export class ModifyUsersComponent implements OnInit {
 
   readonly roleOptions: PickerOption[] = [
     { value: 'admin', label: 'Admin' },
-    { value: 'user', label: 'User' },
-    { value: 'shadow', label: $localize`Shadow (full access)` },
-    { value: 'shadow_read_only', label: $localize`Shadow (read only)` }
+    { value: 'user', label: 'User' }
+  ];
+
+  // Chosen apart from the role, as the server stores it, so ending a shadow cannot change the
+  // account's role along the way.
+  readonly libraryOptions: PickerOption[] = [
+    { value: 'own', label: $localize`Own library` },
+    { value: 'full', label: $localize`Shadow (full access)` },
+    { value: 'read_only', label: $localize`Shadow (read only)` }
   ];
 
   constructor(public postsService: PostsService, public snackBar: MatSnackBar, public dialog: MatDialog,
@@ -132,18 +139,16 @@ export class ModifyUsersComponent implements OnInit {
         const index_of_object = this.indexOfUser(user_uid);
         if (index_of_object < 0) return;
         const user = this.users[index_of_object];
-        const change = {...this.constructedObject};
+        const {library, shadow_target_uid, ...change} = this.constructedObject as any;
         if (this.editingShadow) {
-          if (!this.shadowTargetOptions.some(option => option.value === change['shadow_target_uid'])) {
+          if (!this.shadowTargetOptions.some(option => option.value === shadow_target_uid)) {
             this.editError = $localize`Select an account to shadow.`;
             return;
           }
-          change['shadow'] = {target_uid: change['shadow_target_uid'], access: change['role'] === 'shadow' ? 'full' : 'read_only'};
-          change['role'] = user.role;
+          change.shadow = {target_uid: shadow_target_uid, access: library};
         } else if (user.shadow) {
-          change['shadow'] = null;
+          change.shadow = null;
         }
-        delete change['shadow_target_uid'];
         this.setUser(change);
       }
     }
@@ -158,7 +163,8 @@ export class ModifyUsersComponent implements OnInit {
       this.constructedObject = {
         name: this.editObject.name,
         uid: this.editObject.uid,
-        role: this.editObject.shadow ? (this.editObject.shadow.access === 'full' ? 'shadow' : 'shadow_read_only') : this.editObject.role
+        role: this.editObject.role,
+        library: this.editObject.shadow?.access ?? 'own'
       };
       if (this.editObject.shadow) this.constructedObject['shadow_target_uid'] = this.editObject.shadow.target_uid;
     }
@@ -172,7 +178,7 @@ export class ModifyUsersComponent implements OnInit {
   }
 
   get editingShadow(): boolean {
-    return ['shadow', 'shadow_read_only'].includes(this.constructedObject['role']);
+    return ['full', 'read_only'].includes(this.constructedObject['library']);
   }
 
   get shadowTargetOptions(): PickerOption[] {
@@ -183,9 +189,10 @@ export class ModifyUsersComponent implements OnInit {
   roleDescription(user: User): string {
     if (!user.shadow) return user.role;
     const target = this.users?.find(entry => entry.uid === user.shadow.target_uid)?.name || user.shadow.target_uid;
-    return user.shadow.access === 'full'
+    const shadow = user.shadow.access === 'full'
       ? $localize`Shadow (full access) · ${target}`
       : $localize`Shadow (read only) · ${target}`;
+    return `${user.role} · ${shadow}`;
   }
 
   // checks if user is in users array by name

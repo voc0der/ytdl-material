@@ -1882,7 +1882,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateUserRequest'
-      description: Administrators can update an account's name, role, and shadow assignment. Shadow access grants access to the target library while preserving the caller's normal role. Set shadow to null to restore the caller's own library.
+      description: Administrators can update an account's name, role, and shadow assignment. Shadow access grants access to the target library while preserving the account's normal role. Set shadow to null to restore the account's own library.
       security:
         - JWT token parameter: []
         - API bearer token: []
@@ -1892,7 +1892,7 @@ paths:
     post:
       summary: Return to your own account
       operationId: post-api-stopShadow
-      description: Clears the signed-in account's shadow assignment and returns its own session. Requires a browser JWT; API tokens cannot remove their own shadow restrictions.
+      description: Clears the signed-in account's shadow assignment and returns its own session. Only an administrator can end their own assignment; any other account stays on it until an administrator sets its shadow to null with updateUser. Requires a browser JWT; API tokens cannot remove their own shadow restrictions.
       security:
         - JWT token parameter: []
       responses:
@@ -1902,6 +1902,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
+        '403':
+          description: The signed-in account is not an administrator, or the request used an API token.
       tags:
         - multi-user mode
   /api/deleteUser:
@@ -3930,7 +3932,7 @@ components:
         shadow_session:
           type: object
           readOnly: true
-          required: [actor_uid, actor_name, access, unavailable]
+          required: [actor_uid, actor_name, access, unavailable, can_stop]
           properties:
             actor_uid:
               type: string
@@ -3941,6 +3943,9 @@ components:
               enum: [read_only, full]
             unavailable:
               type: boolean
+            can_stop:
+              type: boolean
+              description: Whether the signed-in account may end the assignment itself. True only for administrators.
     ShadowAssignment:
       type: object
       nullable: true

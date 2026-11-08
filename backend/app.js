@@ -4049,7 +4049,10 @@ app.post('/api/updateUser', optionalJwt, requireAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/stopShadow', optionalJwt, requireAuthenticated, requireJwtForTokenManagement, async (req, res) => {
+// Administrators only. shadow.apply leaves this route on the signed-in account, so the check
+// sees that account's own role. Anyone else stays on the assignment until an administrator
+// ends it in Settings.
+app.post('/api/stopShadow', optionalJwt, requireAdmin, requireJwtForTokenManagement, async (req, res) => {
     if (!req.user) return res.sendStatus(400);
     const success = await db_api.updateRecord('users', {uid: req.user.uid}, {shadow: null});
     if (!success) return res.status(500).send({success: false, error: 'Could not end shadow access.'});

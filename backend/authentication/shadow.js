@@ -55,7 +55,10 @@ async function resolve(actor) {
         role: 'shadow',
         permissions,
         permission_overrides: [],
-        shadow_session: {actor_uid: actor.uid, actor_name: actor.name, access: assignment.access, unavailable}
+        // Only an administrator may end their own assignment. Anyone else stays on it until an
+        // administrator changes it in Settings.
+        shadow_session: {actor_uid: actor.uid, actor_name: actor.name, access: assignment.access, unavailable,
+            can_stop: actor.role === 'admin'}
     };
     return {user, permissions};
 }
@@ -73,7 +76,7 @@ async function apply(req, res, next) {
     req.user = user;
     req.shadow_permissions = permissions;
     if (user.shadow_session.unavailable) {
-        return res.status(403).send({success: false, error: 'The shadow target is unavailable. Return to your own account.'});
+        return res.status(403).send({success: false, error: 'The shadow target is unavailable until an administrator ends this assignment.'});
     }
     const read = READ_ROUTES.has(route) || (method === 'GET'
         && /^\/api\/(thumbnail|subscriptionartwork|resolveplayerlink)\/[^/]+\/?$/i.test(req.path));
@@ -117,4 +120,11 @@ async function updateUser(change) {
     });
 }
 
-module.exports = {resolve, apply, updateUser};
+// Called once an account is deleted. An assignment left pointing at its uid would pass to
+// any later account given the same uid. Under the mutex, so an assignment validated against
+// the account just before it was removed cannot be written after this sweep.
+async function endAssignmentsTo(uid) {
+    return assignmentMutex.runExclusive(() => db.updateRecords('users', {'shadow.target_uid': uid}, {shadow: null}));
+}
+
+module.exports = {resolve, apply, updateUser, endAssignmentsTo};

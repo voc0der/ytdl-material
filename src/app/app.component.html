@@ -196,9 +196,15 @@
                 <ng-container i18n="Full shadow banner">Shadowing {{postsService.user.name}} · Full library access</ng-container>
               }
               <span i18n="Shadow signed in identity">Signed in as {{shadow.actor_name}}.</span>
+              @if (shadow.unavailable && !shadow.can_stop) {
+                <span i18n="Unavailable shadow account administrator hint">Ask an administrator to return you to your own account.</span>
+              }
             </span>
-            <button type="button" class="kit-chip" (click)="postsService.stopShadow()" [disabled]="postsService.stoppingShadow"
-              i18n="Stop shadow button">Use my account</button>
+            <!-- Only an administrator may end their own assignment; the server refuses anyone else. -->
+            @if (shadow.can_stop) {
+              <button type="button" class="kit-chip" (click)="postsService.stopShadow()" [disabled]="postsService.stoppingShadow"
+                i18n="Stop shadow button">Use my account</button>
+            }
           </div>
         }
         <router-outlet></router-outlet>
