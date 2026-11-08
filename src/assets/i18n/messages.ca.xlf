@@ -43,6 +43,10 @@
         <source>Couldn&apos;t start casting.</source>
         <target state="translated">No s&apos;ha pogut començar l&apos;emissió.</target>
       </trans-unit>
+      <trans-unit id="7340990487099474620" datatype="html">
+        <source>Shadow (full access)</source>
+        <target state="translated">Ombra (accés complet)</target>
+      </trans-unit>
       <trans-unit id="7342137815712176366" datatype="html">
         <source>Cookies test failed. Review the popup logs.</source>
         <target state="translated">La prova de galetes ha fallat. Revisa els registres de la finestra emergent.</target>
@@ -73,10 +77,13 @@
         <source>Getting the file ready to cast</source>
         <target state="translated">S&apos;està preparant el fitxer per emetre&apos;l</target>
       </trans-unit>
+      <trans-unit id="7374761165000102313" datatype="html">
+        <source>Every 6 hours</source>
+        <target state="translated">Cada 6 hores</target>
+      </trans-unit>
       <trans-unit id="7385160636957089888" datatype="html">
         <source>Library</source>
         <target state="translated">Biblioteca</target>
-        <note priority="1" from="description">Playlist editor library tab</note>
       </trans-unit>
       <trans-unit id="8380628090223707477" datatype="html">
         <source>You are browsing <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/>&apos;s library. You can watch anything in it, but not change it.</source>
@@ -100,6 +107,11 @@
         <source>Gotify server URL</source>
         <target state="translated">URL del servidor Gotify</target>
         <note priority="1" from="description">Gotify server URL</note>
+      </trans-unit>
+      <trans-unit id="8396599066205859839" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Full library access</source>
+        <target state="translated">Com a ombra de <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Accés complet a la biblioteca</target>
+        <note priority="1" from="description">Full shadow banner</note>
       </trans-unit>
       <trans-unit id="8700121026680200191" datatype="html">
         <source>Clear</source>
@@ -463,6 +475,10 @@
         <target state="translated">La prova d&apos;acceleració per maquinari encara s&apos;està executant. Actualitza aquesta pàgina d&apos;aquí a poc per veure&apos;n el resultat.</target>
         <note priority="1" from="description">Hardware acceleration test pending message</note>
       </trans-unit>
+      <trans-unit id="7240704506367079518" datatype="html">
+        <source>Select an account</source>
+        <target state="translated">Tria un compte</target>
+      </trans-unit>
       <trans-unit id="7245158171094358343" datatype="html">
         <source>Group ID</source>
         <target state="translated">ID del grup</target>
@@ -757,6 +773,11 @@
         <source>Volume</source>
         <target state="translated">Volum</target>
         <note priority="1" from="description">Volume slider label</note>
+      </trans-unit>
+      <trans-unit id="434585212758604852" datatype="html">
+        <source>It runs at this time and repeats from there.</source>
+        <target state="translated">S&apos;executa a aquesta hora i es repeteix a partir d&apos;aquí.</target>
+        <note priority="1" from="description">Task schedule every few hours time hint</note>
       </trans-unit>
       <trans-unit id="4356579994080425" datatype="html">
         <source>Remove <x id="count" equiv-text="count"/> duplicates</source>
@@ -1736,6 +1757,11 @@
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{selected_count}}"/> seleccionats</target>
         <note priority="1" from="description">Selected archive item count</note>
       </trans-unit>
+      <trans-unit id="7655389644887918645" datatype="html">
+        <source>The shadow account is unavailable.</source>
+        <target state="translated">El compte ombra no està disponible.</target>
+        <note priority="1" from="description">Unavailable shadow account</note>
+      </trans-unit>
       <trans-unit id="7658073495909471632" datatype="html">
         <source>years</source>
         <target state="translated">anys</target>
@@ -1865,6 +1891,10 @@
         <source>Deleted files are never downloaded again. Needs archive mode.</source>
         <target state="translated">Els fitxers esborrats no es tornen a baixar mai. Cal el mode d&apos;arxiu.</target>
         <note priority="1" from="description">Blacklist deleted files hint</note>
+      </trans-unit>
+      <trans-unit id="1960706699322940595" datatype="html">
+        <source>Could not return to your account. Please try again.</source>
+        <target state="translated">No s&apos;ha pogut tornar al teu compte. Torna-ho a provar.</target>
       </trans-unit>
       <trans-unit id="1963136290621768454" datatype="html">
         <source>Resolution</source>
@@ -2411,6 +2441,10 @@
         <target state="translated">Segueix un canal o una llista de reproducció i les pujades noves es baixaran soles.</target>
         <note priority="1" from="description">Subscriptions page introduction</note>
       </trans-unit>
+      <trans-unit id="4559533544914843900" datatype="html">
+        <source>Select an account to shadow.</source>
+        <target state="translated">Tria un compte per a l&apos;accés ombra.</target>
+      </trans-unit>
       <trans-unit id="4562725960220528898" datatype="html">
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
         <target state="translated">El que pot fer tothom amb aquest rol, tret que el seu compte digui el contrari.</target>
@@ -2632,6 +2666,11 @@
         <target state="translated">Obre l&apos;enllaç</target>
         <note priority="1" from="description">Open subscription link menu item</note>
       </trans-unit>
+      <trans-unit id="139145337498933349" datatype="html">
+        <source>Use my account</source>
+        <target state="translated">Usa el meu compte</target>
+        <note priority="1" from="description">Stop shadow button</note>
+      </trans-unit>
       <trans-unit id="1392649733530265400" datatype="html">
         <source>Browser extensions</source>
         <target state="translated">Extensions del navegador</target>
@@ -2640,6 +2679,11 @@
       <trans-unit id="1399098964147907857" datatype="html">
         <source>Your library is no longer shared.</source>
         <target state="translated">La teva biblioteca ja no es comparteix.</target>
+      </trans-unit>
+      <trans-unit id="140338888755887689" datatype="html">
+        <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
+        <target state="translated">Aquestes excepcions s&apos;apliquen dins del nivell d&apos;accés ombra triat. El mode només lectura impedeix sempre els canvis a la biblioteca. L&apos;accés ombra no dona mai l&apos;administració de comptes ni del servidor.</target>
+        <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
@@ -2694,6 +2738,10 @@
         <target state="translated">La creació d&apos;usuaris locals està desactivada mentre l&apos;inici de sessió per capçalera estigui activat. Els comptes nous es controlen amb «Registra els usuaris al primer inici de sessió».</target>
         <note priority="1" from="description">Local user creation disabled by header sign-in hint</note>
       </trans-unit>
+      <trans-unit id="1458825685922086502" datatype="html">
+        <source>Shadow account</source>
+        <target state="translated">Compte ombra</target>
+      </trans-unit>
       <trans-unit id="1460489221058177214" datatype="html">
         <source>No database information</source>
         <target state="translated">No hi ha informació de la base de dades</target>
@@ -2735,6 +2783,11 @@
         <source>Waits before starting the next queued download step. Use 0 to disable.</source>
         <target state="translated">Espera abans de començar el següent pas de baixada de la cua. Fes servir 0 per desactivar-ho.</target>
         <note priority="1" from="description">Minimum sleep between downloads input hint</note>
+      </trans-unit>
+      <trans-unit id="153251786990560339" datatype="html">
+        <source>Shadow access opens the selected account&apos;s library instead of this user&apos;s own. Only an administrator can end it, by choosing Own library.</source>
+        <target state="translated">L&apos;accés ombra obre la biblioteca del compte triat en lloc de la d&apos;aquest usuari. Només un administrador el pot acabar, triant Biblioteca pròpia.</target>
+        <note priority="1" from="description">Shadow library hint</note>
       </trans-unit>
       <trans-unit id="155129120174034016" datatype="html">
         <source>It stops checking for new uploads.</source>
@@ -2785,6 +2838,10 @@
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated">per continuar a <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
         <note priority="1" from="description">Login page subtitle</note>
+      </trans-unit>
+      <trans-unit id="1670296913949833521" datatype="html">
+        <source>Every 3 hours</source>
+        <target state="translated">Cada 3 hores</target>
       </trans-unit>
       <trans-unit id="1671378244656756701" datatype="html">
         <source>Create admin account</source>
@@ -2921,6 +2978,10 @@
         <source>Loading…</source>
         <target state="translated">S&apos;està carregant…</target>
         <note priority="1" from="description">Notifications loading text</note>
+      </trans-unit>
+      <trans-unit id="2370775305889903577" datatype="html">
+        <source>Could not save this user.</source>
+        <target state="translated">No s&apos;ha pogut desar aquest usuari.</target>
       </trans-unit>
       <trans-unit id="2375260419993138758" datatype="html">
         <source>URL</source>
@@ -3491,6 +3552,10 @@
         <source>Database successfully restored!</source>
         <target state="translated">La base de dades s&apos;ha restaurat correctament!</target>
       </trans-unit>
+      <trans-unit id="640194966237152177" datatype="html">
+        <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Ombra (només lectura) · <x id="PH" equiv-text="target"/></target>
+      </trans-unit>
       <trans-unit id="6403593821155505572" datatype="html">
         <source>Login expiration</source>
         <target state="translated">Caducitat de la sessió</target>
@@ -3650,6 +3715,10 @@
         <source>Failed to enable sharing.</source>
         <target state="translated">No s&apos;ha pogut habilitar l&apos;ús compartit.</target>
       </trans-unit>
+      <trans-unit id="2849300510471762557" datatype="html">
+        <source>Every 12 hours</source>
+        <target state="translated">Cada 12 hores</target>
+      </trans-unit>
       <trans-unit id="2850544880368077674" datatype="html">
         <source>Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</source>
         <target state="translated">Automàtic prefereix PostgreSQL quan hi ha una cadena de connexió de PostgreSQL configurada, i si no, MongoDB.</target>
@@ -3754,6 +3823,10 @@
         <source>New playlist</source>
         <target state="translated">Llista nova</target>
         <note priority="1" from="description">Create playlist button</note>
+      </trans-unit>
+      <trans-unit id="7945574393654903960" datatype="html">
+        <source>Shadow (read only)</source>
+        <target state="translated">Ombra (només lectura)</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -4062,6 +4135,10 @@
         <source>Failed to get file information from the server.</source>
         <target state="translated">No s&apos;ha pogut obtenir informació del fitxer del servidor.</target>
       </trans-unit>
+      <trans-unit id="2741978587628149987" datatype="html">
+        <source>Shadow (full access) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Ombra (accés complet) · <x id="PH" equiv-text="target"/></target>
+      </trans-unit>
       <trans-unit id="2744658556055412432" datatype="html">
         <source>Loop off</source>
         <target state="translated">Repetició desactivada</target>
@@ -4223,6 +4300,11 @@
         <source>Library: <x id="owner name" equiv-text="this.viewedLibraryName"/></source>
         <target state="translated">Biblioteca: <x id="owner name" equiv-text="this.viewedLibraryName"/></target>
         <note priority="1" from="description">Library switch label</note>
+      </trans-unit>
+      <trans-unit id="977107053483043409" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Read only</source>
+        <target state="translated">Com a ombra de <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Només lectura</target>
+        <note priority="1" from="description">Read only shadow banner</note>
       </trans-unit>
       <trans-unit id="981766864133373363" datatype="html">
         <source>Item limit</source>
@@ -4580,6 +4662,11 @@
         <target state="translated">Fes clic aquí</target>
         <note priority="1" from="description">Chrome ext click here</note>
       </trans-unit>
+      <trans-unit id="5267489714560514087" datatype="html">
+        <source>Signed in as <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</source>
+        <target state="translated">Sessió iniciada com a <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</target>
+        <note priority="1" from="description">Shadow signed in identity</note>
+      </trans-unit>
       <trans-unit id="5273501066845923426" datatype="html">
         <source>Client ID</source>
         <target state="translated">ID de client</target>
@@ -4661,6 +4748,10 @@
         <source>Subtitles</source>
         <target state="translated">Subtítols</target>
         <note priority="1" from="description">Video subtitles property</note>
+      </trans-unit>
+      <trans-unit id="2640607428459636406" datatype="html">
+        <source>Hourly</source>
+        <target state="translated">Cada hora</target>
       </trans-unit>
       <trans-unit id="2652115598692885242" datatype="html">
         <source>Downloads you start, and the ones your subscriptions start, show up here.</source>
@@ -5024,6 +5115,10 @@
         <target state="translated">Mostra a GitHub</target>
         <note priority="1" from="description">About GitHub link</note>
       </trans-unit>
+      <trans-unit id="7128933362180740705" datatype="html">
+        <source>Own library</source>
+        <target state="translated">Biblioteca pròpia</target>
+      </trans-unit>
       <trans-unit id="7131377065256068978" datatype="html">
         <source>Small</source>
         <target state="translated">Petita</target>
@@ -5190,6 +5285,11 @@
       <trans-unit id="6621329748219109148" datatype="html">
         <source>Duplicate</source>
         <target state="translated">Duplicat</target>
+      </trans-unit>
+      <trans-unit id="6627481593136812763" datatype="html">
+        <source>Ask an administrator to return you to your own account.</source>
+        <target state="translated">Demana a un administrador que et torni al teu compte.</target>
+        <note priority="1" from="description">Unavailable shadow account administrator hint</note>
       </trans-unit>
       <trans-unit id="6650633628037596693" datatype="html">
         <source>Try again</source>

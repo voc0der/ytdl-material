@@ -47,6 +47,11 @@
         <source>Duplicate</source>
         <target state="translated">Duplikaat</target>
       </trans-unit>
+      <trans-unit id="6627481593136812763" datatype="html">
+        <source>Ask an administrator to return you to your own account.</source>
+        <target state="translated">Palu administraatoril sind sinu enda kontole tagasi viia.</target>
+        <note priority="1" from="description">Unavailable shadow account administrator hint</note>
+      </trans-unit>
       <trans-unit id="6650633628037596693" datatype="html">
         <source>Try again</source>
         <target state="translated">Proovi uuesti</target>
@@ -531,6 +536,11 @@
         <target state="translated">Gotify serveri URL</target>
         <note priority="1" from="description">Gotify server URL</note>
       </trans-unit>
+      <trans-unit id="8396599066205859839" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Full library access</source>
+        <target state="translated">Kasutaja <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> varjuna · Täielik juurdepääs teegile</target>
+        <note priority="1" from="description">Full shadow banner</note>
+      </trans-unit>
       <trans-unit id="3000907172637359397" datatype="html">
         <source>That time has already gone by.</source>
         <target state="translated">See aeg on juba möödas.</target>
@@ -947,6 +957,10 @@
         <target state="translated">Vaata GitHubis</target>
         <note priority="1" from="description">About GitHub link</note>
       </trans-unit>
+      <trans-unit id="7128933362180740705" datatype="html">
+        <source>Own library</source>
+        <target state="translated">Oma teek</target>
+      </trans-unit>
       <trans-unit id="7131377065256068978" datatype="html">
         <source>Small</source>
         <target state="translated">Väike</target>
@@ -1012,6 +1026,11 @@
         <source>Click here</source>
         <target state="translated">Klõpsa siin</target>
         <note priority="1" from="description">Chrome ext click here</note>
+      </trans-unit>
+      <trans-unit id="5267489714560514087" datatype="html">
+        <source>Signed in as <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</source>
+        <target state="translated">Sisse logitud kui <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</target>
+        <note priority="1" from="description">Shadow signed in identity</note>
       </trans-unit>
       <trans-unit id="5273501066845923426" datatype="html">
         <source>Client ID</source>
@@ -1279,6 +1298,10 @@
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
         <target state="translated">Jälgi kanalit või esitusloendit ja selle uued üleslaadimised laaditakse ise alla.</target>
         <note priority="1" from="description">Subscriptions page introduction</note>
+      </trans-unit>
+      <trans-unit id="4559533544914843900" datatype="html">
+        <source>Select an account to shadow.</source>
+        <target state="translated">Vali konto varijuurdepääsuks.</target>
       </trans-unit>
       <trans-unit id="4562725960220528898" datatype="html">
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
@@ -1754,6 +1777,11 @@
         <target state="translated">Ava link</target>
         <note priority="1" from="description">Open subscription link menu item</note>
       </trans-unit>
+      <trans-unit id="139145337498933349" datatype="html">
+        <source>Use my account</source>
+        <target state="translated">Kasuta minu kontot</target>
+        <note priority="1" from="description">Stop shadow button</note>
+      </trans-unit>
       <trans-unit id="1392649733530265400" datatype="html">
         <source>Browser extensions</source>
         <target state="translated">Brauserilaiendused</target>
@@ -1762,6 +1790,11 @@
       <trans-unit id="1399098964147907857" datatype="html">
         <source>Your library is no longer shared.</source>
         <target state="translated">Sinu teeki enam ei jagata.</target>
+      </trans-unit>
+      <trans-unit id="140338888755887689" datatype="html">
+        <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
+        <target state="translated">Need erandid kehtivad valitud varijuurdepääsu taseme piires. Kirjutuskaitstud režiim takistab alati teegi muutmist. Varijuurdepääs ei anna kunagi kontode ega serveri haldamise õigust.</target>
+        <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
@@ -1816,6 +1849,10 @@
         <target state="translated">Kohalike kasutajate loomine on keelatud, kuni päisega sisselogimine on sees. Uusi kontosid juhib valik „Registreeri kasutajad esmasel sisselogimisel“.</target>
         <note priority="1" from="description">Local user creation disabled by header sign-in hint</note>
       </trans-unit>
+      <trans-unit id="1458825685922086502" datatype="html">
+        <source>Shadow account</source>
+        <target state="translated">Varikonto</target>
+      </trans-unit>
       <trans-unit id="1460489221058177214" datatype="html">
         <source>No database information</source>
         <target state="translated">Andmebaasi teave puudub</target>
@@ -1857,6 +1894,11 @@
         <source>Waits before starting the next queued download step. Use 0 to disable.</source>
         <target state="translated">Ootab enne järgmise järjekorras oleva allalaadimissammu alustamist. 0 lülitab välja.</target>
         <note priority="1" from="description">Minimum sleep between downloads input hint</note>
+      </trans-unit>
+      <trans-unit id="153251786990560339" datatype="html">
+        <source>Shadow access opens the selected account&apos;s library instead of this user&apos;s own. Only an administrator can end it, by choosing Own library.</source>
+        <target state="translated">Varijuurdepääs avab selle kasutaja enda teegi asemel valitud konto teegi. Lõpetada saab selle ainult administraator, valides Oma teek.</target>
+        <note priority="1" from="description">Shadow library hint</note>
       </trans-unit>
       <trans-unit id="155129120174034016" datatype="html">
         <source>It stops checking for new uploads.</source>
@@ -2019,6 +2061,10 @@
         <source>Loading…</source>
         <target state="translated">Laadimine…</target>
         <note priority="1" from="description">Notifications loading text</note>
+      </trans-unit>
+      <trans-unit id="2370775305889903577" datatype="html">
+        <source>Could not save this user.</source>
+        <target state="translated">Seda kasutajat ei saanud salvestada.</target>
       </trans-unit>
       <trans-unit id="2375260419993138758" datatype="html">
         <source>URL</source>
@@ -2884,6 +2930,10 @@
         <target state="translated">Uus esitusloend</target>
         <note priority="1" from="description">Create playlist button</note>
       </trans-unit>
+      <trans-unit id="7945574393654903960" datatype="html">
+        <source>Shadow (read only)</source>
+        <target state="translated">Vari (kirjutuskaitstud)</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Loo lõige</target>
@@ -3461,6 +3511,11 @@
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{selected_count}}"/> valitud</target>
         <note priority="1" from="description">Selected archive item count</note>
       </trans-unit>
+      <trans-unit id="7655389644887918645" datatype="html">
+        <source>The shadow account is unavailable.</source>
+        <target state="translated">Varikonto pole saadaval.</target>
+        <note priority="1" from="description">Unavailable shadow account</note>
+      </trans-unit>
       <trans-unit id="7658073495909471632" datatype="html">
         <source>years</source>
         <target state="translated">aastat</target>
@@ -3673,6 +3728,11 @@
         <source>Volume</source>
         <target state="translated">Helitugevus</target>
         <note priority="1" from="description">Volume slider label</note>
+      </trans-unit>
+      <trans-unit id="434585212758604852" datatype="html">
+        <source>It runs at this time and repeats from there.</source>
+        <target state="translated">Käivitub sel kellaajal ja kordub sealt edasi.</target>
+        <note priority="1" from="description">Task schedule every few hours time hint</note>
       </trans-unit>
       <trans-unit id="4356579994080425" datatype="html">
         <source>Remove <x id="count" equiv-text="count"/> duplicates</source>
@@ -3943,6 +4003,10 @@
         <source>Database successfully restored!</source>
         <target state="translated">Andmebaas taastatud!</target>
       </trans-unit>
+      <trans-unit id="640194966237152177" datatype="html">
+        <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Vari (kirjutuskaitstud) · <x id="PH" equiv-text="target"/></target>
+      </trans-unit>
       <trans-unit id="6403593821155505572" datatype="html">
         <source>Login expiration</source>
         <target state="translated">Sisselogimise aegumine</target>
@@ -3997,6 +4061,10 @@
         <source>Deleted files are never downloaded again. Needs archive mode.</source>
         <target state="translated">Kustutatud faile ei laadita enam kunagi alla. Nõuab arhiivirežiimi.</target>
         <note priority="1" from="description">Blacklist deleted files hint</note>
+      </trans-unit>
+      <trans-unit id="1960706699322940595" datatype="html">
+        <source>Could not return to your account. Please try again.</source>
+        <target state="translated">Oma kontole naasmine ebaõnnestus. Proovi uuesti.</target>
       </trans-unit>
       <trans-unit id="1963136290621768454" datatype="html">
         <source>Resolution</source>
@@ -4100,6 +4168,10 @@
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
         <target state="translated">Jagamise sisselülitamine ebaõnnestus.</target>
+      </trans-unit>
+      <trans-unit id="2849300510471762557" datatype="html">
+        <source>Every 12 hours</source>
+        <target state="translated">Iga 12 tunni järel</target>
       </trans-unit>
       <trans-unit id="2850544880368077674" datatype="html">
         <source>Automatic prefers PostgreSQL when a PostgreSQL connection string is configured, otherwise MongoDB.</source>
@@ -4324,6 +4396,10 @@
         <target state="translated">et jätkata teenusesse <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
         <note priority="1" from="description">Login page subtitle</note>
       </trans-unit>
+      <trans-unit id="1670296913949833521" datatype="html">
+        <source>Every 3 hours</source>
+        <target state="translated">Iga 3 tunni järel</target>
+      </trans-unit>
       <trans-unit id="1671378244656756701" datatype="html">
         <source>Create admin account</source>
         <target state="translated">Loo administraatori konto</target>
@@ -4505,6 +4581,10 @@
         <target state="translated">Riistvarakiirenduse proovikäivitus on veel pooleli. Tulemuse nägemiseks värskenda lehte veidi hiljem.</target>
         <note priority="1" from="description">Hardware acceleration test pending message</note>
       </trans-unit>
+      <trans-unit id="7240704506367079518" datatype="html">
+        <source>Select an account</source>
+        <target state="translated">Vali konto</target>
+      </trans-unit>
       <trans-unit id="7245158171094358343" datatype="html">
         <source>Group ID</source>
         <target state="translated">Rühma ID</target>
@@ -4541,6 +4621,10 @@
       <trans-unit id="2734512985872312443" datatype="html">
         <source>Failed to get file information from the server.</source>
         <target state="translated">Faili teabe toomine serverist ebaõnnestus.</target>
+      </trans-unit>
+      <trans-unit id="2741978587628149987" datatype="html">
+        <source>Shadow (full access) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Vari (täielik juurdepääs) · <x id="PH" equiv-text="target"/></target>
       </trans-unit>
       <trans-unit id="2744658556055412432" datatype="html">
         <source>Loop off</source>
@@ -4688,6 +4772,11 @@
         <target state="translated">Teek: <x id="owner name" equiv-text="this.viewedLibraryName"/></target>
         <note priority="1" from="description">Library switch label</note>
       </trans-unit>
+      <trans-unit id="977107053483043409" datatype="html">
+        <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Read only</source>
+        <target state="translated">Kasutaja <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> varjuna · Kirjutuskaitstud</target>
+        <note priority="1" from="description">Read only shadow banner</note>
+      </trans-unit>
       <trans-unit id="981766864133373363" datatype="html">
         <source>Item limit</source>
         <target state="translated">Üksuste piirang</target>
@@ -4797,6 +4886,10 @@
         <source>Couldn&apos;t start casting.</source>
         <target state="translated">Ülekannet ei saanud alustada.</target>
       </trans-unit>
+      <trans-unit id="7340990487099474620" datatype="html">
+        <source>Shadow (full access)</source>
+        <target state="translated">Vari (täielik juurdepääs)</target>
+      </trans-unit>
       <trans-unit id="7342137815712176366" datatype="html">
         <source>Cookies test failed. Review the popup logs.</source>
         <target state="translated">Küpsiste test ebaõnnestus. Vaata hüpikakna logisid.</target>
@@ -4827,10 +4920,13 @@
         <source>Getting the file ready to cast</source>
         <target state="translated">Faili ettevalmistamine ülekandeks</target>
       </trans-unit>
+      <trans-unit id="7374761165000102313" datatype="html">
+        <source>Every 6 hours</source>
+        <target state="translated">Iga 6 tunni järel</target>
+      </trans-unit>
       <trans-unit id="7385160636957089888" datatype="html">
         <source>Library</source>
         <target state="translated">Teek</target>
-        <note priority="1" from="description">Playlist editor library tab</note>
       </trans-unit>
       <trans-unit id="330031188099152519" datatype="html">
         <source>No item-level progress details available yet.</source>
@@ -4972,6 +5068,10 @@
         <source>Subtitles</source>
         <target state="translated">Subtiitrid</target>
         <note priority="1" from="description">Video subtitles property</note>
+      </trans-unit>
+      <trans-unit id="2640607428459636406" datatype="html">
+        <source>Hourly</source>
+        <target state="translated">Iga tund</target>
       </trans-unit>
       <trans-unit id="2652115598692885242" datatype="html">
         <source>Downloads you start, and the ones your subscriptions start, show up here.</source>

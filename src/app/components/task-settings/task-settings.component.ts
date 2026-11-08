@@ -8,14 +8,26 @@ import { Observable, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 /** How often a task repeats, which is the only part of a schedule worth a choice. */
-export type RepeatChoice = 'off' | 'daily' | 'weekly' | 'once';
+export type RepeatChoice = 'off' | 'hourly' | 'every_3_hours' | 'every_6_hours' | 'every_12_hours' | 'daily' | 'weekly' | 'once';
 
 export const REPEAT_OPTIONS: PickerOption<RepeatChoice>[] = [
   { value: 'off', label: $localize`Off` },
+  { value: 'hourly', label: $localize`Hourly` },
+  { value: 'every_3_hours', label: $localize`Every 3 hours` },
+  { value: 'every_6_hours', label: $localize`Every 6 hours` },
+  { value: 'every_12_hours', label: $localize`Every 12 hours` },
   { value: 'daily', label: $localize`Daily` },
   { value: 'weekly', label: $localize`Weekly` },
   { value: 'once', label: $localize`Once` }
 ];
+
+/** The choices that repeat every few hours, and how many hours apart their runs are. */
+const EVERY_HOURS: Partial<Record<RepeatChoice, number>> = {
+  hourly: 1,
+  every_3_hours: 3,
+  every_6_hours: 6,
+  every_12_hours: 12
+};
 
 // Monday first, which is what the backend's dayOfWeek 0-6 means here.
 export const WEEKDAY_LABELS = [
@@ -89,6 +101,11 @@ export class TaskSettingsComponent implements OnChanges {
 
   get today(): string {
     return toDateInput(new Date());
+  }
+
+  /** How many hours apart the runs are, for a choice that repeats every few hours. */
+  get everyHours(): number | null {
+    return EVERY_HOURS[this.repeat] ?? null;
   }
 
   get hasOwnOptions(): boolean {
@@ -213,7 +230,8 @@ export class TaskSettingsComponent implements OnChanges {
     if (schedule.type === Schedule.type.RECURRING) {
       this.time = toTimeInput(schedule.data?.hour ?? 0, schedule.data?.minute ?? 0);
       this.days_of_week = Array.isArray(schedule.data?.dayOfWeek) ? [...schedule.data.dayOfWeek] : [];
-      this.repeat = this.days_of_week.length > 0 ? 'weekly' : 'daily';
+      const every_hours = (Object.keys(EVERY_HOURS) as RepeatChoice[]).find(choice => EVERY_HOURS[choice] === schedule.data?.everyHours);
+      this.repeat = every_hours ?? (this.days_of_week.length > 0 ? 'weekly' : 'daily');
       this.date = '';
       return;
     }
@@ -236,6 +254,7 @@ export class TaskSettingsComponent implements OnChanges {
 
     const [hours, minutes] = this.time.split(':').map(part => parseInt(part, 10));
     const data: Schedule['data'] = {hour: hours, minute: minutes, tz: time_zone};
+    if (this.everyHours) data.everyHours = this.everyHours;
     if (this.repeat === 'weekly') data.dayOfWeek = [...this.days_of_week];
     return {type: Schedule.type.RECURRING, data: data};
   }

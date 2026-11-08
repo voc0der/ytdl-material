@@ -47,6 +47,8 @@
         <span class="settings-row-title" i18n="Task schedule time setting">Time</span>
         @if (alreadyPassed) {
           <span class="settings-row-hint hint-invalid" i18n="Task schedule time passed hint">That time has already gone by.</span>
+        } @else if (everyHours) {
+          <span class="settings-row-hint" i18n="Task schedule every few hours time hint">It runs at this time and repeats from there.</span>
         } @else {
           <span class="settings-row-hint" i18n="Task schedule time hint">What time of day it starts.</span>
         }

@@ -167,13 +167,24 @@ const defaultOptions = {
 /*************************************************
  * Our recurring schedule is {hour, minute,
  * dayOfWeek}, where an absent field means "every".
- * That maps onto cron directly.
+ * That maps onto cron directly, but for the days.
+ *
+ * dayOfWeek counts from Monday, 0 to 6, which is
+ * what the page has always sent. Cron counts from
+ * Sunday, so read as they were, the days came one
+ * early and a task set for Monday ran on Sunday.
  *
  * Seconds are pinned to 0 rather than left as '*'
  * to match what this did before: node-schedule's
  * RecurrenceRule defaulted an unset second to 0, so
  * an hour-only schedule fired once a minute, not
  * once a second.
+ *
+ * everyHours repeats it that many hours apart,
+ * lined up with hour: every 6 hours from 13:30 runs
+ * at 1:30, 7:30, 13:30 and 19:30. Anything but a
+ * whole number of hours makes a pattern croner
+ * turns down, so the schedule is never saved.
  ************************************************/
 function buildCronPattern(data) {
     const field = (value) => {
@@ -182,7 +193,15 @@ function buildCronPattern(data) {
         return String(value);
     };
 
-    return `0 ${field(data['minute'])} ${field(data['hour'])} * * ${field(data['dayOfWeek'])}`;
+    const every_hours = data['everyHours'];
+    const hours = every_hours === null || every_hours === undefined
+        ? field(data['hour'])
+        : `${(data['hour'] ?? 0) % every_hours}-23/${every_hours}`;
+
+    const days = data['dayOfWeek'];
+    const cron_days = days === null || days === undefined ? days : [].concat(days).map(day => (Number(day) + 1) % 7);
+
+    return `0 ${field(data['minute'])} ${hours} * * ${field(cron_days)}`;
 }
 
 /*************************************************
