@@ -103,6 +103,7 @@
       </trans-unit>
       <trans-unit id="7128933362180740705" datatype="html">
         <source>Own library</source>
+        <target state="translated">Сопствена библиотека</target>
       </trans-unit>
       <trans-unit id="7131377065256068978" datatype="html">
         <source>Small</source>
@@ -195,6 +196,7 @@
       </trans-unit>
       <trans-unit id="7240704506367079518" datatype="html">
         <source>Select an account</source>
+        <target state="translated">Изберете сметка</target>
       </trans-unit>
       <trans-unit id="7245158171094358343" datatype="html">
         <source>Group ID</source>
@@ -272,6 +274,7 @@
       </trans-unit>
       <trans-unit id="7340990487099474620" datatype="html">
         <source>Shadow (full access)</source>
+        <target state="translated">Сенка (целосен пристап)</target>
       </trans-unit>
       <trans-unit id="7342137815712176366" datatype="html">
         <source>Cookies test failed. Review the popup logs.</source>
@@ -494,6 +497,7 @@
       </trans-unit>
       <trans-unit id="7655389644887918645" datatype="html">
         <source>The shadow account is unavailable.</source>
+        <target state="translated">Сметката во сенка не е достапна.</target>
         <note priority="1" from="description">Unavailable shadow account</note>
       </trans-unit>
       <trans-unit id="7658073495909471632" datatype="html">
@@ -1092,6 +1096,7 @@
       </trans-unit>
       <trans-unit id="8396599066205859839" datatype="html">
         <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Full library access</source>
+        <target state="translated">Како сенка на <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Целосен пристап до библиотеката</target>
         <note priority="1" from="description">Full shadow banner</note>
       </trans-unit>
       <trans-unit id="840264455199725883" datatype="html">
@@ -1393,6 +1398,7 @@
       </trans-unit>
       <trans-unit id="2741978587628149987" datatype="html">
         <source>Shadow (full access) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Сенка (целосен пристап) · <x id="PH" equiv-text="target"/></target>
       </trans-unit>
       <trans-unit id="2744658556055412432" datatype="html">
         <source>Loop off</source>
@@ -1766,6 +1772,7 @@
       </trans-unit>
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
+        <target state="translated">Сенка (само за читање)</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -2761,6 +2768,7 @@
       </trans-unit>
       <trans-unit id="4559533544914843900" datatype="html">
         <source>Select an account to shadow.</source>
+        <target state="translated">Изберете сметка за пристап во сенка.</target>
       </trans-unit>
       <trans-unit id="4562725960220528898" datatype="html">
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
@@ -3319,6 +3327,7 @@
       </trans-unit>
       <trans-unit id="139145337498933349" datatype="html">
         <source>Use my account</source>
+        <target state="translated">Користи ја мојата сметка</target>
         <note priority="1" from="description">Stop shadow button</note>
       </trans-unit>
       <trans-unit id="1392649733530265400" datatype="html">
@@ -3332,6 +3341,7 @@
       </trans-unit>
       <trans-unit id="140338888755887689" datatype="html">
         <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
+        <target state="translated">Овие исклучоци важат во рамките на избраното ниво на пристап во сенка. Режимот само за читање секогаш спречува промени во библиотеката. Пристапот во сенка никогаш не дава администрација на сметки или на серверот.</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
@@ -3389,6 +3399,7 @@
       </trans-unit>
       <trans-unit id="1458825685922086502" datatype="html">
         <source>Shadow account</source>
+        <target state="translated">Сметка во сенка</target>
       </trans-unit>
       <trans-unit id="1460489221058177214" datatype="html">
         <source>No database information</source>
@@ -3434,6 +3445,7 @@
       </trans-unit>
       <trans-unit id="153251786990560339" datatype="html">
         <source>Shadow access opens the selected account&apos;s library instead of this user&apos;s own. Only an administrator can end it, by choosing Own library.</source>
+        <target state="translated">Пристапот во сенка ја отвора библиотеката на избраната сметка наместо сопствената библиотека на овој корисник. Само администратор може да го прекине, со избирање Сопствена библиотека.</target>
         <note priority="1" from="description">Shadow library hint</note>
       </trans-unit>
       <trans-unit id="155129120174034016" datatype="html">
@@ -3703,6 +3715,7 @@
       </trans-unit>
       <trans-unit id="1960706699322940595" datatype="html">
         <source>Could not return to your account. Please try again.</source>
+        <target state="translated">Не може да се вратите на вашата сметка. Обидете се повторно.</target>
       </trans-unit>
       <trans-unit id="1963136290621768454" datatype="html">
         <source>Resolution</source>
@@ -3941,6 +3954,7 @@
       </trans-unit>
       <trans-unit id="5267489714560514087" datatype="html">
         <source>Signed in as <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</source>
+        <target state="translated">Најавени сте како <x id="INTERPOLATION" equiv-text="{{shadow.actor_name}}"/>.</target>
         <note priority="1" from="description">Shadow signed in identity</note>
       </trans-unit>
       <trans-unit id="5273501066845923426" datatype="html">
@@ -4571,6 +4585,7 @@
       </trans-unit>
       <trans-unit id="640194966237152177" datatype="html">
         <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
+        <target state="translated">Сенка (само за читање) · <x id="PH" equiv-text="target"/></target>
       </trans-unit>
       <trans-unit id="6403593821155505572" datatype="html">
         <source>Login expiration</source>
@@ -4731,6 +4746,7 @@
       </trans-unit>
       <trans-unit id="6627481593136812763" datatype="html">
         <source>Ask an administrator to return you to your own account.</source>
+        <target state="translated">Побарајте од администратор да ве врати на вашата сметка.</target>
         <note priority="1" from="description">Unavailable shadow account administrator hint</note>
       </trans-unit>
       <trans-unit id="6650633628037596693" datatype="html">
@@ -5202,6 +5218,7 @@
       </trans-unit>
       <trans-unit id="2370775305889903577" datatype="html">
         <source>Could not save this user.</source>
+        <target state="translated">Овој корисник не може да се зачува.</target>
       </trans-unit>
       <trans-unit id="2375260419993138758" datatype="html">
         <source>URL</source>
@@ -5424,6 +5441,7 @@
       </trans-unit>
       <trans-unit id="977107053483043409" datatype="html">
         <source>Shadowing <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Read only</source>
+        <target state="translated">Како сенка на <x id="INTERPOLATION" equiv-text="{{postsService.user.name}}"/> · Само за читање</target>
         <note priority="1" from="description">Read only shadow banner</note>
       </trans-unit>
       <trans-unit id="981766864133373363" datatype="html">
