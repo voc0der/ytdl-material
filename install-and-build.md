@@ -8,7 +8,7 @@ If you want Docker, use the [Docker section in README.md](./README.md#docker).
 
 Required dependencies:
 
-* Node.js 24 (npm 10+)
+* Node.js 26 (npm 10+)
 * Python 3
 
 Optional dependencies:
