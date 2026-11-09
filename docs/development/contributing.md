@@ -1,6 +1,6 @@
 # Local setup and contributing
 
-The frontend uses Angular and the backend uses Node.js. The supported Node range is **`>=24 <26`**, with npm **10 or later**. Node 24 is the baseline for these instructions.
+The frontend uses Angular and the backend uses Node.js. The supported Node range is **`>=24 <27`**, with npm **10 or later**. Node 26 is the baseline for these instructions.
 
 ## Build from source
 

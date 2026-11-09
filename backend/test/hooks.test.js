@@ -96,6 +96,57 @@ describe('Hooks', function() {
         assert.deepStrictEqual(outputLines(), ['ran']);
     });
 
+    it('waits for a shell fallback with a literal path and preserves its environment', async function() {
+        const stage = path.join(hooks_dir, 'started.d');
+        fs.mkdirSync(stage, { recursive: true });
+        fs.writeFileSync(path.join(stage, '1-plain $(printf injected).sh'),
+            `sleep 0.1\nprintf '%s|%s\\n' "$YTDL_EVENT" "$HOOK_VALUE" >> "${output}"\n`, { mode: 0o755 });
+        writeHook(stage, '2-next', `echo next >> "${output}"`);
+
+        const logs = await captureLogs(async () => {
+            assert.strictEqual(await hooks_api.runStage('started.d', {HOOK_VALUE: 'a literal $value; here'}), 2);
+        });
+        assert.deepStrictEqual(outputLines(), ['started|a literal $value; here', 'next']);
+        assert.deepStrictEqual(logs, []);
+    });
+
+    it('captures shell fallback output and returns its failure status', async function() {
+        const hook = path.join(hooks_dir, 'plain-failure');
+        fs.writeFileSync(hook, 'printf "first\\nlast"; printf "warning" >&2; exit 7\n', { mode: 0o755 });
+
+        const logs = await captureLogs(async () => {
+            assert.strictEqual(await hooks_api.runHook('started.d', hook, {}), 7);
+        });
+        assert(logs.includes('info [hook started.d/plain-failure] first'), logs.join('\n'));
+        assert(logs.includes('info [hook started.d/plain-failure] last'), logs.join('\n'));
+        assert(logs.includes('warn [hook started.d/plain-failure] warning'), logs.join('\n'));
+        assert.deepStrictEqual(logs.filter(line => line.startsWith('error')),
+            ['error [hook started.d/plain-failure] exited with code 7.']);
+    });
+
+    it('honors a hook interpreter instead of running its source as shell code', async function() {
+        const stage = path.join(hooks_dir, 'started.d');
+        fs.mkdirSync(stage, { recursive: true });
+        fs.writeFileSync(path.join(stage, 'node-hook'),
+            '#!/usr/bin/env node\nprocess.stdout.write("node interpreter");\n', { mode: 0o755 });
+
+        const logs = await captureLogs(() => hooks_api.runStage('started.d'));
+        assert.deepStrictEqual(logs, ['info [hook started.d/node-hook] node interpreter']);
+    });
+
+    it('reports a missing interpreter without falling back to sh, then runs the next hook', async function() {
+        const stage = path.join(hooks_dir, 'started.d');
+        fs.mkdirSync(stage, { recursive: true });
+        fs.writeFileSync(path.join(stage, '1-missing-interpreter'),
+            `#!${path.join(hooks_dir, 'missing-interpreter')}\necho wrong >> "${output}"\n`, { mode: 0o755 });
+        writeHook(stage, '2-next', `echo next >> "${output}"`);
+
+        const logs = await captureLogs(() => hooks_api.runStage('started.d'));
+        assert.deepStrictEqual(outputLines(), ['next']);
+        assert.strictEqual(logs.length, 1, logs.join('\n'));
+        assert(logs[0].startsWith('error [hook started.d/1-missing-interpreter] could not start:'), logs.join('\n'));
+    });
+
     it('tells a started hook the port and URL', async function() {
         writeHook(path.join(hooks_dir, 'started.d'), 'env', `echo "$YTDL_EVENT $YTDL_PORT $YTDL_URL" >> "${output}"`);
         await hooks_api.runStartedHooks(17442, 'http://example.test:17442');

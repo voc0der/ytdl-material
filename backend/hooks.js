@@ -79,20 +79,14 @@ function logLines(prefix, chunk, level, carry) {
     }
 }
 
-// Runs one hook to completion. Resolves with its exit code, or null if it could not start.
-// It never rejects: one broken hook is reported and the next still runs.
-exports.runHook = (stage, hook_path, env) => new Promise(resolve => {
-    const prefix = `[hook ${stage}/${path.basename(hook_path)}]`;
+// Keep each attempt separate: a failed spawn also emits close, which must not settle a
+// shell retry before that script has finished.
+const runProcess = (command, args, options, prefix) => new Promise(resolve => {
     let child;
     try {
-        child = spawn(hook_path, [], {
-            cwd: process.cwd(),
-            env: {...process.env, ...env},
-            stdio: ['ignore', 'pipe', 'pipe']
-        });
-    } catch (err) {
-        logger.error(`${prefix} could not start: ${err.message}`);
-        resolve(null);
+        child = spawn(command, args, options);
+    } catch (error) {
+        resolve({error});
         return;
     }
 
@@ -100,17 +94,36 @@ exports.runHook = (stage, hook_path, env) => new Promise(resolve => {
     const err_out = {value: ''};
     child.stdout.on('data', chunk => logLines(prefix, chunk, 'info', out));
     child.stderr.on('data', chunk => logLines(prefix, chunk, 'warn', err_out));
-    child.on('error', err => {
-        logger.error(`${prefix} could not start: ${err.message}`);
-        resolve(null);
-    });
+    child.on('error', error => resolve({error}));
     child.on('close', code => {
         if (out.value) logger.info(`${prefix} ${out.value}`);
         if (err_out.value) logger.warn(`${prefix} ${err_out.value}`);
-        if (code !== 0 && code !== null) logger.error(`${prefix} exited with code ${code}.`);
-        resolve(code);
+        resolve({code});
     });
 });
+
+// Runs one hook to completion. Resolves with its exit code, or null if it could not start.
+// It never rejects: one broken hook is reported and the next still runs.
+exports.runHook = async (stage, hook_path, env) => {
+    const prefix = `[hook ${stage}/${path.basename(hook_path)}]`;
+    const options = {
+        cwd: process.cwd(),
+        env: {...process.env, ...env},
+        stdio: ['ignore', 'pipe', 'pipe']
+    };
+    let result = await runProcess(hook_path, [], options, prefix);
+    // Node 26 reports ENOEXEC for scripts without a shebang. Match the entrypoint's
+    // shell fallback, passing the path as one literal argument rather than shell code.
+    if (result.error?.code === 'ENOEXEC') {
+        result = await runProcess('/bin/sh', [path.resolve(hook_path)], options, prefix);
+    }
+    if (result.error) {
+        logger.error(`${prefix} could not start: ${result.error.message}`);
+        return null;
+    }
+    if (result.code !== 0 && result.code !== null) logger.error(`${prefix} exited with code ${result.code}.`);
+    return result.code;
+};
 
 // Runs every hook in a stage, one after another.
 exports.runStage = async (stage, env = {}) => {

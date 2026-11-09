@@ -42,7 +42,7 @@ export class LogsViewerComponent implements OnInit {
   if (!this.logs) { this.logs_loading = true; } // only show loading spinner at the first load
     this.postsService.getLogs(this.requested_lines !== 0 ? this.requested_lines : null).subscribe(res => {
       this.logs_loading = false;
-      if (res['logs'] !== null || res['logs'] !== undefined) {
+      if (typeof res['logs'] === 'string') {
         this.logs_text = res['logs'];
         this.logs = [];
         const logs_arr = res['logs'].split('\n');

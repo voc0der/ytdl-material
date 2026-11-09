@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26
 
 ENV NVM_DIR=/usr/local/nvm
 ENV PATH=/usr/local/nvm/current/bin:${PATH}

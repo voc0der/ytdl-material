@@ -1,5 +1,5 @@
 import { AppComponent } from './app.component';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { Download } from 'api-types';
 
 describe('AppComponent', () => {
@@ -331,6 +331,117 @@ describe('AppComponent', () => {
 
     expect(event_mock.stopPropagation).toHaveBeenCalled();
     expect(cancel_spy).toHaveBeenCalledWith('active-1');
+  });
+
+  describe('download polling lifecycle', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      posts_service_mock.getCurrentDownloads = vi.fn().mockReturnValue(of({downloads: []}));
+    });
+
+    afterEach(() => {
+      component.ngOnDestroy();
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it('waits for initialization, polls active downloads faster, and stops on destroy', () => {
+      const initialized = new Subject<boolean>();
+      posts_service_mock.initialized = false;
+      posts_service_mock.service_initialized = initialized;
+      posts_service_mock.getCurrentDownloads
+        .mockReturnValueOnce(of({downloads: [createDownload({})]}));
+      component.ngOnInit();
+      initialized.next(false);
+      expect(posts_service_mock.getCurrentDownloads).not.toHaveBeenCalled();
+      initialized.next(true);
+      initialized.next(true);
+      initialized.complete();
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
+      expect(component.active_download_count).toBe(1);
+
+      vi.advanceTimersByTime(999);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(2);
+      expect(component.active_download_count).toBe(0);
+      vi.advanceTimersByTime(9999);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(1);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(3);
+
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(20000);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(3);
+    });
+
+    it('backs off after a request error and resumes polling after recovery', () => {
+      posts_service_mock.getCurrentDownloads
+        .mockReturnValueOnce(throwError(() => new Error('Offline')))
+        .mockReturnValue(of({downloads: [createDownload({})]}));
+      component.ngOnInit();
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(9999);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(2);
+      expect(component.active_download_count).toBe(1);
+      vi.advanceTimersByTime(1000);
+      expect(posts_service_mock.getCurrentDownloads).toHaveBeenCalledTimes(3);
+    });
+
+    it('keeps a manually opened menu open after a newly queued download appears', () => {
+      posts_service_mock.getCurrentDownloads
+        .mockReturnValueOnce(of({downloads: []}))
+        .mockReturnValue(of({downloads: [createDownload({})]}));
+      component.ngOnInit();
+      vi.advanceTimersByTime(10001);
+      expect(active_downloads_trigger_mock.openMenu).toHaveBeenCalledTimes(1);
+      active_downloads_trigger_mock.menuOpen = true;
+      component.activeDownloadsMenuButtonClicked();
+      component.activeDownloadsMenuOpened();
+      vi.advanceTimersByTime(5001);
+      expect(active_downloads_trigger_mock.closeMenu).not.toHaveBeenCalled();
+      component.activeDownloadsMenuClosed();
+    });
+  });
+
+  describe.each([
+    ['pause', 'pauseDownload', 'pauseActiveDownload'],
+    ['cancel', 'cancelDownload', 'cancelActiveDownload']
+  ] as const)('%s failures', (action, request, handler) => {
+    it.each(['refused', 'offline'])('reports a %s request without closing the menu', failure => {
+      const event = {stopPropagation: vi.fn()} as any;
+      posts_service_mock[request] = vi.fn().mockReturnValue(failure === 'refused'
+        ? of({success: false}) : throwError(() => new Error('Offline')));
+      posts_service_mock.openSnackBar = vi.fn();
+      component[handler](createDownload({uid: 'selected'}), event);
+      expect(event.stopPropagation).toHaveBeenCalledTimes(1);
+      expect(posts_service_mock[request]).toHaveBeenCalledWith('selected');
+      expect(posts_service_mock.openSnackBar).toHaveBeenCalledWith(`Failed to ${action} download! See server logs for more info.`);
+      expect(active_downloads_trigger_mock.closeMenu).not.toHaveBeenCalled();
+    });
+
+    it('ignores an absent download', () => {
+      posts_service_mock[request] = vi.fn();
+      component[handler](null, {stopPropagation: vi.fn()} as any);
+      expect(posts_service_mock[request]).not.toHaveBeenCalled();
+    });
+  });
+
+  it.each([
+    [42.567, '42.57', 42.567], [-3, '0.00', 0], [120, '100.00', 100],
+    [null, null, null], [undefined, null, null], [NaN, null, null], [Infinity, null, null]
+  ])('formats download progress %s safely', (percent_complete, label, progress) => {
+    const download = createDownload({percent_complete});
+    expect(component.shouldShowActiveDownloadPercent(download)).toBe(label !== null);
+    expect(component.getActiveDownloadPercent(download)).toBe(label);
+    expect(component.getActiveDownloadProgressValue(download)).toBe(progress);
+  });
+
+  it.each([{paused: true}, {finished: true}, {error: 'Failed'}])('hides progress for an inactive download (%s)', state => {
+    expect(component.shouldShowActiveDownloadPercent(createDownload(state))).toBe(false);
   });
 });
 
