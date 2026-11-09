@@ -11,7 +11,7 @@ RUN sh ./ffmpeg-fetch.sh && \
 RUN sh ./fetch-twitchdownloader.sh
 
 
-# Base runtime image with Node.js 24 (installed via nvm for multi-arch compatibility)
+# Base runtime image with Node.js 26 (installed via nvm for multi-arch compatibility)
 FROM ubuntu:26.04 AS base
 ARG TARGETPLATFORM
 ARG DEBIAN_FRONTEND=noninteractive
@@ -23,8 +23,8 @@ ENV PM2_HOME=/app/pm2
 ENV ALLOW_CONFIG_MUTATIONS=true
 ENV npm_config_cache=/app/.npm
 
-# Use NVM to get the current Node 24 LTS line
-ENV NODE_VERSION=24
+# Use NVM to install Node 26 for the target architecture.
+ENV NODE_VERSION=26
 # The entrypoint runs the app as UID:GID, and the Ubuntu image already has an account at
 # 1000:1000, so one is only created when a base image lacks it. It is never created at other
 # IDs: files owned by IDs the base image does not use can stop rootless podman pulling the
@@ -53,8 +53,7 @@ ENV NVM_DIR=/usr/local/nvm
 # tarball in its cache, and Node ships C++ headers that are only needed to compile native
 # addons (nothing here does), so both are removed in this same layer or they stay in the image.
 # Node releases bundle an npm that can be months old, and advisories against the packages
-# npm bundles land in this image with it, so npm moves to the newest npm 12 release. Node 24
-# bundles npm 11, and npm 12 supports it from 24.15.0.
+# npm bundles land in this image with it, so npm moves to the newest npm 12 release.
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash && \
     . "$NVM_DIR/nvm.sh" && \
     nvm install ${NODE_VERSION} && \
