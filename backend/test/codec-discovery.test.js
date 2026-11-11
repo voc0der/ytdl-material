@@ -30,6 +30,7 @@ describe('Codec discovery', function() {
         fixtures = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-codec-fixtures-'));
         const color = ['-f', 'lavfi', '-i', 'color=black:size=64x64:rate=10:duration=1'];
         ffmpeg([...color, '-c:v', 'libx265', '-x265-params', 'log-level=error', '-tag:v', 'hvc1', path.join(fixtures, 'hevc.mp4')]);
+        ffmpeg(['-i', path.join(fixtures, 'hevc.mp4'), '-c', 'copy', path.join(fixtures, 'hevc.mkv')]);
         ffmpeg([...color, '-c:v', 'libvpx-vp9', path.join(fixtures, 'vp9.webm')]);
         ffmpeg([...color, '-vf', 'setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc', '-c:v', 'libx264', path.join(fixtures, 'hdr.mp4')]);
     });
@@ -260,6 +261,134 @@ describe('Codec discovery', function() {
         const task = await db_api.getRecord('tasks', {key: codec_discovery.TASK_KEY});
         assert.match(task.error, /1 file could not be converted/);
     });
+
+    it('skips missing and unreadable candidates without leaving conversion artifacts', async function() {
+        config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+        const missing = await addFile(SAMPLE, {vcodec: 'h264'});
+        const unreadable = await addFile(SAMPLE, {vcodec: 'h264'});
+        fs.removeSync(missing.path);
+        fs.writeFileSync(unreadable.path, 'not a media file');
+
+        const summary = await codec_discovery.run();
+
+        assert.strictEqual(summary.skipped, 2);
+        assert.strictEqual(summary.converted, 0);
+        assert.strictEqual(fs.readFileSync(unreadable.path, 'utf8'), 'not a media file');
+        assert.match((await record(unreadable.uid)).codec_conversion_error.reason, /no video stream/);
+        assert(!fs.existsSync(path.join(work_dir, 'job.json')));
+        assert.deepStrictEqual(leftovers(media.video), []);
+    });
+
+    it('corrects a stale codec record and clears its error without converting the file', async function() {
+        config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+        const file = await addFile(path.join(fixtures, 'hevc.mp4'), {
+            vcodec: 'h264', codec_conversion_error: {codec: 'hevc', reason: 'old failure', at: 1}
+        });
+        const original = fs.readFileSync(file.path);
+
+        const summary = await codec_discovery.run();
+
+        assert.strictEqual(summary.already, 1);
+        assert.strictEqual(summary.converted, 0);
+        assert.strictEqual((await record(file.uid)).vcodec, 'hevc');
+        assert.strictEqual((await record(file.uid)).codec_conversion_error, null);
+        assert.deepStrictEqual(fs.readFileSync(file.path), original);
+    });
+
+    it('refuses to overwrite an existing destination when changing containers', async function() {
+        config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+        const file = await addFile(path.join(fixtures, 'vp9.webm'));
+        const original = fs.readFileSync(file.path);
+        const destination = file.path.replace(/\.webm$/, '.mp4');
+        fs.writeFileSync(destination, 'another file');
+
+        const summary = await codec_discovery.run();
+
+        assert.strictEqual(summary.skipped, 1);
+        assert.strictEqual(summary.converted, 0);
+        assert.deepStrictEqual(fs.readFileSync(file.path), original);
+        assert.strictEqual(fs.readFileSync(destination, 'utf8'), 'another file');
+        assert.strictEqual((await record(file.uid)).path, file.path);
+        assert.match((await record(file.uid)).codec_conversion_error.reason, /already exists/);
+        assert.deepStrictEqual(leftovers(media.video), []);
+    });
+
+    for (const changes_container of [false, true]) {
+        it(`recovers from a rejected database update ${changes_container ? 'with' : 'without'} a container change`, async function() {
+            config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+            const file = await addFile(changes_container ? path.join(fixtures, 'vp9.webm') : SAMPLE,
+                {vcodec: changes_container ? 'vp9' : 'h264'});
+            const original = fs.readFileSync(file.path);
+            const original_update = db_api.updateRecord;
+            db_api.updateRecord = async (table, filter, update) => {
+                if (table === 'files' && filter.uid === file.uid && update.vcodec === 'hevc') return false;
+                return await original_update(table, filter, update);
+            };
+            let summary;
+            try {
+                summary = await codec_discovery.run();
+            } finally {
+                db_api.updateRecord = original_update;
+            }
+
+            assert.strictEqual((await record(file.uid)).path, file.path);
+            assert.deepStrictEqual(leftovers(media.video), []);
+            assert.deepStrictEqual(fs.readdirSync(work_dir), []);
+            if (changes_container) {
+                assert.strictEqual(summary.failed, 1);
+                assert.strictEqual(summary.converted, 0);
+                assert.deepStrictEqual(fs.readFileSync(file.path), original);
+                assert(!fs.existsSync(file.path.replace(/\.webm$/, '.mp4')));
+                assert.match((await record(file.uid)).codec_conversion_error.reason, /original was kept/);
+            } else {
+                assert.strictEqual(summary.converted, 1);
+                assert.strictEqual(videoCodec(file.path), 'hevc');
+                assert.strictEqual((await record(file.uid)).vcodec, 'h264');
+                const repaired = await codec_discovery.run();
+                assert.strictEqual(repaired.already, 1);
+                assert.strictEqual(repaired.converted, 0);
+                assert.strictEqual((await record(file.uid)).vcodec, 'hevc');
+            }
+        });
+    }
+
+    for (const remux_fails of [false, true]) {
+        it(`${remux_fails ? 'falls back to transcoding when it cannot remux' : 'remuxes'} a download in a different container`, async function() {
+            config_api.setConfigItem('ytdl_preferred_codec', 'hevc');
+            const file = await addFile(SAMPLE, {url: 'https://example.com/media'});
+            downloader_api.getVideoInfoByURL = async () => [{duration: 1, formats: [
+                {format_id: 'hevc-480', vcodec: 'hevc', acodec: 'none', height: 480}
+            ]}];
+            youtubedl_api.runYoutubeDL = async (url, args) => {
+                const output = args[args.indexOf('-o') + 1].replace('%(ext)s', 'mkv');
+                fs.copyFileSync(path.join(fixtures, 'hevc.mkv'), output);
+                return {callback: Promise.resolve({err: ''})};
+            };
+            let remuxes = 0;
+            transcoding.runFfmpeg = async (args, options) => {
+                if (args.includes('-c') && args[args.indexOf('-c') + 1] === 'copy') {
+                    remuxes++;
+                    if (remux_fails) {
+                        fs.writeFileSync(args[args.length - 1], 'partial remux');
+                        return {success: false, error: 'remux failed'};
+                    }
+                }
+                return await stubbed.runFfmpeg(args, options);
+            };
+
+            const summary = await codec_discovery.run();
+
+            assert.strictEqual(remuxes, 1);
+            assert.strictEqual(summary.converted, 1);
+            assert.strictEqual(summary.reacquired, remux_fails ? 0 : 1);
+            assert.strictEqual(summary.transcoded, remux_fails ? 1 : 0);
+            assert.strictEqual(videoCodec(file.path), 'hevc');
+            assert.strictEqual((await record(file.uid)).path, file.path);
+            assert.strictEqual((await record(file.uid)).vcodec, 'hevc');
+            assert.deepStrictEqual(leftovers(media.video), []);
+            assert.deepStrictEqual(fs.readdirSync(work_dir), []);
+        });
+    }
 
     it('discards a conversion that was cut off before it was saved', async function() {
         const file = await addFile(path.join(fixtures, 'vp9.webm'), {vcodec: 'vp9'});
