@@ -274,13 +274,6 @@ exports.setConfigItems = (items) => {
     return success;
 }
 
-exports.globalArgsRequiresSafeDownload = () => {
-    const globalArgs = exports.getConfigItem('ytdl_custom_args').split(',,');
-    const argsThatRequireSafeDownload = ['--write-sub', '--write-srt', '--proxy'];
-    const failedArgs = globalArgs.filter(arg => argsThatRequireSafeDownload.includes(arg));
-    return failedArgs && failedArgs.length > 0;
-}
-
 exports.findChangedConfigItems = (old_config, new_config, path = '', changedConfigItems = [], depth = 0) => {
     if (typeof old_config === 'object' && typeof new_config === 'object' && depth < 3) {
         for (const key in old_config) {
