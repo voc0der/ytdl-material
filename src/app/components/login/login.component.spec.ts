@@ -196,4 +196,103 @@ describe('LoginComponent', () => {
     await create();
     expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
   });
+
+  it('sends someone who is already logged in back home', async () => {
+    postsServiceStub.isLoggedIn = true;
+    localStorage.setItem('jwt_token', 'token');
+    try {
+      await create();
+      expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
+    } finally {
+      localStorage.removeItem('jwt_token');
+    }
+  });
+
+  it.each([
+    ['the server cannot be reached', { status: 404 }, 'Login failed, cannot connect to the server.'],
+    ['too many attempts were made', { status: 429 }, 'Too many authentication requests. Please wait and try again.'],
+    ['a proxy says there were too many attempts', { status: 0, statusText: 'Too Many Requests' }, 'Too many authentication requests. Please wait and try again.'],
+    ['the server gives a reason', { status: 500, error: { message: 'The user database is unavailable.' } }, 'The user database is unavailable.'],
+    ['the failure says nothing', {}, 'Login failed, unknown error.'],
+    ['the failure is only text', 'Account locked', 'Account locked']
+  ])('says so on the card when %s', async (_case, failure, message) => {
+    await create();
+    postsServiceStub.login.mockReturnValue(throwError(() => failure));
+    component.loginUsernameInput = 'admin';
+    component.loginPasswordInput = 'secret';
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(element().querySelector('[role="alert"]').textContent).toContain(message);
+    expect(component.loggingIn).toBe(false);
+  });
+
+  it('does not hand over a session the server did not issue', async () => {
+    await create();
+    postsServiceStub.login.mockReturnValue(of({ user: { uid: 'u' } }));
+    component.loginUsernameInput = 'admin';
+    component.loginPasswordInput = 'secret';
+
+    component.login();
+    component.loginPasswordInput = '';
+    component.login();
+
+    expect(postsServiceStub.login).toHaveBeenCalledOnce();
+    expect(postsServiceStub.afterLogin).not.toHaveBeenCalled();
+    expect(component.error).toBe('Login failed, unknown error.');
+  });
+
+  it('asks for each registration field in turn before sending anything', async () => {
+    await create();
+    component.setMode('register');
+
+    component.submit();
+    expect(component.error).toBe('User name is required!');
+    component.registrationUsernameInput = 'newcomer';
+    component.submit();
+    expect(component.error).toBe('Password is required!');
+    component.registrationPasswordInput = 'secret';
+    component.submit();
+    expect(component.error).toBe('Password confirmation is required!');
+
+    expect(postsServiceStub.register).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the server refuses with a reason', throwError(() => ({ error: 'User name is already taken!' })), 'User name is already taken!'],
+    ['the server fails with a message', throwError(() => ({ error: { message: 'Registration is closed.' } })), 'Registration is closed.'],
+    ['the failure says nothing', throwError(() => ({})), 'Failed to register user, unknown error.'],
+    ['the server answers without a user', of({ success: false }), 'Failed to register user, unknown error.']
+  ])('says why registering failed when %s', async (_case, response, message) => {
+    await create();
+    postsServiceStub.register.mockReturnValue(response);
+    component.setMode('register');
+    component.registrationUsernameInput = 'newcomer';
+    component.registrationPasswordInput = 'secret';
+    component.registrationPasswordConfirmationInput = 'secret';
+
+    component.submit();
+
+    expect(component.error).toBe(message);
+    expect(component.registering).toBe(false);
+    expect(component.mode).toBe('register');
+  });
+
+  it('sends the browser to the identity provider once when OIDC is on', async () => {
+    const original = window.location.href;
+    postsServiceStub.isOIDCEnabled = () => true;
+    postsServiceStub.getOIDCLoginURL = vi.fn((returnTo: string) => `#provider?returnTo=${encodeURIComponent(returnTo)}`);
+    try {
+      await create();
+
+      expect(window.location.hash).toBe('#provider?returnTo=%2F');
+      expect(component.oidcRedirecting).toBe(true);
+      component.redirectToOIDC();
+      expect(postsServiceStub.getOIDCLoginURL).toHaveBeenCalledOnce();
+      expect(element().querySelector('.login-form')).toBeNull();
+    } finally {
+      window.history.replaceState(null, '', original);
+    }
+  });
 });

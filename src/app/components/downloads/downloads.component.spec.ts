@@ -389,4 +389,79 @@ describe('DownloadsComponent', () => {
     expect(merged.map(item => item.index)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(merged.map(item => item.title)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
   });
+
+  describe('bulk actions', () => {
+    let dialog_ref: any;
+
+    beforeEach(() => {
+      dialog_ref = { componentInstance: { selected_items: [] }, close: vi.fn() };
+      dialog_mock.open = vi.fn().mockReturnValue(dialog_ref);
+    });
+
+    const confirm = () => dialog_mock.open.mock.lastCall[1].data.doneEmitter.emit(true);
+
+    it('clears only the kinds of download that were ticked, and closes once cleared', () => {
+      posts_service_mock.clearDownloads = vi.fn().mockReturnValue(of({ success: true }));
+      component.clearDownloadsByType();
+      expect(dialog_mock.open.mock.lastCall[1].data.list.map(item => item.key)).toEqual(['clear_finished', 'clear_paused', 'clear_errors']);
+
+      dialog_ref.componentInstance.selected_items = ['clear_paused', 'clear_errors'];
+      confirm();
+
+      expect(posts_service_mock.clearDownloads).toHaveBeenCalledWith(false, true, true);
+      expect(posts_service_mock.openSnackBar).toHaveBeenCalledWith('Cleared downloads!');
+      expect(dialog_ref.close).toHaveBeenCalledOnce();
+    });
+
+    it('keeps the clear dialog open when clearing fails, and does nothing when cancelled', () => {
+      posts_service_mock.clearDownloads = vi.fn().mockReturnValue(of({ success: false }));
+      component.clearDownloadsByType();
+      dialog_mock.open.mock.lastCall[1].data.doneEmitter.emit(false);
+      expect(posts_service_mock.clearDownloads).not.toHaveBeenCalled();
+
+      confirm();
+
+      expect(posts_service_mock.openSnackBar).toHaveBeenCalledWith('Failed to clear finished downloads!');
+      expect(dialog_ref.close).not.toHaveBeenCalled();
+    });
+
+    it('reports a pause or resume of everything that the server refused', () => {
+      posts_service_mock.pauseAllDownloads = vi.fn().mockReturnValue(of({ success: false }));
+      posts_service_mock.resumeAllDownloads = vi.fn().mockReturnValue(of({ success: true }));
+
+      component.pauseAllDownloads();
+      component.resumeAllDownloads();
+
+      expect(posts_service_mock.openSnackBar.mock.calls).toEqual([['Failed to pause all downloads! See server logs for more info.']]);
+      posts_service_mock.resumeAllDownloads.mockReturnValue(of({ success: false }));
+      component.resumeAllDownloads();
+      expect(posts_service_mock.openSnackBar).toHaveBeenLastCalledWith('Failed to resume all downloads! See server logs for more info.');
+    });
+
+    it('shows a failed download\'s error from its row and copies it on request', () => {
+      clipboard_mock.copy = vi.fn();
+      const download = { uid: 'failed', url: 'https://example.test/clip', finished: true, error: 'HTTP Error 403: Forbidden' } as unknown as Download;
+      const show_error = component.downloadActions.find(action => action.icon === 'warning');
+      expect(show_error.show(download)).toBe(true);
+
+      show_error.action(download);
+
+      const data = dialog_mock.open.mock.lastCall[1].data;
+      expect(data.dialogTitle).toBe('Error for https://example.test/clip');
+      expect(data.dialogText).toBe('HTTP Error 403: Forbidden');
+      expect(data.closeOnSubmit).toBe(false);
+      data.doneEmitter.emit(true);
+      expect(clipboard_mock.copy).toHaveBeenCalledWith('HTTP Error 403: Forbidden');
+      expect(posts_service_mock.openSnackBar).toHaveBeenCalledWith('Copied to clipboard!');
+    });
+  });
+
+  it('sends anyone back home when the downloads manager is turned off', () => {
+    posts_service_mock.config.Extra.enable_downloads_manager = false;
+
+    component.ngOnInit();
+
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/']);
+    expect(posts_service_mock.getCurrentDownloads).not.toHaveBeenCalled();
+  });
 });

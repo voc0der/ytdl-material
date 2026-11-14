@@ -1305,6 +1305,18 @@ describe('MainComponent', () => {
       expect(args[CROP_SETTINGS_INDEX]).toBeNull();
     });
 
+    it('hides the password in the simulated command', () => {
+      vi.spyOn((component as any).postsService, 'generateArgs')
+        .mockReturnValue(of({ args: ['--username', 'user', '--password', 'secret', '-o', 'custom/path'] }));
+      fillAdvancedOptions();
+      component.advancedMode = true;
+
+      component.getSimulatedOutput();
+
+      expect(component.simulatedOutput).toContain('--username user --password ****** -o custom/path');
+      expect(component.simulatedOutput).not.toContain('secret');
+    });
+
     it('does not restore advanced options from storage without the user permission', async () => {
       localStorage.setItem('advancedMode', 'true');
       localStorage.setItem('customArgsEnabled', 'true');
