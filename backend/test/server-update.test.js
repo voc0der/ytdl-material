@@ -109,8 +109,11 @@ describe('Server updates', function() {
         assert.strictEqual(await harness.context.getLatestVersion(), 'v2.0.0');
         response = { message: 'rate limited', documentation_url: 'https://example.test/rate-limit' };
         assert.strictEqual(await harness.context.getLatestVersion(), undefined);
-        assert(harness.messages.some(([, message]) => message === 'rate limited'));
-        assert(harness.messages.some(([, message]) => message.includes('https://example.test/rate-limit')));
+        assert.deepStrictEqual(harness.messages.filter(([level]) => level === 'error').map(([, message]) => message), [
+            'ERROR: Received the following message from GitHub\'s API:',
+            'rate limited',
+            'Associated URL: https://example.test/rate-limit'
+        ]);
     });
 
     it('refuses unsafe tags before any request or filesystem change', async function() {
