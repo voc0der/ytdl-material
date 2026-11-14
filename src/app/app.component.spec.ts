@@ -1,6 +1,7 @@
 import { AppComponent } from './app.component';
 import { of, Subject, throwError } from 'rxjs';
 import { Download } from 'api-types';
+import { THEMES_CONFIG } from '../themes';
 
 describe('AppComponent', () => {
   let component: AppComponent;
@@ -480,6 +481,100 @@ describe('AppComponent notification bell', () => {
 
     component.notification_count = 3;
     expect(component.notificationsLabel).toContain('3');
+  });
+});
+
+describe('AppComponent themes', () => {
+  let component: AppComponent;
+  let posts_service_mock: any;
+  let overlay: HTMLElement;
+  let body_style: any;
+
+  beforeEach(() => {
+    localStorage.clear();
+    overlay = document.createElement('div');
+    body_style = {};
+    posts_service_mock = {
+      config_reloaded: of(false),
+      files_changed: new Subject<boolean>(),
+      open_create_default_admin_dialog: of(false),
+      service_initialized: new Subject<boolean>(),
+      initialized: false,
+      config: { Advanced: { multi_user_mode: false } },
+      hasPermission: () => true,
+      hasSession: () => false,
+      getVersionInfo: () => of({ version_info: {} }),
+      // What the real service does, so the toggle can read the theme it was given.
+      setTheme: vi.fn((theme: string) => { posts_service_mock.theme = THEMES_CONFIG[theme]; })
+    };
+    component = new AppComponent(posts_service_mock, {} as any, { openDialogs: [] } as any,
+      { events: of(), navigate: vi.fn(), url: '/' } as any, { getContainerElement: () => overlay } as any,
+      { nativeElement: { ownerDocument: { body: { style: body_style } } } } as any, { artworkURL: () => null } as any);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  function loadConfig(default_theme: string) {
+    posts_service_mock.config = {
+      Advanced: { multi_user_mode: false },
+      Extra: { title_top: 'ytdl-material', enable_downloads_manager: false, file_manager_enabled: false },
+      Subscriptions: { allow_subscriptions: false },
+      Themes: { default_theme, allow_theme_change: true }
+    };
+    component.loadConfig();
+  }
+
+  // A stored theme this version does not have used to be refused, so no theme was applied at
+  // all, and the toggle in the account menu then threw on the theme that was never set.
+  it('applies the default theme in place of a stored one it does not know, and can still switch', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { });
+    localStorage.setItem('theme', 'retired');
+
+    loadConfig('dark');
+
+    expect(posts_service_mock.setTheme).toHaveBeenCalledWith('dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(overlay.classList.contains('dark-theme')).toBe(true);
+
+    component.themeMenuItemClicked({ stopPropagation: () => { } });
+
+    expect(localStorage.getItem('theme')).toBe('default');
+    expect(overlay.classList.contains('dark-theme')).toBe(false);
+    expect(overlay.classList.contains('default-theme')).toBe(true);
+  });
+
+  it('falls back to the light theme when the configured default does not exist', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { });
+
+    loadConfig('neon');
+
+    expect(posts_service_mock.setTheme).toHaveBeenCalledWith('default');
+    expect(component.componentCssClass).toBe('default-theme');
+  });
+
+  it('switches theme before the config has loaded, whatever was stored', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { });
+    vi.spyOn(console, 'log').mockImplementation(() => { });
+    localStorage.setItem('theme', 'retired');
+
+    component.setTheme('dark');
+
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(overlay.classList.contains('dark-theme')).toBe(true);
+    expect(body_style.backgroundColor).toBe('#0b0b0b');
+  });
+
+  it('does not take a name every object has for a theme', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+    component.setTheme('constructor');
+
+    expect(error).toHaveBeenCalledWith('Invalid theme: constructor');
+    expect(posts_service_mock.setTheme).not.toHaveBeenCalled();
+    expect(localStorage.getItem('theme')).toBeNull();
   });
 });
 

@@ -183,7 +183,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     // loading config
     this.topBarTitle = this.postsService.config['Extra']['title_top'];
     const themingExists = this.postsService.config['Themes'];
-    this.defaultTheme = themingExists ? this.postsService.config['Themes']['default_theme'] : 'default';
+    const configuredTheme = themingExists ? this.postsService.config['Themes']['default_theme'] : 'default';
+    this.defaultTheme = this.isKnownTheme(configuredTheme) ? configuredTheme : 'default';
     this.allowThemeChange = themingExists ? this.postsService.config['Themes']['allow_theme_change'] : true;
     this.allowSubscriptions = this.postsService.config['Subscriptions']['allow_subscriptions'];
     this.enableDownloadsManager = this.postsService.config['Extra']['enable_downloads_manager'];
@@ -221,8 +222,15 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'theme';
   }
 
+  // A theme this version does not have, such as one an older release stored or one edited in
+  // by hand, counts as no theme at all, so the default applies in its place.
+  isKnownTheme(theme: string): boolean {
+    return typeof theme === 'string' && Object.hasOwn(this.THEMES_CONFIG, theme);
+  }
+
   getStoredTheme(): string {
-    return localStorage.getItem(this.getThemeStorageKey()) || localStorage.getItem('theme');
+    const theme = localStorage.getItem(this.getThemeStorageKey()) || localStorage.getItem('theme');
+    return this.isKnownTheme(theme) ? theme : null;
   }
 
   setStoredTheme(theme: string): void {
@@ -234,33 +242,19 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setTheme(theme) {
-    // theme is registered, so set it to the stored cookie variable
-    let old_theme = null;
-    if (this.THEMES_CONFIG[theme]) {
-        const currentTheme = this.getStoredTheme();
-        if (currentTheme) {
-          old_theme = currentTheme;
-          if (!this.THEMES_CONFIG[old_theme]) {
-            console.log('bad theme found, setting to default');
-            if (this.defaultTheme === null) {
-              // means it hasn't loaded yet
-              console.error('No default theme detected');
-            } else {
-              this.setStoredTheme(this.defaultTheme);
-              old_theme = this.getStoredTheme(); // updates old_theme
-            }
-          }
-        }
-        this.setStoredTheme(theme);
-        this.elementRef.nativeElement.ownerDocument.body.style.backgroundColor = this.THEMES_CONFIG[theme]['background_color'];
-    } else {
-        console.error('Invalid theme: ' + theme);
-        return;
+    if (!this.isKnownTheme(theme)) {
+      console.error('Invalid theme: ' + theme);
+      return;
     }
+
+    // Only a theme that exists can have put its class on the page, so only one can be taken off.
+    const old_theme = this.getStoredTheme();
+    this.setStoredTheme(theme);
+    this.elementRef.nativeElement.ownerDocument.body.style.backgroundColor = this.THEMES_CONFIG[theme]['background_color'];
 
     this.postsService.setTheme(theme);
 
-    this.onSetTheme(this.THEMES_CONFIG[theme]['css_label'], old_theme ? this.THEMES_CONFIG[old_theme]['css_label'] : old_theme);
+    this.onSetTheme(this.THEMES_CONFIG[theme]['css_label'], old_theme ? this.THEMES_CONFIG[old_theme]['css_label'] : null);
   }
 
   onSetTheme(theme, old_theme) {
