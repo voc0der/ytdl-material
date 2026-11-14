@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { PostsService } from 'app/posts.services';
 import { UpdaterStatus } from '../../../api-types';
 import { MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
@@ -13,29 +13,41 @@ import { MatButton } from '@angular/material/button';
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatDialogTitle, CdkScrollable, MatDialogContent, MatProgressBar, MatDialogActions, MatButton, MatDialogClose]
 })
-export class UpdateProgressDialogComponent implements OnInit {
+export class UpdateProgressDialogComponent implements OnInit, OnDestroy {
 
   updateStatus: UpdaterStatus = null;
   updateInterval = 250;
   errored = false;
+  private updatePollTimer: ReturnType<typeof setInterval> = null;
 
   constructor(private postsService: PostsService) { }
 
   ngOnInit(): void {
     this.getUpdateProgress();
-    setInterval(() => {
-      if (this.updateStatus['updating']) { this.getUpdateProgress(); }
-    }, 250);
+    // Asks again only once an answer has said an update is running.
+    this.updatePollTimer = setInterval(() => {
+      if (this.updateStatus?.updating) { this.getUpdateProgress(); }
+    }, this.updateInterval);
+  }
+
+  // The server restarts at the end of an update with its status still saying it is updating,
+  // so nothing but closing the dialog would ever stop the timer.
+  ngOnDestroy(): void {
+    clearInterval(this.updatePollTimer);
   }
 
   getUpdateProgress() {
-    this.postsService.getUpdaterStatus().subscribe(res => {
-      if (res) {
-        this.updateStatus = res;
-        if (this.updateStatus && this.updateStatus['error']) {
-          this.postsService.openSnackBar($localize`Update failed. Check logs for more details.`);
+    this.postsService.getUpdaterStatus().subscribe({
+      next: res => {
+        if (res) {
+          this.updateStatus = res;
+          if (this.updateStatus && this.updateStatus['error']) {
+            this.postsService.openSnackBar($localize`Update failed. Check logs for more details.`);
+          }
         }
-      }
+      },
+      // Expected while the server restarts; the last status stays up and the next tick asks again.
+      error: () => {}
     });
   }
 }
