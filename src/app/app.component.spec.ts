@@ -789,3 +789,126 @@ describe('AppComponent while browsing someone else\'s library', () => {
     expect(component.canOpenDownloadsPage()).toBe(true);
   });
 });
+
+describe('AppComponent shell', () => {
+  let component: AppComponent;
+  let posts_service_mock: any;
+  let dialog_mock: any;
+  let reloaded: Subject<boolean>;
+
+  function create(): void {
+    component = new AppComponent(posts_service_mock, {} as any, dialog_mock,
+      { events: of(), navigate: vi.fn(), url: '/' } as any, { getContainerElement: () => document.createElement('div') } as any,
+      { nativeElement: { ownerDocument: { body: { style: {} } } } } as any, { artworkURL: () => null } as any);
+  }
+
+  beforeEach(() => {
+    reloaded = new Subject<boolean>();
+    posts_service_mock = {
+      config_reloaded: reloaded,
+      files_changed: new Subject<boolean>(),
+      open_create_default_admin_dialog: of(false),
+      service_initialized: new Subject<boolean>(),
+      initialized: false,
+      isLoggedIn: false,
+      config: { Advanced: { multi_user_mode: true }, Extra: { file_manager_enabled: true } },
+      hasPermission: () => true,
+      getDuplicateSummary: vi.fn(() => of({ has_duplicates: true }))
+    };
+    dialog_mock = { openDialogs: [], open: vi.fn() };
+  });
+
+  afterEach(() => {
+    component?.ngOnDestroy();
+    vi.restoreAllMocks();
+  });
+
+  it('loads its settings again whenever they change', () => {
+    const load_spy = vi.spyOn(AppComponent.prototype, 'loadConfig').mockReturnValue(undefined);
+    create();
+    reloaded.next(false);
+    expect(load_spy).not.toHaveBeenCalled();
+    reloaded.next(true);
+    expect(load_spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens and closes the side navigation', () => {
+    create();
+    component.sidenav = { toggle: vi.fn() } as any;
+    component.toggleSidenav();
+    expect(component.sidenav.toggle).toHaveBeenCalled();
+  });
+
+  it('keeps one playlist progress dialog open, follows its download, and closes it on the way out', () => {
+    create();
+    const opened: any[] = [];
+    dialog_mock.open = vi.fn(() => {
+      const ref = { close: vi.fn(), afterClosed: () => new Subject<void>(), componentInstance: { updateDownload: vi.fn() } };
+      opened.push(ref);
+      dialog_mock.openDialogs = [ref];
+      return ref;
+    });
+    const download = { uid: 'download-1', playlist_item_progress: [{ index: 1 }, { index: 2 }] } as any;
+    const click = { stopPropagation: vi.fn() } as any;
+
+    component.openPlaylistProgress(download, click);
+    component.openPlaylistProgress(download, click);
+    expect(opened[0].close).toHaveBeenCalled();
+
+    (component as any).setActiveDownloads([{ ...download, percent_complete: 50 }]);
+    expect(opened[1].componentInstance.updateDownload).toHaveBeenCalledWith(expect.objectContaining({ percent_complete: 50 }));
+
+    component.ngOnDestroy();
+    expect(opened[1].close).toHaveBeenCalled();
+
+    // Closed by something else, it is forgotten rather than updated.
+    dialog_mock.openDialogs = [];
+    (component as any).refreshOpenPlaylistProgressDialog();
+    expect((component as any).playlist_progress_dialog_ref).toBeNull();
+  });
+
+  it('closes the downloads menu once nothing is downloading', () => {
+    create();
+    component.activeDownloadsTrigger = { menuOpen: true, closeMenu: vi.fn() } as any;
+    (component as any).setActiveDownloads([]);
+    expect(component.activeDownloadsTrigger.closeMenu).toHaveBeenCalled();
+  });
+
+  it('restarts the completion badge\'s timer when another download finishes', () => {
+    vi.useFakeTimers();
+    try {
+      create();
+      (component as any).showCompletionBadgeTemporarily();
+      vi.advanceTimersByTime((component as any).ACTIVE_DOWNLOADS_COMPLETION_BADGE_MS - 1);
+      (component as any).showCompletionBadgeTemporarily();
+      vi.advanceTimersByTime((component as any).ACTIVE_DOWNLOADS_COMPLETION_BADGE_MS - 1);
+      expect(component.show_completion_badge).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(component.show_completion_badge).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('links to the duplicates only for those who can see them, once signed in, and while the server answers', () => {
+    create();
+    const refresh = () => (component as any).refreshDuplicateSummary();
+
+    component.canViewDuplicates = false;
+    refresh();
+    expect(component.hasDuplicateGroups).toBe(false);
+
+    component.canViewDuplicates = true;
+    refresh();
+    expect(component.hasDuplicateGroups).toBe(false);
+    expect(posts_service_mock.getDuplicateSummary).not.toHaveBeenCalled();
+
+    posts_service_mock.isLoggedIn = true;
+    refresh();
+    expect(component.hasDuplicateGroups).toBe(true);
+
+    posts_service_mock.getDuplicateSummary.mockReturnValue(throwError(() => new Error('offline')));
+    refresh();
+    expect(component.hasDuplicateGroups).toBe(false);
+  });
+});
