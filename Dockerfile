@@ -4,6 +4,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Use script due local build compability
 COPY docker-utils/*.sh .
 RUN chmod +x *.sh
+# These fetch the newest ffmpeg 9.0 build and TwitchDownloader release. Docker reuses a cached
+# step for as long as its text stays the same, which would keep what they fetched the first
+# time, so a new REFRESH_DATE runs them again. The nightly build passes the day's date.
+ARG REFRESH_DATE
 # Running both binaries also proves they resolve their shared libraries.
 RUN sh ./ffmpeg-fetch.sh && \
     /ffmpeg/bin/ffmpeg -hide_banner -version >/dev/null && \
@@ -34,7 +38,9 @@ ENV NODE_VERSION=26
 # Go runtime's advisories into every scan of this image.
 # Ubuntu publishes security fixes to its archive before it republishes the image, and
 # installing packages leaves the ones the image already has at their old versions, so those
-# are upgraded first.
+# are upgraded first. As in utils, a new REFRESH_DATE runs this step again, and with it every
+# later step built on this stage: Node 26, npm 12, pm2, Deno and the Python packages.
+ARG REFRESH_DATE
 RUN { getent group "$GID" >/dev/null || groupadd -g "$GID" "$USER"; } && \
     { getent passwd "$UID" >/dev/null || useradd --system -m -u "$UID" -g "$GID" "$USER"; } && \
     rm -rf /usr/bin/pebble /var/lib/pebble && \
