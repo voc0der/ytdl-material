@@ -4771,6 +4771,11 @@
         <source>Cleared downloads!</source>
         <target state="translated">Descàrregues suprimides!</target>
       </trans-unit>
+      <trans-unit id="5829664486340306584" datatype="html">
+        <source>Could not create the admin account. Check the server logs and try again.</source>
+        <target state="translated">No s&apos;ha pogut crear el compte d&apos;administrador. Comprova els registres del servidor i torna-ho a provar.</target>
+        <note priority="1" from="description">Admin account creation failed</note>
+      </trans-unit>
       <trans-unit id="5836481386319614258" datatype="html">
         <source>Remove from archive</source>
         <target state="translated">Elimina de l&apos;arxiu</target>

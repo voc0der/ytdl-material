@@ -1295,6 +1295,11 @@
         <source>Cleared downloads!</source>
         <target state="translated">Đã xóa các lượt tải xuống!</target>
       </trans-unit>
+      <trans-unit id="5829664486340306584" datatype="html">
+        <source>Could not create the admin account. Check the server logs and try again.</source>
+        <target state="translated">Không thể tạo tài khoản quản trị viên. Hãy kiểm tra nhật ký máy chủ rồi thử lại.</target>
+        <note priority="1" from="description">Admin account creation failed</note>
+      </trans-unit>
       <trans-unit id="5836481386319614258" datatype="html">
         <source>Remove from archive</source>
         <target state="translated">Xóa khỏi kho lưu trữ</target>

@@ -143,12 +143,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
           maxWidth: 'calc(100vw - 32px)',
           autoFocus: 'dialog'
         });
-        dialogRef.afterClosed().subscribe(res => {
-          if (!res || !res['user']) {
-            if (this.router.url !== '/login') { this.router.navigate(['/login']); }
-          } else {
-            console.error('Failed to create default admin account. See logs for details.');
-          }
+        // The dialog closes once the account is made, or when it is dismissed. Either way the
+        // next step is signing in; a failure keeps it open and says why.
+        dialogRef.afterClosed().subscribe(() => {
+          if (this.router.url !== '/login') { this.router.navigate(['/login']); }
         });
       }
     });

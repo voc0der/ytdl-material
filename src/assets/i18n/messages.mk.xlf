@@ -4271,6 +4271,11 @@
         <source>Cleared downloads!</source>
         <target state="translated">Преземањата се исчистени!</target>
       </trans-unit>
+      <trans-unit id="5829664486340306584" datatype="html">
+        <source>Could not create the admin account. Check the server logs and try again.</source>
+        <target state="translated">Администраторската сметка не може да се создаде. Проверете ги дневниците на серверот и обидете се повторно.</target>
+        <note priority="1" from="description">Admin account creation failed</note>
+      </trans-unit>
       <trans-unit id="5836481386319614258" datatype="html">
         <source>Remove from archive</source>
         <target state="translated">Отстрани од архивата</target>

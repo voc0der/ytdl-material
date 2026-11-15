@@ -12,6 +12,9 @@
     <span class="dialog-field-label" i18n="Password">Password</span>
     <span class="kit-field"><input type="password" autocomplete="new-password" [(ngModel)]="input" (keyup.enter)="create()"></span>
   </label>
+  @if (failed) {
+    <p class="dialog-error" role="alert"><mat-icon aria-hidden="true">error_outline</mat-icon><span i18n="Admin account creation failed">Could not create the admin account. Check the server logs and try again.</span></p>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions class="dialog-actions">

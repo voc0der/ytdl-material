@@ -2053,6 +2053,11 @@
         <source>Cleared downloads!</source>
         <target state="translated">Transferências limpas!</target>
       </trans-unit>
+      <trans-unit id="5829664486340306584" datatype="html">
+        <source>Could not create the admin account. Check the server logs and try again.</source>
+        <target state="translated">Não foi possível criar a conta de administrador. Consulte os registos do servidor e tente novamente.</target>
+        <note priority="1" from="description">Admin account creation failed</note>
+      </trans-unit>
       <trans-unit id="5836481386319614258" datatype="html">
         <source>Remove from archive</source>
         <target state="translated">Remover do arquivo</target>
