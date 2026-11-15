@@ -114,6 +114,75 @@ describe('Config', async function() {
         assert(warnings.some(warning => warning.startsWith('The \'redownload fresh uploads\' setting has been removed.')));
     });
 
+    describe('the file itself', function() {
+        const logger = require('../logger');
+        let saved;
+        let original_error;
+        let errors;
+
+        beforeEach(function() {
+            saved = fs.readFileSync(test_config_path, 'utf8');
+            original_error = logger.error;
+            errors = [];
+            logger.error = message => errors.push(message);
+        });
+
+        afterEach(function() {
+            logger.error = original_error;
+            fs.writeFileSync(test_config_path, saved);
+            delete process.env.ytdl_enable_ytdlp_impersonation_dependencies;
+        });
+
+        it('is created with the defaults when there is none', function() {
+            fs.removeSync(test_config_path);
+            config_api.configExistsCheck();
+            assert.strictEqual(fs.readJSONSync(test_config_path)['YtdlMaterial']['Subscriptions']['allow_subscriptions'], true);
+
+            fs.removeSync(test_config_path);
+            config_api.initialize();
+            assert.strictEqual(fs.readJSONSync(test_config_path)['YtdlMaterial']['Downloader']['use_ytdlp_impersonation'], false);
+        });
+
+        it('starts with impersonation on where its dependencies were installed', function() {
+            process.env.ytdl_enable_ytdlp_impersonation_dependencies = 'yes';
+            fs.removeSync(test_config_path);
+            config_api.configExistsCheck();
+            assert.strictEqual(fs.readJSONSync(test_config_path)['YtdlMaterial']['Downloader']['use_ytdlp_impersonation'], true);
+        });
+
+        it('moves settings kept under the old root key to the current one', function() {
+            const legacy_root = ['Youtube', 'DLMaterial'].join('');
+            const config_json = JSON.parse(saved);
+            fs.writeJSONSync(test_config_path, {[legacy_root]: config_json['YtdlMaterial']});
+
+            const read = config_api.getConfigFile();
+
+            assert.deepStrictEqual(Object.keys(read), ['YtdlMaterial']);
+            assert.deepStrictEqual(Object.keys(fs.readJSONSync(test_config_path)), ['YtdlMaterial']);
+        });
+
+        it('says so when it cannot be read', function() {
+            fs.writeFileSync(test_config_path, '{ not json');
+            assert.strictEqual(config_api.getConfigFile(), null);
+            assert.deepStrictEqual(errors, ['Failed to get config file']);
+        });
+
+        it('has no value for a key it does not know', function() {
+            assert.strictEqual(config_api.getConfigItem('ytdl_not_a_setting'), null);
+            assert.deepStrictEqual(errors, ['Config item with key \'ytdl_not_a_setting\' is not recognized.']);
+        });
+
+        it('gains a section that is missing when a setting in it is saved', function() {
+            const config_json = JSON.parse(saved);
+            delete config_json['YtdlMaterial']['Subscriptions'];
+            fs.writeJSONSync(test_config_path, config_json);
+
+            assert.strictEqual(config_api.setConfigItem('ytdl_allow_subscriptions', 'false'), true);
+
+            assert.deepStrictEqual(fs.readJSONSync(test_config_path)['YtdlMaterial']['Subscriptions'], {allow_subscriptions: false});
+        });
+    });
+
     it('Switches a retired youtube-dlc downloader to yt-dlp on initialize', async function() {
         const config_json = config_api.getConfigFile();
         config_json['YtdlMaterial']['Advanced']['default_downloader'] = 'youtube-dlc';
