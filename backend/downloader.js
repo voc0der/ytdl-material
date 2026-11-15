@@ -2310,7 +2310,9 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
                 && config_api.getConfigItem('ytdl_twitch_auto_download_chat')) {
                     let vodId = url.split('twitch.tv/videos/')[1];
                     vodId = vodId.split('?')[0];
-                    twitch_api.downloadTwitchChatByVODID(vodId, file_name, type, download['user_uid']);
+                    // Not awaited, so the download does not wait on the chat; a failure is only logged.
+                    twitch_api.downloadTwitchChatByVODID(vodId, file_name, type, download['user_uid'])
+                        .catch(err => logger.error(`Could not download the Twitch chat of VOD ${vodId}: ${err.message}`));
             }
 
             // renames file if necessary due to bug

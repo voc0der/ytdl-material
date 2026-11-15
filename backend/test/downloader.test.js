@@ -484,6 +484,56 @@ describe('Downloader', function() {
         assert(success);
     });
 
+    // The chat is fetched beside the download, not awaited, so a failure there used to go
+    // unhandled, and an unhandled rejection takes the server down with every other download.
+    it('Download file finishes when its Twitch chat cannot be fetched', async function() {
+        const twitch_api = require('../twitch');
+        const backend_logger = require('../logger');
+        const original_download_chat = twitch_api.downloadTwitchChatByVODID;
+        const original_logger_error = backend_logger.error;
+        const original_auto_download = config_api.getConfigItem('ytdl_twitch_auto_download_chat');
+        const unhandled = [];
+        const keepUnhandled = reason => unhandled.push(reason);
+        const requested = [];
+        const logged = [];
+        let info_json_path = null;
+        let video_path = null;
+        process.on('unhandledRejection', keepUnhandled);
+        twitch_api.downloadTwitchChatByVODID = async (...args) => {
+            requested.push(args);
+            throw new Error('the chat file was not written');
+        };
+        backend_logger.error = message => logged.push(String(message));
+        config_api.setConfigItem('ytdl_twitch_auto_download_chat', true);
+        try {
+            const twitch_url = 'https://www.twitch.tv/videos/123456789?t=1m';
+            const returned_download = await downloader_api.createDownload(twitch_url, 'video', options);
+            const custom_download_method = async (download_url, args, method_options, callback) => {
+                const [info] = fixture_single;
+                video_path = info['_filename'];
+                await generateEmptyVideoFile(video_path);
+                info_json_path = `${utils.removeFileExtension(video_path)}.info.json`;
+                fs.writeJSONSync(info_json_path, info);
+                return await callback(null, [JSON.stringify(info)]);
+            };
+
+            assert(await downloader_api.downloadQueuedFile(returned_download['uid'], custom_download_method));
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            assert.deepStrictEqual(requested.map(([vod_id]) => vod_id), ['123456789']);
+            assert.deepStrictEqual(unhandled, []);
+            assert.deepStrictEqual(logged, ['Could not download the Twitch chat of VOD 123456789: the chat file was not written']);
+            assert((await db_api.getRecord('download_queue', {uid: returned_download['uid']})).finished);
+        } finally {
+            process.removeListener('unhandledRejection', keepUnhandled);
+            twitch_api.downloadTwitchChatByVODID = original_download_chat;
+            backend_logger.error = original_logger_error;
+            config_api.setConfigItem('ytdl_twitch_auto_download_chat', original_auto_download);
+            if (info_json_path) fs.rmSync(info_json_path, {force: true});
+            if (video_path) fs.rmSync(video_path, {force: true});
+        }
+    });
+
     it('Download file runs the download-finished hooks for the new file', async function() {
         this.timeout(300000);
         const hooks_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-download-hooks-'));
