@@ -258,6 +258,12 @@ trade than a job on every PR. Update the badge in the same PR as whatever moved 
   from `backend/test/helpers/app-process.js` and send it real requests. It runs in a child
   process with its own working directory, config and media folders, so nothing it writes
   outlives the test, and c8 follows the child, so `app.js` counts toward coverage.
+- When a test needs `app.js` to meet a failure a real server cannot easily be made to have --
+  a database write that throws, a provider that is down -- `createAppHarness()` from
+  `backend/test/helpers/app-harness.js` loads all of `app.js` in a `vm` context, with the
+  modules the test names swapped for stand-ins and nothing started. `createRouteHarness()` in
+  `helpers/app-routes.js` builds on it to call a route's handler directly. Neither runs the
+  middleware in front of a route, so authentication and permissions stay with `startApp()`.
 - There is no MongoDB in CI, so backend tests that need one use the in-memory stand-in in
   `backend/test/helpers/fake-mongo.js`: `useFakeMongo()` points `db.js` at it for a describe
   block, and `helpers/fake-mongo-server.js` does the same for a `startApp()` server when passed

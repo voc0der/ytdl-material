@@ -324,6 +324,12 @@ function runPipeline(docs, pipeline) {
         case '$sort': current = sortDocuments(current, spec); break;
         case '$skip': current = current.slice(spec); break;
         case '$limit': current = current.slice(0, spec); break;
+        case '$count':
+            if (typeof spec !== 'string' || !spec || spec.startsWith('$') || spec.includes('.')) {
+                throw new Error('fake-mongo: $count requires a nonempty field name without dots or a leading $');
+            }
+            current = current.length ? [{[spec]: current.length}] : [];
+            break;
         default: throw new Error(`fake-mongo: the pipeline stage ${name} is not supported`);
         }
     }

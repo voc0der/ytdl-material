@@ -242,4 +242,75 @@ describe('ArchiveViewerComponent', () => {
 
     expect(component.archives_retrieved).toBe(true);
   });
+
+  describe('importing a dropped archive', () => {
+    const droppedFile = (text: string) => ({
+      relativePath: 'archive.txt',
+      fileEntry: { isFile: true, file: (callback: (file: File) => void) => callback(new File([text], 'archive.txt')) }
+    });
+
+    it('sends the file under the chosen type and subscription, then reloads the archive', async () => {
+      component.dropped([droppedFile('generic abc\n')] as any);
+      component.uploadTypeSelectionChanged('video' as any);
+      component.subUploadFilterSelectionChanged('sub-1');
+      postsServiceStub.getArchives.mockClear();
+
+      component.importArchive();
+      expect(component.uploading_archive).toBe(true);
+      await vi.waitFor(() => expect(postsServiceStub.importArchive).toHaveBeenCalled());
+
+      const [contents, type, sub_id] = postsServiceStub.importArchive.mock.lastCall;
+      expect(atob(contents.split(',')[1])).toBe('generic abc\n');
+      // The subscription's own type wins over the one picked before it.
+      expect([type, sub_id]).toEqual(['audio', 'sub-1']);
+      expect(component.uploading_archive).toBe(false);
+      expect(component.uploaded_archive).toBe(true);
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Archive imported.');
+      expect(postsServiceStub.getArchives).toHaveBeenCalled();
+    });
+
+    it('can be tried again after the server refuses it', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      postsServiceStub.importArchive.mockReturnValue(throwError(() => new Error('too large')));
+      component.dropped([droppedFile('generic abc\n')] as any);
+
+      component.importArchive();
+      await vi.waitFor(() => expect(postsServiceStub.importArchive).toHaveBeenCalled());
+
+      expect(component.uploading_archive).toBe(false);
+      expect(component.uploaded_archive).toBe(false);
+      expect(component.files.length).toBe(1);
+    });
+
+    it('sends nothing when nothing was dropped', () => {
+      component.importArchive();
+
+      expect(component.uploading_archive).toBe(false);
+      expect(postsServiceStub.importArchive).not.toHaveBeenCalled();
+    });
+  });
+
+  it('asks the server again for the type that was picked', () => {
+    component.typeFilterSelectionChanged('audio' as any);
+
+    expect(postsServiceStub.getArchives).toHaveBeenLastCalledWith('audio', null);
+  });
+
+  it('unselects an item when it is picked again', () => {
+    component.toggleSelected(archives[0]);
+    component.toggleSelected(archives[0]);
+
+    expect(component.isSelected(archives[0])).toBe(false);
+  });
+
+  it('says so when the server refuses a removal, and reloads what is left', () => {
+    postsServiceStub.deleteArchiveItems.mockReturnValue(of({ success: false }));
+    component.toggleSelected(archives[0]);
+    postsServiceStub.getArchives.mockClear();
+
+    component.deleteSelectedArchives();
+
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Couldn\'t remove those items from your archive.');
+    expect(postsServiceStub.getArchives).toHaveBeenCalledOnce();
+  });
 });

@@ -1,7 +1,11 @@
+import { NavigationEnd, NavigationStart } from '@angular/router';
 import { AppComponent } from './app.component';
 import { of, Subject, throwError } from 'rxjs';
 import { Download } from 'api-types';
 import { THEMES_CONFIG } from '../themes';
+import { AboutDialogComponent } from './dialogs/about-dialog/about-dialog.component';
+import { UserProfileDialogComponent } from './dialogs/user-profile-dialog/user-profile-dialog.component';
+import { ArchiveViewerComponent } from './components/archive-viewer/archive-viewer.component';
 
 describe('AppComponent', () => {
   let component: AppComponent;
@@ -514,6 +518,7 @@ describe('AppComponent themes', () => {
 
   afterEach(() => {
     localStorage.clear();
+    document.body.classList.remove('default-theme', 'dark-theme');
     vi.restoreAllMocks();
   });
 
@@ -575,6 +580,163 @@ describe('AppComponent themes', () => {
     expect(error).toHaveBeenCalledWith('Invalid theme: constructor');
     expect(posts_service_mock.setTheme).not.toHaveBeenCalled();
     expect(localStorage.getItem('theme')).toBeNull();
+  });
+
+  it('stores a theme, paints the page with it and swaps the previous theme class out', () => {
+    component.setTheme('dark');
+
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(body_style.backgroundColor).toBe('#0b0b0b');
+    expect(posts_service_mock.setTheme).toHaveBeenCalledWith('dark');
+    expect(component.componentCssClass).toBe('dark-theme');
+    expect(overlay.classList.contains('dark-theme')).toBe(true);
+
+    document.body.classList.add('dark-theme');
+    component.setTheme('default');
+
+    expect(localStorage.getItem('theme')).toBe('default');
+    expect(overlay.classList.contains('dark-theme')).toBe(false);
+    expect(document.body.classList.contains('dark-theme')).toBe(false);
+    expect(overlay.classList.contains('default-theme')).toBe(true);
+  });
+
+  it('refuses a theme it does not know and leaves the current one alone', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => { });
+    localStorage.setItem('theme', 'dark');
+
+    component.setTheme('neon');
+
+    expect(error).toHaveBeenCalledWith('Invalid theme: neon');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(posts_service_mock.setTheme).not.toHaveBeenCalled();
+  });
+
+  it('keeps each user\'s theme apart in multi-user mode and drops the shared one', () => {
+    posts_service_mock.config.Advanced.multi_user_mode = true;
+    posts_service_mock.user = { uid: 'alice' };
+    localStorage.setItem('theme', 'dark');
+
+    expect(component.getThemeStorageKey()).toBe('theme_alice');
+    expect(component.getStoredTheme()).toBe('dark');
+
+    component.setTheme('default');
+
+    expect(localStorage.getItem('theme_alice')).toBe('default');
+    expect(localStorage.getItem('theme')).toBeNull();
+    posts_service_mock.user = null;
+    expect(component.getThemeStorageKey()).toBe('theme');
+  });
+
+  it('applies the stored theme when it starts', () => {
+    localStorage.setItem('theme', 'dark');
+
+    component.ngOnInit();
+
+    expect(posts_service_mock.setTheme).toHaveBeenCalledWith('dark');
+    expect(component.componentCssClass).toBe('dark-theme');
+  });
+
+  it('flips between light and dark from the menu without closing it', () => {
+    const event = { stopPropagation: vi.fn() };
+    component.setTheme('default');
+
+    component.themeMenuItemClicked(event);
+    expect(posts_service_mock.setTheme).toHaveBeenLastCalledWith('dark');
+    expect(event.stopPropagation).toHaveBeenCalled();
+
+    component.flipTheme();
+    expect(posts_service_mock.setTheme).toHaveBeenLastCalledWith('default');
+  });
+});
+
+describe('AppComponent navigation', () => {
+  let component: AppComponent;
+  let posts_service_mock: any;
+  let router_mock: any;
+  let router_events: Subject<any>;
+  let dialog_mock: any;
+
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    router_events = new Subject();
+    router_mock = { events: router_events, navigate: vi.fn(), navigateByUrl: vi.fn(), url: '/' };
+    dialog_mock = { open: vi.fn().mockReturnValue({ afterClosed: () => of(false) }), openDialogs: [] };
+    posts_service_mock = {
+      config_reloaded: of(false),
+      files_changed: new Subject<boolean>(),
+      open_create_default_admin_dialog: of(false),
+      service_initialized: new Subject<boolean>(),
+      initialized: false,
+      config: { Advanced: { multi_user_mode: false } }
+    };
+    component = new AppComponent(posts_service_mock, {} as any, dialog_mock, router_mock, {} as any,
+      { nativeElement: { ownerDocument: { body: { style: {} } } } } as any, { artworkURL: () => null } as any);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('goes back to the page that opened the player, or home when nothing did', () => {
+    component.goBack();
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/']);
+
+    sessionStorage.setItem('player_navigator_path', '/playlists?tab=mine');
+    router_events.next(new NavigationStart(1, '/player'));
+    component.goBack();
+    expect(router_mock.navigateByUrl).toHaveBeenCalledWith('/playlists?tab=mine');
+  });
+
+  it('takes focus off the menu button once a navigation finishes', () => {
+    const button = { blur: vi.fn() };
+    component.hamburgerMenuButton = { nativeElement: button } as any;
+
+    router_events.next(new NavigationEnd(1, '/subscriptions', '/subscriptions'));
+
+    expect(button.blur).toHaveBeenCalledOnce();
+  });
+
+  it('sends anyone who closes the first-run admin dialog to the login page', () => {
+    posts_service_mock.open_create_default_admin_dialog = of(true);
+
+    component.ngOnInit();
+    expect(dialog_mock.open).toHaveBeenCalledOnce();
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/login']);
+
+    router_mock.navigate.mockClear();
+    router_mock.url = '/login';
+    component.ngOnInit();
+    expect(router_mock.navigate).not.toHaveBeenCalled();
+  });
+
+  it('opens the about, profile and archive dialogs', () => {
+    component.openAboutDialog();
+    component.openProfileDialog();
+    component.openArchiveDialog();
+
+    expect(dialog_mock.open.mock.calls.map(([dialog]) => dialog))
+      .toEqual([AboutDialogComponent, UserProfileDialogComponent, ArchiveViewerComponent]);
+  });
+
+  it('counts unread notifications and marks them read once the menu closes', () => {
+    const notifications = { getNotifications: vi.fn(), setNotificationsToRead: vi.fn() };
+    component.notifications = notifications as any;
+
+    component.notificationCountUpdate(4);
+    component.notificationMenuOpened();
+    component.notificationMenuClosed();
+
+    expect(component.notification_count).toBe(4);
+    expect(notifications.getNotifications).toHaveBeenCalledOnce();
+    expect(notifications.setNotificationsToRead).toHaveBeenCalledOnce();
+  });
+
+  it('names the step a download is on, and falls back for one it does not know', () => {
+    expect(component.getActiveDownloadStepLabel({ step_index: 1 } as any)).toBe('Getting info');
+    expect(component.getActiveDownloadStepLabel({ step_index: 99 } as any)).toBe('Downloading file');
   });
 });
 

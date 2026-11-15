@@ -48,6 +48,29 @@ describe('OnlyNumberDirective', () => {
     expect(inputEvents).toBe(1);
   });
 
+  function keydown(key: string, modifiers: Partial<KeyboardEvent> = {}) {
+    const event = { key, ctrlKey: false, metaKey: false, shiftKey: false, ...modifiers, preventDefault: vi.fn() };
+    directive.onKeyDown(event as unknown as KeyboardEvent);
+    return event.preventDefault.mock.calls.length === 0;
+  }
+
+  it('lets digits, a decimal point, editing keys and clipboard shortcuts through', () => {
+    for (const key of ['0', '7', '.', 'Backspace', 'Tab', 'ArrowLeft', 'Enter']) {
+      expect(keydown(key)).toBe(true);
+    }
+    for (const key of ['a', 'c', 'v', 'x']) {
+      expect(keydown(key, { ctrlKey: true })).toBe(true);
+      expect(keydown(key, { metaKey: true })).toBe(true);
+    }
+  });
+
+  it('stops letters, symbols and shifted digits from being typed', () => {
+    for (const key of ['e', '-', '+', 'v']) {
+      expect(keydown(key)).toBe(false);
+    }
+    expect(keydown('5', { shiftKey: true })).toBe(false);
+  });
+
   it('appends on inputs that do not expose a text selection', () => {
     input.type = 'number';
     input.value = '4';

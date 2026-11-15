@@ -87,4 +87,29 @@ describe('UpdateProgressDialogComponent polling', () => {
     expect(posts.getUpdaterStatus).toHaveBeenCalledTimes(3);
     expect(component.updateStatus).toEqual(restarting);
   });
+
+  it('keeps asking while the update runs and stops once it is done', () => {
+    posts.getUpdaterStatus.mockReturnValue(of({ updating: true, details: 'Downloading' }));
+    component.ngOnInit();
+    vi.advanceTimersByTime(500);
+    expect(posts.getUpdaterStatus).toHaveBeenCalledTimes(3);
+
+    posts.getUpdaterStatus.mockReturnValue(of({ updating: false, details: 'Update complete' }));
+    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(1000);
+
+    expect(posts.getUpdaterStatus).toHaveBeenCalledTimes(4);
+    expect(component.updateStatus.details).toBe('Update complete');
+    expect(posts.openSnackBar).not.toHaveBeenCalled();
+  });
+
+  it('says the update failed, and keeps the last status when the server sends none', () => {
+    posts.getUpdaterStatus.mockReturnValue(of({ updating: false, error: true, details: 'Install failed' }));
+    component.ngOnInit();
+    expect(posts.openSnackBar).toHaveBeenCalledWith('Update failed. Check logs for more details.');
+
+    posts.getUpdaterStatus.mockReturnValue(of(null));
+    component.getUpdateProgress();
+    expect(component.updateStatus.details).toBe('Install failed');
+  });
 });
