@@ -75,7 +75,12 @@ const RETIRED_CONFIG_ITEMS = [
             + ' be revoked per role under Settings if you want to keep it hidden.'
     },
     {path: 'YtdlMaterial.API.use_API_key'},
-    {path: 'YtdlMaterial.API.API_key'}
+    {path: 'YtdlMaterial.API.API_key'},
+    {
+        path: 'YtdlMaterial.Subscriptions.redownload_fresh_uploads',
+        enabled_warning: 'The \'redownload fresh uploads\' setting has been removed. It never replaced a file'
+            + ' with a better copy, so downloads are unchanged.'
+    }
 ];
 
 // Setting values that are no longer accepted. The setting itself stays; a stored retired

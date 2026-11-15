@@ -95,6 +95,25 @@ describe('Config', async function() {
         assert(!('API_key' in api_config));
     });
 
+    it('Strips the retired fresh upload redownload setting on initialize, and says nothing changes', async function() {
+        const logger = require('../logger');
+        const original_warn = logger.warn;
+        const warnings = [];
+        const config_json = config_api.getConfigFile();
+        config_json['YtdlMaterial']['Subscriptions']['redownload_fresh_uploads'] = true;
+        config_api.setConfigFile(config_json);
+
+        logger.warn = message => warnings.push(message);
+        try {
+            config_api.initialize();
+        } finally {
+            logger.warn = original_warn;
+        }
+
+        assert(!('redownload_fresh_uploads' in config_api.getConfigFile()['YtdlMaterial']['Subscriptions']));
+        assert(warnings.some(warning => warning.startsWith('The \'redownload fresh uploads\' setting has been removed.')));
+    });
+
     it('Switches a retired youtube-dlc downloader to yt-dlp on initialize', async function() {
         const config_json = config_api.getConfigFile();
         config_json['YtdlMaterial']['Advanced']['default_downloader'] = 'youtube-dlc';
