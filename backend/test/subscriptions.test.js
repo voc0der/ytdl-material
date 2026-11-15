@@ -1856,6 +1856,42 @@ describe('Subscriptions', function() {
         assert.strictEqual(success, false);
         assert.strictEqual(fs.existsSync(metadata_path), false);
     });
+    it('Skips writing metadata for something that is no subscription, or with nowhere to write it', async function() {
+        const logger = require('../logger');
+        const original_warn = logger.warn;
+        const original_base_path = config_api.getConfigItem('ytdl_subscriptions_base_path');
+        const warnings = [];
+        logger.warn = message => warnings.push(message);
+        try {
+            assert.strictEqual(subscriptions_api.writeSubscriptionMetadata(null), false);
+            config_api.setConfigItem('ytdl_subscriptions_base_path', '');
+            assert.strictEqual(subscriptions_api.writeSubscriptionMetadata(Object.assign({}, new_sub, {id: uuid(), name: 'nowhere'})), false);
+        } finally {
+            logger.warn = original_warn;
+            config_api.setConfigItem('ytdl_subscriptions_base_path', original_base_path);
+        }
+        assert.deepStrictEqual(warnings, [
+            'Skipping subscription metadata write for invalid subscription object.',
+            'Skipping subscription metadata write for subscription \'nowhere\' because the base path is missing.'
+        ]);
+    });
+    it('Stops a check that a restart left marked as running, and refuses one that is gone', async function() {
+        const sub = Object.assign({}, new_sub, {id: uuid(), name: 'stale_check_sub'});
+        await subscriptions_api.subscribe(sub, null, true);
+        // What a check in progress leaves stored when the server restarts under it: no tracker
+        // in memory, only the stored status saying it is still collecting.
+        await db_api.updateRecord('subscriptions', {id: sub.id}, {
+            downloading: true,
+            refresh_status: {active: true, phase: 'collecting', discovered_count: 3}
+        });
+
+        assert.strictEqual(await subscriptions_api.cancelCheckSubscription(sub.id), true);
+
+        const stopped = await db_api.getRecord('subscriptions', {id: sub.id});
+        assert.strictEqual(stopped.refresh_status.phase, 'cancelled');
+        assert.strictEqual(stopped.refresh_status.active, false);
+        assert.strictEqual(await subscriptions_api.cancelCheckSubscription(uuid()), false);
+    });
     it('Downloads an audio-only subscription as mp3', async function() {
         const sub = Object.assign({}, new_sub, {id: uuid(), name: 'audio_only_sub', type: 'audio'});
 
