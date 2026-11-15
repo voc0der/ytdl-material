@@ -5,6 +5,8 @@ import { SeeMoreComponent } from './see-more/see-more.component';
 import { LogsViewerComponent } from './logs-viewer/logs-viewer.component';
 import { AboutDialogComponent } from '../dialogs/about-dialog/about-dialog.component';
 import { MediaLibraryNavigationStateService, MediaLibraryRestoreState } from '../media-library-navigation-state.service';
+import { PickerComponent } from './picker/picker.component';
+import { NotificationsComponent } from './notifications/notifications.component';
 
 // Small actions that pass something on or flip a flag, built without a template.
 describe('Component actions', () => {
@@ -46,6 +48,30 @@ describe('Component actions', () => {
 
     expect(about.checking_for_updates).toBe(false);
     expect(about.latestGithubRelease).toBe(release);
+  });
+
+  it('marks the picked part in the picker\'s sheet, and switches to another one from it', () => {
+    let data: any;
+    const sheet = { open: vi.fn((component, config) => { data = config.data; return { afterDismissed: () => of(undefined) }; }) };
+    const picker = new PickerComponent(sheet as any, {} as any);
+    picker.segments = [{ value: 'video', label: 'Video' }, { value: 'audio', label: 'Audio' }] as any;
+    picker.segment = 'video';
+    const chosen: string[] = [];
+    picker.segmentChange.subscribe(segment => chosen.push(segment));
+
+    (picker as any).openSheet();
+
+    expect(data.isSegmentSelected('video')).toBe(true);
+    expect(data.isSegmentSelected('audio')).toBe(false);
+    data.selectSegment('audio');
+    data.selectSegment('audio');
+    expect(chosen).toEqual(['audio']);
+    expect(picker.expanded).toBe(false);
+  });
+
+  it('lists the kinds of notification in the order they are written', () => {
+    const notifications = new NotificationsComponent({} as any, {} as any, {} as any);
+    expect(notifications.originalOrder()).toBe(0);
   });
 
   describe('the library state kept for coming back from the player', () => {
