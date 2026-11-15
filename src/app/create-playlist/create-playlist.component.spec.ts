@@ -206,6 +206,56 @@ describe('CreatePlaylistComponent', () => {
       expect(dialogRefStub.close).toHaveBeenCalledWith(true);
     });
 
+    it('stays open when the server refuses to create it', () => {
+      postsServiceStub.createPlaylist.mockReturnValue(of({ success: false }));
+      component.name = 'Moon';
+      component.toggle(library[0]);
+
+      component.save();
+
+      expect(dialogRefStub.close).not.toHaveBeenCalled();
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('ERROR: failed to create playlist!');
+    });
+
+    it('says the library could not be loaded, and offers no sources when they cannot be', () => {
+      postsServiceStub.getAllFiles.mockReturnValue(throwError(() => new Error('offline')));
+      postsServiceStub.getAllSubscriptions.mockReturnValue(throwError(() => new Error('offline')));
+      component.getFiles();
+      component.getSources();
+
+      expect(component.files).toEqual([]);
+      expect(component.files_received).toBe(true);
+      expect(component.files_failed).toBe(true);
+      expect(component.sources).toEqual([]);
+    });
+
+    it('ignores a failure for a source it has since moved on from', () => {
+      const first = new Subject<any>();
+      postsServiceStub.getAllFiles.mockReturnValueOnce(first);
+      component.getFiles();
+      component.getFiles();
+      first.error(new Error('offline'));
+
+      expect(component.files_failed).toBe(false);
+      expect(component.files.length).toBe(3);
+    });
+
+    it('shows a page of files at a time, and empties the selection at once', () => {
+      const many = Array.from({ length: (CreatePlaylistComponent as any).PAGE_SIZE + 5 }, (_, index) => file(`f${index}`));
+      postsServiceStub.getAllFiles.mockReturnValue(of({ files: many, file_count: many.length }));
+      component.getFiles();
+      expect(component.hidden_count).toBe(5);
+
+      component.showMore();
+      expect(component.hidden_count).toBe(0);
+      expect(component.shown.length).toBe(many.length);
+
+      component.toggleAllMatching();
+      expect(component.selected.length).toBe(many.length);
+      component.clearSelection();
+      expect(component.selected).toEqual([]);
+    });
+
     it('stays open with the selection intact when creating fails', () => {
       postsServiceStub.createPlaylist.mockReturnValue(throwError(() => new Error('offline')));
       component.name = 'Moon';
@@ -258,6 +308,27 @@ describe('CreatePlaylistComponent', () => {
       }));
       expect(postsServiceStub.playlists_changed.next).toHaveBeenCalledWith(true);
       expect(dialogRefStub.close).toHaveBeenCalledWith(true);
+    });
+
+    it('says the playlist could not be loaded, whether it is gone or the server is', () => {
+      postsServiceStub.getPlaylist.mockReturnValue(of({ playlist: null }));
+      component.getPlaylist();
+      expect(component.playlist_failed).toBe(true);
+
+      postsServiceStub.getPlaylist.mockReturnValue(throwError(() => new Error('offline')));
+      component.getPlaylist();
+      expect(component.playlist_failed).toBe(true);
+    });
+
+    it('says so when the server cannot be reached to save it', () => {
+      postsServiceStub.updatePlaylist.mockReturnValue(throwError(() => new Error('offline')));
+      component.reverse();
+
+      component.save();
+
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Failed to update playlist.');
+      expect(component.saving).toBe(false);
+      expect(dialogRefStub.close).not.toHaveBeenCalled();
     });
 
     it('says so when saving fails, rather than that it worked', () => {
@@ -316,6 +387,15 @@ describe('CreatePlaylistComponent', () => {
         expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Could not generate cover art for this playlist.');
         expect(component.selected[0].thumbnail_updated_at).toBeUndefined();
         expect(postsServiceStub.playlists_changed.next).not.toHaveBeenCalled();
+        expect(component.regenerating_cover).toBe(false);
+      });
+
+      it('says so when the server cannot be reached for it', () => {
+        postsServiceStub.generateThumbnail.mockReturnValue(throwError(() => new Error('offline')));
+
+        regenerateButton().click();
+
+        expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Could not generate cover art for this playlist.');
         expect(component.regenerating_cover).toBe(false);
       });
 
