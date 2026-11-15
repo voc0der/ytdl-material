@@ -1201,12 +1201,6 @@ export class MediaLibraryComponent implements OnInit, OnDestroy {
 
   // sorting and filtering
 
-  sortFiles(a: DatabaseFile, b: DatabaseFile): number {
-    // uses the 'registered' flag as the timestamp
-    const result = b.registered - a.registered;
-    return result;
-  }
-
   durationStringToNumber(dur_str: string): number {
     let num_sum = 0;
     const dur_str_parts = dur_str.split(':');

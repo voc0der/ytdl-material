@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { DuplicatesComponent } from './duplicates.component';
 import { PostsService } from 'app/posts.services';
@@ -149,5 +149,55 @@ describe('DuplicatesComponent', () => {
     await create();
     expect(routerStub.navigate).toHaveBeenCalledWith(['/']);
     expect(postsServiceStub.getDuplicates).not.toHaveBeenCalled();
+  });
+
+  it('starts once the app has, and looks again whenever the files change', async () => {
+    const started = new Subject<boolean>();
+    postsServiceStub.initialized = false;
+    postsServiceStub.service_initialized = started;
+    await create();
+    expect(postsServiceStub.getDuplicates).not.toHaveBeenCalled();
+
+    started.next(true);
+    expect(postsServiceStub.getDuplicates).toHaveBeenCalledTimes(1);
+    postsServiceStub.files_changed.next(false);
+    postsServiceStub.files_changed.next(true);
+    expect(postsServiceStub.getDuplicates).toHaveBeenCalledTimes(2);
+    component.ngOnDestroy();
+  });
+
+  it('keeps what it showed when a refresh fails, and says so only when it has nothing', async () => {
+    await create();
+    postsServiceStub.getDuplicates.mockReturnValue(throwError(() => new Error('offline')));
+
+    component.getDuplicates();
+    expect(component.load_failed).toBe(false);
+    expect(component.sorted.length).toBe(3);
+
+    component.duplicate_groups = [];
+    component.getDuplicates();
+    expect(component.load_failed).toBe(true);
+  });
+
+  it('closes an open row again', async () => {
+    await create();
+    component.toggleExpanded(groups[0]);
+    expect(component.isExpanded(groups[0])).toBe(true);
+    component.toggleExpanded(groups[0]);
+    expect(component.isExpanded(groups[0])).toBe(false);
+  });
+
+  it('says which removal failed, whether refused or unreachable', async () => {
+    dialogStub.open.mockReturnValue({ afterClosed: () => of('oldest') });
+    await create();
+    postsServiceStub.removeDuplicates.mockReturnValue(of({ success: false }));
+    component.openRemoveDuplicatesDialog(groups[0]);
+    expect(postsServiceStub.openSnackBar).toHaveBeenLastCalledWith('Failed to remove oldest duplicates.');
+
+    dialogStub.open.mockReturnValue({ afterClosed: () => of('newest') });
+    postsServiceStub.removeDuplicates.mockReturnValue(throwError(() => new Error('offline')));
+    component.openRemoveDuplicatesDialog(groups[0]);
+    expect(postsServiceStub.openSnackBar).toHaveBeenLastCalledWith('Failed to remove newest duplicates.');
+    expect(component.removing_duplicate_key).toBeNull();
   });
 });

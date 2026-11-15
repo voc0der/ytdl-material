@@ -91,6 +91,11 @@ describe('MediaLibraryComponent', () => {
     navigationStateService.clearPendingRestoreState();
   });
 
+  // A spy on localStorage outlived its test, and every later one ran with writes dropped.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });
@@ -1434,6 +1439,80 @@ describe('MediaLibraryComponent', () => {
       releasePointer();
 
       expect(get_all_files_spy).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing on release when nothing was held back', () => {
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      pressGrid();
+      releasePointer();
+
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('what it remembers, and what it follows', () => {
+    function recreate(): void {
+      fixture = TestBed.createComponent(MediaLibraryComponent);
+      component = fixture.componentInstance;
+    }
+
+    it('starts with the page size, sort, filters and order it was left with', () => {
+      localStorage.setItem(component.pageSizeStorageKey, '25');
+      localStorage.setItem('cached_file_count', '40');
+      localStorage.setItem('sort_property', 'title');
+      localStorage.setItem('file_filter', JSON.stringify(['audio_only', 'not-a-filter']));
+      localStorage.setItem(component.sortOrderStorageKey, 'ascending');
+      recreate();
+
+      expect(component.pageSize).toBe(25);
+      // A placeholder per file it had last time, up to a screenful.
+      expect(component.loading_files.length).toBe(10);
+      expect(component.sortProperty).toBe('title');
+      expect(component.selectedFilters).toEqual(['audio_only']);
+      expect(component.descendingMode).toBe(false);
+    });
+
+    it('starts unfiltered when the stored filters cannot be read', () => {
+      localStorage.setItem('file_filter', '{not json');
+      recreate();
+
+      expect(component.selectedFilters).toEqual([]);
+    });
+
+    it('loads at once when the app has already started', () => {
+      postsServiceStub.initialized = true;
+      fixture.detectChanges();
+
+      expect(postsServiceStub.getAllFiles).toHaveBeenCalledTimes(1);
+      expect(postsServiceStub.getPlaylists).toHaveBeenCalledTimes(2);
+    });
+
+    it('reloads its playlists when they change', () => {
+      fixture.detectChanges();
+      postsServiceStub.getPlaylists.mockClear();
+
+      postsServiceStub.playlists_changed.next(true);
+
+      expect(postsServiceStub.getPlaylists).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops the filter of a category no longer shown as one, and reloads the files', () => {
+      postsServiceStub.categories = [{ uid: 'music', name: 'Music', show_as_filter: true }];
+      localStorage.setItem('file_filter', JSON.stringify(['favorited', 'category:music']));
+      recreate();
+      fixture.detectChanges();
+      expect(component.selectedFilters).toEqual(['favorited', 'category:music']);
+      const get_all_files_spy = vi.spyOn(component, 'getAllFiles').mockReturnValue(undefined);
+
+      postsServiceStub.categories_changed.next(true);
+      expect(get_all_files_spy).not.toHaveBeenCalled();
+
+      postsServiceStub.categories = [];
+      postsServiceStub.categories_changed.next(true);
+      expect(component.selectedFilters).toEqual(['favorited']);
+      expect(JSON.parse(localStorage.getItem('file_filter'))).toEqual(['favorited']);
+      expect(get_all_files_spy).toHaveBeenCalledTimes(1);
     });
   });
 });

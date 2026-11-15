@@ -206,6 +206,35 @@ describe('MediaControlsComponent', () => {
       expect(host().classList.contains('controls-visible')).toBe(true);
       tick(2500);
     }));
+
+    it('hides them as soon as the mouse leaves the player, but not when a finger lifts', fakeAsync(() => {
+      startPlaying();
+      host().dispatchEvent(new PointerEvent('pointerleave', {pointerType: 'touch'}));
+      fixture.detectChanges();
+      expect(host().classList.contains('controls-visible')).toBe(true);
+
+      host().dispatchEvent(new PointerEvent('pointerleave', {pointerType: 'mouse'}));
+      fixture.detectChanges();
+      expect(host().classList.contains('controls-visible')).toBe(false);
+      tick(2500);
+    }));
+
+    it('keeps them up while the mouse is over the bar, and for the usual while after', fakeAsync(() => {
+      startPlaying();
+      const chrome = host().querySelector<HTMLElement>('.chrome');
+      chrome.dispatchEvent(new PointerEvent('pointerenter'));
+      tick(5000);
+      fixture.detectChanges();
+      expect(host().classList.contains('controls-visible')).toBe(true);
+
+      chrome.dispatchEvent(new PointerEvent('pointerleave'));
+      tick(2000);
+      fixture.detectChanges();
+      expect(host().classList.contains('controls-visible')).toBe(true);
+      tick(500);
+      fixture.detectChanges();
+      expect(host().classList.contains('controls-visible')).toBe(false);
+    }));
   });
 
   describe('the bar', () => {
@@ -227,6 +256,51 @@ describe('MediaControlsComponent', () => {
       media.dispatchEvent(new Event('timeupdate'));
       fixture.detectChanges();
       expect(host().querySelector('.chapter-title')?.textContent).toBe('Middle');
+    });
+
+    it('jumps to a chapter picked from its menu', () => {
+      fixture.componentRef.setInput('chapters', [
+        {title: 'Intro', start_time: 0, end_time: 10},
+        {title: 'Middle', start_time: 12, end_time: 40}
+      ]);
+      fixture.detectChanges();
+      component.toggleMenu('chapters', new MouseEvent('click'));
+      fixture.detectChanges();
+      const middle = Array.from(host().querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'))
+        .find(item => item.textContent.includes('Middle'));
+      middle.click();
+      fixture.detectChanges();
+
+      expect(media.currentTime).toBe(12);
+      expect(component.menu).toBeNull();
+    });
+
+    it('drops the hover time once the pointer leaves, but not in the middle of a drag', () => {
+      const scrubber = host().querySelector<HTMLElement>('.scrubber');
+      component.hover_time = 20;
+      component.scrubbing = true;
+      scrubber.dispatchEvent(new PointerEvent('pointerleave'));
+      expect(component.hover_time).toBe(20);
+
+      // A drag the browser takes the pointer from ends there, as if it had been let go.
+      scrubber.dispatchEvent(new PointerEvent('lostpointercapture'));
+      expect(component.scrubbing).toBe(false);
+      expect(component.hover_time).toBeNull();
+      expect(component.hover_segment).toBe(-1);
+
+      component.hover_time = 30;
+      scrubber.dispatchEvent(new PointerEvent('lostpointercapture'));
+      expect(component.hover_time).toBe(30);
+    });
+
+    it('holds a dragged seek until the one before it lands', () => {
+      media.seeking = true;
+      component.seekTo(30, true);
+      expect(media.currentTime).toBe(0);
+
+      media.seeking = false;
+      media.dispatchEvent(new Event('seeked'));
+      expect(media.currentTime).toBe(30);
     });
 
     it('seeks where the scrubber is pressed', () => {
@@ -286,6 +360,76 @@ describe('MediaControlsComponent', () => {
       player.requestFullscreen = request;
       button('Full screen').click();
       expect(request).toHaveBeenCalled();
+    });
+  });
+
+  describe('full screen and picture-in-picture', () => {
+    let fullscreen_element: Element | null;
+    let pip_element: Element | null;
+
+    beforeEach(() => {
+      fullscreen_element = null;
+      pip_element = null;
+      Object.defineProperty(document, 'fullscreenElement', {configurable: true, get: () => fullscreen_element});
+      Object.defineProperty(document, 'pictureInPictureElement', {configurable: true, get: () => pip_element});
+    });
+
+    afterEach(() => {
+      delete (document as unknown as Record<string, unknown>)['fullscreenElement'];
+      delete (document as unknown as Record<string, unknown>)['pictureInPictureElement'];
+      delete (document as unknown as Record<string, unknown>)['exitFullscreen'];
+      delete (document as unknown as Record<string, unknown>)['exitPictureInPicture'];
+    });
+
+    it('follows the page in and out of full screen, and leaves it from the same button', () => {
+      const exit = vi.fn().mockName('exitFullscreen').mockResolvedValue(undefined);
+      (document as unknown as {exitFullscreen: () => Promise<void>}).exitFullscreen = exit;
+      fullscreen_element = player;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      fixture.detectChanges();
+      expect(component.fullscreen).toBe(true);
+
+      button('Exit full screen').click();
+      expect(exit).toHaveBeenCalled();
+
+      // Something else on the page going full screen is not the player doing so.
+      fullscreen_element = document.body;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      expect(component.fullscreen).toBe(false);
+    });
+
+    it('falls back to the video\'s own full screen where the player cannot have it', () => {
+      const enter = vi.fn().mockName('webkitEnterFullscreen');
+      (media as unknown as {webkitEnterFullscreen: () => void}).webkitEnterFullscreen = enter;
+      (player as unknown as {requestFullscreen: unknown}).requestFullscreen = undefined;
+      component.toggleFullscreen();
+      expect(enter).toHaveBeenCalled();
+    });
+
+    it('goes full screen on a double click with the mouse, but not on a double tap', () => {
+      const request = vi.fn().mockName('requestFullscreen').mockResolvedValue(undefined);
+      player.requestFullscreen = request;
+      press('touch');
+      surface().dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+      expect(request).not.toHaveBeenCalled();
+
+      press('mouse');
+      surface().dispatchEvent(new MouseEvent('dblclick', {bubbles: true}));
+      expect(request).toHaveBeenCalledTimes(1);
+      release();
+    });
+
+    it('moves the video into picture-in-picture and back', () => {
+      const request = vi.fn().mockName('requestPictureInPicture').mockResolvedValue(undefined);
+      const exit = vi.fn().mockName('exitPictureInPicture').mockResolvedValue(undefined);
+      (media as unknown as {requestPictureInPicture: () => Promise<void>}).requestPictureInPicture = request;
+      (document as unknown as {exitPictureInPicture: () => Promise<void>}).exitPictureInPicture = exit;
+
+      component.togglePictureInPicture();
+      expect(request).toHaveBeenCalled();
+      pip_element = media as unknown as Element;
+      component.togglePictureInPicture();
+      expect(exit).toHaveBeenCalled();
     });
   });
 
@@ -573,6 +717,42 @@ describe('MediaControlsComponent', () => {
       expect(media.currentTime).toBe(30);
     });
 
+    it('steps back with the left arrow and jumps ahead with l', () => {
+      media.currentTime = 20;
+      key('ArrowLeft');
+      expect(media.currentTime).toBe(15);
+      key('l');
+      expect(media.currentTime).toBe(25);
+    });
+
+    it('goes full screen with f', () => {
+      const request = vi.fn().mockName('requestFullscreen').mockResolvedValue(undefined);
+      player.requestFullscreen = request;
+      key('f');
+      expect(request).toHaveBeenCalled();
+    });
+
+    it('toggles subtitles with c, theater mode with t and plays the next file with shift+n, only where there are any', () => {
+      const emitted: string[] = [];
+      component.toggleSubtitles.subscribe(() => emitted.push('subtitles'));
+      component.toggleTheater.subscribe(() => emitted.push('theater'));
+      component.playNext.subscribe(() => emitted.push('next'));
+      key('c');
+      key('t');
+      key('N', document.body, {shiftKey: true});
+      expect(emitted).toEqual([]);
+
+      fixture.componentRef.setInput('subtitlesAvailable', true);
+      fixture.componentRef.setInput('theaterAvailable', true);
+      fixture.componentRef.setInput('hasNext', true);
+      fixture.detectChanges();
+      key('c');
+      key('t');
+      key('n');
+      key('N', document.body, {shiftKey: true});
+      expect(emitted).toEqual(['subtitles', 'theater', 'next']);
+    });
+
     it('mutes with m and steps the speed with < and >', () => {
       key('m');
       expect(media.muted).toBe(true);
@@ -792,6 +972,65 @@ describe('MediaControlsComponent', () => {
       flush();
       expect(messages).toEqual(['Your browser did not open its cast picker.', 'Your browser did not open its cast picker.']);
     }));
+
+    it('says why casting could not start', fakeAsync(() => {
+      const messages: string[] = [];
+      component.castMessage.subscribe(message => messages.push(message));
+      devices(true);
+      for (const name of ['NotFoundError', 'NotSupportedError', 'InvalidAccessError', 'AbortError']) {
+        remote.prompt.mockRejectedValueOnce(new DOMException('Refused.', name));
+        castButton().click();
+        flush();
+      }
+      // A browser that throws rather than rejecting is told apart from none of them.
+      remote.prompt.mockImplementationOnce(() => { throw new Error('not a DOMException'); });
+      castButton().click();
+      flush();
+
+      expect(messages).toEqual([
+        'No cast device found.',
+        'This file can\'t be cast.',
+        'Select the cast button again to pick a device.',
+        'Couldn\'t start casting.',
+        'Couldn\'t start casting.'
+      ]);
+    }));
+
+    it('stops waiting to open the picker once the player gives up on the source it asked for', fakeAsync(() => {
+      const messages: string[] = [];
+      component.castMessage.subscribe(message => messages.push(message));
+      source('needs-link');
+      devices(true);
+      castButton().click();
+      source('preparing');
+      source('unavailable');
+
+      tick(10000);
+      remote.setAvailable(true);
+      expect(remote.prompt).not.toHaveBeenCalled();
+      expect(messages).toEqual([]);
+    }));
+
+    it('lets the picker look for devices where the browser cannot watch for them in the background', fakeAsync(() => {
+      const unwatched = new FakeRemote();
+      unwatched.watchAvailability.mockRejectedValue(new DOMException('Not supported.', 'NotSupportedError'));
+      const castable = new FakeMedia();
+      (castable as any).remote = unwatched;
+      fixture.componentRef.setInput('media', castable as unknown as HTMLVideoElement);
+      fixture.detectChanges();
+      flush();
+      fixture.detectChanges();
+
+      castButton().click();
+      expect(unwatched.prompt).toHaveBeenCalled();
+    }));
+
+    it('looks for devices with a short silent clip that only loads its metadata', () => {
+      const probe = (MediaControlsComponent.prototype as any).createCastProbe.call(component) as HTMLVideoElement;
+      expect(probe.muted).toBe(true);
+      expect(probe.preload).toBe('metadata');
+      expect(probe.getAttribute('src')).toBeTruthy();
+    });
 
     it('offers no cast for a file too short for Chrome to look for devices for', () => {
       devices(true);

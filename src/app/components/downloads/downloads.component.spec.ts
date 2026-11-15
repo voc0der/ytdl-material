@@ -390,6 +390,64 @@ describe('DownloadsComponent', () => {
     expect(merged.map(item => item.title)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
   });
 
+  it('orders chunk items with no position by title, and numbers them again when their numbers clash', () => {
+    const merged = (component as any).mergeBatchPlaylistProgress([
+      { uid: 'chunk-a', playlist_item_progress: [{ index: 1, title: 'Second' }, { index: 1, title: 'First' }] },
+      { uid: 'chunk-b', playlist_item_progress: [{ title: 'Third' }] },
+      { uid: 'chunk-c' }
+    ]);
+
+    expect(merged.map(item => [item.index, item.title])).toEqual([[1, 'First'], [2, 'Second'], [3, 'Third']]);
+    expect((component as any).mergeBatchPlaylistProgress([{ uid: 'chunk-d' }])).toBeNull();
+  });
+
+  it('puts a batch at the step its least advanced unfinished chunk has reached', () => {
+    const step = (downloads: object[]) => (component as any).getAggregateStepIndex(downloads);
+    expect(step([{ finished: true }, { finished: false, step_index: 1 }])).toBe(1);
+    expect(step([{ finished: false, step_index: 0 }])).toBe(0);
+    expect(step([{ finished: true }])).toBe(3);
+  });
+
+  it('falls back to the percentage it was given when no chunk has one', () => {
+    const percent = (fallback: unknown) => (component as any).getAggregatePercentComplete([{ finished: false, percent_complete: null }], null, fallback);
+    expect(percent(142)).toBe(100);
+    expect(percent('12.5')).toBe(12.5);
+    expect(percent(null)).toBe(0);
+  });
+
+  it('shows a waiting download with a clock and a running one with an arrow', () => {
+    expect(component.stateIcon({ uid: 'q', step_index: 0 } as unknown as Download)).toBe('schedule');
+    expect(component.stateIcon({ uid: 'r', step_index: 2 } as unknown as Download)).toBe('download');
+  });
+
+  it('starts polling once the app has started, unless the page has gone by then', () => {
+    const started = new Subject<boolean>();
+    posts_service_mock.initialized = false;
+    posts_service_mock.service_initialized = started;
+    const poll_spy = vi.spyOn(component, 'getCurrentDownloadsRecurring').mockReturnValue(undefined);
+
+    component.ngOnInit();
+    expect(poll_spy).not.toHaveBeenCalled();
+    started.next(true);
+    expect(poll_spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets a progress dialog that was closed some other way', () => {
+    const closed = new Subject<void>();
+    const dialog_ref = { afterClosed: () => closed, close: vi.fn() };
+    dialog_mock.open = vi.fn().mockReturnValue(dialog_ref);
+    const download = { uid: 'download-1', playlist_item_progress: [{ index: 1 }, { index: 2 }] } as unknown as Download;
+
+    component.showPlaylistProgress(download);
+    expect((component as any).playlist_progress_dialog_key).toBe('download-1');
+
+    // No longer among the open dialogs, as after a navigation closed every dialog.
+    dialog_mock.openDialogs = [];
+    (component as any).refreshOpenPlaylistProgressDialog();
+    expect((component as any).playlist_progress_dialog_ref).toBeNull();
+    expect((component as any).playlist_progress_dialog_key).toBeNull();
+  });
+
   describe('bulk actions', () => {
     let dialog_ref: any;
 

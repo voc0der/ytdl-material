@@ -406,14 +406,6 @@ export class PostsService {
         return null;
     }
 
-    startHandshake(url: string) {
-        return this.http.get(url + 'geturl');
-    }
-
-    startHandshakeSSL(url: string) {
-        return this.http.get(url + 'geturl');
-    }
-
     reloadConfig(onSettled: () => void = null) {
         this.getConfig().subscribe(res => {
             const result = !this.debugMode ? res['config_file'] : res;

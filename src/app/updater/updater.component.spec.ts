@@ -184,4 +184,38 @@ describe('UpdaterComponent', () => {
       expect(component.versionOptions.map(option => option.value)).toContain(nextPatchVersion);
     });
   });
+
+  it('orders releases by number, a release after its candidates, and nightly after both', () => {
+    const ordered = ['v1.2.3-rc1', 'v1.2.3-rc2', 'v1.2.3', 'v1.10.0', 'nightly'];
+    const shuffled = ['nightly', 'v1.10.0', 'v1.2.3', 'v1.2.3-rc2', 'v1.2.3-rc1'];
+
+    expect([...shuffled].sort((a, b) => component.compareReleaseVersions(a, b))).toEqual(ordered);
+    expect(component.compareReleaseVersions('nightly', 'NIGHTLY')).toBe(0);
+    expect(component.compareReleaseVersions('v1.2.3', '1.2.3')).toBe(0);
+    // A tag that is not a version still has a stable place, so the picker does not jump about.
+    expect(component.compareReleaseVersions('beta-2', 'beta-10')).toBeLessThan(0);
+    expect(component.compareReleaseVersions(null, 'v1.0.0')).toBeLessThan(0);
+  });
+
+  it('shows the update\'s progress once the server takes it, and nothing when it refuses', () => {
+    component.selectedVersion = nextPatchVersion;
+    postsService.updateServer.mockReturnValue(of({ success: false } as any));
+    component.updateServer();
+    expect(dialog.open).not.toHaveBeenCalled();
+
+    postsService.updateServer.mockReturnValue(of({ success: true } as any));
+    component.updateServer();
+    expect(postsService.updateServer).toHaveBeenLastCalledWith(nextPatchVersion);
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists only a few releases once it has found the latest stable one', () => {
+    const releases = Array.from({ length: 12 }, (_, index) => ({ tag_name: `v9.${12 - index}.0` }));
+    postsService.getAvailableRelease.mockReturnValue(of(releases as any));
+
+    component.getAvailableVersions();
+
+    expect(component.selectedVersion).toBe('v9.12.0');
+    expect(component.availableVersionsFiltered.length).toBe(component.versionsShowLimit);
+  });
 });

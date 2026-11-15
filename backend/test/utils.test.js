@@ -127,6 +127,60 @@ describe('Utils', async function() {
         assert.strictEqual(utils.getExpectedFileSize(info), expected);
     });
 
+    it('Falls back to requested_downloads when neither the formats nor requested_formats have sizes', function() {
+        const size = utils.getExpectedFileSize([{
+            format_id: '137+140',
+            formats: [{format_id: '137'}, {format_id: '140'}],
+            requested_formats: [{format_id: '137'}, {format_id: '140'}],
+            requested_downloads: [{filesize: 1000}, {filesize_approx: 250}]
+        }]);
+        assert.strictEqual(size, 1250);
+    });
+
+    it('Reads the info file written beside media whose container is not the expected one', function() {
+        const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ytdl-utils-json-'));
+        try {
+            fs.writeFileSync(path.join(dir, 'clip.webm'), 'media');
+            fs.writeJSONSync(path.join(dir, 'clip.webm.info.json'), {id: 'from-webm'});
+            assert.strictEqual(utils.getJSON(path.join(dir, 'clip.webm'), 'video').id, 'from-webm');
+        } finally {
+            fs.removeSync(dir);
+        }
+    });
+
+    it('Keeps a subscription\'s archive under its owner when there are accounts', function() {
+        const config_api = require('../config');
+        const users = config_api.getConfigItem('ytdl_users_base_path');
+        assert.strictEqual(utils.getArchiveFolder('video', 'alice', {name: 'Space', isPlaylist: false}),
+            path.join(users, 'alice', 'subscriptions', 'archives', utils.getSubscriptionPathName({name: 'Space', isPlaylist: false})));
+    });
+
+    it('Leaves what is not a string, and everything after --, as it is when redacting', function() {
+        assert.deepStrictEqual(utils.redactCommandArgsForLogging([5, '--password', 'secret', '--', '--password', 'url']),
+            [5, '--password', '[REDACTED]', '--', '--password', 'url']);
+    });
+
+    it('Turns a logging level it does not know into info, and says so', function() {
+        const logger = require('../logger');
+        const original_error = logger.error;
+        const original_level = logger.level;
+        const errors = [];
+        logger.error = message => errors.push(message);
+        try {
+            utils.updateLoggerLevel('chatty');
+            assert.strictEqual(logger.level, 'info');
+            assert.deepStrictEqual(errors, ['chatty is not a valid logger level! Choose one of the following: error, warn, info, verbose, debug.']);
+        } finally {
+            logger.error = original_error;
+            utils.updateLoggerLevel(original_level);
+        }
+    });
+
+    it('Only downloads http and https addresses', function() {
+        for (const candidate of ['https://example.test/a', 'http://example.test/a']) assert.strictEqual(utils.isAllowedDownloadURL(candidate), true);
+        for (const candidate of ['not a url', 'file:///etc/passwd', '--exec=x', '', null]) assert.strictEqual(utils.isAllowedDownloadURL(candidate), false);
+    });
+
     describe('snipFile', function() {
         const snip_dir = path.join(__dirname, 'tmp-snip-test');
         const source_path = path.join(snip_dir, 'snip-source.mp4');
