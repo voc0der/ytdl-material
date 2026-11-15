@@ -26,12 +26,12 @@ describe('Playback transcodes', function() {
     });
 
     // Loaded with its own __dirname so copies land in a throwaway appdata/transcodes.
-    function load(transcoding = transcoding_api) {
+    function load(transcoding = transcoding_api, overrides = {}) {
         const exports = {};
         vm.runInNewContext(fs.readFileSync(path.join(root, 'playback-transcode.js'), 'utf8'), {
             exports, __dirname: dir,
-            require: name => name === './transcoding' ? transcoding
-                : name.startsWith('./') ? require(path.join(root, name)) : require(name)
+            require: name => overrides[name] || (name === './transcoding' ? transcoding
+                : name.startsWith('./') ? require(path.join(root, name)) : require(name))
         }, {filename: path.join(root, 'playback-transcode.js')});
         return exports;
     }
@@ -123,6 +123,89 @@ describe('Playback transcodes', function() {
         assert.strictEqual((await settle(api, 'broken')).status, 'ready');
     });
 
+    it('retries failed hardware decoding and encoding before publishing a software copy', async function() {
+        const calls = [];
+        const hardware = transcoding_api.TRANSCODING_MODES.nvenc;
+        const attempts = [
+            {...hardware, input_options: hardware.decode_input_options, hardware_decode: true},
+            {...hardware, hardware_decode: false},
+            null
+        ];
+        const api = load({
+            getFfmpegAttempts: ext => {
+                assert.strictEqual(ext, '.mp4');
+                return attempts;
+            },
+            describeFfmpegSettings: transcoding_api.describeFfmpegSettings,
+            runFfmpeg: async args => {
+                calls.push(Array.from(args));
+                const output = args.at(-1);
+                assert.strictEqual(api.getCopy('fallback').status, 'pending');
+                assert(!fs.existsSync(output.replace(/\.part$/, '')), 'partial attempts must not be published');
+                fs.writeFileSync(output, calls.length < 3 ? 'partial hardware copy' : 'complete software copy');
+                return {success: calls.length === 3, error: calls.length < 3 ? 'GPU unavailable' : null};
+            }
+        });
+        const file = {uid: 'fallback', path: source('source.webm', 'source')};
+
+        assert.strictEqual(api.request(file), false);
+        const copy = await settle(api, file.uid);
+        assert.strictEqual(copy.status, 'ready');
+        assert.deepStrictEqual(calls.map(args => args[args.indexOf('-c:v') + 1]), ['h264_nvenc', 'h264_nvenc', 'libx264']);
+        assert(calls[0].includes('-hwaccel'));
+        assert(!calls[1].includes('-hwaccel'));
+        assert.strictEqual(fs.readFileSync(copy.path, 'utf8'), 'complete software copy');
+        assert.deepStrictEqual(fs.readdirSync(transcodeDir()), [path.basename(copy.path)]);
+        assert.strictEqual(api.request(file), true);
+        assert.strictEqual(calls.length, 3, 'reusing the copy must not start another encoder');
+    });
+
+    it('continues the queue after a failed job and serializes later copies', async function() {
+        const started = [];
+        let release;
+        const gate = new Promise(resolve => release = resolve);
+        let mark_started;
+        const first_started = new Promise(resolve => mark_started = resolve);
+        const api = load({
+            getFfmpegAttempts: () => [null],
+            describeFfmpegSettings: () => 'software encoding',
+            runFfmpeg: async args => {
+                const input = path.basename(args[args.indexOf('-i') + 1]);
+                started.push(input);
+                if (input === 'broken.mp4') {
+                    mark_started();
+                    await gate;
+                    fs.writeFileSync(args.at(-1), 'partial');
+                    return {success: false, error: null};
+                }
+                fs.writeFileSync(args.at(-1), 'complete');
+                return {success: true, error: null};
+            }
+        }, {
+            // Complete directory creation immediately so filesystem scheduling cannot
+            // hide a second encoder starting while the first is still gated.
+            fs: {...fs, promises: {...fs.promises, mkdir: async (...args) => fs.mkdirSync(...args)}}
+        });
+        const broken = {uid: 'broken', path: source('broken.mp4', 'broken')};
+        const next = {uid: 'next', path: source('next.mp4', 'next')};
+        api.request(broken);
+        api.request(next);
+        try {
+            assert.strictEqual(api.getCopy('broken').status, 'pending');
+            assert.strictEqual(api.getCopy('next').status, 'pending');
+            await first_started;
+            assert.deepStrictEqual(started, ['broken.mp4']);
+        } finally {
+            release();
+        }
+
+        assert.strictEqual((await settle(api, 'broken')).status, 'failed');
+        const copy = await settle(api, 'next');
+        assert.strictEqual(copy.status, 'ready');
+        assert.deepStrictEqual(started, ['broken.mp4', 'next.mp4']);
+        assert.deepStrictEqual(fs.readdirSync(transcodeDir()), [path.basename(copy.path)]);
+    });
+
     it('reaps only copies that are old and that no link or job still needs', async function() {
         let gate = null;
         const fake = {
@@ -168,5 +251,46 @@ describe('Playback transcodes', function() {
         const result = await load().reap(6 * HOUR, () => []);
         assert.strictEqual(result.removed, 0);
         assert.strictEqual(result.kept, 0);
+    });
+
+    it('logs a directory read failure without rejecting cleanup', async function() {
+        const errors = [];
+        const api = load(undefined, {
+            fs: {...fs, promises: {...fs.promises, readdir: async () => {
+                throw Object.assign(new Error('read denied'), {code: 'EACCES'});
+            }}},
+            './logger': {info() {}, error: message => errors.push(message)}
+        });
+        const result = await api.reap(6 * HOUR, () => []);
+        assert.strictEqual(result.removed, 0);
+        assert.strictEqual(result.kept, 0);
+        assert.strictEqual(errors.length, 1);
+        assert.match(errors[0], /Could not list playback transcodes.*read denied/);
+    });
+
+    it('continues cleanup past vanished entries and files it cannot delete', async function() {
+        fs.mkdirSync(transcodeDir(), {recursive: true});
+        for (const name of ['vanished.mp4', 'blocked.mp4', 'unused.mp4']) {
+            const file = path.join(transcodeDir(), name);
+            fs.writeFileSync(file, 'old copy');
+            age(file, 7 * HOUR);
+        }
+        const errors = [];
+        const api = load(undefined, {
+            fs: {...fs, promises: {...fs.promises, stat: async file => {
+                if (path.basename(file) === 'vanished.mp4') fs.unlinkSync(file);
+                return fs.promises.stat(file);
+            }}, rmSync: (file, options) => {
+                if (path.basename(file) === 'blocked.mp4') throw new Error('delete denied');
+                fs.rmSync(file, options);
+            }},
+            './logger': {info() {}, error: message => errors.push(message)}
+        });
+
+        const result = await api.reap(6 * HOUR, () => []);
+        assert.strictEqual(result.removed, 1);
+        assert.deepStrictEqual(fs.readdirSync(transcodeDir()), ['blocked.mp4']);
+        assert.strictEqual(errors.length, 1);
+        assert.match(errors[0], /Could not delete playback transcode 'blocked.mp4': delete denied/);
     });
 });
