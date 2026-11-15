@@ -237,6 +237,23 @@ describe('optionalJwt', function() {
             assert.strictEqual(res.body.authenticated, true);
         });
 
+        it('identifies a caller by an API token, as it would by a session', async function() {
+            const api_tokens_api = require('../authentication/api-tokens');
+            const {token: api_token} = await api_tokens_api.generateTokenForUser(CALLER, 'optional jwt test');
+            try {
+                const res = await request(appResolving('/api/incrementViewCount'))
+                    .post('/api/incrementViewCount').set('Authorization', `Bearer ${api_token}`).expect(200);
+                assert.strictEqual(res.body.uid, CALLER);
+
+                // Even on a path that answers anybody, the token still says who is asking.
+                const public_res = await request(appUsing('/api/auth/oidc/status'))
+                    .get('/api/auth/oidc/status').set('Authorization', `Bearer ${api_token}`).expect(200);
+                assert.strictEqual(public_res.body.uid, CALLER);
+            } finally {
+                await api_tokens_api.revokeAllTokensForUser(CALLER);
+            }
+        });
+
         it('lets an anonymous caller through rather than refusing', async function() {
             // A share link carries no token, and playback state has to keep working.
             const res = await request(appResolving('/api/incrementViewCount'))
