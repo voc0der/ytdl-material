@@ -1825,15 +1825,11 @@ app.post('/api/enableSharing', optionalJwt, requirePermission('sharing'), async 
     // single-user mode
     try {
         success = true;
-        if (!is_playlist) {
-            await db_api.updateRecord('files', {uid: uid}, {sharingEnabled: true})
-        } else if (is_playlist) {
-            await db_api.updateRecord(`playlists`, {id: uid}, {sharingEnabled: true});
+        if (is_playlist) {
+            await db_api.updateRecord('playlists', {id: uid}, {sharingEnabled: true});
         } else {
-            // error
-            success = false;
+            await db_api.updateRecord('files', {uid: uid}, {sharingEnabled: true});
         }
-
     } catch(err) {
         logger.error(err);
         success = false;
