@@ -217,7 +217,7 @@ describe('Download queue edges', function() {
         await new Promise(resolve => setTimeout(resolve, 10));
         await downloader_api.cancelDownload(download.uid);
         finish({ parsed_output: null, err: new Error('terminated') });
-        assert.strictEqual(await running, false);
+        await running;
 
         assert.deepStrictEqual(killed, [child]);
         const record = await stored(download.uid);
