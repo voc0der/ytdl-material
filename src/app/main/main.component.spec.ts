@@ -1399,12 +1399,23 @@ describe('MainComponent', () => {
       localStorage.setItem('advancedMode', 'true');
       localStorage.setItem('customArgsEnabled', 'true');
       localStorage.setItem('customArgs', '--restored-arg');
+      localStorage.setItem('replaceArgs', 'true');
+      localStorage.setItem('customOutputEnabled', 'true');
+      localStorage.setItem('customOutput', 'restored/%(title)s');
+      localStorage.setItem('youtubeAuthEnabled', 'true');
+      localStorage.setItem('youtubeUsername', 'restored-user');
 
       await component.loadConfig();
+      component.ngOnDestroy();
 
       expect(component.advancedMode).toBe(true);
       expect(component.customArgsEnabled).toBe(true);
       expect(component.customArgs).toBe('--restored-arg');
+      expect(component.replaceArgs).toBe(true);
+      expect(component.customOutputEnabled).toBe(true);
+      expect(component.customOutput).toBe('restored/%(title)s');
+      expect(component.youtubeAuthEnabled).toBe(true);
+      expect(component.youtubeUsername).toBe('restored-user');
     });
 
     it('is available on permission alone, with no global setting to enable', async () => {
@@ -1415,6 +1426,106 @@ describe('MainComponent', () => {
       await component.loadConfig();
 
       expect(component.allowAdvancedDownload).toBe(true);
+    });
+  });
+
+  describe('queueing and following a download', () => {
+    let posts: any;
+
+    beforeEach(() => {
+      posts = (component as any).postsService;
+      posts.openSnackBar = vi.fn();
+      component.autoplay = true;
+      component.url = 'https://example.com/clip';
+    });
+
+    afterEach(() => {
+      component.ngOnDestroy();
+      vi.useRealTimers();
+    });
+
+    it('says the download failed when the server queues nothing, or cannot be reached', () => {
+      posts.downloadFile = vi.fn(() => of({ downloads: [] }));
+      component.downloadClicked();
+      expect(component.downloadingfile).toBe(false);
+      expect(posts.openSnackBar).toHaveBeenLastCalledWith('Download failed!', 'OK.');
+
+      posts.openSnackBar.mockClear();
+      posts.downloadFile = vi.fn(() => throwError(() => new Error('offline')));
+      component.downloadClicked();
+      expect(component.downloadingfile).toBe(false);
+      expect(component.current_download).toBeNull();
+      expect(posts.openSnackBar).toHaveBeenCalledWith('Download failed!', 'OK.');
+    });
+
+    it('updates a download it already follows rather than listing it twice', () => {
+      component.downloads = [{ uid: 'download-1', percent_complete: 0 } as any];
+      component.download_uids = ['download-1'];
+      component.current_download = component.downloads[0];
+      posts.downloadFile = vi.fn(() => of({ download: { uid: 'download-1', percent_complete: 40 } }));
+
+      component.downloadClicked();
+
+      expect(component.downloads).toEqual([{ uid: 'download-1', percent_complete: 40 } as any]);
+      expect(component.download_uids).toEqual(['download-1']);
+    });
+
+    it('flags an address it cannot download without asking the server', () => {
+      posts.downloadFile = vi.fn(() => of({ download: { uid: 'never' } }));
+      component.url = 'not an address';
+
+      component.downloadClicked();
+
+      expect(component.urlError).toBe(true);
+      expect(posts.downloadFile).not.toHaveBeenCalled();
+    });
+
+    it('downloads the link as it is when it names no channel search', () => {
+      const download_spy = vi.spyOn(component, 'downloadClicked').mockReturnValue(undefined);
+      component.url = 'https://example.com/clip';
+
+      component.downloadChannelSearchPlaylistClicked();
+
+      expect(download_spy).toHaveBeenCalledWith();
+    });
+
+    it('asks after the download it follows every second', async () => {
+      vi.useFakeTimers();
+      const poll_spy = vi.spyOn(component, 'getCurrentDownload').mockReturnValue(undefined);
+      await component.loadConfig();
+
+      vi.advanceTimersByTime(1000);
+      expect(poll_spy).not.toHaveBeenCalled();
+
+      component.current_download = { uid: 'download-1' } as any;
+      vi.advanceTimersByTime(2000);
+      expect(poll_spy).toHaveBeenCalledTimes(2);
+    });
+
+    it('loads its settings once the app has started, again when they change, and previews the command after edits settle', () => {
+      vi.useFakeTimers();
+      const started = new Subject<boolean>();
+      const reloaded = new Subject<boolean>();
+      posts.initialized = false;
+      posts.service_initialized = started;
+      posts.config_reloaded = reloaded;
+      const load_spy = vi.spyOn(component, 'loadConfig').mockResolvedValue(true);
+      const preview_spy = vi.spyOn(component, 'getSimulatedOutput').mockReturnValue(undefined);
+
+      component.ngOnInit();
+      expect(load_spy).not.toHaveBeenCalled();
+      started.next(true);
+      expect(load_spy).toHaveBeenCalledTimes(1);
+      reloaded.next(false);
+      reloaded.next(true);
+      expect(load_spy).toHaveBeenCalledTimes(2);
+
+      component.argsChangedSubject.next(true);
+      component.argsChangedSubject.next(true);
+      vi.advanceTimersByTime(499);
+      expect(preview_spy).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(preview_spy).toHaveBeenCalledTimes(1);
     });
   });
 });
