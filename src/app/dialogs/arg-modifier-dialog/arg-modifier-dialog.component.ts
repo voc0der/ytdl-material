@@ -133,18 +133,6 @@ export class ArgModifierDialogComponent implements OnInit, AfterViewInit {
     return this.stateCtrl.value && this.stateCtrl.value !== '' && (!this.secondArgEnabled || (this.secondArg && this.secondArg !== ''));
   }
 
-  getFirstArg() {
-    return new Promise(resolve => {
-      resolve(this.stateCtrl.value);
-    });
-  }
-
-  getValueAsync(val) {
-    return new Promise(resolve => {
-      resolve(val);
-    });
-  }
-
   getAllPossibleArgs() {
     const all_args = args;
     const arg_arrays = Object.keys(all_args).map(function(key) {

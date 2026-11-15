@@ -101,7 +101,6 @@ const QUEUE_TOUCH_DRAG_DELAY_MS = 400;
 export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
 
   playlist: Array<IMedia> = [];
-  original_playlist: string = null;
   playlist_updating = false;
 
   show_player = false;
@@ -469,7 +468,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     const currentIndex = currentUID ? this.playlist.findIndex(file_obj => file_obj.uid === currentUID) : this.currentIndex;
     this.currentIndex = currentIndex >= 0 && currentIndex < this.playlist.length ? currentIndex : 0;
     this.updateCurrentItem(this.playlist[this.currentIndex], this.currentIndex);
-    this.original_playlist = JSON.stringify(this.playlist);
     this.show_player = true;
 
     if (this.autoplay_enabled) {
@@ -967,18 +965,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     this.theater_toolbar_hide_timer = null;
   }
 
-  getFileNames(): string[] {
-    const fileNames = [];
-    for (let i = 0; i < this.playlist.length; i++) {
-      fileNames.push(this.playlist[i].title);
-    }
-    return fileNames;
-  }
-
-  decodeURI(uri: string): string {
-    return decodeURI(uri);
-  }
-
   downloadContent(): void {
     if (this.downloading) return;
 
@@ -1044,10 +1030,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   drop(event: CdkDragDrop<string[]>): void {
     moveItemInArray(this.playlist, event.previousIndex, event.currentIndex);
     this.currentIndex = this.playlist.indexOf(this.currentItem);
-  }
-
-   playlistChanged(): boolean {
-    return JSON.stringify(this.playlist) !== this.original_playlist;
   }
 
   // The short link to the file playing, which the player's right-click menu copies. Someone
@@ -1433,7 +1415,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }
     this.playlist = [this.currentItem];
     this.currentIndex = 0;
-    this.original_playlist = JSON.stringify(this.playlist);
     this.autoplay_queue_initialized = false;
   }
 
@@ -1470,7 +1451,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
 
       this.playlist = newPlaylist;
       this.updateCurrentItem(this.playlist[currentIndex], currentIndex);
-      this.original_playlist = JSON.stringify(this.playlist);
       this.autoplay_queue_initialized = true;
 
       if (this.pending_autoplay_advance) {
@@ -1784,10 +1764,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     }, 150);
   }
 
-  isChapterActive(chapter: IChapter): boolean {
-    return this.currentChapters[this.activeChapterIndex] === chapter;
-  }
-
   jumpToChapter(chapter: IChapter): void {
     if (!this.media) return;
     const target_time = Math.floor(chapter.start_time);
@@ -1815,10 +1791,6 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     const current_time = this.media?.currentTime ?? 0;
     const active_chapter = this.currentChapters.find(chapter => current_time >= chapter.start_time && current_time < chapter.end_time);
     return active_chapter ?? this.currentChapters[0];
-  }
-
-  getCurrentChapterLabel(): string {
-    return this.currentChapterLabel;
   }
 
   formatChapterTimestamp(total_seconds: number): string {
