@@ -37,6 +37,8 @@ const REQUESTS: ExpectedRequest[] = [
   {call: 'getFileFormats', send: s => s.getFileFormats('https://example.com/a'), method: 'POST', url: 'getFileFormats', body: {url: 'https://example.com/a'}},
   {call: 'searchVideos', send: s => s.searchVideos('cats'), method: 'POST', url: 'searchVideos', body: {query: 'cats'}},
   {call: 'killAllDownloads', send: s => s.killAllDownloads(), method: 'POST', url: 'killAllDownloads', body: {}},
+  {call: 'downloadFiles', send: s => s.downloadFiles(['https://example.com/a', 'https://example.com/b'], FileType.AUDIO), method: 'POST', url: 'downloadFiles',
+    body: {urls: ['https://example.com/a', 'https://example.com/b'], type: 'audio'}},
 
   // The library
   {call: 'getMp3s', send: s => s.getMp3s(), method: 'GET', url: 'getMp3s'},
@@ -76,6 +78,7 @@ const REQUESTS: ExpectedRequest[] = [
   // Playlists and categories
   {call: 'createPlaylist', send: s => s.createPlaylist('Mix', ['file-1'], null), method: 'POST', url: 'createPlaylist', body: {playlistName: 'Mix', uids: ['file-1'], thumbnailURL: null}},
   {call: 'getPlaylist', send: s => s.getPlaylist('playlist-1', null, true), method: 'POST', url: 'getPlaylist', body: {playlist_id: 'playlist-1', include_file_metadata: true, uuid: null}},
+  {call: 'resolvePlayerLink', send: s => s.resolvePlayerLink('a b/c'), method: 'GET', url: 'resolvePlayerLink/a%20b%2Fc'},
   {call: 'getPlaylists', send: s => s.getPlaylists(true), method: 'POST', url: 'getPlaylists', body: {include_categories: true}},
   {call: 'updatePlaylist', send: s => s.updatePlaylist({id: 'playlist-1'} as any), method: 'POST', url: 'updatePlaylist', body: {playlist: {id: 'playlist-1'}}},
   {call: 'removePlaylist', send: s => s.removePlaylist('playlist-1', true), method: 'POST', url: 'deletePlaylist', body: {playlist_id: 'playlist-1', delete_files: true}},
@@ -148,6 +151,7 @@ const REQUESTS: ExpectedRequest[] = [
   {call: 'createAdminAccount', send: s => s.createAdminAccount('secret'), method: 'POST', url: 'auth/register', body: {userid: 'admin', username: 'admin', password: 'secret'}},
   {call: 'adminExists', send: s => s.adminExists(), method: 'POST', url: 'auth/adminExists', body: {}},
   {call: 'getOIDCStatus', send: s => s.getOIDCStatus(), method: 'GET', url: 'auth/oidc/status'},
+  {call: 'getHeaderAuthStatus', send: s => s.getHeaderAuthStatus(), method: 'GET', url: 'auth/header/status'},
   {call: 'changeUser', send: s => s.changeUser({uid: 'bob', name: 'Robert'}), method: 'POST', url: 'updateUser', body: {change_object: {uid: 'bob', name: 'Robert'}}},
   {call: 'deleteUser', send: s => s.deleteUser('bob'), method: 'POST', url: 'deleteUser', body: {uid: 'bob'}},
   {call: 'changeUserPassword', send: s => s.changeUserPassword('bob', 'new', 'old'), method: 'POST', url: 'auth/changePassword',
@@ -223,6 +227,37 @@ describe('PostsService requests', () => {
       localStorage.clear();
       vi.unstubAllGlobals();
     }
+  });
+
+  it('starts with the layout, card size and language it was left with', () => {
+    localStorage.setItem('sidepanel_mode', 'side');
+    localStorage.setItem('card_size', 'large');
+    localStorage.setItem('locale', 'de');
+    start();
+
+    expect(service.sidepanel_mode).toBe('side');
+    expect(service.card_size).toBe('large');
+    expect(service.locale).toEqual(expect.objectContaining({name: 'German'}));
+  });
+
+  it('finds a subscription it has loaded by its id', () => {
+    start();
+    service.subscriptions = [{id: 'sub-1', name: 'One'}, {id: 'sub-2', name: 'Two'}] as any;
+
+    expect(service.getSubscriptionByID('sub-2')?.name).toBe('Two');
+    expect(service.getSubscriptionByID('sub-3')).toBeNull();
+  });
+
+  it('puts what is playing in front of the page title, and falls back to the app\'s own name', () => {
+    start();
+    const title = TestBed.inject(Title);
+
+    service.setPageTitle('  Moon landing ');
+    expect(title.setTitle).toHaveBeenLastCalledWith('Moon landing - Media library');
+
+    service.config = {Extra: {title_top: ''}} as any;
+    service.setPageTitle();
+    expect(title.setTitle).toHaveBeenLastCalledWith('ytdl-material');
   });
 
   it.each(REQUESTS)('$call sends $method /api/$url', async ({send, method, url, body, blob}) => {

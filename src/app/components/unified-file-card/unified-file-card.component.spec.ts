@@ -4,6 +4,7 @@ import { By } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { MatMenuTrigger } from '@angular/material/menu';
 import { OverlayContainer } from '@angular/cdk/overlay';
+import { of } from 'rxjs';
 
 import { getListCardHeight, UnifiedFileCardComponent } from './unified-file-card.component';
 import { configureTestBed } from '../../../testing/test-bed';
@@ -308,6 +309,87 @@ describe('UnifiedFileCardComponent', () => {
     } as any;
 
     expect(component.generateStreamURL()).toBe('/api/stream?uid=uid%20with%20spaces&type=video&t=,10');
+  });
+
+  describe('its menus', () => {
+    // The last panel opened, since a closed one can linger while it animates away.
+    function openActionMenu(): HTMLButtonElement[] {
+      fixture.debugElement.query(By.css('button.menuButton')).injector.get(MatMenuTrigger).openMenu();
+      fixture.detectChanges();
+      const panels = TestBed.inject(OverlayContainer).getContainerElement().querySelectorAll('.mat-mdc-menu-panel');
+      return Array.from(panels[panels.length - 1].querySelectorAll<HTMLButtonElement>('button.mat-mdc-menu-item'));
+    }
+    const choose = (label: string) => {
+      const item = openActionMenu().find(button => button.textContent.trim().endsWith(label));
+      expect(item).toBeDefined();
+      item.click();
+      fixture.detectChanges();
+    };
+
+    it('sends each action on a subscription\'s file up with that file', () => {
+      const file = {uid: 'f1', title: 'A video', isAudio: false, duration: 3725, sub_id: 'sub-1'};
+      component.index = 3;
+      setUpFileCard(file);
+      const emitted: unknown[] = [];
+      component.toggleFavorite.subscribe(value => emitted.push(['favorite', value]));
+      component.goToSubscription.subscribe(value => emitted.push(['subscription', value]));
+      component.deleteFile.subscribe(value => emitted.push(['delete', value]));
+
+      choose('Favorite');
+      choose('Go to subscription');
+      choose('Delete and redownload');
+      choose('Delete and don\'t download again');
+
+      expect(emitted).toEqual([
+        ['favorite', file],
+        ['subscription', file],
+        ['delete', {file, index: 3, blacklistMode: false}],
+        ['delete', {file, index: 3, blacklistMode: true}]
+      ]);
+      expect(component.file_length).toBe('1:02:05');
+    });
+
+    it('adds a file to a playlist, and edits a playlist', () => {
+      const file = {uid: 'f1', title: 'A video', isAudio: false, duration: 5};
+      setUpFileCard(file);
+      const emitted: unknown[] = [];
+      component.addFileToPlaylist.subscribe(value => emitted.push(['add', value]));
+      component.editPlaylist.subscribe(value => emitted.push(['edit', value]));
+      component.emitAddFileToPlaylist('p2');
+
+      const playlist = {id: 'p1', name: 'Alpha', uids: ['f1']};
+      component.index = 1;
+      component.is_playlist = true;
+      component.file_obj = playlist as any;
+      fixture.detectChanges();
+      choose('Edit');
+
+      expect(emitted).toEqual([['add', {file, playlist_id: 'p2'}], ['edit', {playlist, index: 1}]]);
+    });
+
+    it('opens its own menu where it is right-clicked', () => {
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, duration: 5});
+      const event = new MouseEvent('contextmenu', {clientX: 40, clientY: 60, bubbles: true, cancelable: true});
+
+      fixture.nativeElement.firstElementChild.dispatchEvent(event);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(component.contextMenuPosition).toEqual({x: '40px', y: '60px'});
+      const panels = TestBed.inject(OverlayContainer).getContainerElement().querySelectorAll('.mat-mdc-menu-panel');
+      expect(Array.from(panels[panels.length - 1].querySelectorAll('button.mat-mdc-menu-item')).map(button => button.textContent.trim()))
+        .toEqual(['open_in_browserOpen file', 'open_in_newOpen file in new tab']);
+    });
+
+    it('shows what the info dialog saved once it closes', () => {
+      const edited = {uid: 'f1', title: 'Renamed', isAudio: false, duration: 5};
+      (TestBed.inject(MatDialog) as any).open = vi.fn().mockReturnValue({afterClosed: () => of(true), componentInstance: {file: edited}});
+      setUpFileCard({uid: 'f1', title: 'A video', isAudio: false, duration: 5});
+
+      component.openFileInfoDialog();
+
+      expect(component.file_obj).toBe(edited);
+    });
   });
 
   describe('in someone else\'s library', () => {
