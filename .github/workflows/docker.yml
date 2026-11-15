@@ -108,6 +108,9 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+          # The first build each day fetches Ubuntu's updates, Node, npm, ffmpeg and the rest
+          # again (see REFRESH_DATE in the Dockerfile); later builds that day reuse them.
+          build-args: REFRESH_DATE=${{ steps.date.outputs.date }}
           cache-from: type=gha,scope=docker-main
           cache-to: type=gha,mode=max,scope=docker-main
           push: true
@@ -122,6 +125,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           no-cache: true
+          # So later builds that day can reuse this one's layers.
+          build-args: REFRESH_DATE=${{ steps.date.outputs.date }}
           cache-to: type=gha,mode=max,scope=docker-main
           push: true
           tags: ${{ steps.docker-meta.outputs.tags }}
