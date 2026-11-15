@@ -175,11 +175,6 @@
         <target state="translated">Anmeldung fehlgeschlagen, unbekannter Fehler.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Neue Uploads erneut herunterladen</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Ja</target>
@@ -4727,11 +4722,6 @@
         <source>No playlists yet</source>
         <target state="translated">Noch keine Wiedergabelisten</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Manchmal werden neue Videos heruntergeladen, bevor sie vollständig verarbeitet sind. Mit dieser Einstellung wird am Folgetag nach einer Version in höherer Qualität gesucht.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

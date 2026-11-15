@@ -111,7 +111,6 @@ JSON section: <code>YtdlMaterial.Subscriptions</code>
 | --- | --- | --- |
 | <code>ytdl_allow_subscriptions</code> | <code>allow_subscriptions</code> | <code>true</code> |
 | <code>ytdl_subscriptions_base_path</code> | <code>subscriptions_base_path</code> | <code>"subscriptions/"</code> |
-| <code>ytdl_subscriptions_redownload_fresh_uploads</code> | <code>redownload_fresh_uploads</code> | <code>false</code> |
 
 ## Users
 

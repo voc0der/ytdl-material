@@ -1804,11 +1804,6 @@
         <target state="translated">लॉगिन विफल, अज्ञात त्रुटि।</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">नए अपलोड फिर से डाउनलोड करें</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="3703928363836298960" datatype="html">
         <source>Leave blank to send an empty body. Apprise receives it as Markdown.</source>
         <target state="translated">खाली बॉडी भेजने के लिए खाली छोड़ें। Apprise इसे Markdown के रूप में प्राप्त करता है।</target>
@@ -3576,11 +3571,6 @@
         <source>No playlists yet</source>
         <target state="translated">अभी कोई प्लेलिस्ट नहीं</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">कभी-कभी नए वीडियो पूरी तरह प्रोसेस होने से पहले डाउनलोड हो जाते हैं। इस सेटिंग से अगले दिन नए वीडियो का बेहतर गुणवत्ता वाला संस्करण जाँचा जाएगा।</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

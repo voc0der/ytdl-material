@@ -210,11 +210,6 @@
         <target state="translated">Ainda sem listas de reprodução</target>
         <note priority="1" from="description">No playlists title</note>
       </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Por vezes, os vídeos novos são transferidos antes de estarem totalmente processados. Com esta definição, no dia seguinte verifica-se se há uma versão de melhor qualidade.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
-      </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>
         <target state="translated">Editar</target>
@@ -340,11 +335,6 @@
         <source>Login failed, unknown error.</source>
         <target state="translated">Falha ao iniciar sessão, erro desconhecido.</target>
         <note priority="1" from="description">Login failed unknown error</note>
-      </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Voltar a transferir carregamentos recentes</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
       </trans-unit>
       <trans-unit id="7840375760456214518" datatype="html">
         <source>Failed to disable sharing.</source>

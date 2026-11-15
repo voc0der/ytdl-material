@@ -385,18 +385,20 @@ export class MainComponent implements OnInit {
   }
 
   // download helpers
-  downloadHelper(container: DatabaseFile | Playlist, type: string, is_playlist = false, force_view = false, navigate_mode = false): void {
+  // A finished download refers to what it made by id alone: {uid} for a file, {id} for a
+  // playlist. Neither carries a name, so the download's title names the saved copy.
+  downloadHelper(container: DatabaseFile | Playlist, type: string, is_playlist = false, title = ''): void {
     this.downloadingfile = false;
-    if (!this.autoplay && !this.downloadOnlyMode && !navigate_mode) {
+    if (!this.autoplay && !this.downloadOnlyMode) {
       // do nothing
       this.reloadMediaLibrary(is_playlist);
     } else {
       // if download only mode, just download the file. no redirect
-      if (force_view === false && this.downloadOnlyMode && !this.iOS) {
+      if (this.downloadOnlyMode && !this.iOS) {
         if (is_playlist) {
-          this.downloadPlaylist(container['uid']);
+          this.downloadPlaylist(container['id'], title);
         } else {
-          this.downloadFileFromServer(container as DatabaseFile, type);
+          this.downloadFileFromServer(container['uid'], title, type);
         }
         this.reloadMediaLibrary(is_playlist);
       } else {
@@ -815,25 +817,24 @@ export class MainComponent implements OnInit {
     }
   }
 
-  downloadFileFromServer(file: DatabaseFile, type: string): void {
+  downloadFileFromServer(file_uid: string, name: string, type: string): void {
     const ext = type === 'audio' ? 'mp3' : 'mp4'
-    this.postsService.downloadFileFromServer(file.uid).subscribe(res => {
+    this.postsService.downloadFileFromServer(file_uid).subscribe(res => {
       const blob: Blob = res;
-      saveBlob(blob, decodeURIComponent(file.id) + `.${ext}`);
+      saveBlob(blob, `${name || file_uid}.${ext}`);
 
       if (!this.fileManagerEnabled) {
         // tell server to delete the file once downloaded
-        this.postsService.deleteFile(file.uid).subscribe(() => {});
+        this.postsService.deleteFile(file_uid).subscribe(() => {});
       }
     });
   }
 
-  downloadPlaylist(playlist: Playlist): void {
-    this.postsService.downloadPlaylistFromServer(playlist.id).subscribe(res => {
+  downloadPlaylist(playlist_id: string, name: string): void {
+    this.postsService.downloadPlaylistFromServer(playlist_id).subscribe(res => {
       const blob: Blob = res;
-      saveBlob(blob, playlist.name + '.zip');
+      saveBlob(blob, `${name || playlist_id}.zip`);
     });
-
   }
 
   clearInput(): void {
@@ -1760,7 +1761,7 @@ export class MainComponent implements OnInit {
           }
 
           if (container && type) {
-            this.downloadHelper(container, type, is_playlist, false);
+            this.downloadHelper(container, type, is_playlist, completed_download['title']);
           } else if (!this.current_download) {
             this.reloadMediaLibrary(is_playlist);
           }

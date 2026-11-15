@@ -344,11 +344,6 @@
         <target state="translated">Gagal masuk, kesalahan tidak diketahui.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Unduh ulang unggahan baru</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="640194966237152177" datatype="html">
         <source>Shadow (read only) · <x id="PH" equiv-text="target"/></source>
         <target state="translated">Bayangan (hanya baca) · <x id="PH" equiv-text="target"/></target>
@@ -4801,11 +4796,6 @@
         <source>No playlists yet</source>
         <target state="translated">Belum ada daftar putar</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Terkadang video baru diunduh sebelum selesai diproses. Dengan setelan ini, video baru akan diperiksa untuk versi berkualitas lebih tinggi keesokan harinya.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

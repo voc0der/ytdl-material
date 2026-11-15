@@ -188,11 +188,6 @@
         <target state="translated">No s&apos;ha pogut iniciar la sessió, error desconegut.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Torna a baixar les pujades recents</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="3703928363836298960" datatype="html">
         <source>Leave blank to send an empty body. Apprise receives it as Markdown.</source>
         <target state="translated">Deixa-ho en blanc per enviar un cos buit. Apprise el rep com a Markdown.</target>
@@ -1700,11 +1695,6 @@
         <source>No playlists yet</source>
         <target state="translated">Encara no hi ha llistes de reproducció</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">De vegades els vídeos nous es baixen abans d&apos;estar del tot processats. Amb aquesta opció, l&apos;endemà es comprovarà si hi ha una versió de més qualitat.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

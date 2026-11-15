@@ -6,6 +6,23 @@ describe('Server error responses', function() {
     let harness;
     afterEach(function() { if (harness) harness.close(); });
 
+    // It logged that registration failed, then registered the account anyway.
+    it('refuses a registration without a user id or name', async function() {
+        const registered = [];
+        harness = createRouteHarness({ config: { ytdl_allow_registration: true }, dependencies: {
+            './authentication/auth': { ...require('../authentication/auth'), initialize() {},
+                registerUser: async (...args) => { registered.push(args); return { uid: args[0], name: args[1] }; } }
+        }});
+        for (const body of [{ userid: 'eve', password: 'pw' }, { username: 'eve', password: 'pw' }]) {
+            assert.strictEqual((await harness.request('post', '/api/auth/register', { body })).res.statusCode, 409);
+        }
+        assert.deepStrictEqual(registered, []);
+        assert.deepStrictEqual(harness.messages.filter(([level]) => level === 'error').map(([, message]) => message), [
+            'Registration failed for user eve. Username or userid is invalid.',
+            'Registration failed for user undefined. Username or userid is invalid.'
+        ]);
+    });
+
     it('accepts URLs only from the configured webhook chat and an existing requested owner', async function() {
         const downloads = [];
         const notifications = [];

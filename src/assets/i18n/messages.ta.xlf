@@ -1804,11 +1804,6 @@
         <target state="translated">உள்நுழைவு தோல்வி, தெரியாத பிழை.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">புதிய பதிவேற்றங்களை மீண்டும் பதிவிறக்கு</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="3703928363836298960" datatype="html">
         <source>Leave blank to send an empty body. Apprise receives it as Markdown.</source>
         <target state="translated">வெற்று உள்ளடக்கத்தை அனுப்ப காலியாக விடவும். Apprise அதை Markdown ஆகப் பெறும்.</target>
@@ -3576,11 +3571,6 @@
         <source>No playlists yet</source>
         <target state="translated">இன்னும் பிளேலிஸ்ட்கள் இல்லை</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">சில நேரங்களில் புதிய வீடியோக்கள் முழுமையாகச் செயலாக்கப்படும் முன் பதிவிறக்கப்படுகின்றன. இந்த அமைப்பின் மூலம் அடுத்த நாள் உயர் தரப் பதிப்பு உள்ளதா எனச் சரிபார்க்கப்படும்.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

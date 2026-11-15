@@ -391,11 +391,6 @@
         <target state="translated">Accesso non riuscito, errore sconosciuto.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Riscarica i caricamenti recenti</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="2106110452479146311" datatype="html">
         <source>Failed to run task!</source>
         <target state="translated">Errore nell&apos;esecuzione dell&apos;attività!</target>
@@ -4289,11 +4284,6 @@
         <source>No playlists yet</source>
         <target state="translated">Ancora nessuna playlist</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">A volte i nuovi video vengono scaricati prima di essere del tutto elaborati. Con questa impostazione, il giorno dopo verrà cercata una versione di qualità superiore.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

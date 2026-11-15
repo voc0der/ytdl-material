@@ -1487,11 +1487,6 @@
         <target state="translated">Η σύνδεση απέτυχε, άγνωστο σφάλμα.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Εκ νέου λήψη πρόσφατων αναρτήσεων</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="3703928363836298960" datatype="html">
         <source>Leave blank to send an empty body. Apprise receives it as Markdown.</source>
         <target state="translated">Αφήστε το κενό για να σταλεί κενό σώμα. Το Apprise το λαμβάνει ως Markdown.</target>
@@ -3037,11 +3032,6 @@
         <source>No playlists yet</source>
         <target state="translated">Δεν υπάρχουν ακόμη λίστες αναπαραγωγής</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Μερικές φορές τα νέα βίντεο λαμβάνονται πριν ολοκληρωθεί η επεξεργασία τους. Με αυτή τη ρύθμιση, τα νέα βίντεο ελέγχονται την επόμενη ημέρα για έκδοση υψηλότερης ποιότητας.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

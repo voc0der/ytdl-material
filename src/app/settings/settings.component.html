@@ -112,13 +112,6 @@
                     <input [disabled]="!new_config['Subscriptions']['allow_subscriptions']" [(ngModel)]="new_config['Subscriptions']['subscriptions_base_path']">
                   </span>
                 </label>
-                <div class="settings-row">
-                  <span class="settings-row-text">
-                    <span class="settings-row-title" id="settings-redownload-fresh" i18n="Redownload fresh uploads">Redownload fresh uploads</span>
-                    <span class="settings-row-hint" i18n="Redownload fresh uploads tooltip">Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</span>
-                  </span>
-                  <mat-slide-toggle [(ngModel)]="new_config['Subscriptions']['redownload_fresh_uploads']" aria-labelledby="settings-redownload-fresh"></mat-slide-toggle>
-                </div>
               </div>
             </div>
           </section>

@@ -318,7 +318,9 @@ const runYoutubeDLProcess = async (url, args, youtubedl_fork = config_api.getCon
     if (!binary_exists) {
         const err = `Could not find path for ${youtubedl_fork} at ${youtubedl_path}`;
         logger.error(err);
-        return;
+        // Answered like a run that failed, so the download says why rather than failing on
+        // the missing result.
+        return {child_process: null, callback: Promise.resolve({parsed_output: null, err: new Error(err)})};
     }
     const runtime_args = ensureJavascriptRuntimeArgs(args, youtubedl_fork);
     logger.debug(`Spawning ${youtubedl_fork} process with ${runtime_args.length + 1} arguments`);
