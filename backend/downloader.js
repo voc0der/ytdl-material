@@ -101,10 +101,8 @@ function truncateDownloadError(error_message = '') {
             + normalized_message.slice(-trailing_length);
     }
 
-    normalized_message = normalized_message.replace(ANSI_ESCAPE_SEQUENCE_REGEX, '').trim();
-    if (normalized_message.length <= MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH) return normalized_message;
-
-    return normalized_message.slice(0, MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH);
+    // Stripping escape codes only shortens it, so it is still within the limit.
+    return normalized_message.replace(ANSI_ESCAPE_SEQUENCE_REGEX, '').trim();
 }
 exports.truncateDownloadError = truncateDownloadError;
 exports.MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH = MAX_PERSISTED_DOWNLOAD_ERROR_LENGTH;
