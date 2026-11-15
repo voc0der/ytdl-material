@@ -296,4 +296,46 @@ describe('VideoInfoDialogComponent', () => {
     expect(element.querySelector('.dialog-actions').textContent).not.toContain('Edit details');
     expect(element.querySelector('.dialog-subtitle').textContent).toContain('shared with you');
   });
+
+  it('keeps an edited date and category in the form it saves them in, and only then offers to save', () => {
+    expect(component.metadataChanged()).toBe(false);
+
+    component.uploadDateChanged({value: new Date(2020, 1, 3)});
+    component.categoryChanged({value: {uid: 'music', name: 'Music', rules: []}});
+    expect(component.new_file.upload_date).toBe('2020-02-03');
+    expect(component.new_file.category).toEqual({uid: 'music', name: 'Music'});
+    expect(component.metadataChanged()).toBe(true);
+
+    // The empty option clears it.
+    component.categoryChanged({value: {}});
+    expect(component.new_file.category).toBeNull();
+  });
+
+  it('matches a category by its uid, and none only with none', () => {
+    const music = {uid: 'music', name: 'Music'} as any;
+    expect(component.categoryComparisonFunction(music, {uid: 'music', name: 'Renamed'} as any)).toBe(true);
+    expect(component.categoryComparisonFunction(music, {uid: 'film'} as any)).toBe(false);
+    expect(component.categoryComparisonFunction(null, null)).toBe(true);
+    expect(component.categoryComparisonFunction(music, null)).toBe(false);
+  });
+
+  it('asks the player to snip once the dialog closes', () => {
+    component.requestSnip();
+    expect(component.snip_requested).toBe(true);
+  });
+
+  it('stays usable when the file cannot be read again, or a favorite cannot be saved', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    postsServiceStub.getFile.mockReturnValue(throwError(() => new Error('offline')));
+    postsServiceStub.updateFile.mockReturnValue(throwError(() => new Error('offline')));
+
+    component.getFile();
+    expect(component.retrieving_file).toBe(false);
+    component.toggleFavorite();
+
+    expect(component.retrieving_file).toBe(false);
+    expect(component.file.favorite).toBe(false);
+    expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Could not update favorite. Please try again.');
+    vi.restoreAllMocks();
+  });
 });
