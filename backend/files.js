@@ -1133,10 +1133,6 @@ exports.removeNewestDuplicates = async (duplicate_key, user_uid = null) => {
     return exports.removeDuplicates(duplicate_key, 'newest', user_uid);
 }
 
-exports.removeOldestDuplicates = async (duplicate_key, user_uid = null) => {
-    return exports.removeDuplicates(duplicate_key, 'oldest', user_uid);
-}
-
 exports.findExistingDuplicateByInfo = async (info_obj = null, type = 'video', user_uid = null) => {
     const source_metadata = extractSourceMetadataFromInfo(info_obj, type);
     const scoped_filter = shouldRestrictToUser(user_uid) ? {user_uid: user_uid} : {};
