@@ -371,8 +371,7 @@ const DEFAULT_CONFIG = {
       },
       "Subscriptions": {
         "allow_subscriptions": true,
-        "subscriptions_base_path": "subscriptions/",
-        "redownload_fresh_uploads": false
+        "subscriptions_base_path": "subscriptions/"
       },
       "Users": {
         "base_path": "users/",

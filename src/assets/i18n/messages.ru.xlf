@@ -262,11 +262,6 @@
         <target state="translated">Не удалось войти, неизвестная ошибка.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Перекачивать свежие видео</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="250943880465318564" datatype="html">
         <source>Makes the cover art of the file that plays first again, which the playlist is shown with: the art published with the original where it can, and a frame from the video otherwise</source>
         <target state="translated">Заново создаёт обложку файла, который воспроизводится первым и по которому показывается плейлист: по возможности изображение, опубликованное с оригиналом, иначе кадр из видео</target>
@@ -3217,11 +3212,6 @@
         <source>No playlists yet</source>
         <target state="translated">Плейлистов пока нет</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Иногда новые видео скачиваются до полной обработки. С этим параметром на следующий день будет проверяться, нет ли версии в лучшем качестве.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

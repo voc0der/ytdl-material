@@ -127,11 +127,6 @@
         <target state="translated">登录失败，未知错误。</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">重新下载新上传的内容</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="3703928363836298960" datatype="html">
         <source>Leave blank to send an empty body. Apprise receives it as Markdown.</source>
         <target state="translated">留空则发送空正文。Apprise 会将其作为 Markdown 接收。</target>
@@ -5000,11 +4995,6 @@
         <source>No playlists yet</source>
         <target state="translated">还没有播放列表</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">有时新视频会在完全处理好之前就被下载。启用此设置后，第二天会检查新视频是否有更高画质的版本。</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

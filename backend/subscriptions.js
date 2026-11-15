@@ -892,11 +892,6 @@ async function finalizeSubscriptionRefreshAsCancelled(sub_id, tracker) {
 async function ensureSubscriptionRefreshQueueContext(sub, user_uid, refresh_tracker = null, queue_context = null) {
     if (queue_context) return queue_context;
 
-    if (config_api.getConfigItem('ytdl_subscriptions_redownload_fresh_uploads')) {
-        await setFreshUploads(sub, user_uid);
-        checkVideosForFreshUploads(sub, user_uid);
-    }
-
     const created_queue_context = {
         download_context: await createSubscriptionDownloadContext(sub),
         base_download_options: {
@@ -1802,7 +1797,7 @@ exports.generateOptionsForSubscriptionDownload = (sub, user_uid) => {
     return base_download_options;
 }
 
-async function generateArgsForSubscription(sub, user_uid, redownload = false, desired_path = null) {
+async function generateArgsForSubscription(sub, user_uid) {
     // get basePath
     let basePath = getSubscriptionsBasePathForSub(sub, user_uid);
 
@@ -1817,13 +1812,11 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     // The output template is replayed on every check like the arguments, so it is held to
     // the check a download's gets.
     const custom_output = sub.custom_output ? utils.sanitizeCustomOutput(sub.custom_output, appendedBasePath) : null;
-    if (desired_path) {
-        fullOutput = `${desired_path}.%(ext)s`;
-    } else if (custom_output) {
+    if (custom_output) {
         fullOutput = `${appendedBasePath}/${custom_output}.%(ext)s`;
     }
 
-    let downloadConfig = ['--dump-json', '-o', fullOutput, !redownload ? '-ciw' : '-ci', '--write-info-json', '--print-json'];
+    let downloadConfig = ['--dump-json', '-o', fullOutput, '-ciw', '--write-info-json', '--print-json'];
 
     let qualityPath;
     if (sub.type && sub.type === 'audio') {
@@ -1854,7 +1847,7 @@ async function generateArgsForSubscription(sub, user_uid, redownload = false, de
     const default_downloader = downloader_api.getPreferredDownloaderFork({});
     downloadConfig = downloader_api.appendFilenameSanitizationArgs(downloadConfig, default_downloader);
 
-    if (sub.timerange && !redownload) {
+    if (sub.timerange) {
         downloadConfig.push('--dateafter', sub.timerange);
     }
 
@@ -2973,54 +2966,6 @@ exports.writeSubscriptionMetadata = (sub) => {
         logger.warn(`Skipping subscription metadata write for subscription '${sub && sub.id ? sub.id : 'unknown'}': ${err.message}`);
         return false;
     }
-}
-
-async function setFreshUploads(sub) {
-    const sub_files = await db_api.getRecords('files', {sub_id: sub.id});
-    if (!sub_files) return;
-    const current_date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    sub_files.forEach(async file => {
-        if (current_date === file['upload_date'].replace(/-/g, '')) {
-            // set upload as fresh
-            const file_uid = file['uid'];
-            await db_api.setVideoProperty(file_uid, {'fresh_upload': true});
-        }
-    });
-}
-
-async function checkVideosForFreshUploads(sub, user_uid) {
-    const sub_files = await db_api.getRecords('files', {sub_id: sub.id});
-    const current_date = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    sub_files.forEach(async file => {
-        if (file['fresh_upload'] && current_date > file['upload_date'].replace(/-/g, '')) {
-            await checkVideoIfBetterExists(file, sub, user_uid)
-        }
-    });
-}
-
-async function checkVideoIfBetterExists(file_obj, sub, user_uid) {
-    const new_path = file_obj['path'].substring(0, file_obj['path'].length - 4);
-    const downloadConfig = await generateArgsForSubscription(sub, user_uid, true, new_path);
-    logger.verbose(`Checking if a better version of the fresh upload ${file_obj['id']} exists.`);
-    // simulate a download to verify that a better version exists
-
-    const info = await downloader_api.getVideoInfoByURL(file_obj['url'], downloadConfig);
-    if (info && info.length === 1) {
-        const metric_to_compare = sub.type === 'audio' ? 'abr' : 'height';
-        if (info[metric_to_compare] > file_obj[metric_to_compare]) {
-            // download new video as the simulated one is better
-            const downloader_fork = downloader_api.getPreferredDownloaderFork({});
-            let {callback} = await youtubedl_api.runYoutubeDL(sub.url, downloadConfig, null, downloader_fork);
-            const {parsed_output, err} = await callback;
-            if (err) {
-                logger.verbose(`Failed to download better version of video ${file_obj['id']}`);
-            } else if (parsed_output) {
-                logger.verbose(`Successfully upgraded video ${file_obj['id']}'s ${metric_to_compare} from ${file_obj[metric_to_compare]} to ${info[metric_to_compare]}`);
-                await db_api.setVideoProperty(file_obj['uid'], {[metric_to_compare]: info[metric_to_compare]});
-            }
-        } 
-    }
-    await db_api.setVideoProperty(file_obj['uid'], {'fresh_upload': false});
 }
 
 // helper functions

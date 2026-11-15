@@ -168,7 +168,7 @@ async function savingAndCancelling(page) {
 
     // One of each kind of control, across two tabs, then one Save for all of it.
     const before = await storedConfig();
-    await row(page, 'Redownload fresh uploads').getByRole('switch').click();
+    await row(page, 'Allow theme change').getByRole('switch').click();
     await page.getByRole('button', { name: /^Theme/ }).click();
     await page.getByRole('menuitemradio', { name: 'Default', exact: true }).click();
 
@@ -188,11 +188,13 @@ async function savingAndCancelling(page) {
     check('the text field was stored', after['Extra']['title_top'] === 'Harness title', after['Extra']['title_top']);
     check('the picker was stored', after['Themes']['default_theme'] === 'default', String(after['Themes']['default_theme']));
     check('the toggle was stored',
-        after['Subscriptions']['redownload_fresh_uploads'] !== before['Subscriptions']['redownload_fresh_uploads'],
-        String(after['Subscriptions']['redownload_fresh_uploads']));
+        after['Themes']['allow_theme_change'] !== before['Themes']['allow_theme_change'],
+        String(after['Themes']['allow_theme_change']));
 
-    // Put the title back, so the rest of the run looks like a stock install.
+    // Put the title and the toggle back, so the rest of the run looks like a stock install.
     await page.getByLabel('Top title').fill(before['Extra']['title_top'] ?? 'ytdl-material');
+    await page.getByRole('tab', { name: 'Main', exact: true }).click();
+    await row(page, 'Allow theme change').getByRole('switch').click();
     await savebar.getByRole('button', { name: 'Save' }).click();
     await savebar.waitFor({ state: 'detached', timeout: 15_000 });
     check('and a second save writes the change back', true);

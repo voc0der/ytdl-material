@@ -439,11 +439,6 @@
         <target state="translated">Сè уште нема плејлисти</target>
         <note priority="1" from="description">No playlists title</note>
       </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Понекогаш новите видеа се преземаат пред целосно да се обработат. Со оваа поставка новите видеа ќе се проверуваат за верзија со повисок квалитет следниот ден.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
-      </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>
         <target state="translated">Уреди</target>
@@ -1678,11 +1673,6 @@
         <source>Login failed, unknown error.</source>
         <target state="translated">Најавата не успеа, непозната грешка.</target>
         <note priority="1" from="description">Login failed unknown error</note>
-      </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Повторно преземи свежи прикачувања</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
       </trans-unit>
       <trans-unit id="7840375760456214518" datatype="html">
         <source>Failed to disable sharing.</source>

@@ -411,11 +411,6 @@
         <target state="translated">Inloggningen misslyckades, okänt fel.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Ladda ned nya uppladdningar igen</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="7840375760456214518" datatype="html">
         <source>Failed to disable sharing.</source>
         <target state="translated">Det gick inte att stänga av delning.</target>
@@ -3935,11 +3930,6 @@
         <source>No playlists yet</source>
         <target state="translated">Inga spellistor ännu</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Ibland laddas nya videor ned innan de är färdigbehandlade. Med den här inställningen kontrolleras nya videor dagen efter efter en version med högre kvalitet.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

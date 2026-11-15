@@ -439,11 +439,6 @@
         <target state="translated">ఇంకా ప్లేలిస్ట్‌లు లేవు</target>
         <note priority="1" from="description">No playlists title</note>
       </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">కొన్నిసార్లు కొత్త వీడియోలు పూర్తిగా ప్రాసెస్ కాకముందే డౌన్‌లోడ్ అవుతాయి. ఈ సెట్టింగ్ వల్ల కొత్త వీడియోలకు మరుసటి రోజు అధిక నాణ్యత వెర్షన్ కోసం తనిఖీ జరుగుతుంది.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
-      </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>
         <target state="translated">సవరించు</target>
@@ -4559,11 +4554,6 @@
         <source>Login failed, unknown error.</source>
         <target state="translated">లాగిన్ విఫలమైంది, తెలియని లోపం.</target>
         <note priority="1" from="description">Login failed unknown error</note>
-      </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">కొత్త అప్‌లోడ్‌లను మళ్లీ డౌన్‌లోడ్ చేయి</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
       </trans-unit>
       <trans-unit id="7840375760456214518" datatype="html">
         <source>Failed to disable sharing.</source>

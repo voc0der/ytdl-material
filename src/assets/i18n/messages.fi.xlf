@@ -4346,11 +4346,6 @@
         <target state="translated">Ei vielä soittolistoja</target>
         <note priority="1" from="description">No playlists title</note>
       </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Joskus uudet videot ladataan ennen kuin niiden käsittely on valmis. Tällä asetuksella uusista videoista tarkistetaan seuraavana päivänä parempilaatuinen versio.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
-      </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>
         <target state="translated">Muokkaa</target>
@@ -4517,11 +4512,6 @@
         <source>Login failed, unknown error.</source>
         <target state="translated">Kirjautuminen epäonnistui, tuntematon virhe.</target>
         <note priority="1" from="description">Login failed unknown error</note>
-      </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Lataa uudet videot uudelleen</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
       </trans-unit>
       <trans-unit id="7840375760456214518" datatype="html">
         <source>Failed to disable sharing.</source>

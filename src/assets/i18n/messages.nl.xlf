@@ -199,11 +199,6 @@
         <target state="translated">Inloggen mislukt, onbekende fout.</target>
         <note priority="1" from="description">Login failed unknown error</note>
       </trans-unit>
-      <trans-unit id="7837453179984375597" datatype="html">
-        <source>Redownload fresh uploads</source>
-        <target state="translated">Recente uploads opnieuw downloaden</target>
-        <note priority="1" from="description">Redownload fresh uploads</note>
-      </trans-unit>
       <trans-unit id="8734320784186920330" datatype="html">
         <source>Retrieve channel playlists</source>
         <target state="translated">Afspeellijsten van kanaal ophalen</target>
@@ -4714,11 +4709,6 @@
         <source>No playlists yet</source>
         <target state="translated">Nog geen afspeellijsten</target>
         <note priority="1" from="description">No playlists title</note>
-      </trans-unit>
-      <trans-unit id="7585284884615683905" datatype="html">
-        <source>Sometimes new videos are downloaded before being fully processed. This setting will mean new videos will be checked for a higher quality version the following day.</source>
-        <target state="translated">Soms worden nieuwe video’s gedownload voordat ze volledig zijn verwerkt. Met deze instelling wordt de dag erna gecontroleerd of er een versie met hogere kwaliteit is.</target>
-        <note priority="1" from="description">Redownload fresh uploads tooltip</note>
       </trans-unit>
       <trans-unit id="7585826646011739428" datatype="html">
         <source>Edit</source>

@@ -27,7 +27,6 @@ describe('Subscriptions', function() {
         await db_api.removeAllRecords('archives');
         await db_api.removeAllRecords('playlists');
         config_api.setConfigItem('ytdl_allow_subscriptions', true);
-        config_api.setConfigItem('ytdl_subscriptions_redownload_fresh_uploads', false);
         config_api.setConfigItem('ytdl_custom_args', '');
         config_api.setConfigItem('ytdl_skip_join_only_videos', false);
         config_api.setConfigItem('ytdl_replace_invalid_filename_chars', false);
@@ -2687,9 +2686,5 @@ describe('Subscriptions', function() {
             "warn: Subscription check for 'some_bad_uploads_sub' could not read 2 uploads, the last: [youtube] upcoming-one: This live event will begin in 5 hours.",
             "warn: Subscription check for 'some_bad_uploads_sub' may not have finished: Error: yt-dlp process exited with code null (signal: SIGKILL)"
         ]);
-    });
-
-    it('Fresh uploads', async function() {
-
     });
 });
