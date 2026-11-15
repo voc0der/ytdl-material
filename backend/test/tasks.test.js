@@ -333,7 +333,7 @@ describe('Tasks', function() {
     });
 
     it('Schedule and run task', async function() {
-        this.timeout(5000);
+        this.timeout(10000);
         const today_1_second = new Date();
         today_1_second.setSeconds(today_1_second.getSeconds() + 1);
         const schedule_obj = {
@@ -341,10 +341,13 @@ describe('Tasks', function() {
             data: { timestamp: today_1_second.getTime() }
         }
         await tasks_api.updateTaskSchedule('dummy_task', schedule_obj);
-        assert(!!tasks_api.TASKS['dummy_task']['job']);
-        await utils.wait(2000);
-        const dummy_task_obj = await db_api.getRecord('tasks', {key: 'dummy_task'});
-        assert(dummy_task_obj['data']);
+        try {
+            assert(!!tasks_api.TASKS['dummy_task']['job']);
+            assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['data'], 5000),
+                'the scheduled task did not finish');
+        } finally {
+            await tasks_api.updateTaskSchedule('dummy_task', null);
+        }
     });
 
     it('Does not schedule a one-time task whose time has already passed', async function() {
@@ -426,13 +429,26 @@ describe('Tasks', function() {
     });
 
     it('clears a single run once it fires, and runs the task', async function() {
+        this.timeout(5000);
         const run_at = Date.now() + 60 * 60 * 1000;
         await tasks_api.updateTaskSchedule('dummy_task', {type: 'timestamp', data: {timestamp: run_at}});
-
-        await tasks_api.TASKS['dummy_task']['job'].trigger();
-
-        assert.strictEqual((await getTask('dummy_task'))['schedule'], null);
-        assert(await waitForCondition(async () => !!(await getTask('dummy_task'))['last_ran']));
+        const original_execute_run = tasks_api.executeRun;
+        let execution;
+        // The scheduler starts executeRun without awaiting it. Observe that actual
+        // execution so assertions cannot race its database writes.
+        tasks_api.executeRun = key => execution = original_execute_run(key);
+        try {
+            await tasks_api.TASKS['dummy_task']['job'].trigger();
+            assert(execution, 'the scheduler must start the task');
+            await execution;
+            const task = await getTask('dummy_task');
+            assert.strictEqual(task.schedule, null);
+            assert(task.last_ran);
+            assert.strictEqual(task.running, false);
+        } finally {
+            tasks_api.executeRun = original_execute_run;
+            await tasks_api.updateTaskSchedule('dummy_task', null);
+        }
     });
 
     it('skips a scheduled run while the task is still busy', async function() {
