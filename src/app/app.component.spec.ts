@@ -706,6 +706,12 @@ describe('AppComponent navigation', () => {
     expect(dialog_mock.open).toHaveBeenCalledOnce();
     expect(router_mock.navigate).toHaveBeenCalledWith(['/login']);
 
+    // The account was made, so there is somebody to sign in as.
+    router_mock.navigate.mockClear();
+    dialog_mock.open.mockReturnValue({ afterClosed: () => of(true) });
+    component.ngOnInit();
+    expect(router_mock.navigate).toHaveBeenCalledWith(['/login']);
+
     router_mock.navigate.mockClear();
     router_mock.url = '/login';
     component.ngOnInit();

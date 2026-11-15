@@ -836,6 +836,11 @@
         <source>Cleared downloads!</source>
         <target state="translated">Οι λήψεις εκκαθαρίστηκαν!</target>
       </trans-unit>
+      <trans-unit id="5829664486340306584" datatype="html">
+        <source>Could not create the admin account. Check the server logs and try again.</source>
+        <target state="translated">Δεν ήταν δυνατή η δημιουργία του λογαριασμού διαχειριστή. Ελέγξτε τα αρχεία καταγραφής του διακομιστή και δοκιμάστε ξανά.</target>
+        <note priority="1" from="description">Admin account creation failed</note>
+      </trans-unit>
       <trans-unit id="5836481386319614258" datatype="html">
         <source>Remove from archive</source>
         <target state="translated">Κατάργηση από την αρχειοθήκη</target>
