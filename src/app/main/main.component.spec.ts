@@ -329,6 +329,7 @@ describe('MainComponent', () => {
       error: null,
       file_uids: ['file-1'],
       type: 'video',
+      title: 'Moon landing',
       container: { uid: 'file-1' }
     };
     const helper_spy = vi.spyOn(component, 'downloadHelper').mockReturnValue(undefined);
@@ -337,7 +338,7 @@ describe('MainComponent', () => {
 
     component.getCurrentDownload();
 
-    expect(helper_spy).toHaveBeenCalledWith(api_download.container as any, 'video', false, false);
+    expect(helper_spy).toHaveBeenCalledWith(api_download.container as any, 'video', false, 'Moon landing');
     expect(component.current_download).toBeNull();
   });
 
@@ -346,11 +347,73 @@ describe('MainComponent', () => {
     const reload_spy = vi.spyOn(component, 'reloadMediaLibrary');
     const router_navigate_spy = vi.spyOn((component as any).router, 'navigate').mockReturnValue(undefined);
 
-    component.downloadHelper({ uid: 'file-1' } as any, 'video', false, false);
+    component.downloadHelper({ uid: 'file-1' } as any, 'video');
 
     expect(reload_spy).toHaveBeenCalledWith(false);
     expect((component as any).postsService.files_changed.next).toHaveBeenCalledWith(true);
     expect(router_navigate_spy).toHaveBeenCalledWith(['/'], {queryParams: {uid: 'file-1'}});
+  });
+
+  describe('download-only mode', () => {
+    let saved: string[];
+    let posts: any;
+    let originals: { create: typeof URL.createObjectURL; revoke: typeof URL.revokeObjectURL };
+
+    beforeEach(() => {
+      saved = [];
+      originals = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+      URL.createObjectURL = (() => 'blob:test-url') as typeof URL.createObjectURL;
+      URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+      posts = (component as any).postsService;
+      posts.downloadFileFromServer = vi.fn(() => of(new Blob(['media'])));
+      posts.downloadPlaylistFromServer = vi.fn(() => of(new Blob(['zip'])));
+      posts.deleteFile = vi.fn(() => of({}));
+      component.downloadOnlyMode = true;
+    });
+
+    afterEach(() => {
+      URL.createObjectURL = originals.create;
+      URL.revokeObjectURL = originals.revoke;
+      vi.restoreAllMocks();
+    });
+
+    function finish(download: Record<string, unknown>): void {
+      posts.getCurrentDownload = () => of({ download: { uid: 'download-1', percent_complete: 100, finished: true, error: null, ...download } });
+      component.current_download = { uid: 'download-1' } as any;
+      component.getCurrentDownload();
+    }
+
+    // A finished download sends only {uid}, and the copy was saved as "undefined.mp3".
+    it('saves a finished file under its title, then removes it from the server', () => {
+      component.fileManagerEnabled = false;
+
+      finish({ type: 'audio', title: 'Moon landing', file_uids: ['file-1'], container: { uid: 'file-1' } });
+
+      expect(posts.downloadFileFromServer).toHaveBeenCalledWith('file-1');
+      expect(saved).toEqual(['Moon landing.mp3']);
+      expect(posts.deleteFile).toHaveBeenCalledWith('file-1');
+    });
+
+    it('keeps the file on the server while the file manager is on', () => {
+      component.fileManagerEnabled = true;
+
+      finish({ type: 'video', title: '', file_uids: ['file-1'], container: { uid: 'file-1' } });
+
+      expect(saved).toEqual(['file-1.mp4']);
+      expect(posts.deleteFile).not.toHaveBeenCalled();
+    });
+
+    // A playlist arrives as {id}, and reading a uid off it threw before anything was saved.
+    it('saves a finished playlist as a zip named after it', () => {
+      finish({ type: 'video', title: 'Apollo', file_uids: ['file-1', 'file-2'], container: { id: 'playlist-1', uids: [] } });
+
+      expect(posts.downloadPlaylistFromServer).toHaveBeenCalledWith('playlist-1');
+      expect(saved).toEqual(['Apollo.zip']);
+      expect(posts.playlists_changed.next).toHaveBeenCalledWith(true);
+    });
   });
 
   it('shows a dialog instead of reopening a skipped duplicate single download', () => {
