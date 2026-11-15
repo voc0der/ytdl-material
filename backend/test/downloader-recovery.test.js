@@ -1,3 +1,4 @@
+const { EventEmitter } = require('events');
 const { assert, path, fs, db_api, config_api, downloader_api, youtubedl_api, archive_api, useTemporaryMediaRoots } = require('./test-shared');
 const notifications = require('../notifications');
 
@@ -123,5 +124,51 @@ describe('Downloader recovery', function() {
         }
         assert(args.includes('--embed-metadata'));
         assert(!args.includes('--write-info-json'));
+    });
+
+    // Stopping a download kills its process, and the download step sees the process die. The
+    // pause or cancel was written only after the kill returned, which a real process outlives
+    // about half the time: the step found neither, and recorded the kill as a failure.
+    describe('stopped while its process is running', function() {
+        let finish;
+        let notified;
+        let download;
+        beforeEach(async function() {
+            finish = null;
+            notified = [];
+            download = { uid: 'stopped-mid-transfer', url: 'https://example.test/clip', type: 'video', title: 'Clip', options: {},
+                user_uid: null, sub_id: null, paused: false, finished: false, finished_step: false, running: true, step_index: 1,
+                error: null, args: [], timestamp_start: Date.now() };
+            await db_api.insertRecordIntoTable('download_queue', download);
+            stub(notifications, 'sendDownloadErrorNotification', async (record, user_uid, message, error_type) => { notified.push(error_type); });
+            const child = Object.assign(new EventEmitter(), { stdout: null, stderr: null });
+            stub(youtubedl_api, 'runYoutubeDL', async () => ({ child_process: child, callback: new Promise(resolve => { finish = resolve; }) }));
+            stub(youtubedl_api, 'killYoutubeDLProcess', async () => {
+                // As a real one does: the process is gone, and the step has looked, before the kill returns.
+                finish({ parsed_output: null, err: new Error('yt-dlp process exited with code null (signal: SIGKILL)') });
+                await new Promise(resolve => setTimeout(resolve, 20));
+            });
+        });
+        const stopWith = async stop => {
+            const running = downloader_api.downloadQueuedFile(download.uid);
+            while (!finish) await new Promise(resolve => setTimeout(resolve, 5));
+            await new Promise(resolve => setTimeout(resolve, 5));
+            await stop(download.uid);
+            await running;
+            return await db_api.getRecord('download_queue', { uid: download.uid });
+        };
+
+        it('stays paused, and can be resumed', async function() {
+            const record = await stopWith(downloader_api.pauseDownload);
+            assert.deepStrictEqual([record.paused, record.finished, record.error, record.running], [true, false, null, false]);
+            assert.deepStrictEqual(notified, []);
+            assert.strictEqual(await downloader_api.resumeDownload(download.uid), true);
+        });
+
+        it('is recorded as cancelled', async function() {
+            const record = await stopWith(downloader_api.cancelDownload);
+            assert.deepStrictEqual([record.cancelled, record.error, record.error_type], [true, 'Cancelled', 'cancelled']);
+            assert.deepStrictEqual(notified, ['cancelled']);
+        });
     });
 });

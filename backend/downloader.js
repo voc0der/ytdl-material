@@ -1623,8 +1623,14 @@ exports.pauseDownload = async (download_uid) => {
         logger.info(`Pausing download ${download_uid}`);
     }
 
-    await killActiveDownload(download);
-    return await db_api.updateRecord('download_queue', {uid: download_uid}, getPausedDownloadUpdate(download));
+    // Written before the process is stopped. Once the process dies, the download step looks for
+    // a pause, and about half the time it looked before the pause was written, so the download
+    // failed instead. The local store hands out its live record, which this update changes, so
+    // the process is found from a copy taken first.
+    const running_download = {...download};
+    const paused = await db_api.updateRecord('download_queue', {uid: download_uid}, getPausedDownloadUpdate(download));
+    await killActiveDownload(running_download);
+    return paused;
 }
 
 exports.resumeDownload = async (download_uid) => {
@@ -1711,9 +1717,12 @@ exports.cancelDownload = async (download_uid) => {
         logger.info(`Cancelling download ${download_uid}`);
     }
 
+    // Written before the process is stopped, as a pause is. Otherwise the download step could
+    // record the stopped process as a failure of its own.
+    const cancelled = await db_api.updateRecord('download_queue', {uid: download_uid}, {cancelled: true});
     await killActiveDownload(download);
     await handleDownloadError(download_uid, 'Cancelled', 'cancelled');
-    return await db_api.updateRecord('download_queue', {uid: download_uid}, {cancelled: true});
+    return cancelled;
 }
 
 exports.clearDownload = async (download_uid) => {
@@ -2276,7 +2285,8 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
     }
     if (!parsed_output) {
         const errored_download = await db_api.getRecord('download_queue', {uid: download_uid});
-        if (errored_download && errored_download['paused']) return;
+        // Stopped on purpose. A pause or a cancel records that itself.
+        if (errored_download && (errored_download['paused'] || errored_download['cancelled'])) return;
         const error_message = formatDownloaderError(err);
         logger.error(error_message);
         await handleDownloadError(download_uid, error_message, 'unknown_error');
