@@ -28,12 +28,14 @@ echo "(INFO) Architecture detected: $ARCH"
 echo "(1/5) READY - Acquire temp dependencies in ffmpeg obtain layer"
 apt-get update && apt-get -y install --no-install-recommends ca-certificates curl xz-utils
 echo "(2/5) DOWNLOAD - Acquire ffmpeg and ffprobe from ${FFMPEG_URL} in ffmpeg obtain layer"
+# BtbN republishes its latest release every day, and while it does its downloads answer 404
+# (for over 30 seconds on 2026-11-15), so retries keep going for up to five minutes.
 curl -fL -o ffmpeg.txz \
     --connect-timeout 5 \
     --max-time 300 \
-    --retry 5 \
-    --retry-delay 0 \
-    --retry-max-time 120 \
+    --retry 20 \
+    --retry-delay 15 \
+    --retry-max-time 300 \
     --retry-all-errors \
     "$FFMPEG_URL"
 mkdir /tmp/ffmpeg
