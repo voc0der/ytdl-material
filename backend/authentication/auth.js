@@ -16,7 +16,6 @@ const ExtractJwt = require('passport-jwt').ExtractJwt;
 
 // other required vars
 let SERVER_SECRET = null;
-let JWT_EXPIRATION = null;
 let opts = null;
 let saltRounds = 10;
 
@@ -38,15 +37,6 @@ exports.initialize = function () {
       });
   }
 
-  // Sometimes this value is not properly typed: https://github.com/voc0der/ytdl-material/issues/813
-  JWT_EXPIRATION = config_api.getConfigItem('ytdl_jwt_expiration');
-  if (!(+JWT_EXPIRATION)) {
-    logger.warn(`JWT expiration value improperly set to ${JWT_EXPIRATION}, auto setting to 1 day.`);
-    JWT_EXPIRATION = 86400;
-  } else {
-    JWT_EXPIRATION = +JWT_EXPIRATION;
-  }
-
   SERVER_SECRET = null;
   if (db_api.users_db.get('jwt_secret').value()) {
     SERVER_SECRET = db_api.users_db.get('jwt_secret').value();
@@ -58,16 +48,92 @@ exports.initialize = function () {
   opts = {}
   opts.jwtFromRequest = ExtractJwt.fromUrlQueryParameter('jwt');
   opts.secretOrKey = SERVER_SECRET;
+  // For the request: a token renewed from this one has to keep its sign-in time.
+  opts.passReqToCallback = true;
 
-  exports.passport.use(new JwtStrategy(opts, async function(jwt_payload, done) {
-    const user = await db_api.getRecord('users', {uid: jwt_payload.user});
-    if (user) {
-        return done(null, user);
-    } else {
-        return done(null, false);
-        // or you could create a new account
+  exports.passport.use(new JwtStrategy(opts, async function(req, jwt_payload, done) {
+    try {
+      const user = await exports.getUserForSession(jwt_payload);
+      if (!user) return done(null, false);
+      req.session_auth_time = getSessionAuthTime(jwt_payload);
+      return done(null, user);
+    } catch (err) {
+      return done(err);
     }
   }));
+}
+
+function nowInSeconds() {
+  return Math.floor(Date.now() / 1000);
+}
+
+const DEFAULT_LOGIN_EXPIRATION = 86400;
+let warned_login_expiration = null;
+
+/*************************************************
+ * How long a sign-in lasts, in seconds: Login
+ * expiration under Settings > Advanced.
+ *
+ * Read when it is needed rather than once at
+ * startup. That read came before the environment
+ * was applied to the config, so a value set there
+ * took a second restart to count, and one changed
+ * in Settings took a restart too.
+ ************************************************/
+function getLoginExpiration() {
+  // Sometimes this value is not properly typed: https://github.com/voc0der/ytdl-material/issues/813
+  const configured = config_api.getConfigItem('ytdl_jwt_expiration');
+  const seconds = Math.floor(+configured);
+  if (Number.isSafeInteger(seconds) && seconds > 0) return seconds;
+  if (warned_login_expiration !== String(configured)) {
+    warned_login_expiration = String(configured);
+    logger.warn(`JWT expiration value improperly set to ${configured}, auto setting to 1 day.`);
+  }
+  return DEFAULT_LOGIN_EXPIRATION;
+}
+
+/*************************************************
+ * When the sign-in a session token belongs to
+ * began. A token from before this was recorded
+ * counts from when it was issued, so renewing it
+ * can never make the sign-in younger than it is.
+ ************************************************/
+function getSessionAuthTime(payload) {
+  if (Number.isSafeInteger(payload.auth_time)) return payload.auth_time;
+  return Number.isSafeInteger(payload.iat) ? payload.iat : null;
+}
+
+/*************************************************
+ * The account a session token still speaks for, or
+ * null.
+ *
+ * A valid signature only proves the token was
+ * issued. A session also ends:
+ *
+ *   - one login expiration after its sign-in,
+ *     however often it was renewed. Renewing used
+ *     to restart the clock, so a session that was
+ *     used once a day never ended, and neither did
+ *     a stolen token;
+ *
+ *   - when the account's session_epoch changes. A
+ *     new password changes it, and an account
+ *     created again under a deleted one's uid has
+ *     its own, so the deleted account's tokens do
+ *     not work for the new one.
+ *
+ * A token from before epochs carries none, and is
+ * good only while the account has none either.
+ ************************************************/
+exports.getUserForSession = async function(payload) {
+  if (!payload || typeof payload.user !== 'string') return null;
+  const auth_time = getSessionAuthTime(payload);
+  if (auth_time === null || nowInSeconds() >= auth_time + getLoginExpiration()) return null;
+
+  const user = await db_api.getRecord('users', {uid: payload.user});
+  if (!user) return null;
+  if ((user.session_epoch || null) !== (payload.epoch || null)) return null;
+  return user;
 }
 
 const setupRoles = async () => {
@@ -205,8 +271,26 @@ exports.uidIsPathSafe = (rawUID) => {
   return !PATH_UNSAFE_PATTERN.test(rawUID);
 }
 
+// Some providers send booleans as the strings "true" and "false".
+function claimIsTrue(value) {
+  if (typeof value === 'boolean') return value;
+  return typeof value === 'string' && value.trim().toLowerCase() === 'true';
+}
+
+/*************************************************
+ * The name a provider account signs in under: the
+ * configured claim, then the usual ones.
+ *
+ * The address only counts once the provider says
+ * it checked it. Many let anybody type any address
+ * into a profile, and the uid it would become can
+ * be an existing account's. A server that wants
+ * addresses either way can name the email claim
+ * as ytdl_oidc_username_claim.
+ ************************************************/
 function getOIDCIdentityFromClaims(claims, usernameClaim) {
-  const fallbackClaims = [usernameClaim, 'preferred_username', 'username', 'email', 'sub'];
+  const email_verified = claimIsTrue(parseClaimPath(claims, 'email_verified'));
+  const fallbackClaims = [usernameClaim, 'preferred_username', 'username', ...(email_verified ? ['email'] : []), 'sub'];
   for (const claimName of fallbackClaims) {
     if (!claimName) continue;
     const claimValue = parseClaimPath(claims, claimName);
@@ -229,19 +313,26 @@ function getOIDCIdentityFromClaims(claims, usernameClaim) {
 exports.getUserFromJWT = async function(token) {
   if (!token || typeof token !== 'string' || !SERVER_SECRET) return null;
   try {
-    const payload = jwt.verify(token, SERVER_SECRET);
-    if (!payload || !payload.user) return null;
-    return await db_api.getRecord('users', {uid: payload.user});
+    return await exports.getUserForSession(jwt.verify(token, SERVER_SECRET));
   } catch {
     return null;
   }
 }
 
-exports.createJWTForUser = function(user_uid) {
+/*************************************************
+ * A session token for one sign-in of user.
+ *
+ * auth_time is when the sign-in began: now for a
+ * new one, or the original time when a session is
+ * renewed, which keeps its expiry where it was.
+ ************************************************/
+exports.createJWTForUser = function(user, auth_time = nowInSeconds()) {
   const payload = {
-      exp: Math.floor(Date.now() / 1000) + JWT_EXPIRATION,
-      user: user_uid
+      user: user.uid,
+      auth_time: auth_time,
+      exp: auth_time + getLoginExpiration()
   };
+  if (user.session_epoch) payload.epoch = user.session_epoch;
   return jwt.sign(payload, SERVER_SECRET);
 }
 
@@ -265,8 +356,9 @@ exports.sanitizeUsersForResponse = function(users) {
   return Array.isArray(users) ? users.map(exports.sanitizeUserForResponse) : users;
 }
 
-exports.getAuthResponseObject = async function(user) {
-  const token = exports.createJWTForUser(user.uid);
+// auth_time: when the caller's sign-in began, for a session being renewed; omitted for a new one.
+exports.getAuthResponseObject = async function(user, auth_time = undefined) {
+  const token = exports.createJWTForUser(user, auth_time);
   const access = await require('./shadow').resolve(user);
   return {
     user: exports.sanitizeUserForResponse(access.user),
@@ -298,6 +390,16 @@ exports.upsertOIDCUser = async (claims, options = {}) => {
   const admin_claim_value = parseClaimPath(claims, admin_claim);
   const role = valueIncludes(admin_value, admin_claim_value) ? 'admin' : 'user';
 
+  /*************************************************
+   * The subject first, then the uid. Never the
+   * display name: it is a label, which a provider
+   * account can often set for itself, and an
+   * administrator can rename any account to
+   * anything. Matching on it handed an account no
+   * provider had signed in to yet -- an internal
+   * one, say -- to whoever's display name was the
+   * same.
+   ************************************************/
   let user_obj = null;
   if (oidc_subject) {
     user_obj = await db_api.getRecord('users', {oidc_subject: oidc_subject});
@@ -305,13 +407,16 @@ exports.upsertOIDCUser = async (claims, options = {}) => {
   if (!user_obj) {
     user_obj = await db_api.getRecord('users', {uid: uid_to_use});
   }
-  if (!user_obj) {
-    user_obj = await db_api.getRecord('users', {name: display_name});
-  }
 
   if (!user_obj) {
     if (!auto_register) {
       logger.error(`OIDC login rejected: user '${uid_to_use}' does not exist and auto registration is disabled.`);
+      return null;
+    }
+    // Two accounts with one name would leave password sign-in guessing between them once
+    // OIDC is switched off again.
+    if (await db_api.getRecord('users', {name: display_name})) {
+      logger.error(`OIDC login rejected: a different account is already named '${display_name}'. Rename it, or remove it, first.`);
       return null;
     }
     user_obj = generateUserObject(uid_to_use, display_name, null, 'oidc');
@@ -468,7 +573,8 @@ exports.login = async (username, password) => {
   // even if we're using LDAP, we still want users to be able to login using internal credentials
   const user = await db_api.getRecord('users', {name: username});
   if (!user) {
-    if (config_api.getConfigItem('ytdl_auth_method') === 'internal') logger.error(`User ${username} not found`);
+    // Quoted: the name is whatever the request sent, line breaks included.
+    if (config_api.getConfigItem('ytdl_auth_method') === 'internal') logger.error(`User ${JSON.stringify(String(username).slice(0, 100))} not found`);
     return false;
   }
   if (user.auth_method && user.auth_method !== 'internal') { return false }
@@ -522,12 +628,13 @@ exports.passport.use(new LdapStrategy(getLDAPConfiguration,
  * request.
  *********************************/
 exports.generateJWT = function(req, res, next) {
-  req.token = exports.createJWTForUser(req.user.uid);
+  // session_auth_time is only set when the caller presented a session, as jwtAuth's do.
+  req.token = exports.createJWTForUser(req.user, req.session_auth_time);
   next();
 }
 
 exports.returnAuthResponse = async function(req, res) {
-  const auth_response = await exports.getAuthResponseObject(req.user);
+  const auth_response = await exports.getAuthResponseObject(req.user, req.session_auth_time);
   auth_response.token = req.token;
   res.status(200).json(auth_response);
 }
@@ -546,12 +653,17 @@ exports.verifyUserPassword = async (user_uid, password) => {
   return await bcrypt.compare(password, user.passhash);
 }
 
-// change password
+/*************************************************
+ * Sets a password, and ends every session signed
+ * in with the old one: a new session_epoch leaves
+ * their tokens naming one the account no longer
+ * has. Somebody who changed their own password is
+ * handed a token for the new epoch by the route.
+ ************************************************/
 exports.changeUserPassword = async (user_uid, new_pass) => {
   try {
     const hash = await bcrypt.hash(new_pass, saltRounds);
-    await db_api.updateRecord('users', {uid: user_uid}, {passhash: hash});
-    return true;
+    return !!await db_api.updateRecord('users', {uid: user_uid}, {passhash: hash, session_epoch: uuid()});
   } catch {
     return false;
   }
@@ -740,7 +852,9 @@ function generateUserObject(userid, username, hash, auth_method = 'internal') {
     role: userid === 'admin' && auth_method === 'internal' ? 'admin' : 'user',
     permissions: [],
     permission_overrides: [],
-    auth_method: auth_method
+    auth_method: auth_method,
+    // Its own, so tokens left over from a deleted account with this uid do not work for it.
+    session_epoch: uuid()
   };
   return new_user;
 }

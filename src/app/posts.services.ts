@@ -205,6 +205,9 @@ export interface HeaderAuthStatus {
 // Pages that only ever show your own things, never a library someone shared with you.
 export const OWN_LIBRARY_PAGES = ['subscriptions', 'subscription', 'downloads', 'duplicates'];
 
+// Where a tab keeps the handoff value of the OIDC sign-in it started (see beginOIDCHandoff).
+const OIDC_HANDOFF_STORAGE_KEY = 'oidc_handoff';
+
 // A stream URL for one video that carries no login, for a player that fetches the file itself.
 export interface PlaybackLink {
     uid: string;
@@ -1098,8 +1101,50 @@ export class PostsService {
         return !!(this.config && this.config['Users'] && this.config['Users']['oidc'] && this.config['Users']['oidc']['enabled']);
     }
 
-    getOIDCLoginURL(return_to = '/'): string {
-        return `${this.path}auth/oidc/login?returnTo=${encodeURIComponent(return_to)}`;
+    getOIDCLoginURL(return_to = '/', handoff: string | null = null): string {
+        const handoff_param = handoff ? `&handoff=${encodeURIComponent(handoff)}` : '';
+        return `${this.path}auth/oidc/login?returnTo=${encodeURIComponent(return_to)}${handoff_param}`;
+    }
+
+    /**
+     * A random value for the OIDC sign-in this tab is about to start, kept in the tab. The server
+     * sends it back beside the session token, and the login page takes only a token that brings
+     * back its own tab's value. Otherwise a link carrying somebody's token, or the callback of a
+     * sign-in somebody else started, would sign this browser in as them.
+     */
+    beginOIDCHandoff(): string | null {
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        const handoff = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        try {
+            sessionStorage.setItem(OIDC_HANDOFF_STORAGE_KEY, handoff);
+        } catch {
+            // Storage is off, and there will be nothing to compare the answer with.
+            return null;
+        }
+        return handoff;
+    }
+
+    /** Whether handoff is the value this tab kept for its sign-in. Each one is good for one answer. */
+    takeOIDCHandoff(handoff: string | null): boolean {
+        let kept: string | null;
+        try {
+            kept = sessionStorage.getItem(OIDC_HANDOFF_STORAGE_KEY);
+            sessionStorage.removeItem(OIDC_HANDOFF_STORAGE_KEY);
+        } catch {
+            return false;
+        }
+        return !!kept && !!handoff && kept === handoff;
+    }
+
+    /**
+     * Carries on with a token the server issued for this session in place of the one it had,
+     * as it does when you change your own password: that ends every other session.
+     */
+    replaceSessionToken(token: string): void {
+        this.token = token;
+        localStorage.setItem('jwt_token', token);
+        this.httpOptions.params = this.httpOptions.params.set('jwt', token);
     }
 
     // What the backend made of the OIDC settings: whether discovery against the issuer
@@ -1328,8 +1373,9 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'deleteUser', body, this.httpOptions);
     }
 
+    // Changing your own takes current_password, and answers with a token for this session.
     changeUserPassword(user_uid, new_password, current_password = null) {
-        return this.http.post(this.path + 'auth/changePassword',
+        return this.http.post<{success: boolean, token?: string}>(this.path + 'auth/changePassword',
             {user_uid: user_uid, new_password: new_password, current_password: current_password}, this.httpOptions);
     }
 

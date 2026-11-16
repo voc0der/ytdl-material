@@ -18,7 +18,8 @@ describe('Server integration responses', function() {
             account = { uid: 'alice' };
             oidc = {
                 isEnabled: () => true,
-                createAuthorizationURL: async returnTo => `https://id.example.test/?state=${encodeURIComponent(returnTo)}`,
+                createAuthorizationURL: async (returnTo, handoff) => `https://id.example.test/?state=${encodeURIComponent(returnTo)}`
+                    + (handoff === undefined ? '' : `&handoff=${encodeURIComponent(handoff)}`),
                 consumeAuthorizationCallback: async () => ({ claims: { sub: 'identity' }, return_to: '/downloads?tab=active' }),
                 isClaimsAllowed: () => allowed,
                 getConfiguration: () => ({ auto_register: true, groups_claim: 'groups' })
@@ -42,6 +43,9 @@ describe('Server integration responses', function() {
             assert.strictEqual(result.res.location, 'https://id.example.test/?state=%2Fsubscriptions');
             result = await harness.request('get', '/api/auth/oidc/login');
             assert.strictEqual(result.res.location, 'https://id.example.test/?state=%2F');
+            // The browser's handoff value goes to the module, which decides whether it is usable.
+            result = await harness.request('get', '/api/auth/oidc/login', { query: { returnTo: '/', handoff: 'tab-value' } });
+            assert.strictEqual(result.res.location, 'https://id.example.test/?state=%2F&handoff=tab-value');
             oidc.createAuthorizationURL = async () => { throw new Error('provider offline'); };
             assert.strictEqual((await harness.request('get', '/api/auth/oidc/login')).res.statusCode, 500);
         });
@@ -51,6 +55,12 @@ describe('Server integration responses', function() {
             assert.strictEqual(res.location, 'https://media.example.test/login#oidc_token=token%2B%2F%3D&redirect=%2Fdownloads%3Ftab%3Dactive');
             oidc.consumeAuthorizationCallback = async () => ({ claims: { sub: 'identity' } });
             assert.match((await harness.request('get', '/api/auth/oidc/callback')).res.location, /&redirect=%2F$/);
+        });
+
+        it('sends back the handoff value of the browser that started the sign-in', async function() {
+            oidc.consumeAuthorizationCallback = async () => ({ claims: { sub: 'identity' }, return_to: '/', handoff: 'tab-kept_value-0123456789' });
+            const { res } = await harness.request('get', '/api/auth/oidc/callback');
+            assert.strictEqual(res.location, 'https://media.example.test/login#oidc_token=token%2B%2F%3D&redirect=%2F&handoff=tab-kept_value-0123456789');
         });
 
         it('refuses disallowed groups and missing accounts without issuing a session', async function() {

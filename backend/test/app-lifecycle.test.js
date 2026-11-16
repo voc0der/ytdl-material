@@ -86,7 +86,9 @@ describe('Server lifecycle integrations', function() {
 
         it('initializes all stores and attaches lifecycle diagnostics', async function() {
             assert.strictEqual(await harness.context.initializeRateLimiters(), true);
-            assert.strictEqual(stores.length, 4);
+            assert.strictEqual(stores.length, 5);
+            // Wrong current passwords are counted per account, across every server sharing Redis.
+            assert(stores.some(store => store.prefix === 'ytdl:rate-limit:reauthentication:'));
             assert(stores.every(store => store.mode === 'redis' && store.client === client));
             for (const event of ['ready', 'reconnecting', 'end']) client.emit(event);
             errors(new Error('connection dropped'));

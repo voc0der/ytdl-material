@@ -276,6 +276,51 @@ describe('PostsService session lifecycle', () => {
     http.expectNone(API + 'config');
   });
 
+  describe('OIDC handoff', () => {
+    afterEach(() => sessionStorage.clear());
+
+    function startOIDC() {
+      start().flush({ config_file: { YtdlMaterial: configuration(true, true) } });
+    }
+
+    it('puts this tab\'s handoff value in the sign-in address, and takes it back once', () => {
+      startOIDC();
+      const handoff = service.beginOIDCHandoff();
+      expect(handoff).toMatch(/^[A-Za-z0-9_-]{32}$/);
+      expect(service.getOIDCLoginURL('/tasks?tab=1', handoff))
+        .toBe(`${API}auth/oidc/login?returnTo=%2Ftasks%3Ftab%3D1&handoff=${handoff}`);
+      expect(service.getOIDCLoginURL('/')).toBe(`${API}auth/oidc/login?returnTo=%2F`);
+
+      expect(service.takeOIDCHandoff(handoff)).toBe(true);
+      expect(service.takeOIDCHandoff(handoff)).toBe(false);
+    });
+
+    it('refuses a value this tab did not keep, and forgets its own on the way', () => {
+      startOIDC();
+      const handoff = service.beginOIDCHandoff();
+      expect(service.takeOIDCHandoff('someone-elses-value')).toBe(false);
+      expect(service.takeOIDCHandoff(handoff)).toBe(false);
+      expect(service.takeOIDCHandoff(null)).toBe(false);
+    });
+
+    it('starts every sign-in with a value of its own', () => {
+      startOIDC();
+      const first = service.beginOIDCHandoff();
+      const second = service.beginOIDCHandoff();
+      expect(second).not.toBe(first);
+      expect(service.takeOIDCHandoff(first)).toBe(false);
+    });
+  });
+
+  it('carries on with a token the server reissued for this session', () => {
+    start().flush({ config_file: { YtdlMaterial: configuration(true, true) } });
+    service.replaceSessionToken('reissued-token');
+
+    expect(service.token).toBe('reissued-token');
+    expect(localStorage.getItem('jwt_token')).toBe('reissued-token');
+    expect(service.httpOptions.params.get('jwt')).toBe('reissued-token');
+  });
+
   function expectHeaderLogin() {
     const request = http.expectOne(req => req.url === API + 'auth/header/login');
     expect(request.request.method).toBe('POST');

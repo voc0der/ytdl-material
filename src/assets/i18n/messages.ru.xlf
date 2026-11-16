@@ -831,6 +831,10 @@
         <source>Couldn&apos;t unsubscribe from <x id="subscription name" equiv-text="sub.name"/>.</source>
         <target state="translated">Не удалось отписаться от <x id="subscription name" equiv-text="sub.name"/>.</target>
       </trans-unit>
+      <trans-unit id="8164049561976354920" datatype="html">
+        <source>The current password is incorrect.</source>
+        <target state="translated">Неверный текущий пароль.</target>
+      </trans-unit>
       <trans-unit id="817988265121346794" datatype="html">
         <source>Playlist is up to date</source>
         <target state="translated">Плейлист актуален</target>
@@ -3833,6 +3837,10 @@
         <target state="translated">Непрочитанное</target>
         <note priority="1" from="description">Unread notification marker</note>
       </trans-unit>
+      <trans-unit id="5340498030552368470" datatype="html">
+        <source>Current password</source>
+        <target state="translated">Текущий пароль</target>
+      </trans-unit>
       <trans-unit id="5343296518825010895" datatype="html">
         <source>The feed is private. Generate a revocable token for your feed reader.</source>
         <target state="translated">Лента закрытая. Создайте отзываемый токен для своей программы чтения лент.</target>
@@ -4190,6 +4198,11 @@
         <source>Allow quality select</source>
         <target state="translated">Разрешить выбор качества</target>
         <note priority="1" from="description">Allow quality seelct setting</note>
+      </trans-unit>
+      <trans-unit id="2263298396520492555" datatype="html">
+        <source>That sign-in did not start in this tab, so it was not used.</source>
+        <target state="translated">Этот вход был начат не в этой вкладке, поэтому он не был использован.</target>
+        <note priority="1" from="description">OIDC sign-in refused</note>
       </trans-unit>
       <trans-unit id="2273420093571077039" datatype="html">
         <source>Upgrade to</source>

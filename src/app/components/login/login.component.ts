@@ -7,7 +7,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatTooltip } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
-import { NgTemplateOutlet } from '@angular/common';
+import { Location, NgTemplateOutlet } from '@angular/common';
 
 type LoginMode = 'login' | 'register';
 
@@ -47,7 +47,8 @@ export class LoginComponent implements OnInit {
   headerSigningIn = false;
   returnTo = '/';
 
-  constructor(public postsService: PostsService, private router: Router, private route: ActivatedRoute) { }
+  constructor(public postsService: PostsService, private router: Router, private route: ActivatedRoute,
+    private location: Location) { }
 
   private getErrorCode(err: any): number | null {
     return err && typeof err === 'object' && typeof err.status === 'number' ? err.status : null;
@@ -73,10 +74,20 @@ export class LoginComponent implements OnInit {
     const handoff = new URLSearchParams(this.route.snapshot.fragment ?? '');
     const oidcToken = handoff.get('oidc_token');
     const oidcRedirectPath = handoff.get('redirect');
+    let oidcHandoffRefused = false;
     if (oidcToken) {
-      const redirectPath = oidcRedirectPath && oidcRedirectPath.startsWith('/') ? oidcRedirectPath : this.returnTo;
-      this.postsService.completeOIDCLogin(oidcToken, redirectPath);
-      return;
+      // Nor is it left in the address bar, or in history for the back button to find again.
+      this.location.replaceState(this.location.path(false));
+      // Only the answer to a sign-in this tab started. Anybody can write a token into a link,
+      // or start a sign-in at the provider and send the callback on: either would sign this
+      // browser in as them.
+      if (this.postsService.takeOIDCHandoff(handoff.get('handoff'))) {
+        const redirectPath = oidcRedirectPath && oidcRedirectPath.startsWith('/') ? oidcRedirectPath : this.returnTo;
+        this.postsService.completeOIDCLogin(oidcToken, redirectPath);
+        return;
+      }
+      console.warn('Ignored a sign-in token that this tab did not ask for.');
+      oidcHandoffRefused = true;
     }
 
     if (this.postsService.isLoggedIn && localStorage.getItem('jwt_token') !== 'null') {
@@ -91,6 +102,12 @@ export class LoginComponent implements OnInit {
         }
         this.oidcEnabled = this.postsService.isOIDCEnabled();
         if (this.oidcEnabled) {
+          // Going straight back to the provider would answer a refused token with another
+          // one, and a tab that cannot keep its handoff value would go round for ever.
+          if (oidcHandoffRefused) {
+            this.error = $localize`:OIDC sign-in refused:That sign-in did not start in this tab, so it was not used.`;
+            return;
+          }
           this.redirectToOIDC();
           return;
         }
@@ -228,7 +245,9 @@ export class LoginComponent implements OnInit {
       return;
     }
     this.oidcRedirecting = true;
-    window.location.href = this.postsService.getOIDCLoginURL(this.returnTo || '/');
+    this.error = null;
+    const handoff = this.postsService.beginOIDCHandoff();
+    window.location.href = this.postsService.getOIDCLoginURL(this.returnTo || '/', handoff);
   }
 
 }

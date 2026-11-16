@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { LoginComponent } from './login.component';
@@ -12,13 +13,18 @@ describe('LoginComponent', () => {
   let postsServiceStub: any;
   let routerStub: any;
 
-  async function create(allow_registration = true) {
+  // fragment: the address's #fragment as the page first sees it, as after an OIDC callback.
+  async function create(allow_registration = true, fragment: string | null = null) {
     postsServiceStub.config.Users.allow_registration = allow_registration;
+    const route = fragment === null ? [] : [{ provide: ActivatedRoute, useValue: { snapshot: {
+      fragment, params: {}, queryParams: {}, paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({})
+    } } }];
     configureTestBed({
       imports: [LoginComponent],
       providers: [
         { provide: PostsService, useValue: postsServiceStub },
-        { provide: Router, useValue: routerStub }
+        { provide: Router, useValue: routerStub },
+        ...route
       ]
     });
     await TestBed.compileComponents();
@@ -48,7 +54,10 @@ describe('LoginComponent', () => {
       getBaseTitle: () => 'ytdl-material',
       login: vi.fn().mockName('login').mockReturnValue(of({ token: 'token', user: { uid: 'u' }, permissions: [], available_permissions: [] })),
       register: vi.fn().mockName('register').mockReturnValue(of({ user: { name: 'newcomer' } })),
-      afterLogin: vi.fn().mockName('afterLogin')
+      afterLogin: vi.fn().mockName('afterLogin'),
+      completeOIDCLogin: vi.fn().mockName('completeOIDCLogin'),
+      beginOIDCHandoff: vi.fn().mockName('beginOIDCHandoff').mockReturnValue('tab-kept-value'),
+      takeOIDCHandoff: vi.fn().mockName('takeOIDCHandoff').mockImplementation(handoff => handoff === 'tab-kept-value')
     };
     routerStub = { navigate: vi.fn().mockName('navigate') };
   });
@@ -65,12 +74,51 @@ describe('LoginComponent', () => {
 
   it('accepts the OIDC token from a fragment and preserves the video return query', async () => {
     await create();
-    postsServiceStub.completeOIDCLogin = vi.fn();
+    const replaceState = vi.spyOn(TestBed.inject(Location), 'replaceState');
     Object.assign(TestBed.inject(ActivatedRoute).snapshot, {
-      fragment: 'oidc_token=test-token&redirect=%2F%3Fv%3DFileLink123'
+      fragment: 'oidc_token=test-token&redirect=%2F%3Fv%3DFileLink123&handoff=tab-kept-value'
     });
     component.ngOnInit();
+    expect(postsServiceStub.takeOIDCHandoff).toHaveBeenCalledWith('tab-kept-value');
     expect(postsServiceStub.completeOIDCLogin).toHaveBeenCalledWith('test-token', '/?v=FileLink123');
+    // The token does not stay in the address, or in history.
+    expect(replaceState).toHaveBeenCalledOnce();
+    expect(replaceState.mock.calls[0][0]).not.toContain('test-token');
+  });
+
+  it.each([
+    ['without a handoff value', 'oidc_token=planted-token&redirect=%2F'],
+    ['with another tab\'s or browser\'s value', 'oidc_token=planted-token&redirect=%2F&handoff=someone-elses-value']
+  ])('refuses an OIDC token %s, and does not go straight back to the provider', async (_case, fragment) => {
+    postsServiceStub.isOIDCEnabled = () => true;
+    postsServiceStub.getOIDCLoginURL = vi.fn(() => '#provider');
+    const original = window.location.href;
+    try {
+      await create(true, fragment);
+      fixture.detectChanges();
+
+      expect(postsServiceStub.completeOIDCLogin).not.toHaveBeenCalled();
+      expect(postsServiceStub.getOIDCLoginURL).not.toHaveBeenCalled();
+      expect(component.oidcRedirecting).toBe(false);
+      expect(element().textContent).toContain('That sign-in did not start in this tab, so it was not used.');
+      expect(element().textContent).not.toContain('Redirecting to your identity provider');
+
+      // Continue starts a sign-in of this tab's own.
+      submitButton().click();
+      expect(postsServiceStub.beginOIDCHandoff).toHaveBeenCalledOnce();
+      expect(postsServiceStub.getOIDCLoginURL).toHaveBeenCalledWith('/', 'tab-kept-value');
+    } finally {
+      window.history.replaceState(null, '', original);
+    }
+  });
+
+  it('ignores a planted OIDC token quietly when OIDC is off', async () => {
+    await create(true, 'oidc_token=planted-token');
+    fixture.detectChanges();
+
+    expect(postsServiceStub.completeOIDCLogin).not.toHaveBeenCalled();
+    expect(component.error).toBeNull();
+    expect(element().querySelector('.login-form')).not.toBeNull();
   });
 
   it('says why signing in through the proxy failed, and tries again when asked', async () => {
@@ -290,6 +338,8 @@ describe('LoginComponent', () => {
       expect(component.oidcRedirecting).toBe(true);
       component.redirectToOIDC();
       expect(postsServiceStub.getOIDCLoginURL).toHaveBeenCalledOnce();
+      // With the value this tab keeps, for the login page to know the answer is its own.
+      expect(postsServiceStub.getOIDCLoginURL).toHaveBeenCalledWith('/', 'tab-kept-value');
       expect(element().querySelector('.login-form')).toBeNull();
     } finally {
       window.history.replaceState(null, '', original);

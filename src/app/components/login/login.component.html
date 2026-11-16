@@ -15,10 +15,14 @@
     </header>
 
     @if (oidcEnabled) {
-      <div class="login-redirect">
-        <mat-spinner [diameter]="20"></mat-spinner>
-        <p i18n="OIDC login redirecting text">Redirecting to your identity provider...</p>
-      </div>
+      @if (error) {
+        <p class="login-message is-error" role="alert"><mat-icon aria-hidden="true">error_outline</mat-icon><span>{{error}}</span></p>
+      } @else {
+        <div class="login-redirect">
+          <mat-spinner [diameter]="20"></mat-spinner>
+          <p i18n="OIDC login redirecting text">Redirecting to your identity provider...</p>
+        </div>
+      }
       <button type="button" class="kit-chip kit-primary login-submit" [disabled]="oidcRedirecting" (click)="redirectToOIDC()">
         <ng-container i18n="OIDC login continue button">Continue</ng-container>
       </button>

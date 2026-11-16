@@ -791,6 +791,10 @@
         <source>Couldn&apos;t unsubscribe from <x id="subscription name" equiv-text="sub.name"/>.</source>
         <target state="translated">Kunne ikke avslutte abonnementet på <x id="subscription name" equiv-text="sub.name"/>.</target>
       </trans-unit>
+      <trans-unit id="8164049561976354920" datatype="html">
+        <source>The current password is incorrect.</source>
+        <target state="translated">Det nåværende passordet er feil.</target>
+      </trans-unit>
       <trans-unit id="817988265121346794" datatype="html">
         <source>Playlist is up to date</source>
         <target state="translated">Spillelisten er oppdatert</target>
@@ -3221,6 +3225,10 @@
         <target state="translated">Ulest</target>
         <note priority="1" from="description">Unread notification marker</note>
       </trans-unit>
+      <trans-unit id="5340498030552368470" datatype="html">
+        <source>Current password</source>
+        <target state="translated">Nåværende passord</target>
+      </trans-unit>
       <trans-unit id="5343296518825010895" datatype="html">
         <source>The feed is private. Generate a revocable token for your feed reader.</source>
         <target state="translated">Feeden er privat. Lag et token som kan tilbakekalles, for feedleseren din.</target>
@@ -4974,6 +4982,11 @@
         <source>Allow quality select</source>
         <target state="translated">Tillat valg av kvalitet</target>
         <note priority="1" from="description">Allow quality seelct setting</note>
+      </trans-unit>
+      <trans-unit id="2263298396520492555" datatype="html">
+        <source>That sign-in did not start in this tab, so it was not used.</source>
+        <target state="translated">Den påloggingen startet ikke i denne fanen, så den ble ikke brukt.</target>
+        <note priority="1" from="description">OIDC sign-in refused</note>
       </trans-unit>
       <trans-unit id="2273420093571077039" datatype="html">
         <source>Upgrade to</source>

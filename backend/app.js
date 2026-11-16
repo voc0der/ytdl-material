@@ -1138,6 +1138,14 @@ const docsRateLimiter = rateLimit({
     passOnStoreError: false
 });
 
+// Wrong current passwords allowed per account when changing its password (see
+// proveCurrentPassword). Counted in the store directly rather than by a limiter, which would
+// count every request to the route by address.
+const REAUTHENTICATION_WINDOW_MS = 15 * 60 * 1000;
+const REAUTHENTICATION_TRIES = 5;
+const reauthenticationRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:reauthentication:');
+reauthenticationRateLimitStore.init({windowMs: REAUTHENTICATION_WINDOW_MS});
+
 function clearRedisRateLimitReconnectTimer() {
     if (!redisRateLimitReconnectTimer) return;
     clearTimeout(redisRateLimitReconnectTimer);
@@ -1183,6 +1191,7 @@ async function connectRedisRateLimitClient(connectionString, options = {}) {
         await apiRateLimitStore.useRedisStore(redisRateLimitClient);
         await authRateLimitStore.useRedisStore(redisRateLimitClient);
         await docsRateLimitStore.useRedisStore(redisRateLimitClient);
+        await reauthenticationRateLimitStore.useRedisStore(redisRateLimitClient);
         logger.info('Redis-backed rate limiting enabled.');
         return true;
     } catch (error) {
@@ -1197,6 +1206,7 @@ async function initializeRateLimiters() {
     await apiRateLimitStore.useMemoryStore();
     await authRateLimitStore.useMemoryStore();
     await docsRateLimitStore.useMemoryStore();
+    await reauthenticationRateLimitStore.useMemoryStore();
     clearRedisRateLimitReconnectTimer();
 
     if (redisRateLimitClient) {
@@ -3757,7 +3767,7 @@ app.get('/api/auth/oidc/login', async (req, res) => {
 
     try {
         const return_to = req.query.returnTo ? String(req.query.returnTo) : '/';
-        const authorization_url = await oidc_api.createAuthorizationURL(return_to);
+        const authorization_url = await oidc_api.createAuthorizationURL(return_to, req.query.handoff);
         res.redirect(authorization_url);
     } catch (err) {
         logger.error(`OIDC login redirect failed: ${err.message}`);
@@ -3796,7 +3806,10 @@ app.get('/api/auth/oidc/callback', async (req, res) => {
 
         const auth_response = await auth_api.getAuthResponseObject(user_obj);
         const return_to = callback_result.return_to ? callback_result.return_to : '/';
-        const redirect_path = `${getOrigin()}/login#oidc_token=${encodeURIComponent(auth_response.token)}&redirect=${encodeURIComponent(return_to)}`;
+        // The login page takes the token only alongside the handoff value its own tab sent with
+        // the sign-in, so neither a link nor someone else's callback can sign it in.
+        const handoff = callback_result.handoff ? `&handoff=${encodeURIComponent(callback_result.handoff)}` : '';
+        const redirect_path = `${getOrigin()}/login#oidc_token=${encodeURIComponent(auth_response.token)}&redirect=${encodeURIComponent(return_to)}${handoff}`;
         res.redirect(redirect_path);
     } catch (err) {
         logger.error(`OIDC callback failed: ${err.message}`);
@@ -3829,6 +3842,27 @@ app.get('/api/auth/header/status', optionalJwt, requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.send(header_auth_api.getStatus(req));
 });
+
+// For a quoted name in the log: never more than a line, whatever a request sends.
+function quoteForLog(value) {
+    return JSON.stringify(String(value ?? '').slice(0, 100));
+}
+
+/*************************************************
+ * A wrong password said nothing in the log, so
+ * guessing could not be seen, nor banned by a tool
+ * that watches the log. One line per refusal, with
+ * the name tried and the address, which is the
+ * proxy's client address when trust proxy says so.
+ ************************************************/
+function logFailedSignIn(req, res, next) {
+    res.on('finish', () => {
+        if (res.statusCode !== 401) return;
+        const username = req.body ? req.body.username : undefined;
+        logger.warn(`Failed password sign-in for ${quoteForLog(username)} from ${req.ip}.`);
+    });
+    next();
+}
 
 app.post('/api/auth/register', optionalJwt, async (req, res) => {
     if (oidc_api.isEnabled()) {
@@ -3896,6 +3930,7 @@ app.post('/api/auth/login'
             }
             next();
         }
+        , logFailedSignIn
         , (req, res, next) => auth_api.passport.authenticate(auth_api.passwordLoginStrategies(), { session: false })(req, res, next)
         , auth_api.generateJWT
         , auth_api.returnAuthResponse
@@ -4013,15 +4048,61 @@ app.post('/api/auth/changePassword', optionalJwt, requireAuthenticated, async (r
         return;
     }
 
-    const must_prove_current_password = changing_own_password && req.user.role !== 'admin';
-    if (must_prove_current_password && !await auth_api.verifyUserPassword(req.user.uid, req.body.current_password)) {
-        res.status(403).send({success: false, error: 'The current password is incorrect'});
-        return;
-    }
+    // Administrators too. An unattended browser is signed in all the same, and theirs is the
+    // account most worth taking over. Setting somebody else's password still needs no proof.
+    if (changing_own_password && !await proveCurrentPassword(req, res)) return;
 
     const success = await auth_api.changeUserPassword(target_uid, new_password);
+    if (success && changing_own_password && req.session_auth_time !== undefined) {
+        // The new password ended every session on the account, this one included. This one
+        // carries on with a token for the new password, which ends when the old one would have.
+        const user = await db_api.getRecord('users', {uid: target_uid});
+        res.send({success: true, token: auth_api.createJWTForUser(user, req.session_auth_time)});
+        return;
+    }
     res.send({success: success});
 });
+
+/*************************************************
+ * Checks the password a caller is replacing, and
+ * answers for them when it is wrong.
+ *
+ * Every attempt counts against the account until
+ * one is right, from whatever address, so guesses
+ * sent all at once count too. Past the allowance,
+ * changing the account's password waits out the
+ * window even with the right one: otherwise a
+ * borrowed session could guess the password here,
+ * from as many addresses as it could find.
+ ************************************************/
+async function proveCurrentPassword(req, res) {
+    const uid = req.user.uid;
+    let hits;
+    try {
+        hits = await reauthenticationRateLimitStore.increment(uid);
+    } catch (err) {
+        logger.error(`Could not count the attempts to change the password of ${quoteForLog(uid)}: ${err.message}`);
+        res.status(500).send({success: false, error: 'Could not check the current password'});
+        return false;
+    }
+
+    if (hits && hits.totalHits > REAUTHENTICATION_TRIES) {
+        logger.warn(`Refused to change the password of ${quoteForLog(uid)} from ${req.ip}: too many wrong current passwords.`);
+        const reset_at = hits.resetTime instanceof Date ? hits.resetTime.getTime() : Date.now() + REAUTHENTICATION_WINDOW_MS;
+        res.set('Retry-After', String(Math.max(1, Math.ceil((reset_at - Date.now()) / 1000))));
+        res.status(429).send({success: false, error: 'Too many wrong current passwords. Please wait and try again.'});
+        return false;
+    }
+
+    if (!await auth_api.verifyUserPassword(uid, req.body.current_password)) {
+        logger.warn(`Wrong current password given to change the password of ${quoteForLog(uid)} from ${req.ip}.`);
+        res.status(403).send({success: false, error: 'The current password is incorrect'});
+        return false;
+    }
+
+    await reauthenticationRateLimitStore.resetKey(uid);
+    return true;
+}
 app.post('/api/auth/adminExists', async (req, res) => {
     let exists = await auth_api.adminExists();
     res.send({exists: exists});
@@ -4055,7 +4136,8 @@ app.post('/api/stopShadow', optionalJwt, requireAdmin, requireJwtForTokenManagem
     const success = await db_api.updateRecord('users', {uid: req.user.uid}, {shadow: null});
     if (!success) return res.status(500).send({success: false, error: 'Could not end shadow access.'});
     const user = await db_api.getRecord('users', {uid: req.user.uid});
-    res.send(await auth_api.getAuthResponseObject(user));
+    // The same sign-in, so the same expiry: returning from shadow access must not renew it.
+    res.send(await auth_api.getAuthResponseObject(user, req.session_auth_time));
 });
 
 app.post('/api/deleteUser', optionalJwt, requireAdmin, async (req, res) => {
