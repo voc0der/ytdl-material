@@ -127,6 +127,10 @@
         <target state="translated">Ό,τι μεταβιβάζεται στο πρόγραμμα λήψης πέρα από τις δικές του επιλογές.</target>
         <note priority="1" from="description">Modify args subtitle</note>
       </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">Σημειώσεις</target>
+      </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
         <target state="translated">Δεν υπάρχουν ακόμη συνδρομές</target>
@@ -358,6 +362,10 @@
         <target state="translated">Ο σύνδεσμος ανοίγει στο δευτερόλεπτο που ορίζετε.</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <target state="translated">Αρχεία ανά εκτέλεση</target>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">Χρονοπρογραμματισμός και επιλογές</target>
@@ -471,6 +479,10 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">Ποιότητα</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <target state="translated">Κλειδί API (προαιρετικό)</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -674,6 +686,12 @@
         <target state="translated">Με ποιον χρήστη εκτελείται ο διακομιστής, άρα σε ποιον ανήκουν τα αρχεία που γράφει. Ορίζεται με μεταβλητές περιβάλλοντος· αλλάξτε τες εκεί όπου τις ορίσατε.</target>
         <note priority="1" from="description">Settings permissions hint</note>
       </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">Ακοή</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
+      </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
         <target state="translated">Κοινή χρήση</target>
@@ -854,6 +872,10 @@
         <target state="translated">Τα αρχεία εμφανίζονται εδώ καθώς τα λαμβάνει αυτή η συνδρομή.</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <target state="translated">Τοπική ΤΝ</target>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">Ειδοποιήσεις</target>
@@ -873,6 +895,10 @@
         <target state="translated">Μη συνδεδεμένο</target>
         <note priority="1" from="description">OIDC status not connected</note>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">Άνθρωποι, τόποι και διάθεση</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">Η ανανέωση ολοκληρώθηκε με επιτυχία.</target>
@@ -880,6 +906,10 @@
       <trans-unit id="5947241266456580665" datatype="html">
         <source>Download failed</source>
         <target state="translated">Η λήψη απέτυχε</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">URL διακομιστή</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -1029,6 +1059,10 @@
         <target state="translated">Επεξεργασία ορισμάτων</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">Ιστορία</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">Προσθήκη σε λίστα αναπαραγωγής</target>
@@ -1048,6 +1082,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">Η αποστολή νέων cookies αντικαθιστά τα παλιά, για όλους.</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">Στέλνει επίσης στο μοντέλο μερικά καρέ από κάθε μισό λεπτό και προσθέτει όσα δείχνουν.</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -1203,6 +1241,10 @@
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">PostgreSQL σε MongoDB κατά την εκκίνηση</target>
       </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">Λόγια και άλλοι ήχοι</target>
+      </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
         <target state="translated">Η εφαρμογή σαρώνει αυτό το κανάλι πριν δημιουργήσει τις λήψεις. Τα αρχεία θα εμφανιστούν εδώ μόλις ολοκληρωθούν οι λήψεις στην ουρά.</target>
@@ -1338,6 +1380,10 @@
         <source>Nothing downloaded yet</source>
         <target state="translated">Δεν έχει ληφθεί τίποτα ακόμη</target>
         <note priority="1" from="description">No downloads title</note>
+      </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <target state="translated">Δεν ήταν δυνατή η αποθήκευση των ρυθμίσεων.</target>
       </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
@@ -1610,6 +1656,12 @@
         <target state="translated">Με αυτή τη ρύθμιση ενεργή, αν ένα μόνο βίντεο ταιριάζει σε μια κατηγορία, όλη η λίστα αναπαραγωγής παίρνει αυτή την κατηγορία.</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
       </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">Ανενεργές</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
+      </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
         <target state="translated">Σε αναμονή</target>
@@ -1657,6 +1709,14 @@
         <source>Help make ytdl-material better</source>
         <target state="translated">Βοηθήστε να γίνει καλύτερο το ytdl-material</target>
         <note priority="1" from="description">About feedback hint</note>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <target state="translated">Απομαγνητοφώνηση</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">Ομιλία</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -1731,10 +1791,18 @@
         <target state="translated">Το προσαρμοσμένο πρότυπο webhook είναι ενεργό</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <target state="translated">Μοντέλο</target>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">Εγγραφή</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">Μυθιστόρημα</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -1876,6 +1944,10 @@
         <target state="translated">Αυτές οι εξαιρέσεις ισχύουν στο πλαίσιο του επιλεγμένου επιπέδου σκιώδους πρόσβασης. Η λειτουργία μόνο ανάγνωσης αποτρέπει πάντα τις αλλαγές στη βιβλιοθήκη. Η σκιώδης πρόσβαση δεν παρέχει ποτέ διαχείριση λογαριασμών ή του διακομιστή.</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">Βάζει το μοντέλο ΤΝ σας να καταγράψει τον ήχο και τα βίντεο της βιβλιοθήκης στο ύφος που ορίζεται στις επιλογές του, μαζί με όσα φαίνονται στην οθόνη όταν η Όραση είναι ενεργή. Το αποθηκεύει δίπλα στο πολυμέσο και παραλείπει αρχεία που έχουν ήδη γίνει με τον ίδιο τρόπο.</target>
+      </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
         <target state="translated">Εμφάνιση όλων των αντιγράφων</target>
@@ -1961,6 +2033,10 @@
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
       </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">Το επιλεγμένο μοντέλο δεν υπάρχει σε αυτόν τον διακομιστή.</target>
+      </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>
         <target state="translated">Επιλογή όλων</target>
@@ -2025,6 +2101,10 @@
         <target state="translated">Χρησιμοποιεί τη GPU για να επιταχύνει την επεξεργασία βίντεο, όπως την περικοπή. Η GPU πρέπει να είναι διαθέσιμη στο κοντέινερ.</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">Κείμενο οθόνης, όπως είναι</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated">για να συνεχίσετε στο <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
@@ -2038,6 +2118,16 @@
         <source>Create admin account</source>
         <target state="translated">Δημιουργία λογαριασμού διαχειριστή</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">Σύντομο</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">Όραση</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -2103,6 +2193,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">Διαγραφή αρχείων λίστας αναπαραγωγής</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">Ενεργοποιήστε την αν το μοντέλο βλέπει εικόνες. Οι οπτικές ενδείξεις του Auto-transcribe του στέλνουν καρέ και αποτυγχάνουν αν δεν μπορεί.</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -2242,6 +2336,10 @@
       <trans-unit id="2449892486014503777" datatype="html">
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">Αυτό το στοιχείο καταργείται από την αρχειοθήκη σας, ώστε να μπορεί να ληφθεί ξανά.</target>
+      </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">Μόνο τα πιο σημαντικά</target>
       </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
@@ -2477,6 +2575,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">Δεν ήταν δυνατή η ανάκληση αυτού του διακριτικού.</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">Περίληψη</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html">
         <source>Share files</source>
         <target state="translated">Κοινή χρήση αρχείων</target>
@@ -2524,6 +2626,10 @@
         <source>Smallest first</source>
         <target state="translated">Μικρότερα πρώτα</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">Οποιοσδήποτε διακομιστής συμβατός με OpenAI, όπως llama.cpp, llama-swap ή Ollama, σε διεύθυνση loopback ή ιδιωτικού δικτύου. Στο Docker, το localhost είναι το ίδιο το κοντέινερ της εφαρμογής.</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -2674,6 +2780,11 @@
         <source>Downloading</source>
         <target state="translated">Λήψη σε εξέλιξη</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {Αυτός ο διακομιστής δεν εκτελεί κανένα μοντέλο.} =1 {Αυτός ο διακομιστής εκτελεί 1 μοντέλο.} other {Αυτός ο διακομιστής εκτελεί <x id="INTERPOLATION"/> μοντέλα.}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">για να κατεβάσετε χειροκίνητα την επίσημη επέκταση ytdl-material για τον Chrome.</target>
@@ -2696,6 +2807,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">Claim ομάδων</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">Υφασμένο ως σκηνικό</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -2749,6 +2864,10 @@
         <source>User UID</source>
         <target state="translated">UID χρήστη</target>
         <note priority="1" from="description">User UID</note>
+      </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">Αναζήτηση μοντέλων…</target>
       </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
@@ -2952,6 +3071,10 @@
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">Διάρκεια</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">Σημειώσεις για κάθε σημείο</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -3228,6 +3351,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">Ο έλεγχος δεν ολοκληρώθηκε</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">Ό,τι βοηθά να το παρακολουθήσετε</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">Αναγνωριστικό χρήστη</target>
@@ -3290,6 +3417,10 @@
         <target state="translated">Τιμή ορίσματος</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">Δεν ήταν δυνατή η σύνδεση με τον διακομιστή ΤΝ.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Εκτελείται μόνο όταν την εκτελείτε εσείς</target>
@@ -3302,6 +3433,14 @@
       <trans-unit id="9121124215111024650" datatype="html">
         <source>Failed to confirm task!</source>
         <target state="translated">Αποτυχία επιβεβαίωσης εργασίας!</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">Πώς καταγράφει το μοντέλο όσα λέγονται.</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">Μια σύντομη περίληψη</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -3408,6 +3547,10 @@
         <target state="translated">Σύρετε για αναδιάταξη ή χρησιμοποιήστε τα πλήκτρα βέλους</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Γραμμένο από το <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, που μπορεί να κάνει λάθη.</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">Αντιγραφή</target>
@@ -3449,6 +3592,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">Αφήστε το κενό για να σταλεί κενός τίτλος.</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">Συνδέστε τον δικό σας διακομιστή ΤΝ. Ενεργοποιεί τις εργασίες ΤΝ, που εκτελούνται και προγραμματίζονται στη σελίδα Εργασίες.</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -3662,6 +3809,10 @@
         <target state="translated">Ημέρες από την προσθήκη ενός αρχείου στη βιβλιοθήκη. Δεν διαγράφεται τίποτα μέχρι να οριστεί αυτό.</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">Αφηγημένο ως ιστορία</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">Κατάργηση 1 διπλοτύπου</target>
@@ -3761,6 +3912,10 @@
         <target state="translated">Αφήστε το κενό για να χρησιμοποιηθεί ο τίτλος του καναλιού ή της λίστας.</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> καταγράφηκαν · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> παραλείφθηκαν · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> απέτυχαν</target>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">Bind DN</target>
@@ -3791,6 +3946,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Διακομιστής μεσολάβησης webhook Telegram</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">Λέξη προς λέξη</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -3864,10 +4023,18 @@
         <target state="translated">Επάνω τίτλος</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">Ενεργοποιήστε την αν το μοντέλο ακούει ήχο. Το Auto-transcribe του στέλνει τον ήχο και αποτυγχάνει αν δεν μπορεί.</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">Αποθηκεύει την αρχειοθήκη της επιλεγμένης συνδρομής και του τύπου ως αρχείο αρχειοθήκης yt-dlp</target>
         <note priority="1" from="description">Export archive tooltip</note>
+      </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">Περιγραφικό</target>
       </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
@@ -3878,6 +4045,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 στοιχείο} other {<x id="INTERPOLATION"/> στοιχεία}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">Περιγραφή</target>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
@@ -3916,6 +4087,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">Η κοινή χρήση ενεργοποιήθηκε.</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">Νέα αναζήτηση μοντέλων</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">Εναλλαγή σε URL</target>
@@ -3947,6 +4122,10 @@
         <source>Remove newest</source>
         <target state="translated">Κατάργηση νεότερων</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <target state="translated">Ενεργοποίηση ενσωμάτωσης ΤΝ</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -4215,6 +4394,10 @@
         <source>Shadow (read only)</source>
         <target state="translated">Σκιά (μόνο ανάγνωση)</target>
       </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Για να το χρησιμοποιήσετε, ενεργοποιήστε την Ακοή του μοντέλου στις Ρυθμίσεις → Για προχωρημένους.</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Δημιουργία αποσπάσματος</target>
@@ -4299,6 +4482,10 @@
         <target state="translated">Πηγή λήψης</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">Ακριβές</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">Μάσκα δημιουργίας αρχείων</target>
@@ -4312,6 +4499,10 @@
         <source>Retry failed</source>
         <target state="translated">Επανάληψη αποτυχημένων</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">1–1000 αρχεία. Οι αποτυχημένες απόπειρες μετρούν στο όριο. Τα αρχεία που έχουν ήδη γίνει με τον ίδιο τρόπο παραλείπονται.</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -4367,6 +4558,10 @@
         <source>Start at a time</source>
         <target state="translated">Έναρξη από συγκεκριμένο σημείο</target>
         <note priority="1" from="description">Use timestamp</note>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">Λεπτομερές</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html">
         <source>Download failed!</source>
@@ -4739,6 +4934,10 @@
         <target state="translated">Λήψη ως zip</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
       </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">Εκτελέστε ή προγραμματίστε το Auto-transcribe στις Εργασίες και επιλέξτε εκεί πώς γράφει. Τα πολυμέσα στέλνονται σε αυτόν τον διακομιστή και όσα γράφει το μοντέλο αποθηκεύονται δίπλα τους. Η απενεργοποίηση της ΤΝ σταματά την τρέχουσα εργασία και κρατά ό,τι έχει ολοκληρωθεί.</target>
+      </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
         <target state="translated">Η κατηγορία <x id="category name" equiv-text="category[&apos;name&apos;]"/> διαγράφηκε!</target>
@@ -4780,6 +4979,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">Προετοιμασία του αρχείου για μετάδοση</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">Οπτικές ενδείξεις</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
@@ -4889,6 +5092,10 @@
       <trans-unit id="4604336107574138791" datatype="html">
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Οι χρήστες του Chrome πρέπει να σύρουν τον σύνδεσμο &apos;Εναλλακτικό URL&apos; στους σελιδοδείκτες.</target>
+      </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">Εισαγάγετε το URL του διακομιστή για να επιλέξετε από τα μοντέλα του.</target>
       </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
@@ -5020,6 +5227,10 @@
       <trans-unit id="6221092011245648170" datatype="html">
         <source>Playlist download cancelled.</source>
         <target state="translated">Η λήψη της λίστας αναπαραγωγής ακυρώθηκε.</target>
+      </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">Γραμμένο από τοπική ΤΝ, που μπορεί να κάνει λάθη.</target>
       </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>

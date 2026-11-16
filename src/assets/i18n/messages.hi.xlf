@@ -344,6 +344,10 @@
         <target state="translated">डाउनलोडर को उसके अपने विकल्पों के अलावा जो दिया जाता है।</target>
         <note priority="1" from="description">Modify args subtitle</note>
       </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">नोट्स</target>
+      </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
         <target state="translated">अभी कोई सदस्यता नहीं</target>
@@ -744,6 +748,10 @@
         <target state="translated">ये अपवाद चुने गए शैडो एक्सेस स्तर के भीतर लागू होते हैं। केवल पढ़ने योग्य मोड में लाइब्रेरी में कभी बदलाव नहीं हो सकते। शैडो एक्सेस कभी भी खातों या सर्वर का प्रशासन नहीं देता।</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">आपके एआई मॉडल से लाइब्रेरी के ऑडियो और वीडियो को विकल्पों में चुनी गई शैली में लिखवाता है, और दृष्टि चालू होने पर स्क्रीन पर दिखने वाली चीज़ें भी। नतीजा मीडिया के पास सहेजता है और उसी तरह पहले से बनी फ़ाइलों को छोड़ देता है।</target>
+      </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
         <target state="translated">हर प्रति दिखाएँ</target>
@@ -829,6 +837,10 @@
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
       </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">चुना गया मॉडल इस सर्वर पर नहीं है।</target>
+      </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>
         <target state="translated">सभी चुनें</target>
@@ -910,6 +922,10 @@
         <target state="translated">आर्ग्युमेंट का मान</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">एआई सर्वर तक नहीं पहुँच सके।</target>
+      </trans-unit>
       <trans-unit id="7182974689040833178" datatype="html" xml:space="preserve">
         <source>Resume</source>
         <target state="translated">फिर शुरू करें</target>
@@ -981,6 +997,10 @@
         <source>The link opens at the second you give.</source>
         <target state="translated">लिंक आपके दिए गए सेकंड पर खुलता है।</target>
         <note priority="1" from="description">Use timestamp hint</note>
+      </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <target state="translated">प्रति रन फ़ाइलें</target>
       </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
@@ -1095,6 +1115,10 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">गुणवत्ता</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <target state="translated">API कुंजी (वैकल्पिक)</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -1313,6 +1337,10 @@
         <target state="translated">यह सदस्यता जैसे-जैसे फ़ाइलें डाउनलोड करती है, वे यहाँ दिखती हैं।</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <target state="translated">लोकल एआई</target>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">सूचनाएँ</target>
@@ -1395,6 +1423,10 @@
         <target state="translated">आर्ग्युमेंट संपादित करें</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">कहानी</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">प्लेलिस्ट में जोड़ें</target>
@@ -1414,6 +1446,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">नई कुकी अपलोड करने से पुरानी कुकी सभी के लिए बदल जाती हैं।</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">मॉडल को हर आधे मिनट से कुछ फ़्रेम भी भेजता है, और उनमें जो दिखता है उसे जोड़ता है।</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -1673,6 +1709,10 @@
         <target state="translated">अभी तक कुछ डाउनलोड नहीं हुआ</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <target state="translated">सेटिंग सहेजी नहीं जा सकीं।</target>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">शुरू करने के लिए ऊपर कोई लिंक चिपकाएँ। आप और आपकी सदस्यताएँ जो भी डाउनलोड करती हैं, वह यहाँ आता है।</target>
@@ -1927,6 +1967,12 @@
         <target state="translated">यह सेटिंग चालू होने पर, अगर एक भी वीडियो किसी श्रेणी से मेल खाता है, तो पूरी प्लेलिस्ट को वह श्रेणी मिलती है।</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
       </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">बंद</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
+      </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
         <target state="translated">कतार में</target>
@@ -1974,6 +2020,14 @@
         <source>Help make ytdl-material better</source>
         <target state="translated">ytdl-material को बेहतर बनाने में मदद करें</target>
         <note priority="1" from="description">About feedback hint</note>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <target state="translated">ट्रांसक्रिप्ट</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">बोली</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -2048,10 +2102,18 @@
         <target state="translated">कस्टम वेबहुक टेम्पलेट चालू</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <target state="translated">मॉडल</target>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">सदस्यता लें</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">उपन्यास</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -2116,6 +2178,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">प्लेलिस्ट की फ़ाइलें हटाएँ</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">अगर मॉडल तस्वीरें देख सकता है तो चालू करें। Auto-transcribe के दृश्य संकेत उसे फ़्रेम भेजते हैं, और अगर वह नहीं देख सकता तो विफल होते हैं।</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -2393,6 +2459,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">वह टोकन रद्द नहीं हो सका।</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">सारांश</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html" xml:space="preserve">
         <source>Share files</source>
         <target state="translated">फ़ाइलें शेयर करें</target>
@@ -2440,6 +2510,10 @@
         <source>Smallest first</source>
         <target state="translated">सबसे छोटे पहले</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">कोई भी OpenAI-संगत सर्वर, जैसे llama.cpp, llama-swap या Ollama, लूपबैक या निजी नेटवर्क पते पर। Docker में localhost ऐप का अपना कंटेनर है।</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -2586,6 +2660,11 @@
         <source>Downloading</source>
         <target state="translated">डाउनलोड हो रहा है</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {इस सर्वर पर कोई मॉडल नहीं चलता।} =1 {इस सर्वर पर 1 मॉडल चलता है।} other {इस सर्वर पर <x id="INTERPOLATION"/> मॉडल चलते हैं।}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">आधिकारिक ytdl-material Chrome एक्सटेंशन मैन्युअल रूप से डाउनलोड करने के लिए।</target>
@@ -2608,6 +2687,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">समूह क्लेम</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">दृश्य-पृष्ठभूमि के रूप में बुना हुआ</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -2662,6 +2745,10 @@
         <target state="translated">उपयोगकर्ता UID</target>
         <note priority="1" from="description">User UID</note>
       </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">मॉडल ढूँढ रहे हैं…</target>
+      </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
         <target state="translated">यहाँ अभी कुछ नहीं है</target>
@@ -2690,6 +2777,10 @@
         <source>Finished downloading</source>
         <target state="translated">डाउनलोडिंग समाप्त हो गई</target>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">लोग, जगहें और माहौल</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">रीफ़्रेश सफलतापूर्वक पूरा हुआ।</target>
@@ -2697,6 +2788,10 @@
       <trans-unit id="5947241266456580665" datatype="html" xml:space="preserve">
         <source>Download failed</source>
         <target state="translated">डाउनलोड विफल</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">सर्वर URL</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -2725,6 +2820,12 @@
         <source>Who the server runs as, and so who owns the files it writes. Set with environment variables; change them where you set them.</source>
         <target state="translated">सर्वर किस उपयोगकर्ता के रूप में चलता है, और इसलिए उसकी लिखी फ़ाइलें किसकी होती हैं। पर्यावरण चरों से सेट होता है; जहाँ सेट किया था वहीं बदलें।</target>
         <note priority="1" from="description">Settings permissions hint</note>
+      </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">श्रवण</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
@@ -3069,6 +3170,10 @@
         <source>Shadow (read only)</source>
         <target state="translated">शैडो (केवल पढ़ने योग्य)</target>
       </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">इसका उपयोग करने के लिए सेटिंग → उन्नत में मॉडल का श्रवण चालू करें।</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">क्लिप बनाएँ</target>
@@ -3120,6 +3225,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Telegram वेबहुक प्रॉक्सी</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">शब्दशः</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -3396,6 +3505,10 @@
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">शुरू होने पर PostgreSQL से MongoDB</target>
       </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">शब्द और अन्य आवाज़ें</target>
+      </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
         <target state="translated">डाउनलोड बनाने से पहले ऐप इस चैनल को स्कैन कर रहा है। कतार के डाउनलोड पूरे होने पर फ़ाइलें यहाँ दिखेंगी।</target>
@@ -3491,6 +3604,10 @@
       <trans-unit id="7410432243549869948" datatype="html" xml:space="preserve">
         <source>Duration</source>
         <target state="translated">अवधि</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">हर बिंदु पर नोट्स</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -3681,6 +3798,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">जाँच पूरी नहीं हुई</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">जो समझने में मदद करे</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">उपयोगकर्ता ID</target>
@@ -3706,6 +3827,14 @@
       <trans-unit id="9121124215111024650" datatype="html" xml:space="preserve">
         <source>Failed to confirm task!</source>
         <target state="translated">कार्य की पुष्टि करने में विफल!</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">मॉडल कही गई बातों को कैसे लिखता है।</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">एक छोटा सारांश</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -3791,6 +3920,10 @@
         <target state="translated">क्रम बदलने के लिए खींचें, या तीर कुंजियाँ उपयोग करें</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> द्वारा लिखा गया, जो गलतियाँ कर सकता है।</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">कॉपी करें</target>
@@ -3832,6 +3965,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">खाली शीर्षक भेजने के लिए खाली छोड़ें।</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">अपना एआई सर्वर जोड़ें। एआई कार्य चालू करता है, जो कार्य पेज पर चलते और शेड्यूल होते हैं।</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -4013,6 +4150,10 @@
         <target state="translated">फ़ाइल को लाइब्रेरी में जोड़े जाने के बाद के दिन। इसे सेट करने तक कुछ भी हटाया नहीं जाता।</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">कहानी के रूप में फिर से सुनाया गया</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">1 डुप्लिकेट हटाएँ</target>
@@ -4088,6 +4229,10 @@
         <target state="translated">चैनल या प्लेलिस्ट का शीर्षक उपयोग करने के लिए खाली छोड़ें।</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> लिखे गए · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> छोड़े गए · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> विफल</target>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">बाइंड DN</target>
@@ -4147,10 +4292,18 @@
         <target state="translated">शीर्ष शीर्षक</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">अगर मॉडल ऑडियो सुन सकता है तो चालू करें। Auto-transcribe उसे आवाज़ भेजता है, और अगर वह नहीं सुन सकता तो विफल होता है।</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">चुनी गई सदस्यता और प्रकार का संग्रह yt-dlp संग्रह फ़ाइल के रूप में सहेजता है</target>
         <note priority="1" from="description">Export archive tooltip</note>
+      </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">वर्णनात्मक</target>
       </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
@@ -4161,6 +4314,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 आइटम} other {<x id="INTERPOLATION"/> आइटम}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">विवरण</target>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
@@ -4199,6 +4356,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">शेयरिंग सक्षम।</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">मॉडल फिर से ढूँढें</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">URL पर जाएँ</target>
@@ -4230,6 +4391,10 @@
         <source>Remove newest</source>
         <target state="translated">सबसे नई हटाएँ</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <target state="translated">एआई इंटीग्रेशन चालू करें</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html" xml:space="preserve">
         <source>Failed to enable sharing.</source>
@@ -4408,6 +4573,10 @@
         <target state="translated">कटिंग जैसी वीडियो प्रोसेसिंग तेज़ करने के लिए आपके GPU का उपयोग करता है। GPU को कंटेनर में पास किया जाना चाहिए।</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">स्क्रीन का टेक्स्ट, जैसा है वैसा</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{appTitle}}"/> पर जारी रखने के लिए</target>
@@ -4421,6 +4590,16 @@
         <source>Create admin account</source>
         <target state="translated">एडमिन खाता बनाएँ</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">संक्षिप्त</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">दृष्टि</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -4469,6 +4648,10 @@
         <target state="translated">डाउनलोड स्रोत</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">सटीक</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">फ़ाइल निर्माण मास्क</target>
@@ -4482,6 +4665,10 @@
         <source>Retry failed</source>
         <target state="translated">विफल फिर से आज़माएँ</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">1–1000 फ़ाइलें। विफल प्रयास सीमा में गिने जाते हैं। उसी तरह पहले से बनी फ़ाइलें छोड़ दी जाती हैं।</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -4541,6 +4728,10 @@
       <trans-unit id="7180231139026789468" datatype="html" xml:space="preserve">
         <source>Language successfully changed! Reload to update the page.</source>
         <target state="translated">भाषा सफलतापूर्वक बदल दी गई! पेज को अपडेट करने के लिए पुनः लोड करें।</target>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">विस्तृत</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html" xml:space="preserve">
         <source>Download failed!</source>
@@ -4866,6 +5057,10 @@
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">यह आइटम आपके संग्रह से हटाया जाता है, ताकि इसे फिर से डाउनलोड किया जा सके।</target>
       </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">सिर्फ़ सबसे ज़रूरी</target>
+      </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
         <target state="translated">लॉग इन</target>
@@ -4898,6 +5093,10 @@
         <source>Download as zip</source>
         <target state="translated">zip के रूप में डाउनलोड करें</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
+      </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">कार्य में Auto-transcribe चलाएँ या शेड्यूल करें, और वहीं चुनें कि वह कैसे लिखे। मीडिया इस सर्वर को भेजा जाता है, और मॉडल जो लिखता है वह उसके पास सहेजा जाता है। एआई बंद करने से चल रहा काम रुक जाता है और पूरा हुआ काम बना रहता है।</target>
       </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html" xml:space="preserve">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
@@ -4940,6 +5139,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">फ़ाइल कास्ट के लिए तैयार हो रही है</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">दृश्य संकेत</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
@@ -5018,6 +5221,10 @@
       <trans-unit id="4604336107574138791" datatype="html" xml:space="preserve">
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Chrome उपयोगकर्ताओं को &apos;वैकल्पिक URL&apos; लिंक को आपके बुकमार्क पर खींचना होगा।</target>
+      </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">मॉडलों में से चुनने के लिए सर्वर का URL डालें।</target>
       </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
@@ -5127,6 +5334,10 @@
       <trans-unit id="6221092011245648170" datatype="html">
         <source>Playlist download cancelled.</source>
         <target state="translated">प्लेलिस्ट डाउनलोड रद्द हुआ।</target>
+      </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">लोकल एआई द्वारा लिखा गया, जो गलतियाँ कर सकता है।</target>
       </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>

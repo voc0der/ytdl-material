@@ -35,6 +35,10 @@
         <target state="translated">Baixa en zip</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
       </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">Executa o programa Auto-transcribe a Tasques i tria-hi com escriu. Els fitxers s&apos;envien a aquest servidor, i el que escriu el model es desa al seu costat. Desactivar la IA atura la feina en curs i conserva el que s&apos;ha acabat.</target>
+      </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
         <target state="translated">S&apos;ha esborrat <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</target>
@@ -76,6 +80,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">S&apos;està preparant el fitxer per emetre&apos;l</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">Pistes visuals</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
@@ -297,6 +305,12 @@
         <source>With this setting enabled, if a single video matches a category, the entire playlist will receive that category.</source>
         <target state="translated">Amb aquesta opció activada, si un sol vídeo coincideix amb una categoria, tota la llista de reproducció rep aquesta categoria.</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
+      </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">Desactivades</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
       </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
@@ -570,6 +584,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">La comprovació no ha acabat</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">El que ajuda a seguir-ho</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">ID d&apos;usuari</target>
@@ -632,6 +650,10 @@
         <target state="translated">Valor de l&apos;argument</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">No s&apos;ha pogut contactar amb el servidor d&apos;IA.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Només s&apos;executa quan l&apos;executes tu</target>
@@ -644,6 +666,14 @@
       <trans-unit id="9121124215111024650" datatype="html">
         <source>Failed to confirm task!</source>
         <target>No s&apos;ha pogut confirmar la tasca!</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">Com posa per escrit el model el que es diu.</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">Un resum breu</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -750,6 +780,10 @@
         <target state="translated">Arrossega per reordenar o fes servir les fletxes</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Escrit per <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, que es pot equivocar.</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">Copia</target>
@@ -791,6 +825,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">Deixa-ho en blanc per enviar un títol buit.</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">Connecta el teu propi servidor d&apos;IA. Activa les tasques d&apos;IA, que s&apos;executen i es programen a la pàgina Tasques.</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -1173,6 +1211,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">No s&apos;ha pogut revocar aquest testimoni.</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">Resum</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html">
         <source>Share files</source>
         <target state="translated">Compartir fitxers</target>
@@ -1220,6 +1262,10 @@
         <source>Smallest first</source>
         <target state="translated">Primer els més petits</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">Qualsevol servidor compatible amb OpenAI, com ara llama.cpp, llama-swap o Ollama, en una adreça de loopback o de xarxa privada. A Docker, localhost és el contenidor de la mateixa aplicació.</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -1370,6 +1416,11 @@
         <source>Downloading</source>
         <target state="translated">S&apos;està baixant</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {Aquest servidor no executa cap model.} =1 {Aquest servidor executa 1 model.} other {Aquest servidor executa <x id="INTERPOLATION"/> models.}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">per baixar manualment l&apos;extensió oficial de ytdl-material per al Chrome.</target>
@@ -1392,6 +1443,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">Claim de grups</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">Integrat com a escenari</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -1419,6 +1474,10 @@
         <source>User UID</source>
         <target state="translated">UID de l&apos;usuari</target>
         <note priority="1" from="description">User UID</note>
+      </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">S&apos;estan cercant models…</target>
       </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
@@ -1597,6 +1656,10 @@
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">Durada</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">Notes de cada punt</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -1901,10 +1964,18 @@
         <target state="translated">Títol superior</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">Activa-ho si el model pot sentir àudio. Auto-transcribe li envia el so, i falla si no pot.</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">Desa l&apos;arxiu de la subscripció i el tipus triats com a fitxer d&apos;arxiu de yt-dlp</target>
         <note priority="1" from="description">Export archive tooltip</note>
+      </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">Descriptiu</target>
       </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
@@ -1940,6 +2011,10 @@
         <source>The link opens at the second you give.</source>
         <target state="translated">L&apos;enllaç s&apos;obre al segon que indiquis.</target>
         <note priority="1" from="description">Use timestamp hint</note>
+      </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <target state="translated">Fitxers per execució</target>
       </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
@@ -2054,6 +2129,10 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">Qualitat</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <target state="translated">Clau d&apos;API (opcional)</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -2267,6 +2346,10 @@
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">De PostgreSQL a MongoDB a l&apos;arrencada</target>
       </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">Paraules i altres sons</target>
+      </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
         <target state="translated">L&apos;aplicació està escanejant aquest canal abans de crear les baixades. Els fitxers apareixeran aquí quan acabin les baixades de la cua.</target>
@@ -2403,6 +2486,10 @@
         <target state="translated">Encara no s&apos;ha baixat res</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <target state="translated">No s&apos;ha pogut desar la configuració.</target>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">Enganxa un enllaç a dalt per començar. Tot el que baixeu tu i les teves subscripcions acaba aquí.</target>
@@ -2456,6 +2543,14 @@
       <trans-unit id="4594917748531031655" datatype="html">
         <source>Couldn&apos;t save the settings. Nothing was changed.</source>
         <target state="translated">No s&apos;ha pogut desar la configuració. No s&apos;ha canviat res.</target>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <target state="translated">Transcripció</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">Parla</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -2530,10 +2625,18 @@
         <target state="translated">Plantilla de webhook personalitzada activada</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <target state="translated">Model</target>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">Subscriu-te</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">Novel·la</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -2675,6 +2778,10 @@
         <target state="translated">Aquestes excepcions s&apos;apliquen dins del nivell d&apos;accés ombra triat. El mode només lectura impedeix sempre els canvis a la biblioteca. L&apos;accés ombra no dona mai l&apos;administració de comptes ni del servidor.</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">Fa que el teu model d&apos;IA posi per escrit l&apos;àudio i el vídeo de la biblioteca amb l&apos;estil triat a les opcions, amb el que surt a la pantalla quan Visió està activada. Ho desa al costat del fitxer i omet els que ja s&apos;han fet de la mateixa manera.</target>
+      </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
         <target state="translated">Mostra totes les còpies</target>
@@ -2760,6 +2867,10 @@
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
       </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">El model triat no és en aquest servidor.</target>
+      </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>
         <target state="translated">Selecciona-ho tot</target>
@@ -2824,6 +2935,10 @@
         <target state="translated">Fa servir la GPU per accelerar el processament de vídeo, com ara els retalls. Cal passar la GPU al contenidor.</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">Text a la pantalla, tal com és</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated">per continuar a <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
@@ -2837,6 +2952,16 @@
         <source>Create admin account</source>
         <target state="translated">Crea el compte d&apos;administrador</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">Breu</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">Visió</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -2865,6 +2990,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">Esborra els fitxers de la llista</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">Activa-la si el model pot veure imatges. Les pistes visuals d&apos;Auto-transcribe li envien fotogrames, i fallen si no pot.</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -3005,6 +3134,10 @@
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">Aquest element s&apos;elimina del teu arxiu, així que es pot tornar a baixar.</target>
       </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">Només el que més importa</target>
+      </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
         <target state="translated">Inicia la sessió</target>
@@ -3064,6 +3197,10 @@
         <source>What gets passed to the downloader on top of its own options.</source>
         <target state="translated">El que es passa al baixador a més de les seves pròpies opcions.</target>
         <note priority="1" from="description">Modify args subtitle</note>
+      </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">Notes</target>
       </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
@@ -3202,6 +3339,12 @@
         <source>Who the server runs as, and so who owns the files it writes. Set with environment variables; change them where you set them.</source>
         <target state="translated">Amb quin usuari s&apos;executa el servidor i, per tant, de qui són els fitxers que escriu. Es defineix amb variables d&apos;entorn; canvia-les on les vas definir.</target>
         <note priority="1" from="description">Settings permissions hint</note>
+      </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">Àudio</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
@@ -3480,6 +3623,10 @@
         <target state="translated">Dies des que un fitxer es va afegir a la biblioteca. No s&apos;esborra res fins que no es defineixi.</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">Explicat com una història</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">Elimina 1 duplicat</target>
@@ -3570,6 +3717,10 @@
         <target state="translated">Deixa-ho en blanc per utilitzar el títol del canal o de la llista.</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcrits · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> omesos · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> amb error</target>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">DN de vinculació</target>
@@ -3600,6 +3751,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Servidor intermediari del webhook de Telegram</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">Paraula per paraula</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -3641,6 +3796,10 @@
         <target state="translated">{VAR_PLURAL, plural, =1 {1 element} other {<x id="INTERPOLATION"/> elements}}</target>
         <note priority="1" from="description">Archive item count</note>
       </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">Descripció</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Comprova ara</target>
@@ -3678,6 +3837,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">Ús compartit habilitat.</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">Torna a cercar models</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">Canvia a URL</target>
@@ -3709,6 +3872,10 @@
         <source>Remove newest</source>
         <target state="translated">Elimina les més noves</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <target state="translated">Activa la integració d&apos;IA</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -3826,6 +3993,10 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Ombra (només lectura)</target>
+      </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Activa Àudio per al model a Configuració → Avançat per fer servir això.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -4061,6 +4232,10 @@
         <target state="translated">Origen de la baixada</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">Exacte</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">Màscara de creació de fitxers</target>
@@ -4074,6 +4249,10 @@
         <source>Retry failed</source>
         <target state="translated">Torna a provar les fallides</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">D&apos;1 a 1000 fitxers. Els intents fallits compten per al límit. S&apos;ometen els fitxers que ja s&apos;han fet de la mateixa manera.</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -4198,6 +4377,10 @@
       <trans-unit id="4604336107574138791" datatype="html">
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Els usuaris de Chrome han d&apos;arrossegar l&apos;enllaç &quot;URL alternatiu&quot; a les adreces d&apos;interès.</target>
+      </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">Introdueix l&apos;URL del servidor per triar entre els seus models.</target>
       </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
@@ -4442,6 +4625,10 @@
         <source>Playlist download cancelled.</source>
         <target state="translated">S&apos;ha cancel·lat la baixada de la llista de reproducció.</target>
       </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">Escrit per una IA local, que es pot equivocar.</target>
+      </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>
         <target state="translated">Entorns d&apos;execució de JavaScript</target>
@@ -4631,6 +4818,10 @@
         <target state="translated">Edita els arguments</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">Relat</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">Afegeix a una llista de reproducció</target>
@@ -4650,6 +4841,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">Pujar galetes noves substitueix les antigues, per a tothom.</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">També envia al model uns quants fotogrames de cada mig minut i hi afegeix el que mostren.</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -4798,6 +4993,10 @@
         <target state="translated">Els fitxers apareixen aquí a mesura que aquesta subscripció els baixa.</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <target state="translated">IA local</target>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">Notificacions</target>
@@ -4817,6 +5016,10 @@
         <target state="translated">No connectat</target>
         <note priority="1" from="description">OIDC status not connected</note>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">Persones, llocs i ambient</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">L&apos;actualització ha acabat correctament.</target>
@@ -4824,6 +5027,10 @@
       <trans-unit id="5947241266456580665" datatype="html">
         <source>Download failed</source>
         <target state="translated">La baixada ha fallat</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">URL del servidor</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -4833,6 +5040,10 @@
         <source>Set with <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code&gt;"/>ytdl_oidc_enabled<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>.</source>
         <target state="translated">Es defineix amb <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code&gt;"/>ytdl_oidc_enabled<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>.</target>
         <note priority="1" from="description">Single sign-on setting hint</note>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">Detallat</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html">
         <source>Download failed!</source>

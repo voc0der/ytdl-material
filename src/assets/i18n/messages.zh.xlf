@@ -237,6 +237,12 @@
         <target state="translated">启用此设置后，如果有一个视频匹配某个类别，整个播放列表都会归入该类别。</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
       </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">关闭</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
+      </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
         <target state="translated">已排队</target>
@@ -431,6 +437,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">检查未完成</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">有助于跟上内容的部分</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">用户 ID</target>
@@ -515,6 +525,10 @@
         <target state="translated">拖动以重新排序，或使用方向键</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">由 <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> 撰写，可能有错误。</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">复制</target>
@@ -556,6 +570,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">留空则发送空标题。</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">连接你自己的 AI 服务器。启用 AI 任务，这些任务在任务页面中运行和安排。</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -682,6 +700,14 @@
       <trans-unit id="9121124215111024650" datatype="html">
         <source>Failed to confirm task!</source>
         <target state="translated">任务确认失败！</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">模型如何写下所说的内容。</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">简短摘要</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -987,6 +1013,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">无法撤销该令牌。</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">摘要</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html">
         <source>Share files</source>
         <target state="translated">分享文件</target>
@@ -1034,6 +1064,10 @@
         <source>Smallest first</source>
         <target state="translated">最小的在前</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">任意兼容 OpenAI 的服务器，例如 llama.cpp、llama-swap 或 Ollama，地址须为回环或私有网络地址。在 Docker 中，localhost 指应用自己的容器。</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -1423,6 +1457,10 @@
         <target state="translated">链接会从你指定的秒数开始播放。</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <target state="translated">每次运行的文件数</target>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">计划与选项</target>
@@ -1536,6 +1574,10 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">画质</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <target state="translated">API 密钥（可选）</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -1946,6 +1988,10 @@
         <target state="translated">还没有下载任何内容</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <target state="translated">无法保存设置。</target>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">在上方粘贴链接即可开始。你和你的订阅下载的所有内容都会出现在这里。</target>
@@ -1982,6 +2028,14 @@
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
         <target state="translated">拥有此角色的每个人可以做的事，除非其账户另有设置。</target>
         <note priority="1" from="description">Manage role hint</note>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <target state="translated">转录</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">语音</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -2056,10 +2110,18 @@
         <target state="translated">已启用自定义 Webhook 模板</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <target state="translated">模型</target>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">订阅</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">小说</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -2087,6 +2149,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">删除播放列表文件</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">如果模型能看图片，请开启。Auto-transcribe 的视觉线索会向它发送画面，模型看不了就会失败。</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -2312,6 +2378,10 @@
         <target state="translated">文件加入媒体库后的天数。设置此项之前不会删除任何内容。</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">改写成故事</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">删除 1 个重复项</target>
@@ -2374,6 +2444,10 @@
         <target state="translated">留空则使用频道或播放列表的标题。</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated">已转录 <x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> · 已跳过 <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> · 失败 <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/></target>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">绑定 DN</target>
@@ -2400,6 +2474,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 个条目} other {<x id="INTERPOLATION"/> 个条目}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">描述</target>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
@@ -2438,6 +2516,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">启用共享。</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">重新查找模型</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">切换到网址</target>
@@ -2469,6 +2551,10 @@
         <source>Remove newest</source>
         <target state="translated">删除最新的</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <target state="translated">启用 AI 集成</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -2643,6 +2729,10 @@
         <target state="translated">下载来源</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">精确</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">文件创建掩码</target>
@@ -2656,6 +2746,10 @@
         <source>Retry failed</source>
         <target state="translated">重试失败项</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">1–1000 个文件。失败的尝试也计入上限。已用相同方式处理过的文件会被跳过。</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -2751,6 +2845,10 @@
       <trans-unit id="6221092011245648170" datatype="html">
         <source>Playlist download cancelled.</source>
         <target state="translated">播放列表下载已取消。</target>
+      </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">由本地 AI 撰写，可能有错误。</target>
       </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>
@@ -3054,6 +3152,10 @@
         <target state="translated">在下载器自身选项之外额外传给它的内容。</target>
         <note priority="1" from="description">Modify args subtitle</note>
       </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">笔记</target>
+      </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
         <target state="translated">还没有订阅</target>
@@ -3186,6 +3288,10 @@
         <target state="translated">此订阅下载的文件会显示在这里。</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <target state="translated">本地 AI</target>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">通知</target>
@@ -3259,6 +3365,10 @@
         <target state="translated">编辑参数</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">故事</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">添加到播放列表</target>
@@ -3278,6 +3388,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">上传新的 Cookies 会替换旧的，对所有人生效。</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">还会向模型发送每半分钟中的几帧画面，并补充画面中显示的内容。</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -3374,6 +3488,10 @@
         <source>User UID</source>
         <target state="translated">用户 UID</target>
         <note priority="1" from="description">User UID</note>
+      </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">正在查找模型…</target>
       </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
@@ -3518,6 +3636,11 @@
         <source>Downloading</source>
         <target state="translated">正在下载</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {此服务器上没有运行任何模型。} =1 {此服务器上运行着 1 个模型。} other {此服务器上运行着 <x id="INTERPOLATION"/> 个模型。}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">以手动下载官方 ytdl-material Chrome 扩展。</target>
@@ -3540,6 +3663,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">组声明</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">融入为场景</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -3713,15 +3840,27 @@
         <target state="translated">顶部标题</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">如果模型能听音频，请开启。Auto-transcribe 会向它发送声音，模型听不了就会失败。</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">将所选订阅和类型的归档保存为 yt-dlp 归档文件</target>
         <note priority="1" from="description">Export archive tooltip</note>
       </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">描写</target>
+      </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
         <target state="translated"><x id="count" equiv-text="item_count"/> 个条目</target>
         <note priority="1" from="description">Playlist card item count</note>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">详细</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html">
         <source>Download failed!</source>
@@ -3744,6 +3883,10 @@
       <trans-unit id="4604336107574138791" datatype="html">
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Chrome 用户必须将“备用网址”链接拖到您的书签中。</target>
+      </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">输入服务器的 URL，即可从它的模型中选择。</target>
       </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
@@ -3934,6 +4077,10 @@
         <source>Finished downloading</source>
         <target state="translated">下载完成</target>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">人物、地点和氛围</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">刷新已成功完成。</target>
@@ -3941,6 +4088,10 @@
       <trans-unit id="5947241266456580665" datatype="html">
         <source>Download failed</source>
         <target state="translated">下载失败</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">服务器 URL</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -3969,6 +4120,12 @@
         <source>Who the server runs as, and so who owns the files it writes. Set with environment variables; change them where you set them.</source>
         <target state="translated">服务器以哪个用户身份运行，也就决定了它写入的文件归谁所有。通过环境变量设置；请在设置它们的地方修改。</target>
         <note priority="1" from="description">Settings permissions hint</note>
+      </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">听觉</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
@@ -4313,6 +4470,10 @@
         <source>Shadow (read only)</source>
         <target state="translated">影子（只读）</target>
       </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">要使用此项，请在 设置 → 高级 中为模型开启听觉。</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">创建剪辑</target>
@@ -4364,6 +4525,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Telegram Webhook 代理</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">逐字逐句</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -4471,6 +4636,10 @@
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">启动时从 PostgreSQL 迁移到 MongoDB</target>
       </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">话语和其他声音</target>
+      </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
         <target state="translated">应用正在扫描此频道，然后再创建下载任务。排队的下载完成后，文件会出现在这里。</target>
@@ -4562,6 +4731,10 @@
         <target state="translated">使用 GPU 加速裁剪等视频处理。GPU 必须直通到容器中。</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">屏幕文字，如实陈述</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated">以继续前往 <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
@@ -4575,6 +4748,16 @@
         <source>Create admin account</source>
         <target state="translated">创建管理员账户</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">简要</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">视觉</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -4649,6 +4832,10 @@
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">此条目将从你的归档中移除，因此可以再次下载。</target>
       </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">只写最重要的</target>
+      </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
         <target state="translated">登录</target>
@@ -4681,6 +4868,10 @@
         <source>Download as zip</source>
         <target state="translated">下载为 zip</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
+      </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">在任务中运行或安排 Auto-transcribe，并在那里选择它的写法。媒体会发送到此服务器，模型写下的内容保存在媒体旁边。停用 AI 会停止进行中的工作，并保留已完成的内容。</target>
       </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
@@ -4723,6 +4914,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">正在准备投屏文件</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">视觉线索</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
@@ -4915,6 +5110,10 @@
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">期间</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">每个要点的笔记</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -5141,6 +5340,10 @@
         <target state="translated">参数值</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">无法连接 AI 服务器。</target>
+      </trans-unit>
       <trans-unit id="3629133364010634687" datatype="html">
         <source>What time of day it starts.</source>
         <target state="translated">每天开始运行的时间。</target>
@@ -5340,6 +5543,10 @@
         <target state="translated">这些单独设置仅在所选的影子访问级别内生效。只读始终禁止更改媒体库。影子访问绝不会授予账户或服务器的管理权限。</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">让你的 AI 模型按选项中设定的风格写下媒体库中的音频和视频内容，开启视觉时还会写下画面中显示的内容。结果保存在媒体旁边，并跳过已用相同方式处理过的文件。</target>
+      </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
         <target state="translated">显示所有副本</target>
@@ -5424,6 +5631,10 @@
         <source>UID</source>
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
+      </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">所选模型不在此服务器上。</target>
       </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>

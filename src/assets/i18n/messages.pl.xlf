@@ -127,6 +127,10 @@
         <target state="translated">Co jest przekazywane do narzędzia pobierającego oprócz jego własnych opcji.</target>
         <note priority="1" from="description">Modify args subtitle</note>
       </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">Notatki</target>
+      </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
         <target state="translated">Brak subskrypcji</target>
@@ -358,6 +362,10 @@
         <target state="translated">Link otworzy się w podanej sekundzie.</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <target state="translated">Plików na uruchomienie</target>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">Harmonogram i opcje</target>
@@ -471,6 +479,10 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">Jakość</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <target state="translated">Klucz API (opcjonalny)</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -707,6 +719,10 @@
         <target state="translated">Pliki pojawią się tutaj, gdy ta subskrypcja je pobierze.</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <target state="translated">Lokalna AI</target>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">Powiadomienia</target>
@@ -789,6 +805,10 @@
         <target state="translated">Edytuj argumenty</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">Opowieść</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">Dodaj do playlisty</target>
@@ -808,6 +828,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">Przesłanie nowych plików cookie zastępuje stare, dla wszystkich.</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">Wysyła też modelowi kilka klatek z każdej połowy minuty i dodaje, co na nich widać.</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -1067,6 +1091,10 @@
         <target state="translated">Nic jeszcze nie pobrano</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <target state="translated">Nie udało się zapisać ustawień.</target>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">Wklej link powyżej, aby zacząć. Wszystko, co pobierasz ty i twoje subskrypcje, trafia tutaj.</target>
@@ -1321,6 +1349,12 @@
         <target state="translated">Gdy to ustawienie jest włączone, a choć jeden film pasuje do kategorii, cała playlista otrzymuje tę kategorię.</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
       </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">Wył.</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
+      </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
         <target state="translated">W kolejce</target>
@@ -1368,6 +1402,14 @@
         <source>Help make ytdl-material better</source>
         <target state="translated">Pomóż ulepszać ytdl-material</target>
         <note priority="1" from="description">About feedback hint</note>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <target state="translated">Transkrypcja</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">Mowa</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -1442,10 +1484,18 @@
         <target state="translated">Własny szablon webhooka włączony</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <target state="translated">Model</target>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">Subskrybuj</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">Powieść</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -1510,6 +1560,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">Usuń pliki playlisty</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">Włącz, jeśli model widzi obrazy. Wskazówki wizualne w Auto-transcribe wysyłają mu klatki i kończą się błędem, jeśli tego nie potrafi.</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -1787,6 +1841,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">Nie udało się unieważnić tego tokenu.</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">Podsumowanie</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html">
         <source>Share files</source>
         <target state="translated">Udostępnij pliki</target>
@@ -1834,6 +1892,10 @@
         <source>Smallest first</source>
         <target state="translated">Od najmniejszych</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">Dowolny serwer zgodny z OpenAI, np. llama.cpp, llama-swap lub Ollama, pod adresem pętli zwrotnej lub sieci prywatnej. W Dockerze localhost to własny kontener aplikacji.</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -1980,6 +2042,11 @@
         <source>Downloading</source>
         <target state="translated">Pobieranie</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {Na tym serwerze nie działa żaden model.} =1 {Na tym serwerze działa 1 model.} other {Modele działające na tym serwerze: <x id="INTERPOLATION"/>.}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">aby ręcznie pobrać oficjalne rozszerzenie ytdl-material dla Chrome.</target>
@@ -2002,6 +2069,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">Claim grup</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">Wpleciony jako sceneria</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -2055,6 +2126,10 @@
         <source>User UID</source>
         <target state="translated">UID użytkownika</target>
         <note priority="1" from="description">User UID</note>
+      </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">Szukanie modeli…</target>
       </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
@@ -2303,6 +2378,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">Sprawdzanie nie zakończyło się</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">To, co pomaga nadążyć</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">ID użytkownika</target>
@@ -2328,6 +2407,14 @@
       <trans-unit id="9121124215111024650" datatype="html">
         <source>Failed to confirm task!</source>
         <target state="translated">Nie udało się potwierdzić zadania!</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">Jak model spisuje to, co zostało powiedziane.</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">Krótkie podsumowanie</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -2413,6 +2500,10 @@
         <target state="translated">Przeciągnij lub użyj klawiszy strzałek, aby zmienić kolejność</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Napisane przez <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, który może się mylić.</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">Kopiuj</target>
@@ -2454,6 +2545,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">Zostaw puste, aby wysłać pusty tytuł.</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">Połącz własny serwer AI. Włącza zadania AI, które uruchamia się i planuje na stronie Zadania.</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -2614,6 +2709,10 @@
         <target state="translated">Dni od dodania pliku do biblioteki. Nic nie zostanie usunięte, dopóki tego nie ustawisz.</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">Opowiedziane jako historia</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">Usuń 1 duplikat</target>
@@ -2704,6 +2803,10 @@
         <target state="translated">Zostaw puste, aby użyć tytułu kanału lub playlisty.</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated">Spisane: <x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> · pominięte: <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> · nieudane: <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/></target>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">Bind DN</target>
@@ -2763,10 +2866,18 @@
         <target state="translated">Tytuł u góry</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">Włącz, jeśli model słyszy dźwięk. Auto-transcribe wysyła mu dźwięk i kończy się błędem, jeśli tego nie potrafi.</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">Zapisuje archiwum wybranej subskrypcji i typu jako plik archiwum yt-dlp</target>
         <note priority="1" from="description">Export archive tooltip</note>
+      </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">Opisowy</target>
       </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
@@ -2777,6 +2888,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 element} other {Elementy: <x id="INTERPOLATION"/>}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">Opis</target>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
@@ -2815,6 +2930,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">Udostępnianie włączone.</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">Poszukaj modeli ponownie</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">Przełącz na URL</target>
@@ -2846,6 +2965,10 @@
         <source>Remove newest</source>
         <target state="translated">Usuń najnowsze</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <target state="translated">Włącz integrację z AI</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -3020,6 +3143,10 @@
         <target state="translated">Źródło pobrania</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">Dokładny</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">Maska tworzenia plików</target>
@@ -3033,6 +3160,10 @@
         <source>Retry failed</source>
         <target state="translated">Ponów nieudane</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">1–1000 plików. Nieudane próby wliczają się do limitu. Pliki już zrobione w ten sam sposób są pomijane.</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -3088,6 +3219,10 @@
         <source>Start at a time</source>
         <target state="translated">Zacznij od wybranego momentu</target>
         <note priority="1" from="description">Use timestamp</note>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">Szczegółowy</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html">
         <source>Download failed!</source>
@@ -3371,6 +3506,10 @@
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Użytkownicy Chrome muszą przeciągnąć link &quot;Alternatywny adres URL&quot; do zakładek.</target>
       </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">Wpisz adres URL serwera, aby wybrać spośród jego modeli.</target>
+      </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
         <target state="translated">Coś poszło nie tak.</target>
@@ -3479,6 +3618,10 @@
       <trans-unit id="6221092011245648170" datatype="html">
         <source>Playlist download cancelled.</source>
         <target state="translated">Anulowano pobieranie playlisty.</target>
+      </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">Napisane przez lokalną AI, która może się mylić.</target>
       </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>
@@ -3931,6 +4074,10 @@
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">Z PostgreSQL do MongoDB przy starcie</target>
       </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">Słowa i inne dźwięki</target>
+      </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
         <target state="translated">Aplikacja skanuje ten kanał przed utworzeniem zadań pobierania. Pliki pojawią się tutaj po zakończeniu pobrań z kolejki.</target>
@@ -4249,6 +4396,10 @@
         <source>Shadow (read only)</source>
         <target state="translated">Cień (tylko do odczytu)</target>
       </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Aby z tego skorzystać, włącz Słuch dla modelu w Ustawienia → Zaawansowane.</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Utwórz wycinek</target>
@@ -4345,6 +4496,10 @@
         <target state="translated">Używa GPU do przyspieszenia przetwarzania wideo, np. przycinania. GPU musi być przekazane do kontenera.</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">Tekst na ekranie, podany rzeczowo</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated">aby przejść do <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></target>
@@ -4358,6 +4513,16 @@
         <source>Create admin account</source>
         <target state="translated">Utwórz konto administratora</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">Krótki</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">Wzrok</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -4577,6 +4742,10 @@
         <target state="translated">Te wyjątki obowiązują w ramach wybranego poziomu dostępu w trybie cienia. Tryb tylko do odczytu zawsze blokuje zmiany w bibliotece. Dostęp w trybie cienia nigdy nie daje uprawnień do administrowania kontami ani serwerem.</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
       </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">Każe twojemu modelowi AI spisać dźwięk i wideo z biblioteki w stylu wybranym w opcjach, razem z tym, co widać na ekranie, gdy Wzrok jest włączony. Zapisuje to obok multimediów i pomija pliki już zrobione w ten sam sposób.</target>
+      </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
         <target state="translated">Pokaż wszystkie kopie</target>
@@ -4662,6 +4831,10 @@
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
       </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">Wybranego modelu nie ma na tym serwerze.</target>
+      </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>
         <target state="translated">Zaznacz wszystko</target>
@@ -4743,6 +4916,10 @@
         <target state="translated">Wartość argumentu</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">Nie udało się połączyć z serwerem AI.</target>
+      </trans-unit>
       <trans-unit id="7182974689040833178" datatype="html">
         <source>Resume</source>
         <target state="translated">Wznów</target>
@@ -4770,6 +4947,12 @@
         <source>Who the server runs as, and so who owns the files it writes. Set with environment variables; change them where you set them.</source>
         <target state="translated">Jako kto działa serwer, a więc do kogo należą zapisywane przez niego pliki. Ustawiane zmiennymi środowiskowymi; zmień je tam, gdzie je ustawiono.</target>
         <note priority="1" from="description">Settings permissions hint</note>
+      </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">Słuch</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
@@ -4895,6 +5078,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Proxy webhooka Telegram</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">Słowo w słowo</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -5060,6 +5247,10 @@
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">Czas trwania</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">Notatki do każdego punktu</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -5245,6 +5436,10 @@
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">Ten element zostanie usunięty z archiwum, więc będzie można pobrać go ponownie.</target>
       </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">Tylko to, co najważniejsze</target>
+      </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
         <target state="translated">Logowanie</target>
@@ -5277,6 +5472,10 @@
         <source>Finished downloading</source>
         <target state="translated">Zakończono pobieranie</target>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">Ludzie, miejsca i nastrój</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">Odświeżanie zakończyło się powodzeniem.</target>
@@ -5284,6 +5483,10 @@
       <trans-unit id="5947241266456580665" datatype="html">
         <source>Download failed</source>
         <target state="translated">Pobieranie nie udane</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">Adres URL serwera</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -5370,6 +5573,10 @@
         <target state="translated">Pobierz jako zip</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
       </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">Uruchom lub zaplanuj Auto-transcribe w Zadaniach i wybierz tam, jak pisze. Multimedia są wysyłane na ten serwer, a to, co napisze model, jest zapisywane obok. Wyłączenie AI zatrzymuje trwającą pracę i zachowuje to, co skończone.</target>
+      </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html" xml:space="preserve">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
         <target state="translated">Usunięto subskrypcję <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</target>
@@ -5411,6 +5618,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">Przygotowywanie pliku do przesyłania</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">Wskazówki wizualne</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
