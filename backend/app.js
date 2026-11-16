@@ -1141,10 +1141,10 @@ const docsRateLimiter = rateLimit({
 // Wrong current passwords allowed per account when changing its password (see
 // proveCurrentPassword). Counted in the store directly rather than by a limiter, which would
 // count every request to the route by address.
-const CURRENT_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
-const CURRENT_PASSWORD_TRIES = 5;
-const currentPasswordRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:current-password:');
-currentPasswordRateLimitStore.init({windowMs: CURRENT_PASSWORD_WINDOW_MS});
+const REAUTHENTICATION_WINDOW_MS = 15 * 60 * 1000;
+const REAUTHENTICATION_TRIES = 5;
+const reauthenticationRateLimitStore = new DelegatingRateLimitStore('ytdl:rate-limit:reauthentication:');
+reauthenticationRateLimitStore.init({windowMs: REAUTHENTICATION_WINDOW_MS});
 
 function clearRedisRateLimitReconnectTimer() {
     if (!redisRateLimitReconnectTimer) return;
@@ -1191,7 +1191,7 @@ async function connectRedisRateLimitClient(connectionString, options = {}) {
         await apiRateLimitStore.useRedisStore(redisRateLimitClient);
         await authRateLimitStore.useRedisStore(redisRateLimitClient);
         await docsRateLimitStore.useRedisStore(redisRateLimitClient);
-        await currentPasswordRateLimitStore.useRedisStore(redisRateLimitClient);
+        await reauthenticationRateLimitStore.useRedisStore(redisRateLimitClient);
         logger.info('Redis-backed rate limiting enabled.');
         return true;
     } catch (error) {
@@ -1206,7 +1206,7 @@ async function initializeRateLimiters() {
     await apiRateLimitStore.useMemoryStore();
     await authRateLimitStore.useMemoryStore();
     await docsRateLimitStore.useMemoryStore();
-    await currentPasswordRateLimitStore.useMemoryStore();
+    await reauthenticationRateLimitStore.useMemoryStore();
     clearRedisRateLimitReconnectTimer();
 
     if (redisRateLimitClient) {
@@ -4079,16 +4079,16 @@ async function proveCurrentPassword(req, res) {
     const uid = req.user.uid;
     let hits;
     try {
-        hits = await currentPasswordRateLimitStore.increment(uid);
+        hits = await reauthenticationRateLimitStore.increment(uid);
     } catch (err) {
         logger.error(`Could not count the attempts to change the password of ${quoteForLog(uid)}: ${err.message}`);
         res.status(500).send({success: false, error: 'Could not check the current password'});
         return false;
     }
 
-    if (hits && hits.totalHits > CURRENT_PASSWORD_TRIES) {
+    if (hits && hits.totalHits > REAUTHENTICATION_TRIES) {
         logger.warn(`Refused to change the password of ${quoteForLog(uid)} from ${req.ip}: too many wrong current passwords.`);
-        const reset_at = hits.resetTime instanceof Date ? hits.resetTime.getTime() : Date.now() + CURRENT_PASSWORD_WINDOW_MS;
+        const reset_at = hits.resetTime instanceof Date ? hits.resetTime.getTime() : Date.now() + REAUTHENTICATION_WINDOW_MS;
         res.set('Retry-After', String(Math.max(1, Math.ceil((reset_at - Date.now()) / 1000))));
         res.status(429).send({success: false, error: 'Too many wrong current passwords. Please wait and try again.'});
         return false;
@@ -4100,7 +4100,7 @@ async function proveCurrentPassword(req, res) {
         return false;
     }
 
-    await currentPasswordRateLimitStore.resetKey(uid);
+    await reauthenticationRateLimitStore.resetKey(uid);
     return true;
 }
 app.post('/api/auth/adminExists', async (req, res) => {
