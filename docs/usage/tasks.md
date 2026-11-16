@@ -19,6 +19,7 @@ Open **Tasks** for maintenance and recurring work. Each task shows its current s
 | Delete old playback transcodes | Deletes copies made for transcoding playback links once they are over six hours old and no unexpired link, queued or running transcode uses them |
 | Codec discovery | Records the video and audio codec of files that have none; with a preferred codec set, converts other videos to it. See [codec discovery](#codec-discovery) |
 | Auto-transcribe | Has the local AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on, and saves it in metadata sidecars. Visible when AI integration is enabled; see [local AI transcription](#local-ai-transcription) |
+| Fix audio sync after SponsorBlock cuts | Puts the audio back in sync in videos where it runs late after a SponsorBlock cut, without re-encoding. New downloads are fixed as they finish; this fixes older ones. Only MP4, M4V, MOV and WebM files are rewritten |
 
 ## Run and review
 

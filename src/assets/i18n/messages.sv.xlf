@@ -3113,6 +3113,10 @@
         <source>Description</source>
         <target state="translated">Beskrivning</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Synkroniserar om ljudet i videor där det är försenat efter ett SponsorBlock-klipp. Nya nedladdningar åtgärdas när de blir klara; den här uppgiften åtgärdar äldre. Inget kodas om.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Kontrollera nu</target>

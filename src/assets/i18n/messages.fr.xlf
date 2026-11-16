@@ -2801,6 +2801,10 @@
         <source>Description</source>
         <target state="translated">Description</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Resynchronise l’audio des vidéos où il est en retard après une coupe SponsorBlock. Les nouveaux téléchargements sont corrigés à la fin ; cette tâche corrige les anciens. Rien n’est réencodé.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Vérifier maintenant</target>

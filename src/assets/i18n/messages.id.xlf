@@ -1971,6 +1971,10 @@
         <source>Description</source>
         <target state="translated">Deskripsi</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Menyelaraskan kembali audio pada video yang suaranya terlambat setelah potongan SponsorBlock. Unduhan baru diperbaiki saat selesai; tugas ini memperbaiki yang lama. Tidak ada yang dienkode ulang.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Periksa sekarang</target>

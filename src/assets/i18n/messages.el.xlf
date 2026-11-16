@@ -4050,6 +4050,10 @@
         <source>Description</source>
         <target state="translated">Περιγραφή</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Συγχρονίζει ξανά τον ήχο σε βίντεο όπου καθυστερεί μετά από αποκοπή του SponsorBlock. Οι νέες λήψεις διορθώνονται μόλις ολοκληρωθούν· αυτή η εργασία διορθώνει τις παλαιότερες. Τίποτα δεν επανακωδικοποιείται.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Έλεγχος τώρα</target>

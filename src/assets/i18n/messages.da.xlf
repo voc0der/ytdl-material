@@ -4050,6 +4050,10 @@
         <source>Description</source>
         <target state="translated">Beskrivelse</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Synkroniserer lyden igen i videoer, hvor den er forsinket efter et SponsorBlock-klip. Nye downloads rettes, når de er færdige; denne opgave retter de ældre. Intet kodes om.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Tjek nu</target>

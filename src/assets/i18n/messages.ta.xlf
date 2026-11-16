@@ -4319,6 +4319,10 @@
         <source>Description</source>
         <target state="translated">விளக்கம்</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">SponsorBlock வெட்டுக்குப் பிறகு ஒலி தாமதமாகும் வீடியோக்களில் ஒலியை மீண்டும் ஒத்திசைக்கும். புதிய பதிவிறக்கங்கள் முடிந்தவுடன் சரிசெய்யப்படும்; இந்தப் பணி பழையவற்றைச் சரிசெய்யும். எதுவும் மறுகுறியாக்கம் செய்யப்படாது.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">இப்போது சரிபார்</target>

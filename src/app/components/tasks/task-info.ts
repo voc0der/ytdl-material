@@ -19,7 +19,8 @@ export const TASK_ICONS: { [key in TaskType]?: string } = {
   [TaskType.SUBSCRIPTIONS_CHECK]: 'subscriptions',
   [TaskType.DELETE_OLD_TRANSCODES]: 'cleaning_services',
   [TaskType.AUTO_TRANSCRIBE]: 'transcribe',
-  [TaskType.CODEC_DISCOVERY]: 'video_settings'
+  [TaskType.CODEC_DISCOVERY]: 'video_settings',
+  [TaskType.RESYNC_CUT_AUDIO]: 'graphic_eq'
 };
 
 const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
@@ -36,7 +37,8 @@ const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
   [TaskType.APPLY_CATEGORIES]: $localize`Sorts files that were downloaded before your category rules existed.`,
   [TaskType.SUBSCRIPTIONS_CHECK]: $localize`Checks every subscription for new uploads and queues whatever it finds.`,
   [TaskType.DELETE_OLD_TRANSCODES]: $localize`Deletes playback copies made for players that cannot decode the original, once they are over six hours old and no link still uses them.`,
-  [TaskType.CODEC_DISCOVERY]: $localize`Records the codec of every file that has none. With a preferred codec set, also converts other videos to it: downloaded again when the source has it, transcoded when not.`
+  [TaskType.CODEC_DISCOVERY]: $localize`Records the codec of every file that has none. With a preferred codec set, also converts other videos to it: downloaded again when the source has it, transcoded when not.`,
+  [TaskType.RESYNC_CUT_AUDIO]: $localize`Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.`
 };
 
 export function taskIcon(task: Task): string {

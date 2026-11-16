@@ -4319,6 +4319,10 @@
         <source>Description</source>
         <target state="translated">Lýsing</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Samstillir hljóðið aftur í myndböndum þar sem það dregst aftur úr eftir SponsorBlock-klippingu. Nýjar skrár eru lagaðar um leið og þær eru sóttar; þetta verk lagar eldri skrár. Ekkert er umkóðað.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Athuga núna</target>

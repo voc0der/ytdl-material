@@ -3398,6 +3398,10 @@
         <source>Description</source>
         <target state="translated">Popis</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Znovu synchronizuje zvuk ve videích, kde se po střihu SponsorBlocku opožďuje. Nová stahování se opraví hned po dokončení; tato úloha opraví ta starší. Nic se nepřekódovává.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Zkontrolovat nyní</target>

@@ -17,4 +17,5 @@ export enum TaskType {
     DELETE_OLD_TRANSCODES = 'delete_old_transcodes',
     CODEC_DISCOVERY = 'codec_discovery',
     AUTO_TRANSCRIBE = 'auto_transcribe',
+    RESYNC_CUT_AUDIO = 'resync_cut_audio',
 }

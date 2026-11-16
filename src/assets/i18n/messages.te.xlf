@@ -1317,6 +1317,10 @@
         <source>Description</source>
         <target state="translated">వివరణ</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">SponsorBlock కట్ తర్వాత ఆడియో ఆలస్యంగా వచ్చే వీడియోలలో ఆడియోను మళ్లీ సింక్ చేస్తుంది. కొత్త డౌన్‌లోడ్‌లు పూర్తవగానే సరిచేయబడతాయి; ఈ టాస్క్ పాతవాటిని సరిచేస్తుంది. ఏదీ మళ్లీ ఎన్‌కోడ్ చేయబడదు.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">ఇప్పుడే తనిఖీ చేయి</target>

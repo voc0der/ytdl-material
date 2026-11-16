@@ -17,6 +17,7 @@ const files_api = require('./files');
 const notifications_api = require('./notifications');
 const hooks_api = require('./hooks');
 const archive_api = require('./archive');
+const cut_audio = require('./cut-audio');
 
 const mutex = new Mutex();
 const playlist_batch_finalization_mutex = new Mutex();
@@ -2344,6 +2345,17 @@ exports.downloadQueuedFile = async(download_uid, customDownloadHandler = null) =
 
             if (config_api.getConfigItem('ytdl_generate_nfo_files')) {
                 exports.generateNFOFile(output_json, `${filepath_no_extension}.nfo`);
+            }
+
+            // yt-dlp's cuts leave the audio after each one late. Before the crop, which would
+            // re-encode the lag into the file for good.
+            if (type === 'video' && cut_audio.cutsRanges(args)) {
+                try {
+                    const dropped = await cut_audio.resync(full_file_path);
+                    if (dropped > 0) logger.verbose(`Dropped ${dropped} audio packets that cutting left in '${full_file_path}', putting its audio back in sync.`);
+                } catch (err) {
+                    logger.warn(`Could not put the audio of '${full_file_path}' back in sync after cutting it: ${err.message}`);
+                }
             }
 
             if (options.cropFileSettings) {

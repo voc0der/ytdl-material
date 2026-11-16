@@ -6825,6 +6825,12 @@
           <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/tasks/task-info.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <note priority="1" from="description">Check subscription menu item</note>

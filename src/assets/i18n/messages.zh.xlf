@@ -2479,6 +2479,10 @@
         <source>Description</source>
         <target state="translated">描述</target>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">为 SponsorBlock 剪掉片段后音频滞后的视频重新同步音频。新下载在完成时即会修复；此任务修复较早的下载。不会重新编码。</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">立即检查</target>
