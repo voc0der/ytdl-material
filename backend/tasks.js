@@ -156,7 +156,7 @@ function scheduleTaskJob(task_key, schedule) {
 }
 
 const defaultOptions = {
-    auto_transcribe: {max_files: 10},
+    auto_transcribe: {max_files: 10, audio_style: 'exact', vision_style: 'off'},
     all: {
         auto_confirm: false
     },

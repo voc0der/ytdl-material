@@ -112,6 +112,19 @@ export class VideoInfoDialogComponent implements OnInit {
   }
 
   /** The codec a file is in now, as its badge says it: the video's, or an audio file's. */
+  // What to call what the model wrote, by how it was asked to write it.
+  get transcriptTitle(): string {
+    const transcript = this.file?.transcript;
+    switch (transcript?.audio_style ?? transcript?.vision_style) {
+      case 'brief': return $localize`Summary`;
+      case 'detailed': return $localize`Notes`;
+      case 'novel': return $localize`Story`;
+      case 'exact':
+      case 'descriptive': return transcript.audio_style ? $localize`Transcript` : $localize`Description`;
+      default: return $localize`Transcript`;
+    }
+  }
+
   get codecBadge(): string | null {
     return codecLabel(this.file?.isAudio ? this.file?.acodec : this.file?.vcodec);
   }

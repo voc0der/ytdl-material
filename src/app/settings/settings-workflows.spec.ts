@@ -22,9 +22,7 @@ function createHarness() {
     config: {
       Host: { url: 'https://media.example.test', port: 17442 },
       Advanced: { multi_user_mode: false, default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable', ai: {
-        enabled: false, provider: 'ollama', base_url: 'http://127.0.0.1:11434', model: '', api_key: '',
-        transcription_provider: 'disabled', transcription_url: 'http://127.0.0.1:8081',
-        transcription_model: '', transcription_api_key: '', language: ''
+        enabled: false, base_url: '', model: '', api_key: '', vision: false, audio: false
       } },
       Downloader: { custom_args: '--embed-metadata' },
       Extra: { allowed_notification_types: ['download_error'] },
@@ -56,7 +54,7 @@ function createHarness() {
     transferDB: vi.fn(),
     testConnectionString: vi.fn(),
     testCookies: vi.fn(),
-    testAIConnection: vi.fn(),
+    getAIModels: vi.fn(),
     openSnackBar: vi.fn()
   };
   const closed = new Subject<any>();
@@ -86,23 +84,89 @@ describe('Settings workflows', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  describe('local AI connection', () => {
-    it('shows a pending test and then confirms the saved local connection', () => {
-      const response = new Subject<{success: boolean}>();
-      posts.testAIConnection.mockReturnValue(response);
-      component.testAIConnection();
-      expect(component.testingAI).toBe(true);
-      response.next({success: true});
-      expect(component.testingAI).toBe(false);
-      expect(component.aiConnectionMessage).toContain('Connected');
+  describe('local AI models', () => {
+    // What the settings form holds, as opposed to what is saved.
+    const useServer = (values: Record<string, unknown> = {}) => {
+      component.getConfig();
+      Object.assign(component.new_config.Advanced.ai, { enabled: true, base_url: 'http://192.168.1.10:8080', ...values });
+    };
+
+    it('asks nothing until AI is on and has a URL', () => {
+      component.getConfig();
+      component.findAIModels();
+      component.new_config.Advanced.ai.enabled = true;
+      component.findAIModels();
+      expect(posts.getAIModels).not.toHaveBeenCalled();
+      expect(component.aiModelsState).toBe('idle');
     });
 
-    it('surfaces a configuration error without claiming the connection works', () => {
-      posts.testAIConnection.mockReturnValue(throwError(() => ({error: {error: 'AI integration is disabled.'}})));
-      component.testAIConnection();
-      expect(component.testingAI).toBe(false);
-      expect(component.aiConnectionMessage).toBe('AI integration is disabled.');
+    it('lists the models on the server in the form, and picks the only one there is', () => {
+      useServer({ api_key: 'form-key' });
+      const response = new Subject<{ models: string[] }>();
+      posts.getAIModels.mockReturnValue(response);
+      component.findAIModels();
+      expect(posts.getAIModels).toHaveBeenCalledWith('http://192.168.1.10:8080', 'form-key');
+      expect(component.aiModelsState).toBe('loading');
+      response.next({ models: ['gemma'] });
+      expect(component.aiModelsState).toBe('loaded');
+      expect(component.aiModelOptions).toEqual([{ value: 'gemma', label: 'gemma' }]);
+      expect(component.new_config.Advanced.ai.model).toBe('gemma');
     });
+
+    it('labels models by the end of their ID, so a shared prefix does not hide what tells them apart', () => {
+      useServer();
+      posts.getAIModels.mockReturnValue(of({ models: [
+        'my-llamacpp/bartowski/google_gemma-4-26B-A4B-it-GGUF', 'my-llamacpp/unsloth/Qwen3-30B-A3B-GGUF',
+        'one-router/same-name', 'other-router/same-name', 'plain-model:latest'
+      ] }));
+      component.findAIModels();
+      expect(component.aiModelOptions).toEqual([
+        { value: 'my-llamacpp/bartowski/google_gemma-4-26B-A4B-it-GGUF', label: 'google_gemma-4-26B-A4B-it-GGUF' },
+        { value: 'my-llamacpp/unsloth/Qwen3-30B-A3B-GGUF', label: 'Qwen3-30B-A3B-GGUF' },
+        { value: 'one-router/same-name', label: 'one-router/same-name' },
+        { value: 'other-router/same-name', label: 'other-router/same-name' },
+        { value: 'plain-model:latest', label: 'plain-model:latest' }
+      ]);
+    });
+
+    it('keeps a chosen model selectable, and says so, when the server no longer has it', () => {
+      useServer({ model: 'retired-model' });
+      posts.getAIModels.mockReturnValue(of({ models: ['gemma', 'qwen'] }));
+      component.findAIModels();
+      expect(component.aiModelOptions.map(option => option.value)).toEqual(['retired-model', 'gemma', 'qwen']);
+      expect(component.aiModelMissing).toBe(true);
+      expect(component.new_config.Advanced.ai.model).toBe('retired-model');
+    });
+
+    it('shows why the server could not be asked, as the HTTP interceptor passes it on', () => {
+      useServer();
+      posts.getAIModels.mockReturnValue(throwError(() => 'The AI server at 192.168.1.10:8080 refused the API key (HTTP 401).'));
+      component.findAIModels();
+      expect(component.aiModelsState).toBe('failed');
+      expect(component.aiModelsError).toBe('The AI server at 192.168.1.10:8080 refused the API key (HTTP 401).');
+      expect(component.aiModelOptions).toEqual([]);
+    });
+
+    it('ignores an answer about a URL that has since been changed', () => {
+      useServer();
+      const first = new Subject<{ models: string[] }>();
+      const second = new Subject<{ models: string[] }>();
+      posts.getAIModels.mockReturnValueOnce(first).mockReturnValueOnce(second);
+      component.findAIModels();
+      component.new_config.Advanced.ai.base_url = 'http://192.168.1.11:8080';
+      component.findAIModels();
+      second.next({ models: ['qwen'] });
+      first.next({ models: ['stale'] });
+      expect(component.aiModels).toEqual(['qwen']);
+    });
+  });
+
+  it('shows why a save was refused, as the HTTP interceptor passes it on', () => {
+    component.getConfig();
+    posts.setConfig.mockReturnValue(throwError(() => 'AI servers must use a loopback or private network address.'));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    component.saveSettings();
+    expect(posts.openSnackBar).toHaveBeenCalledWith('AI servers must use a loopback or private network address.');
   });
 
   describe('initialization', () => {

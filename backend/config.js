@@ -80,7 +80,15 @@ const RETIRED_CONFIG_ITEMS = [
         path: 'YtdlMaterial.Subscriptions.redownload_fresh_uploads',
         enabled_warning: 'The \'redownload fresh uploads\' setting has been removed. It never replaced a file'
             + ' with a better copy, so downloads are unchanged.'
-    }
+    },
+    // A development build had a server type and a separate speech server. The model's own
+    // Audio now does the speech, on the one server, which says what it is through its API.
+    {path: 'YtdlMaterial.Advanced.ai.provider'},
+    {path: 'YtdlMaterial.Advanced.ai.transcription_provider'},
+    {path: 'YtdlMaterial.Advanced.ai.transcription_url'},
+    {path: 'YtdlMaterial.Advanced.ai.transcription_model'},
+    {path: 'YtdlMaterial.Advanced.ai.transcription_api_key'},
+    {path: 'YtdlMaterial.Advanced.ai.language'}
 ];
 
 // Setting values that are no longer accepted. The setting itself stays; a stored retired
@@ -425,15 +433,11 @@ const DEFAULT_CONFIG = {
       "Advanced": {
         "ai": {
             "enabled": false,
-            "provider": "ollama",
-            "base_url": "http://127.0.0.1:11434",
+            "base_url": "",
             "model": "",
             "api_key": "",
-            "transcription_provider": "disabled",
-            "transcription_url": "http://127.0.0.1:8081",
-            "transcription_model": "",
-            "transcription_api_key": "",
-            "language": ""
+            "vision": false,
+            "audio": false
         },
         "default_downloader": "yt-dlp",
         "ytdlp_update_channel": "stable",
@@ -462,7 +466,6 @@ const DEFAULT_CONFIG = {
  ************************************************/
 const SENSITIVE_CONFIG_PATHS = [
     'YtdlMaterial.Advanced.ai.api_key',
-    'YtdlMaterial.Advanced.ai.transcription_api_key',
     'YtdlMaterial.API.API_key',
     'YtdlMaterial.API.twitch_client_ID',
     'YtdlMaterial.API.twitch_client_secret',

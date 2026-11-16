@@ -47,6 +47,29 @@ describe('TaskSettingsComponent', () => {
     expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.AUTO_TRANSCRIBE, {max_files: 25});
   });
 
+  it('chooses how speech is written up, and offers visual cues only when the model can see', () => {
+    const options = {max_files: 10, audio_style: 'exact', vision_style: 'off'};
+    postsService.config = {Advanced: {ai: {vision: false, audio: true}}};
+    openOn(task({key: TaskType.AUTO_TRANSCRIBE, options}));
+    const text = () => fixture.nativeElement.textContent;
+    expect(text()).toContain('Speech');
+    expect(text()).toContain('How the model writes up what is said.');
+    expect(text()).not.toContain('Visual cues');
+    expect(component.speechOptions.map(option => option.value)).toEqual(['exact', 'brief', 'detailed', 'descriptive', 'novel']);
+
+    postsService.config = {Advanced: {ai: {vision: true, audio: false}}};
+    openOn(task({key: TaskType.AUTO_TRANSCRIBE, options}));
+    expect(text()).toContain('Visual cues');
+    expect(text()).toContain('Turn on Audio for the model in Settings');
+    expect(component.visualCueOptions.map(option => option.value)).toEqual(['off', 'exact', 'brief', 'detailed', 'descriptive', 'novel']);
+
+    component.setOption('audio_style', 'novel');
+    component.setOption('vision_style', 'descriptive');
+    component.save();
+    expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.AUTO_TRANSCRIBE,
+      {max_files: 10, audio_style: 'novel', vision_style: 'descriptive'});
+  });
+
   beforeEach(async () => {
     postsService = {
       updateTaskSchedule: vi.fn().mockName('updateTaskSchedule').mockReturnValue(of({ success: true })),

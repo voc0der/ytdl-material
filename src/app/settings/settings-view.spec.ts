@@ -68,6 +68,7 @@ describe('Settings page controls', () => {
       setConfig: vi.fn().mockReturnValue(of({ success: true })),
       testCookies: vi.fn(),
       testConnectionString: vi.fn(),
+      getAIModels: vi.fn().mockReturnValue(of({ models: ['gemma', 'qwen'] })),
       openSnackBar: vi.fn()
     });
     fixture = TestBed.createComponent(SettingsComponent);
@@ -75,23 +76,36 @@ describe('Settings page controls', () => {
     root = fixture.nativeElement;
   });
 
-  it('keeps AI opt-in and saves provider and speech settings from Advanced', async () => {
+  it('keeps AI opt-in, lists the models on the server to choose from, and saves the choice with what the model can do', async () => {
     await render();
     await switchTab('advanced');
     expect(component.new_config.Advanced.ai.enabled).toBe(false);
-    expect(root.textContent).not.toContain('Test AI connection');
+    expect(root.textContent).not.toContain('Server URL');
     const toggle = root.querySelector('#settings-ai-enabled').closest('.settings-row').querySelector('button');
     toggle.click();
     await render();
-    expect(root.textContent).toContain('Speech recognition');
-    expect(button('Test AI connection').disabled).toBe(true);
-    component.new_config.Advanced.ai.model = 'local-model';
-    component.new_config.Advanced.ai.transcription_provider = 'whispercpp';
+    expect(root.textContent).toContain('Server URL');
+    expect(root.textContent).toContain('Vision');
+    expect(root.textContent).toContain('Audio');
+    expect(root.textContent).not.toContain('Speech recognition');
+    expect(root.textContent).toContain("Enter the server's URL to choose from its models.");
+    expect(posts.getAIModels).not.toHaveBeenCalled();
+
+    const url = root.querySelector<HTMLInputElement>('input[type="url"]');
+    await editInput(url, 'https://llama.example.lan/v1');
+    url.dispatchEvent(new Event('change', { bubbles: true }));
     await render();
-    expect(root.textContent).toContain('Speech server URL');
+    expect(posts.getAIModels).toHaveBeenCalledWith('https://llama.example.lan/v1', '');
+    expect(root.textContent).toContain('This server runs 2 models.');
+
+    component.new_config.Advanced.ai.model = 'qwen';
+    for (const id of ['#settings-ai-vision', '#settings-ai-audio']) {
+      root.querySelector(id).closest('.settings-row').querySelector<HTMLButtonElement>('button[role="switch"]').click();
+    }
+    await render();
     component.saveSettings();
-    expect(posts.setConfig.mock.lastCall[0].YtdlMaterial.Advanced.ai).toMatchObject({
-      enabled: true, provider: 'ollama', model: 'local-model', transcription_provider: 'whispercpp'
+    expect(posts.setConfig.mock.lastCall[0].YtdlMaterial.Advanced.ai).toEqual({
+      enabled: true, base_url: 'https://llama.example.lan/v1', model: 'qwen', api_key: '', vision: true, audio: true
     });
   });
 

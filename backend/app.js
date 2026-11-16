@@ -1315,10 +1315,17 @@ app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     }
 });
 
-app.post('/api/testAIConnection', optionalJwt, requireAdmin, async (req, res) => {
+// The models on an AI server, for choosing one in the settings. It takes the URL and key from
+// the form rather than the saved settings, since this is how they are filled in.
+app.post('/api/getAIModels', optionalJwt, requireAdmin, async (req, res) => {
+    const base_url = typeof req.body?.base_url === 'string' ? req.body.base_url : '';
+    const api_key = typeof req.body?.api_key === 'string' ? req.body.api_key : '';
     try {
-        res.send(await local_ai.testConnection());
+        const models = await local_ai.listModels({base_url, api_key});
+        logger.verbose(`Found ${models.length} model(s) on the AI server at ${local_ai.apiRoot(base_url)}.`);
+        res.send({models});
     } catch (error) {
+        logger.warn(`Could not list the models on the AI server: ${error.message}`);
         res.status(400).send({success: false, error: error.message});
     }
 });

@@ -5,12 +5,20 @@
 import type { Category } from './Category';
 
 export type DatabaseFile = {
-    /** Saved local AI transcript, returned with file details. */
+    /**
+     * What the local AI model wrote for the file, read from the media sidecar when requesting file details.
+     */
     transcript?: {
         text?: string;
-        provider?: string;
         model?: string;
-        language?: string | null;
+        /**
+         * How it wrote up speech, or null when it was not given the audio.
+         */
+        audio_style?: 'exact' | 'brief' | 'detailed' | 'descriptive' | 'novel' | null;
+        /**
+         * How it described what is on screen, or off when it was not given frames.
+         */
+        vision_style?: 'off' | 'exact' | 'brief' | 'detailed' | 'descriptive' | 'novel';
         created_at?: string;
     };
     id: string;

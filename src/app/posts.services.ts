@@ -663,8 +663,8 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'uploadCookies', formData, this.httpOptions);
     }
 
-    testAIConnection() {
-        return this.http.post<{success: boolean}>(this.path + 'testAIConnection', {}, this.httpOptions);
+    getAIModels(base_url: string, api_key: string) {
+        return this.http.post<{models: string[]}>(this.path + 'getAIModels', {base_url, api_key}, this.httpOptions);
     }
 
     testCookies(url: string) {

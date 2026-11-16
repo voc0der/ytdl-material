@@ -100,10 +100,36 @@
   }
 
   @if (hasTranscriptionOptions) {
+    <div class="settings-row">
+      <span class="settings-row-text">
+        <span class="settings-row-title" i18n>Speech</span>
+        <span class="settings-row-hint">
+          @if (audioEnabled) {
+            <ng-container i18n>How the model writes up what is said.</ng-container>
+          } @else {
+            <ng-container i18n>Turn on Audio for the model in Settings → Advanced to use this.</ng-container>
+          }
+        </span>
+      </span>
+      <app-picker [title]="speechLabel" [label]="speechLabel" [options]="speechOptions" [value]="options['audio_style'] ?? 'exact'"
+        [disabled]="saving" (valueChange)="setOption('audio_style', $event)"></app-picker>
+    </div>
+
+    @if (visionEnabled) {
+      <div class="settings-row">
+        <span class="settings-row-text">
+          <span class="settings-row-title" i18n>Visual cues</span>
+          <span class="settings-row-hint" i18n>Also sends the model a few frames from every half minute, and adds what they show.</span>
+        </span>
+        <app-picker [title]="visualCuesLabel" [label]="visualCuesLabel" [options]="visualCueOptions" [value]="options['vision_style'] ?? 'off'"
+          [disabled]="saving" (valueChange)="setOption('vision_style', $event)"></app-picker>
+      </div>
+    }
+
     <label class="settings-row settings-field-row">
       <span class="settings-row-text">
         <span class="settings-row-title" i18n>Files per run</span>
-        <span class="settings-row-hint" i18n>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</span>
+        <span class="settings-row-hint" i18n>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</span>
       </span>
       <span class="kit-field threshold-field">
         <input type="number" min="1" max="1000" step="1" name="maxFiles" [ngModel]="options['max_files']"
