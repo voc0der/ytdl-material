@@ -380,6 +380,15 @@
           <context context-type="sourcefile">src/app/create-playlist/create-playlist.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="3994376439814748860" datatype="html">
+        <source>Speech recognition</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="200099763629573204" datatype="html">
         <source>Select the cast button again to pick a device.</source>
         <context-group purpose="location">
@@ -626,6 +635,12 @@
           <context context-type="sourcefile">src/app/components/downloads/downloads.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="8253769692007111005" datatype="html">
+        <source>Could not connect to the local AI server.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="8253784007450387353" datatype="html">
         <source>Channel or playlist link</source>
         <context-group purpose="location">
@@ -788,6 +803,12 @@
           <context context-type="sourcefile">src/app/main/main.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="7775999787835593038" datatype="html">
+        <source>Test AI connection</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="7788789394151316565" datatype="html">
         <source>Oldest first</source>
         <context-group purpose="location">
@@ -816,6 +837,15 @@
         <note priority="1" from="description">Viewing a shared library hint</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/user-profile-dialog/user-profile-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="8381481668809947175" datatype="html">
+        <source>AI server</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
         </context-group>
       </trans-unit>
       <trans-unit id="8384225360105280028" datatype="html">
@@ -969,6 +999,12 @@
           <context context-type="sourcefile">src/app/subscriptions/subscriptions.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="8468524500656821404" datatype="html">
+        <source>Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/tasks/task-info.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="8473179749546646244" datatype="html">
         <source>Edit playlist</source>
         <note priority="1" from="description">Edit playlist dialog title</note>
@@ -1056,6 +1092,12 @@
         <note priority="1" from="description">Preview snip button</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/player/player.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="1315089505120660725" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/task-settings/task-settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="1317814792060529621" datatype="html">
@@ -1608,6 +1650,12 @@
           <context context-type="sourcefile">src/app/dialogs/share-media-dialog/share-media-dialog.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/task-settings/task-settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <note priority="1" from="description">Task schedule and options button</note>
@@ -1789,6 +1837,12 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/main/main.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
@@ -2112,6 +2166,12 @@
         <note priority="1" from="description">Empty subscription library text</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
@@ -2448,6 +2508,12 @@
           <context context-type="sourcefile">src/app/player/player.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="5456411039311005292" datatype="html">
+        <source>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="5456775416888155476" datatype="html">
         <source>Failed to resume download! See server logs for more info.</source>
         <context-group purpose="location">
@@ -2681,6 +2747,12 @@
           <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <note priority="1" from="description">Empty library text</note>
@@ -2718,6 +2790,12 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="4557543465555419049" datatype="html">
+        <source>Speech server URL</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4558137277814663794" datatype="html">
@@ -3215,6 +3293,12 @@
           <context context-type="sourcefile">src/app/dialogs/about-dialog/about-dialog.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
         <note priority="1" from="description">Add arg button</note>
@@ -3327,6 +3411,12 @@
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <note priority="1" from="description">Subscribe button</note>
@@ -3417,6 +3507,18 @@
         <note priority="1" from="description">Duplicates failed to load title</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/duplicates/duplicates.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="8784643385015737262" datatype="html">
+        <source>Speech API key (optional)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="8785594097937561888" datatype="html">
+        <source>Language (blank for automatic)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="8798932904948432529" datatype="html">
@@ -3650,6 +3752,12 @@
         <note priority="1" from="description">No playlist files text</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/create-playlist/create-playlist.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="4509540400670266782" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="451465738669593469" datatype="html">
@@ -4054,6 +4162,12 @@
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="5021420569147183336" datatype="html">
+        <source>Speech model (optional)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
         <context-group purpose="location">
@@ -4342,6 +4456,12 @@
         <note priority="1" from="description">Create first playlist button</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/media-library/media-library.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="3442502711356265569" datatype="html">
+        <source>Generated by local AI. Transcription may contain mistakes.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="6201638315245239510" datatype="html">
@@ -5128,6 +5248,12 @@
           <context context-type="sourcefile">src/app/components/media-library/media-library.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="4055972091126124019" datatype="html">
+        <source>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="4076653141869059729" datatype="html">
         <source>Open file in new tab</source>
         <note priority="1" from="description">Open file in new tab</note>
@@ -5139,6 +5265,12 @@
         <source>Register users on first sign-in</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="4088179347012665225" datatype="html">
+        <source>AI server URL</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4088802997354529592" datatype="html">
@@ -5595,6 +5727,12 @@
         <source>Mute</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/player/media-controls/media-controls.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="7410307802499733353" datatype="html">
+        <source>Save settings before testing. This checks the configured model without generating content.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="7410432243549869948" datatype="html">
@@ -6474,6 +6612,12 @@
           <context context-type="sourcefile">src/app/components/subscription-settings/subscription-settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/tasks/tasks.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <note priority="1" from="description">Bind DN</note>
@@ -6584,6 +6728,12 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/downloads/downloads.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/tasks/task-info.ts</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
@@ -6698,6 +6848,12 @@
         <note priority="1" from="description">Remove newest duplicates button</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/duplicates/duplicates.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
@@ -7039,6 +7195,12 @@
         <source>Update failed. Check logs for more details.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/update-progress-dialog/update-progress-dialog.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="2879733215745180962" datatype="html">
+        <source>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="2881002557487420797" datatype="html">
@@ -8226,6 +8388,12 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/main/main.component.ts</context>
         </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="56128022633377229" datatype="html">
+        <source>Connected to the configured local model.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
         </context-group>

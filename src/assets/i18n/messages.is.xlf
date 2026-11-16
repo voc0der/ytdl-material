@@ -238,6 +238,9 @@
         <source>Successfully created playlist!</source>
         <target state="translated">Spilunarlisti búinn til!</target>
       </trans-unit>
+      <trans-unit id="3994376439814748860" datatype="html">
+        <source>Speech recognition</source>
+      </trans-unit>
       <trans-unit id="200099763629573204" datatype="html">
         <source>Select the cast button again to pick a device.</source>
         <target state="translated">Veldu vörpunarhnappinn aftur til að velja tæki.</target>
@@ -407,6 +410,9 @@
         <source>Failed to clear download! See server logs for more info.</source>
         <target state="translated">Ekki tókst að hreinsa niðurhal! Sjá annála netþjóns fyrir frekari upplýsingar.</target>
       </trans-unit>
+      <trans-unit id="8253769692007111005" datatype="html">
+        <source>Could not connect to the local AI server.</source>
+      </trans-unit>
       <trans-unit id="8253784007450387353" datatype="html">
         <source>Channel or playlist link</source>
         <target state="translated">Tengill á rás eða spilunarlista</target>
@@ -503,6 +509,9 @@
         <target state="translated">Sækja leit sem spilunarlista</target>
         <note priority="1" from="description">Main download button option for channel search playlist</note>
       </trans-unit>
+      <trans-unit id="7775999787835593038" datatype="html">
+        <source>Test AI connection</source>
+      </trans-unit>
       <trans-unit id="7788789394151316565" datatype="html">
         <source>Oldest first</source>
         <target state="translated">Elst fyrst</target>
@@ -521,6 +530,9 @@
         <source>You are browsing <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/>&apos;s library. You can watch anything in it, but not change it.</source>
         <target state="translated">Þú ert að skoða safn notandans <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/>. Þú getur horft á allt í því en ekki breytt því.</target>
         <note priority="1" from="description">Viewing a shared library hint</note>
+      </trans-unit>
+      <trans-unit id="8381481668809947175" datatype="html">
+        <source>AI server</source>
       </trans-unit>
       <trans-unit id="8384225360105280028" datatype="html">
         <source>Complete</source>
@@ -608,6 +620,9 @@
         <target state="translated">Sýna</target>
         <note priority="1" from="description">Subscription type filter label</note>
       </trans-unit>
+      <trans-unit id="8468524500656821404" datatype="html">
+        <source>Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.</source>
+      </trans-unit>
       <trans-unit id="8473179749546646244" datatype="html">
         <source>Edit playlist</source>
         <target state="translated">Breyta spilunarlista</target>
@@ -668,6 +683,9 @@
         <source>Preview</source>
         <target state="translated">Forskoðun</target>
         <note priority="1" from="description">Preview snip button</note>
+      </trans-unit>
+      <trans-unit id="1315089505120660725" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</source>
       </trans-unit>
       <trans-unit id="1317814792060529621" datatype="html">
         <source>Migration</source>
@@ -982,6 +1000,9 @@
         <target state="translated">Tengillinn opnast á sekúndunni sem þú gefur upp.</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">Tímaáætlun og valkostir</target>
@@ -1095,6 +1116,9 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">Gæði</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -1313,6 +1337,9 @@
         <target state="translated">Skrár birtast hér eftir því sem þessi áskrift sækir þær.</target>
         <note priority="1" from="description">Empty subscription library text</note>
       </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
+      </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
         <target state="translated">Tilkynningar</target>
@@ -1521,6 +1548,9 @@
         <source>This file can&apos;t be cast.</source>
         <target state="translated">Ekki er hægt að varpa þessari skrá.</target>
       </trans-unit>
+      <trans-unit id="5456411039311005292" datatype="html">
+        <source>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</source>
+      </trans-unit>
       <trans-unit id="5456775416888155476" datatype="html">
         <source>Failed to resume download! See server logs for more info.</source>
         <target state="translated">Ekki tókst að halda áfram með niðurhal! Sjá annála netþjóns fyrir frekari upplýsingar.</target>
@@ -1673,6 +1703,9 @@
         <target state="translated">Ekkert sótt enn</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">Límdu tengil hér fyrir ofan til að byrja. Allt sem þú og áskriftirnar þínar sækja endar hér.</target>
@@ -1695,6 +1728,9 @@
         <source>Users</source>
         <target state="translated">Notendur</target>
         <note priority="1" from="description">Settings users section</note>
+      </trans-unit>
+      <trans-unit id="4557543465555419049" datatype="html">
+        <source>Speech server URL</source>
       </trans-unit>
       <trans-unit id="4558137277814663794" datatype="html">
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
@@ -1975,6 +2011,9 @@
         <target state="translated">Hjálpaðu til við að bæta ytdl-material</target>
         <note priority="1" from="description">About feedback hint</note>
       </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+      </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
         <target state="translated">Bæta við viðfangi</target>
@@ -2048,6 +2087,9 @@
         <target state="translated">Sérsniðið vefkrókasniðmát virkt</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">Gerast áskrifandi</target>
@@ -2103,6 +2145,12 @@
         <source>Couldn&apos;t check for duplicates</source>
         <target state="translated">Ekki tókst að leita að tvítökum</target>
         <note priority="1" from="description">Duplicates failed to load title</note>
+      </trans-unit>
+      <trans-unit id="8784643385015737262" datatype="html">
+        <source>Speech API key (optional)</source>
+      </trans-unit>
+      <trans-unit id="8785594097937561888" datatype="html">
+        <source>Language (blank for automatic)</source>
       </trans-unit>
       <trans-unit id="8798932904948432529" datatype="html">
         <source>Wednesday</source>
@@ -2247,6 +2295,9 @@
         <source>Files you download show up here, ready to go in a playlist.</source>
         <target state="translated">Skrár sem þú sækir birtast hér, tilbúnar til að fara á spilunarlista.</target>
         <note priority="1" from="description">No playlist files text</note>
+      </trans-unit>
+      <trans-unit id="4509540400670266782" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</source>
       </trans-unit>
       <trans-unit id="451465738669593469" datatype="html">
         <source>The day it runs, once.</source>
@@ -2499,6 +2550,9 @@
         <target state="translated">Sleppa myndböndum aðeins fyrir meðlimi</target>
         <note priority="1" from="description">Skip join-only videos setting</note>
       </trans-unit>
+      <trans-unit id="5021420569147183336" datatype="html">
+        <source>Speech model (optional)</source>
+      </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
         <target state="translated">Fleiri áskriftarvalkostir</target>
@@ -2680,6 +2734,9 @@
         <source>Create playlist</source>
         <target state="translated">Búa til spilunarlista</target>
         <note priority="1" from="description">Create first playlist button</note>
+      </trans-unit>
+      <trans-unit id="3442502711356265569" datatype="html">
+        <source>Generated by local AI. Transcription may contain mistakes.</source>
       </trans-unit>
       <trans-unit id="6201638315245239510" datatype="html">
         <source>Advanced</source>
@@ -3186,6 +3243,9 @@
         <source>Delete success!</source>
         <target state="translated">Eytt!</target>
       </trans-unit>
+      <trans-unit id="4055972091126124019" datatype="html">
+        <source>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</source>
+      </trans-unit>
       <trans-unit id="4076653141869059729" datatype="html">
         <source>Open file in new tab</source>
         <target state="translated">Opna skrá í nýjum flipa</target>
@@ -3194,6 +3254,9 @@
       <trans-unit id="4078464740149713941" datatype="html">
         <source>Register users on first sign-in</source>
         <target state="translated">Skrá notendur við fyrstu innskráningu</target>
+      </trans-unit>
+      <trans-unit id="4088179347012665225" datatype="html">
+        <source>AI server URL</source>
       </trans-unit>
       <trans-unit id="4088802997354529592" datatype="html">
         <source>Full screen</source>
@@ -3487,6 +3550,9 @@
       <trans-unit id="2494293689061559568" datatype="html">
         <source>Mute</source>
         <target state="translated">Slökkva á hljóði</target>
+      </trans-unit>
+      <trans-unit id="7410307802499733353" datatype="html">
+        <source>Save settings before testing. This checks the configured model without generating content.</source>
       </trans-unit>
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
@@ -4088,6 +4154,9 @@
         <target state="translated">Skildu eftir autt til að nota titil rásarinnar eða spilunarlistans.</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">Bind DN</target>
@@ -4162,6 +4231,10 @@
         <target state="translated">{VAR_PLURAL, plural, =1 {1 atriði} other {<x id="INTERPOLATION"/> atriði}}</target>
         <note priority="1" from="description">Archive item count</note>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">Samstillir hljóðið aftur í myndböndum þar sem það dregst aftur úr eftir SponsorBlock-klippingu. Nýjar skrár eru lagaðar um leið og þær eru sóttar; þetta verk lagar eldri skrár. Ekkert er umkóðað.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">Athuga núna</target>
@@ -4230,6 +4303,9 @@
         <source>Remove newest</source>
         <target state="translated">Fjarlægja nýjustu</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -4444,6 +4520,9 @@
       <trans-unit id="2876893175497409225" datatype="html">
         <source>Update failed. Check logs for more details.</source>
         <target state="translated">Uppfærsla mistókst. Athugaðu annála fyrir nánari upplýsingar.</target>
+      </trans-unit>
+      <trans-unit id="2879733215745180962" datatype="html">
+        <source>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</source>
       </trans-unit>
       <trans-unit id="2881002557487420797" datatype="html">
         <source>Choose what to remove.</source>
@@ -5228,6 +5307,9 @@
         <source>Default</source>
         <target state="translated">Sjálfgefið</target>
         <note priority="1" from="description">Default custom file output placeholder</note>
+      </trans-unit>
+      <trans-unit id="56128022633377229" datatype="html">
+        <source>Connected to the configured local model.</source>
       </trans-unit>
       <trans-unit id="561362724688986720" datatype="html">
         <source>Couldn&apos;t load your files</source>

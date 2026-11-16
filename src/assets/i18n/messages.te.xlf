@@ -337,6 +337,9 @@
         <target state="translated">ఫైల్ రకం</target>
         <note priority="1" from="description">File type</note>
       </trans-unit>
+      <trans-unit id="7410307802499733353" datatype="html">
+        <source>Save settings before testing. This checks the configured model without generating content.</source>
+      </trans-unit>
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">నిడివి</target>
@@ -572,6 +575,9 @@
         <source>Update failed. Check logs for more details.</source>
         <target state="translated">అప్‌డేట్ విఫలమైంది. మరిన్ని వివరాల కోసం లాగ్‌లు చూడండి.</target>
       </trans-unit>
+      <trans-unit id="2879733215745180962" datatype="html">
+        <source>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</source>
+      </trans-unit>
       <trans-unit id="2881002557487420797" datatype="html">
         <source>Choose what to remove.</source>
         <target state="translated">ఏమి తీసివేయాలో ఎంచుకోండి.</target>
@@ -703,6 +709,9 @@
         <source>Delete success!</source>
         <target state="translated">విజయవంతంగా తొలగించబడింది!</target>
       </trans-unit>
+      <trans-unit id="4055972091126124019" datatype="html">
+        <source>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</source>
+      </trans-unit>
       <trans-unit id="4076653141869059729" datatype="html">
         <source>Open file in new tab</source>
         <target state="translated">ఫైల్‌ను కొత్త ట్యాబ్‌లో తెరువు</target>
@@ -711,6 +720,9 @@
       <trans-unit id="4078464740149713941" datatype="html">
         <source>Register users on first sign-in</source>
         <target state="translated">మొదటి సైన్-ఇన్‌లో వినియోగదారులను నమోదు చేయి</target>
+      </trans-unit>
+      <trans-unit id="4088179347012665225" datatype="html">
+        <source>AI server URL</source>
       </trans-unit>
       <trans-unit id="4088802997354529592" datatype="html">
         <source>Full screen</source>
@@ -1024,6 +1036,9 @@
         <target state="translated">మరిన్ని చూపు (ఇంకా <x id="INTERPOLATION" equiv-text="{{hidden_count}}"/>)</target>
         <note priority="1" from="description">Show more playlist files button</note>
       </trans-unit>
+      <trans-unit id="4509540400670266782" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</source>
+      </trans-unit>
       <trans-unit id="451465738669593469" datatype="html">
         <source>The day it runs, once.</source>
         <target state="translated">ఒకసారి అమలయ్యే రోజు.</target>
@@ -1060,6 +1075,9 @@
         <source>Users</source>
         <target state="translated">వినియోగదారులు</target>
         <note priority="1" from="description">Settings users section</note>
+      </trans-unit>
+      <trans-unit id="4557543465555419049" datatype="html">
+        <source>Speech server URL</source>
       </trans-unit>
       <trans-unit id="4558137277814663794" datatype="html">
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
@@ -1273,6 +1291,10 @@
         <target state="translated">{VAR_PLURAL, plural, =1 {1 అంశం} other {<x id="INTERPOLATION"/> అంశాలు}}</target>
         <note priority="1" from="description">Archive item count</note>
       </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">SponsorBlock కట్ తర్వాత ఆడియో ఆలస్యంగా వచ్చే వీడియోలలో ఆడియోను మళ్లీ సింక్ చేస్తుంది. కొత్త డౌన్‌లోడ్‌లు పూర్తవగానే సరిచేయబడతాయి; ఈ టాస్క్ పాతవాటిని సరిచేస్తుంది. ఏదీ మళ్లీ ఎన్‌కోడ్ చేయబడదు.</target>
+      </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
         <target state="translated">ఇప్పుడే తనిఖీ చేయి</target>
@@ -1336,6 +1358,9 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">డౌన్‌లోడ్ మళ్లీ మొదలైంది!</target>
+      </trans-unit>
+      <trans-unit id="5021420569147183336" datatype="html">
+        <source>Speech model (optional)</source>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -1639,6 +1664,9 @@
         <source>This file can&apos;t be cast.</source>
         <target state="translated">ఈ ఫైల్‌ను క్యాస్ట్ చేయడం సాధ్యం కాదు.</target>
       </trans-unit>
+      <trans-unit id="5456411039311005292" datatype="html">
+        <source>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</source>
+      </trans-unit>
       <trans-unit id="5456775416888155476" datatype="html">
         <source>Failed to resume download! See server logs for more info.</source>
         <target state="translated">డౌన్‌లోడ్‌ను కొనసాగించడం విఫలమైంది! మరింత సమాచారానికి సర్వర్ లాగ్‌లు చూడండి.</target>
@@ -1731,6 +1759,9 @@
         <source>Default</source>
         <target state="translated">డిఫాల్ట్</target>
         <note priority="1" from="description">Default custom file output placeholder</note>
+      </trans-unit>
+      <trans-unit id="56128022633377229" datatype="html">
+        <source>Connected to the configured local model.</source>
       </trans-unit>
       <trans-unit id="561362724688986720" datatype="html">
         <source>Couldn&apos;t load your files</source>
@@ -1863,6 +1894,9 @@
         <target state="translated">ఇంకా ఏదీ డౌన్‌లోడ్ కాలేదు</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+      </trans-unit>
       <trans-unit id="5800596718492516574" datatype="html">
         <source>Allow subscriptions</source>
         <target state="translated">సబ్‌స్క్రిప్షన్‌లను అనుమతించు</target>
@@ -1889,6 +1923,9 @@
         <source>Files show up here as this subscription downloads them.</source>
         <target state="translated">ఈ సబ్‌స్క్రిప్షన్ ఫైల్‌లను డౌన్‌లోడ్ చేసే కొద్దీ అవి ఇక్కడ కనిపిస్తాయి.</target>
         <note priority="1" from="description">Empty subscription library text</note>
+      </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
       </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
@@ -2201,6 +2238,9 @@
         <source>Leave empty to use the channel or playlist title.</source>
         <target state="translated">ఛానెల్ లేదా ప్లేలిస్ట్ శీర్షికను ఉపయోగించడానికి ఖాళీగా వదలండి.</target>
         <note priority="1" from="description">Subscription name hint</note>
+      </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
       </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
@@ -2613,6 +2653,9 @@
         <target state="translated">శోధనను ప్లేలిస్ట్‌గా డౌన్‌లోడ్ చేయి</target>
         <note priority="1" from="description">Main download button option for channel search playlist</note>
       </trans-unit>
+      <trans-unit id="7775999787835593038" datatype="html">
+        <source>Test AI connection</source>
+      </trans-unit>
       <trans-unit id="7788789394151316565" datatype="html">
         <source>Oldest first</source>
         <target state="translated">పాతవి ముందుగా</target>
@@ -2719,6 +2762,9 @@
         <source>Failed to clear download! See server logs for more info.</source>
         <target state="translated">డౌన్‌లోడ్‌ను క్లియర్ చేయడం విఫలమైంది! మరింత సమాచారానికి సర్వర్ లాగ్‌లు చూడండి.</target>
       </trans-unit>
+      <trans-unit id="8253769692007111005" datatype="html">
+        <source>Could not connect to the local AI server.</source>
+      </trans-unit>
       <trans-unit id="8253784007450387353" datatype="html">
         <source>Channel or playlist link</source>
         <target state="translated">ఛానెల్ లేదా ప్లేలిస్ట్ లింక్</target>
@@ -2783,6 +2829,9 @@
         <source>You are browsing <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/>&apos;s library. You can watch anything in it, but not change it.</source>
         <target state="translated">మీరు <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/> లైబ్రరీని బ్రౌజ్ చేస్తున్నారు. దానిలో ఏదైనా చూడవచ్చు, కానీ మార్చలేరు.</target>
         <note priority="1" from="description">Viewing a shared library hint</note>
+      </trans-unit>
+      <trans-unit id="8381481668809947175" datatype="html">
+        <source>AI server</source>
       </trans-unit>
       <trans-unit id="8384225360105280028" datatype="html">
         <source>Complete</source>
@@ -2877,6 +2926,9 @@
         <source>Show</source>
         <target state="translated">చూపు</target>
         <note priority="1" from="description">Subscription type filter label</note>
+      </trans-unit>
+      <trans-unit id="8468524500656821404" datatype="html">
+        <source>Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.</source>
       </trans-unit>
       <trans-unit id="8473179749546646244" datatype="html">
         <source>Edit playlist</source>
@@ -3066,6 +3118,9 @@
         <target state="translated">మీ ప్రస్తుత డేటాబేస్ మీరు ఎంచుకున్న దానితో భర్తీ అవుతుంది.</target>
         <note priority="1" from="description">Restore DB dialog subtitle</note>
       </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
+      </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
         <target state="translated">ఆర్గ్యుమెంట్ జోడించు</target>
@@ -3139,6 +3194,9 @@
         <target state="translated">అనుకూల వెబ్‌హుక్ టెంప్లేట్ ఆన్‌లో ఉంది</target>
         <note priority="1" from="description">Webhook template enabled status</note>
       </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
+      </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">సబ్‌స్క్రయిబ్ చేయి</target>
@@ -3208,6 +3266,9 @@
         <source>Preview</source>
         <target state="translated">ప్రివ్యూ</target>
         <note priority="1" from="description">Preview snip button</note>
+      </trans-unit>
+      <trans-unit id="1315089505120660725" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</source>
       </trans-unit>
       <trans-unit id="1317814792060529621" datatype="html">
         <source>Migration</source>
@@ -4084,6 +4145,9 @@
         <target state="translated">కొత్తవాటిని తీసివేయి</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
       </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
+      </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
         <target state="translated">షేరింగ్‌ను ఆన్ చేయడం విఫలమైంది.</target>
@@ -4208,6 +4272,12 @@
         <source>Couldn&apos;t check for duplicates</source>
         <target state="translated">నకళ్లను తనిఖీ చేయలేకపోయింది</target>
         <note priority="1" from="description">Duplicates failed to load title</note>
+      </trans-unit>
+      <trans-unit id="8784643385015737262" datatype="html">
+        <source>Speech API key (optional)</source>
+      </trans-unit>
+      <trans-unit id="8785594097937561888" datatype="html">
+        <source>Language (blank for automatic)</source>
       </trans-unit>
       <trans-unit id="8798932904948432529" datatype="html">
         <source>Wednesday</source>
@@ -4736,6 +4806,9 @@
         <target state="translated">మీరు ఇచ్చిన సెకనులో లింక్ తెరుచుకుంటుంది.</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">షెడ్యూల్ &amp; ఎంపికలు</target>
@@ -4849,6 +4922,9 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">నాణ్యత</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -5022,6 +5098,9 @@
         <source>Create playlist</source>
         <target state="translated">ప్లేలిస్ట్ సృష్టించు</target>
         <note priority="1" from="description">Create first playlist button</note>
+      </trans-unit>
+      <trans-unit id="3442502711356265569" datatype="html">
+        <source>Generated by local AI. Transcription may contain mistakes.</source>
       </trans-unit>
       <trans-unit id="3457747220773747758" datatype="html">
         <source>Copy video URL</source>
@@ -5465,6 +5544,9 @@
       <trans-unit id="39921032161993566" datatype="html">
         <source>Successfully created playlist!</source>
         <target state="translated">ప్లేలిస్ట్ విజయవంతంగా సృష్టించబడింది!</target>
+      </trans-unit>
+      <trans-unit id="3994376439814748860" datatype="html">
+        <source>Speech recognition</source>
       </trans-unit>
     </body>
   </file>
