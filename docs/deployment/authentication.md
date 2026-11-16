@@ -72,7 +72,7 @@ A provider account signs in to the app account it used before, found by its subj
 
 Without a username claim, the `email` address becomes the user ID only when the provider marks it verified with `email_verified`; otherwise `sub` is used. To use addresses either way, set `ytdl_oidc_username_claim` to `email`.
 
-The login page only takes a session from a sign-in that started in the same browser tab, so a link cannot sign a browser in as somebody else. The provider sends the browser back to the app's URL, `ytdl_url`. A sign-in started at another address of the app stops on the login page with a message, and **Continue** signs in again from there.
+The login page only takes a session from a sign-in that started in the same browser tab, so a link cannot sign a browser in as somebody else. After the provider, the callback sends the browser on to the app's URL, `ytdl_url`. A sign-in started at another address of the app stops on the login page there with a message, and **Continue** signs in again from it.
 
 OIDC state in **Settings → Users** is read-only and shows whether provider discovery succeeded. Change the environment and recreate the container to update it.
 
