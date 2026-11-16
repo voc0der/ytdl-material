@@ -10,6 +10,7 @@ const config_api = require('./config');
 const auth_api = require('./authentication/auth');
 const playback_links = require('./playback-links');
 const codec_discovery = require('./codec-discovery');
+const cut_audio = require('./cut-audio');
 const ai_transcription = require('./ai-transcription');
 const utils = require('./utils');
 const logger = require('./logger');
@@ -94,6 +95,12 @@ const TASKS = {
         run: codec_discovery.run,
         title: 'Codec discovery',
         // Converting a library runs for hours, far longer than a request should be held open.
+        runInBackground: true
+    },
+    resync_cut_audio: {
+        run: cut_audio.run,
+        title: 'Fix audio sync after SponsorBlock cuts',
+        // Copying every affected video can take a while on a large library.
         runInBackground: true
     }
 }
