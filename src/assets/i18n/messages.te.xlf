@@ -1585,6 +1585,10 @@
         <target state="translated">చదవనిది</target>
         <note priority="1" from="description">Unread notification marker</note>
       </trans-unit>
+      <trans-unit id="5340498030552368470" datatype="html">
+        <source>Current password</source>
+        <target state="translated">ప్రస్తుత పాస్‌వర్డ్</target>
+      </trans-unit>
       <trans-unit id="5343296518825010895" datatype="html">
         <source>The feed is private. Generate a revocable token for your feed reader.</source>
         <target state="translated">ఫీడ్ ప్రైవేట్. మీ ఫీడ్ రీడర్ కోసం ఉపసంహరించగల టోకెన్‌ను సృష్టించండి.</target>
@@ -2674,6 +2678,10 @@
       <trans-unit id="815667357574880261" datatype="html">
         <source>Couldn&apos;t unsubscribe from <x id="subscription name" equiv-text="sub.name"/>.</source>
         <target state="translated">సబ్‌స్క్రిప్షన్ రద్దు చేయలేకపోయింది: <x id="subscription name" equiv-text="sub.name"/>.</target>
+      </trans-unit>
+      <trans-unit id="8164049561976354920" datatype="html">
+        <source>The current password is incorrect.</source>
+        <target state="translated">ప్రస్తుత పాస్‌వర్డ్ తప్పు.</target>
       </trans-unit>
       <trans-unit id="817988265121346794" datatype="html">
         <source>Playlist is up to date</source>
@@ -3814,6 +3822,11 @@
         <source>Allow quality select</source>
         <target state="translated">నాణ్యత ఎంపికను అనుమతించు</target>
         <note priority="1" from="description">Allow quality seelct setting</note>
+      </trans-unit>
+      <trans-unit id="2263298396520492555" datatype="html">
+        <source>That sign-in did not start in this tab, so it was not used.</source>
+        <target state="translated">ఆ సైన్ ఇన్ ఈ ట్యాబ్‌లో ప్రారంభం కాలేదు, కాబట్టి దాన్ని ఉపయోగించలేదు.</target>
+        <note priority="1" from="description">OIDC sign-in refused</note>
       </trans-unit>
       <trans-unit id="2273420093571077039" datatype="html">
         <source>Upgrade to</source>

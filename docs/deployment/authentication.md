@@ -8,6 +8,22 @@ Complete the initial administrator-password dialog, then sign in as `admin`. Und
 
 Roles and per-user overrides control file management, settings access, subscriptions, sharing, advanced downloads, the download manager, and the task manager. These permissions are enforced on the backend as well as in the interface. Saving server configuration, user management, database administration, and server control require an administrator even if another account can open Settings.
 
+## Sessions and passwords
+
+A sign-in lasts as long as **Settings → Advanced → Login expiration** says, one day by default, counted from signing in. Using the app does not extend it. Changing the setting applies to current sign-ins too, without a restart.
+
+A new password ends the account's other sessions; the browser that changed it stays signed in. When an administrator sets somebody's password, all of that account's sessions end. Deleting an account ends its sessions, and a later account given the same user ID cannot use them. API tokens are separate credentials: a new password leaves them working, so revoke any you no longer trust.
+
+Changing your own password asks for the current one, administrators included. Administrators set other accounts' passwords without it. After five wrong current passwords within 15 minutes, changing that account's password waits until the 15 minutes are up, whichever browser or address the attempts came from.
+
+Each failed password sign-in is logged with the name tried and the client address, for a tool such as fail2ban or CrowdSec to act on:
+
+```text
+Failed password sign-in for "alice" from 203.0.113.7.
+```
+
+Behind a reverse proxy, set [`ytdl_trust_proxy`](reverse-proxy.md) so that the address is the visitor's rather than the proxy's.
+
 ## Shadow accounts
 
 Under **Settings → Users → Who can sign in**, edit an account, set **Library** to **Shadow (full access)** or **Shadow (read only)**, select the account whose library it should use, and save. The user continues signing in with their own credentials. Their files, playlists, subscriptions, and downloads then come from the selected account.
@@ -51,6 +67,12 @@ For Authelia clients with a hashed secret stored on the provider, put the origin
 | `ytdl_oidc_auto_register` | `true`; creates app accounts for accepted new identities |
 
 Your provider must actually issue the claims you select. If groups need an additional scope, add it to both the client registration and `ytdl_oidc_scope`. Test an ordinary account as well as an administrator to verify both mappings.
+
+A provider account signs in to the app account it used before, found by its subject (`sub`). The first time, it signs in to an existing account whose user ID is its username claim, if no provider account has used that account yet, whatever its sign-in method. If your provider lets people pick their own user name, someone could register the name of an existing account and receive it. A display name never picks an account. A new account is refused if another account already has its display name.
+
+Without a username claim, the `email` address becomes the user ID only when the provider marks it verified with `email_verified`; otherwise `sub` is used. To use addresses either way, set `ytdl_oidc_username_claim` to `email`.
+
+The login page only takes a session from a sign-in that started in the same browser tab, so a link cannot sign a browser in as somebody else. The provider sends the browser back to the app's URL, `ytdl_url`. A sign-in started at another address of the app stops on the login page with a message, and **Continue** signs in again from there.
 
 OIDC state in **Settings → Users** is read-only and shows whether provider discovery succeeded. Change the environment and recreate the container to update it.
 

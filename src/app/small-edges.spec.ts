@@ -92,7 +92,7 @@ describe('Small edges', () => {
 
   it('asks the server once while a header sign-in is under way', () => {
     const posts: any = { headerLogin: vi.fn() };
-    const login = new LoginComponent(posts, {} as any, {} as any);
+    const login = new LoginComponent(posts, {} as any, {} as any, {} as any);
     login.headerSigningIn = true;
     login.signInWithHeader();
     expect(posts.headerLogin).not.toHaveBeenCalled();

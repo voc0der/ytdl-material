@@ -65,11 +65,51 @@ describe('OIDC account mapping', function() {
     ]) {
         it('falls back to ' + field + ' when the configured username claim is missing', async function() {
             createdUIDs.add(value);
-            const user = await auth_api.upsertOIDCUser({sub: SUBJECT, [field]: value}, {username_claim: 'profile.login'});
+            const user = await auth_api.upsertOIDCUser({sub: SUBJECT, [field]: value, email_verified: true},
+                {username_claim: 'profile.login'});
             assert.strictEqual(user.uid, value);
             assert.strictEqual(user.name, value);
         });
     }
+
+    it('takes an address for the uid only once the provider has verified it', async function() {
+        const ADDRESS = 'oidc_test@example.test';
+        createdUIDs.add(ADDRESS).add(SUBJECT);
+        for (const email_verified of [undefined, false, 'false', 'yes']) {
+            const user = await auth_api.upsertOIDCUser({sub: SUBJECT, email: ADDRESS, email_verified});
+            assert.strictEqual(user.uid, SUBJECT, `email_verified ${JSON.stringify(email_verified)} must not make the address the uid`);
+            await db_api.removeAllRecords('users', {uid: SUBJECT});
+        }
+        // Some providers send the claim as a string.
+        assert.strictEqual((await auth_api.upsertOIDCUser({sub: SUBJECT, email: ADDRESS, email_verified: 'true'})).uid, ADDRESS);
+        assert.deepStrictEqual(await db_api.getRecords('users', {uid: SUBJECT}), []);
+    });
+
+    it('takes an unverified address when it is the configured username claim', async function() {
+        const ADDRESS = 'oidc_test@example.test';
+        createdUIDs.add(ADDRESS);
+        const user = await auth_api.upsertOIDCUser({sub: SUBJECT, email: ADDRESS}, {username_claim: 'email'});
+        assert.strictEqual(user.uid, ADDRESS);
+    });
+
+    it('does not hand an account to a provider user whose display name is its name', async function() {
+        createdUIDs.add('oidc_test_newcomer');
+        const local = await seed({uid: 'oidc_test_local', name: 'Alice Example', auth_method: 'internal',
+            oidc_subject: undefined, passhash: 'kept', role: 'admin'});
+        const before = await db_api.getRecord('users', {uid: local.uid});
+        const newcomer = {sub: SUBJECT, preferred_username: 'oidc_test_newcomer', name: 'Alice Example'};
+        assert.strictEqual(await auth_api.upsertOIDCUser(newcomer, {display_name_claim: 'name'}), null,
+            'a name another account has refuses the sign-in rather than signing in to that account');
+        assert.deepStrictEqual(await db_api.getRecord('users', {uid: local.uid}), before);
+        assert.deepStrictEqual(await db_api.getRecords('users', {oidc_subject: SUBJECT}), []);
+    });
+
+    it('signs in to an existing account with its uid that no provider account has used', async function() {
+        await seed({auth_method: 'internal', oidc_subject: undefined});
+        const user = await auth_api.upsertOIDCUser(claims());
+        assert.strictEqual(user.uid, UID);
+        assert.strictEqual(user.oidc_subject, SUBJECT);
+    });
 
     it('rejects missing identities and usernames that could escape the user directory', async function() {
         for (const invalid of [null, {}, {preferred_username: {}},

@@ -172,6 +172,9 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/login/login.component.ts</context>
         </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/manage-user/manage-user.component.ts</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="3457747220773747758" datatype="html">
         <source>Copy video URL</source>
@@ -563,6 +566,12 @@
         <source>Couldn&apos;t unsubscribe from <x id="subscription name" equiv-text="sub.name"/>.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/subscriptions/subscription-actions.service.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="8164049561976354920" datatype="html">
+        <source>The current password is incorrect.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/manage-user/manage-user.component.ts</context>
         </context-group>
       </trans-unit>
       <trans-unit id="817988265121346794" datatype="html">
@@ -2349,6 +2358,12 @@
           <context context-type="sourcefile">src/app/components/notifications-list/notifications-list.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="5340498030552368470" datatype="html">
+        <source>Current password</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/manage-user/manage-user.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="5343296518825010895" datatype="html">
         <source>The feed is private. Generate a revocable token for your feed reader.</source>
         <note priority="1" from="description">RSS token explanation</note>
@@ -3446,6 +3461,13 @@
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="2263298396520492555" datatype="html">
+        <source>That sign-in did not start in this tab, so it was not used.</source>
+        <note priority="1" from="description">OIDC sign-in refused</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/login/login.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="2273420093571077039" datatype="html">
         <source>Upgrade to</source>
         <note priority="1" from="description">Upgrade to version button</note>
@@ -3816,6 +3838,9 @@
       </trans-unit>
       <trans-unit id="1865741674644497690" datatype="html">
         <source>Could not save changes. Please try again.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/manage-user/manage-user.component.ts</context>
+        </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.ts</context>
         </context-group>

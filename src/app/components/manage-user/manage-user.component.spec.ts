@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { UserPermission, YesNo } from 'api-types';
 import { ManageUserComponent } from './manage-user.component';
@@ -71,8 +71,76 @@ describe('ManageUserComponent permissions', () => {
 
     component.setNewPassword();
 
-    expect(postsService.changeUserPassword).toHaveBeenCalledWith('alice', 'new-password');
+    expect(postsService.changeUserPassword).toHaveBeenCalledWith('alice', 'new-password', null);
     expect(component.newPasswordInput).toBe('');
     expect(component.settingNewPassword).toBe(false);
+  });
+});
+
+describe('ManageUserComponent, your own password', () => {
+  let component: ManageUserComponent;
+  let postsService: any;
+
+  beforeEach(() => {
+    postsService = {
+      user: { uid: 'admin' },
+      available_permissions: [],
+      changeUserPassword: vi.fn().mockReturnValue(of({ success: true, token: 'reissued' })),
+      replaceSessionToken: vi.fn()
+    };
+    const user = { uid: 'admin', name: 'admin', permissions: [], permission_overrides: [] };
+    component = new ManageUserComponent(postsService, { user } as any);
+  });
+
+  it('asks for the current password, administrators included', () => {
+    expect(component.editingSelf).toBe(true);
+    component.newPasswordInput = 'new-password';
+    expect(component.canSetNewPassword).toBe(false);
+    component.setNewPassword();
+    expect(postsService.changeUserPassword).not.toHaveBeenCalled();
+
+    component.currentPasswordInput = 'old-password';
+    expect(component.canSetNewPassword).toBe(true);
+    component.setNewPassword();
+    expect(postsService.changeUserPassword).toHaveBeenCalledWith('admin', 'new-password', 'old-password');
+  });
+
+  it('carries on with the token the server reissued, since the new password ended the old one', () => {
+    component.currentPasswordInput = 'old-password';
+    component.newPasswordInput = 'new-password';
+
+    component.setNewPassword();
+
+    expect(postsService.replaceSessionToken).toHaveBeenCalledWith('reissued');
+    expect(component.currentPasswordInput).toBe('');
+    expect(component.newPasswordInput).toBe('');
+    expect(component.passwordError).toBeNull();
+  });
+
+  it('says a wrong current password was wrong, and clears it to be typed again', () => {
+    postsService.changeUserPassword.mockReturnValue(throwError(() => 'The current password is incorrect'));
+    component.currentPasswordInput = 'wrong';
+    component.newPasswordInput = 'new-password';
+
+    component.setNewPassword();
+
+    expect(component.passwordError).toBe('The current password is incorrect.');
+    expect(component.currentPasswordInput).toBe('');
+    expect(component.newPasswordInput).toBe('new-password');
+    expect(component.settingNewPassword).toBe(false);
+    expect(postsService.replaceSessionToken).not.toHaveBeenCalled();
+  });
+
+  it('says to wait once too many were wrong, and that anything else could not be saved', () => {
+    component.currentPasswordInput = 'old-password';
+    component.newPasswordInput = 'new-password';
+    postsService.changeUserPassword.mockReturnValue(throwError(() => 'Too many wrong current passwords. Please wait and try again.'));
+    component.setNewPassword();
+    expect(component.passwordError).toBe('Too many authentication requests. Please wait and try again.');
+
+    postsService.changeUserPassword.mockReturnValue(of({ success: false }));
+    component.setNewPassword();
+    expect(component.passwordError).toBe('Could not save changes. Please try again.');
+    expect(component.currentPasswordInput).toBe('old-password');
   });
 });

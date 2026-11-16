@@ -110,8 +110,8 @@ describe('OIDC authorization', function() {
         }
     });
 
-    async function begin(returnTo) {
-        const url = new URL(await oidc.createAuthorizationURL(returnTo));
+    async function begin(returnTo, handoff = null) {
+        const url = new URL(await oidc.createAuthorizationURL(returnTo, handoff));
         const code = 'code-' + provider.codes.size;
         provider.codes.set(code, url.searchParams);
         return {url, query: {state: url.searchParams.get('state'), code}};
@@ -287,6 +287,48 @@ describe('OIDC authorization', function() {
             await assert.rejects(oidc.consumeAuthorizationCallback(login), /missing or invalid state/);
         });
     }
+
+    it('hands back the value the starting browser kept, and only a well-formed one', async function() {
+        await oidc.initialize();
+        const handoff = 'tab-kept_value-0123456789';
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(await begin('/', handoff))).handoff, handoff);
+        for (const malformed of [undefined, null, 42, '', 'short', 'x'.repeat(129), 'has spaces in it!!', 'a&redirect=//evil.example']) {
+            const login = await begin('/', malformed);
+            assert.strictEqual((await oidc.consumeAuthorizationCallback(login)).handoff, null, JSON.stringify(malformed));
+        }
+        // It stays with the transaction, not in the provider's address.
+        const login = await begin('/', handoff);
+        assert.strictEqual(login.url.href.includes(handoff), false);
+    });
+
+    it('refuses an ID token issued to another client', async function() {
+        await oidc.initialize();
+        provider.idClaims.azp = 'another-client';
+        let login = await begin();
+        await assert.rejects(oidc.consumeAuthorizationCallback(login), /issued to another client \(azp\)/);
+        await assert.rejects(oidc.consumeAuthorizationCallback(login), /missing or invalid state/);
+
+        // Several audiences need azp, and openid-client says so before this module looks.
+        provider.idClaims.aud = [CLIENT_ID, 'another-client'];
+        delete provider.idClaims.azp;
+        await assert.rejects(oidc.consumeAuthorizationCallback(await begin()), {code: 'OAUTH_JWT_CLAIM_COMPARISON_FAILED'});
+
+        provider.idClaims.azp = CLIENT_ID;
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(await begin())).claims.sub, SUBJECT);
+    });
+
+    it('keeps at most ten thousand sign-ins in flight, dropping the oldest', async function() {
+        this.timeout(60000);
+        await oidc.initialize();
+        const oldest = await begin();
+        const second = await begin();
+        for (let started = 2; started < 10000; started++) await oidc.createAuthorizationURL('/');
+        // The ten thousand and first pushes out the first.
+        const newest = await begin();
+        await assert.rejects(oidc.consumeAuthorizationCallback(oldest), /missing or invalid state/);
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(second)).return_to, '/');
+        assert.strictEqual((await oidc.consumeAuthorizationCallback(newest)).return_to, '/');
+    });
 
     it('falls back to ID token claims when userinfo is unavailable', async function() {
         await oidc.initialize();

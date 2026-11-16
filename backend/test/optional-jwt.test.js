@@ -57,8 +57,7 @@ describe('optionalJwt', function() {
         auth_api.initialize();
 
         await db_api.removeAllRecords('users', {uid: CALLER});
-        await auth_api.registerUser(CALLER, CALLER, 'optional-jwt-password');
-        token = auth_api.createJWTForUser(CALLER);
+        token = auth_api.createJWTForUser(await auth_api.registerUser(CALLER, CALLER, 'optional-jwt-password'));
     });
 
     after(async function() {

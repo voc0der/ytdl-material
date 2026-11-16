@@ -4,7 +4,14 @@ const config_api = require('../config');
 const logger = require('../logger');
 
 const AUTH_TX_TTL_MS = 10 * 60 * 1000;
+// Starting a sign-in needs no account, so the ones in flight are capped rather than left to
+// grow with every request for the login route. Past the cap the oldest go first; their
+// callbacks fail, and the browser starts again.
+const MAX_AUTH_TRANSACTIONS = 10000;
 const auth_transactions = new Map();
+
+// The value the browser that started a sign-in kept for itself (see normalizeHandoff).
+const HANDOFF_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 let oidc_configuration = null;
 let initialized = false;
@@ -43,6 +50,31 @@ function cleanupTransactions() {
       auth_transactions.delete(state);
     }
   }
+}
+
+// Maps keep insertion order, so the first key is the oldest sign-in.
+function makeRoomForTransaction() {
+  while (auth_transactions.size >= MAX_AUTH_TRANSACTIONS) {
+    auth_transactions.delete(auth_transactions.keys().next().value);
+  }
+}
+
+/*************************************************
+ * A random value the login page keeps in the tab
+ * that starts a sign-in, and sends here. It comes
+ * back beside the session token, and the page only
+ * takes a token that brings back its own value.
+ *
+ * Without it, the page took any token in its
+ * address: a link carrying the sender's token, or
+ * the callback of a sign-in the sender started at
+ * the provider, signed the person who opened it in
+ * as the sender. state cannot stop the second: it
+ * proves the callback answers a sign-in this
+ * server started, not one this browser did.
+ ************************************************/
+function normalizeHandoff(handoff) {
+  return typeof handoff === 'string' && HANDOFF_PATTERN.test(handoff) ? handoff : null;
 }
 
 function getOIDCConfiguration() {
@@ -176,7 +208,7 @@ exports.getStatus = () => {
   };
 }
 
-exports.createAuthorizationURL = async (return_to = '/') => {
+exports.createAuthorizationURL = async (return_to = '/', handoff = null) => {
   ensureOIDCReady();
   cleanupTransactions();
   const oidc_config = getOIDCConfiguration();
@@ -187,10 +219,12 @@ exports.createAuthorizationURL = async (return_to = '/') => {
   const state = openid_client.randomState();
   const nonce = openid_client.randomNonce();
 
+  makeRoomForTransaction();
   auth_transactions.set(state, {
     code_verifier: code_verifier,
     nonce: nonce,
     return_to: normalized_return_to,
+    handoff: normalizeHandoff(handoff),
     created: Date.now()
   });
 
@@ -228,6 +262,11 @@ exports.consumeAuthorizationCallback = async (req) => {
     pkceCodeVerifier: tx.code_verifier
   });
   const id_claims = token_set.claims() || {};
+  // openid-client checks azp only when the token has several audiences. Named at all, it has
+  // to be this client: a token issued to another one is not a sign-in to this server.
+  if (id_claims.azp !== undefined && id_claims.azp !== String(oidc_config.client_id).trim()) {
+    throw new Error('OIDC callback rejected: the ID token was issued to another client (azp).');
+  }
 
   let userinfo_claims = {};
   if (token_set.access_token) {
@@ -244,7 +283,8 @@ exports.consumeAuthorizationCallback = async (req) => {
 
   return {
     claims: Object.assign({}, userinfo_claims || {}, id_claims || {}),
-    return_to: tx.return_to || '/'
+    return_to: tx.return_to || '/',
+    handoff: tx.handoff || null
   };
 }
 

@@ -7,6 +7,16 @@ import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 
+// What a refused password change says, from the server's answer: the interceptor hands on its
+// message, not its status.
+function passwordChangeError(message: string | null): string {
+  if (message === 'The current password is incorrect') return $localize`The current password is incorrect.`;
+  if (typeof message === 'string' && message.startsWith('Too many')) {
+    return $localize`Too many authentication requests. Please wait and try again.`;
+  }
+  return $localize`Could not save changes. Please try again.`;
+}
+
 @Component({
     selector: 'app-manage-user',
     templateUrl: './manage-user.component.html',
@@ -19,6 +29,8 @@ export class ManageUserComponent implements OnInit {
 
   user = null;
   newPasswordInput = '';
+  currentPasswordInput = '';
+  passwordError: string | null = null;
   available_permissions = null;
   permissions = null;
 
@@ -35,6 +47,7 @@ export class ManageUserComponent implements OnInit {
   settingNewPassword = false;
 
   readonly newPasswordLabel = $localize`New password`;
+  readonly currentPasswordLabel = $localize`Current password`;
   readonly permissionChoices: { value: YesNo | 'default', label: string }[] = [
     { value: 'default', label: $localize`Use role default` },
     { value: YesNo.YES, label: $localize`Yes` },
@@ -81,11 +94,42 @@ export class ManageUserComponent implements OnInit {
     });
   }
 
+  /**
+   * Your own account. Its password takes the current one, as anybody's own does: a browser
+   * left signed in is not proof of who is at it. Anybody else's an administrator sets without.
+   */
+  get editingSelf(): boolean {
+    return !!this.user && this.postsService.user?.uid === this.user.uid;
+  }
+
+  get canSetNewPassword(): boolean {
+    return !this.settingNewPassword && this.newPasswordInput.length > 0
+      && (!this.editingSelf || this.currentPasswordInput.length > 0);
+  }
+
   setNewPassword() {
+    if (!this.canSetNewPassword) return;
     this.settingNewPassword = true;
-    this.postsService.changeUserPassword(this.user.uid, this.newPasswordInput).subscribe(() => {
-      this.newPasswordInput = '';
-      this.settingNewPassword = false;
+    this.passwordError = null;
+    const currentPassword = this.editingSelf ? this.currentPasswordInput : null;
+    this.postsService.changeUserPassword(this.user.uid, this.newPasswordInput, currentPassword).subscribe({
+      next: res => {
+        this.settingNewPassword = false;
+        if (!res?.success) {
+          this.passwordError = passwordChangeError(null);
+          return;
+        }
+        // The new password ended every session on the account; this one carries on with this token.
+        if (res.token) this.postsService.replaceSessionToken(res.token);
+        this.newPasswordInput = '';
+        this.currentPasswordInput = '';
+      },
+      error: message => {
+        this.settingNewPassword = false;
+        this.passwordError = passwordChangeError(message);
+        // A wrong one is typed again, not edited: what was typed is not shown.
+        if (message === 'The current password is incorrect') this.currentPasswordInput = '';
+      }
     });
   }
 

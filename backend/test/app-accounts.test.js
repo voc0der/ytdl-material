@@ -296,16 +296,24 @@ describe('Accounts on a multi-user server', function() {
             await change('alice', {new_password: 'alice-new', current_password: 'wrong'}).expect(403);
             await change('alice', {new_password: ''}).expect(400);
 
+            const old_token = tokens.alice;
             const res = await change('alice', {new_password: 'alice-new', current_password: PASSWORDS.alice}).expect(200);
-            assert.deepStrictEqual(res.body, {success: true});
+            assert.strictEqual(res.body.success, true);
+            assert.strictEqual(typeof res.body.token, 'string');
+            // The new password ends the sessions signed in with the old one; this one carries on.
+            await app.api.get('/api/getMp4s').query({jwt: old_token}).expect(401);
+            tokens.alice = res.body.token;
+            await as('alice', 'get', '/api/getMp4s').expect(200);
             await login('alice', PASSWORDS.alice).expect(401);
             await login('alice', 'alice-new').expect(200);
         });
 
-        it('lets only the administrator reset somebody else\'s', async function() {
+        it('lets only the administrator reset somebody else\'s, which ends their sessions', async function() {
             await change('alice', {user_uid: 'bob', new_password: 'taken-over'}).expect(403);
-            await change('admin', {user_uid: 'bob', new_password: 'bob-reset'}).expect(200);
-            await login('bob', 'bob-reset').expect(200);
+            const res = await change('admin', {user_uid: 'bob', new_password: 'bob-reset'}).expect(200);
+            assert.deepStrictEqual(res.body, {success: true});
+            await as('bob', 'get', '/api/getMp4s').expect(401);
+            tokens.bob = (await login('bob', 'bob-reset').expect(200)).body.token;
         });
     });
 

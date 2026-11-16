@@ -1419,6 +1419,11 @@
         <target state="translated">Povolit výběr kvality</target>
         <note priority="1" from="description">Allow quality seelct setting</note>
       </trans-unit>
+      <trans-unit id="2263298396520492555" datatype="html">
+        <source>That sign-in did not start in this tab, so it was not used.</source>
+        <target state="translated">Toto přihlášení nezačalo na této kartě, a proto nebylo použito.</target>
+        <note priority="1" from="description">OIDC sign-in refused</note>
+      </trans-unit>
       <trans-unit id="2273420093571077039" datatype="html">
         <source>Upgrade to</source>
         <target state="translated">Aktualizovat na</target>
@@ -3577,6 +3582,10 @@
         <target state="translated">Nepřečtené</target>
         <note priority="1" from="description">Unread notification marker</note>
       </trans-unit>
+      <trans-unit id="5340498030552368470" datatype="html">
+        <source>Current password</source>
+        <target state="translated">Současné heslo</target>
+      </trans-unit>
       <trans-unit id="5343296518825010895" datatype="html">
         <source>The feed is private. Generate a revocable token for your feed reader.</source>
         <target state="translated">Kanál je soukromý. Vytvořte odvolatelný token pro svou čtečku kanálů.</target>
@@ -4702,6 +4711,10 @@
       <trans-unit id="815667357574880261" datatype="html">
         <source>Couldn&apos;t unsubscribe from <x id="subscription name" equiv-text="sub.name"/>.</source>
         <target state="translated">Odběr <x id="subscription name" equiv-text="sub.name"/> se nepodařilo zrušit.</target>
+      </trans-unit>
+      <trans-unit id="8164049561976354920" datatype="html">
+        <source>The current password is incorrect.</source>
+        <target state="translated">Současné heslo je nesprávné.</target>
       </trans-unit>
       <trans-unit id="817988265121346794" datatype="html">
         <source>Playlist is up to date</source>
