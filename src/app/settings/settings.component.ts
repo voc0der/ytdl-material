@@ -62,6 +62,18 @@ export class SettingsComponent implements OnInit {
   db_info: DBInfoResponse = null;
   db_transferring = false;
   testing_connection_string = false;
+  testingAI = false;
+  aiConnectionMessage = '';
+  readonly aiProviderLabel = $localize`AI server`;
+  readonly speechProviderLabel = $localize`Speech recognition`;
+  readonly aiProviderOptions: PickerOption[] = [
+    {value: 'ollama', label: 'Ollama'}, {value: 'llamacpp', label: 'llama.cpp'}
+  ];
+  readonly speechProviderOptions: PickerOption[] = [
+    {value: 'disabled', label: $localize`Disabled`},
+    {value: 'whispercpp', label: 'whisper.cpp'},
+    {value: 'llamacpp', label: 'llama.cpp'}
+  ];
   testingCookies = false;
   cookiesTestComplete = false;
   cookiesTestSuccess: boolean = null;
@@ -430,7 +442,12 @@ export class SettingsComponent implements OnInit {
   }
 
   getConfig(): void {
-    this.initial_config = this.postsService.config;
+    this.initial_config = JSON.parse(JSON.stringify(this.postsService.config));
+    this.initial_config.Advanced.ai ??= {
+      enabled: false, provider: 'ollama', base_url: 'http://127.0.0.1:11434', model: '', api_key: '',
+      transcription_provider: 'disabled', transcription_url: 'http://127.0.0.1:8081',
+      transcription_model: '', transcription_api_key: '', language: ''
+    };
     this.new_config = JSON.parse(JSON.stringify(this.initial_config));
   }
 
@@ -517,6 +534,21 @@ export class SettingsComponent implements OnInit {
     return JSON.stringify(this.new_config) === JSON.stringify(this.initial_config);
   }
 
+  testAIConnection(): void {
+    this.testingAI = true;
+    this.aiConnectionMessage = '';
+    this.postsService.testAIConnection().subscribe({
+      next: () => {
+        this.testingAI = false;
+        this.aiConnectionMessage = $localize`Connected to the configured local model.`;
+      },
+      error: error => {
+        this.testingAI = false;
+        this.aiConnectionMessage = error.error?.error || $localize`Could not connect to the local AI server.`;
+      }
+    });
+  }
+
   saveSettings(): void {
     const settingsToSave = {'YtdlMaterial': this.new_config};
     this.postsService.setConfig(settingsToSave).subscribe(res => {
@@ -529,7 +561,8 @@ export class SettingsComponent implements OnInit {
         this.initial_config = JSON.parse(JSON.stringify(this.new_config));
         this.postsService.reload_config.next(true);
       }
-    }, () => {
+    }, error => {
+      this.postsService.openSnackBar(error.error?.error || $localize`Could not save settings.`);
       console.error('Failed to save config!');
     })
   }

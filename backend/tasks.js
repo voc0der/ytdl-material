@@ -10,6 +10,7 @@ const config_api = require('./config');
 const auth_api = require('./authentication/auth');
 const playback_links = require('./playback-links');
 const codec_discovery = require('./codec-discovery');
+const ai_transcription = require('./ai-transcription');
 const utils = require('./utils');
 const logger = require('./logger');
 const CONSTS = require('./consts');
@@ -27,6 +28,12 @@ const DEFAULT_DAILY_SCHEDULE = {
 };
 
 const TASKS = {
+    auto_transcribe: {
+        run: ai_transcription.run,
+        title: 'Auto-transcribe',
+        runInBackground: true,
+        notifyOnFinish: false
+    },
     backup_local_db: {
         run: db_api.backupDB,
         title: 'Backup DB'
@@ -149,6 +156,7 @@ function scheduleTaskJob(task_key, schedule) {
 }
 
 const defaultOptions = {
+    auto_transcribe: {max_files: 10},
     all: {
         auto_confirm: false
     },

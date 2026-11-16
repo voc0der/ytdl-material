@@ -926,6 +926,76 @@
       @if (tab === 'advanced') {
         <div class="settings-sections">
           <section class="settings-section">
+            <h2 class="settings-section-title" i18n>Local AI</h2>
+            <div class="kit-panel"><div class="settings-rows">
+              <div class="settings-row">
+                <span class="settings-row-text">
+                  <span class="settings-row-title" id="settings-ai-enabled" i18n>Enable AI integration</span>
+                  <span class="settings-row-hint" i18n>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</span>
+                </span>
+                <mat-slide-toggle [(ngModel)]="new_config.Advanced.ai.enabled" aria-labelledby="settings-ai-enabled"></mat-slide-toggle>
+              </div>
+              @if (new_config.Advanced.ai.enabled) {
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n>AI server</span>
+                    <span class="settings-row-hint" i18n>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</span>
+                  </span>
+                  <app-picker [title]="aiProviderLabel" [options]="aiProviderOptions" [value]="new_config.Advanced.ai.provider"
+                    (valueChange)="new_config.Advanced.ai.provider = $any($event)"></app-picker>
+                </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>AI server URL</span>
+                  <span class="kit-field"><input type="url" [(ngModel)]="new_config.Advanced.ai.base_url" placeholder="http://127.0.0.1:11434" autocomplete="off"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>Model</span>
+                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.model" placeholder="" autocomplete="off"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>API key (optional)</span>
+                  <span class="kit-field"><input type="password" [(ngModel)]="new_config.Advanced.ai.api_key" placeholder="" autocomplete="off"></span>
+                </label>
+                <div class="settings-row">
+                  <span class="settings-row-hint" i18n>Save settings before testing. This checks the configured model without generating content.</span>
+                  <button type="button" class="kit-chip" (click)="testAIConnection()" [disabled]="testingAI || !settingsSame()">
+                    <span i18n>Test AI connection</span>
+                  </button>
+                </div>
+                @if (aiConnectionMessage) { <p class="settings-row-hint" role="status">{{aiConnectionMessage}}</p> }
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n>Speech recognition</span>
+                    <span class="settings-row-hint" i18n>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</span>
+                  </span>
+                  <app-picker [title]="speechProviderLabel" [options]="speechProviderOptions" [value]="new_config.Advanced.ai.transcription_provider"
+                    (valueChange)="new_config.Advanced.ai.transcription_provider = $any($event)"></app-picker>
+                </div>
+                @if (new_config.Advanced.ai.transcription_provider !== 'disabled') {
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>Speech server URL</span>
+                  <span class="kit-field"><input type="url" [(ngModel)]="new_config.Advanced.ai.transcription_url" placeholder="http://127.0.0.1:8081" autocomplete="off"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>Speech model (optional)</span>
+                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.transcription_model" placeholder="" autocomplete="off"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>Speech API key (optional)</span>
+                  <span class="kit-field"><input type="password" [(ngModel)]="new_config.Advanced.ai.transcription_api_key" placeholder="" autocomplete="off"></span>
+                </label>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-title" i18n>Language (blank for automatic)</span>
+                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.language" placeholder="en" autocomplete="off"></span>
+                </label>
+                  <p class="settings-row-hint" i18n>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</p>
+                }
+              }
+            </div></div>
+          </section>
+
+
+          <section class="settings-section">
             <h2 class="settings-section-title" i18n="Settings downloader section">Downloader</h2>
             <div class="kit-panel">
               <div class="settings-rows">

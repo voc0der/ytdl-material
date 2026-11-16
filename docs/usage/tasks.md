@@ -18,6 +18,7 @@ Open **Tasks** for maintenance and recurring work. Each task shows its current s
 | Check subscriptions | Checks active subscriptions and queues eligible missing items |
 | Delete old playback transcodes | Deletes copies made for transcoding playback links once they are over six hours old and no unexpired link, queued or running transcode uses them |
 | Codec discovery | Records the video and audio codec of files that have none; with a preferred codec set, converts other videos to it. See [codec discovery](#codec-discovery) |
+| Auto-transcribe | Transcribes library audio and video with a local speech server and saves the result in metadata sidecars. Visible when AI integration is enabled; see [local AI transcription](#local-ai-transcription) |
 
 ## Run and review
 
@@ -54,6 +55,27 @@ Task options:
 A run can take hours on a large library. It keeps going after the Tasks page is closed, and a second run started meanwhile does not start another conversion. A file that fails keeps its original, and the reason is in the log. Converted files replace the originals, so take a [backup](../deployment/backups.md) of media you cannot download again before the first run.
 
 If the container stops during a conversion, the next start discards the unfinished copy and keeps the original, or finishes deleting the original if the new file had already been saved. The task is left idle; nothing resumes on its own. Work files live beside each original as `*.codec-part` and under `appdata/codec-work`, which lite server backups skip.
+
+## Local AI transcription
+
+AI integration is off by default. Enable it in **Settings → Advanced → Local AI**, choose **Ollama** or **llama.cpp**, and enter the server's base URL and model. For Ollama, the model must already be installed locally. For a single-model llama.cpp server, the model can be blank. Optional API keys are saved on the app server and hidden from other accounts. Save, then use **Test AI connection** to check the configured model without generating content.
+
+Use a URL reachable from the app server, such as `http://ollama:11434` on a shared Docker network or `http://192.168.1.20:8080` for llama.cpp on another machine. `localhost` inside the app container refers to that container. Loopback, private IPv4, private IPv6, and Tailscale addresses are accepted; public addresses, HTTP redirects, and environment HTTP proxies are not used. Only self-hosted services are supported. The operator is responsible for keeping those services local; the app cannot inspect what a reverse proxy forwards to.
+
+Speech recognition is configured separately because a text model cannot transcribe audio. Select one of:
+
+- **whisper.cpp**: a local speech server with a loaded model, for example `http://whisper:8080`. The app calls its `/inference` endpoint. The model field can be blank because the server loads the model at startup. See the [server setup](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server).
+- **llama.cpp**: a server version exposing `/v1/audio/transcriptions`, with an audio-capable transcription model loaded. Enter the model or alias when using a model router. A text-only model or an older server will fail the task. See the [server documentation](https://github.com/ggml-org/llama.cpp/tree/master/tools/server).
+
+Enter the base URL without an API suffix. A language code such as `en` is optional; blank leaves language detection to the speech server. The AI connection test checks the main model connection; the first transcription run tests speech recognition. Ollama is connected for text models only in this first implementation; recommendation and discovery tasks are not included.
+
+After saving, open **Tasks → Auto-transcribe** and run it or set a schedule. Enabling AI does not start work or create a schedule. Each run processes up to **10 files** by default; **Files per run** accepts 1–1000. Failed attempts count toward the limit and are retried after files that have not failed. Existing current transcripts and recordings with no audio are skipped. The card reports completed, skipped, and failed counts; failures include a reason in the server log. Existing task permissions govern access to this library-wide task.
+
+The task uses ffmpeg to extract the first audio track as mono 16 kHz WAV, in five-minute chunks for whisper.cpp and 30-second chunks for llama.cpp. It sends audio only to the configured speech server, one file at a time, with a ten-minute timeout per chunk. Temporary audio is removed when the attempt finishes. Nothing downloads a model or falls back to a hosted service.
+
+The transcript is merged into `ytdl_material.transcript` in the existing `.info.json` sidecar, including older extension-bearing filenames. If no sidecar exists, one is created. The record includes text, chunk offsets in seconds, provider, configured model, language, creation time, and media size/modification time. Chunk offsets are not word or subtitle timestamps. Other metadata is retained, malformed sidecars are left untouched, and a failed or incomplete transcript never replaces a saved one. Files whose size or modification time changed are transcribed again on a later run.
+
+Open a file's **Info** dialog to read its saved transcript. It is served through the existing file access checks. AI output may contain transcription errors. Disabling AI stops active work, hides the task, and prevents scheduled runs from contacting a provider; saved transcripts remain readable, and the schedule is kept for when AI is enabled again. Completed files are kept if a run is interrupted; an unfinished file starts again on the next run. Include media sidecars in backups to retain transcripts.
 
 ## Retention
 

@@ -21,7 +21,11 @@ function createHarness() {
     service_initialized: new BehaviorSubject(false),
     config: {
       Host: { url: 'https://media.example.test', port: 17442 },
-      Advanced: { multi_user_mode: false, default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable' },
+      Advanced: { multi_user_mode: false, default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable', ai: {
+        enabled: false, provider: 'ollama', base_url: 'http://127.0.0.1:11434', model: '', api_key: '',
+        transcription_provider: 'disabled', transcription_url: 'http://127.0.0.1:8081',
+        transcription_model: '', transcription_api_key: '', language: ''
+      } },
       Downloader: { custom_args: '--embed-metadata' },
       Extra: { allowed_notification_types: ['download_error'] },
       API: {
@@ -52,6 +56,7 @@ function createHarness() {
     transferDB: vi.fn(),
     testConnectionString: vi.fn(),
     testCookies: vi.fn(),
+    testAIConnection: vi.fn(),
     openSnackBar: vi.fn()
   };
   const closed = new Subject<any>();
@@ -80,6 +85,25 @@ describe('Settings workflows', () => {
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  describe('local AI connection', () => {
+    it('shows a pending test and then confirms the saved local connection', () => {
+      const response = new Subject<{success: boolean}>();
+      posts.testAIConnection.mockReturnValue(response);
+      component.testAIConnection();
+      expect(component.testingAI).toBe(true);
+      response.next({success: true});
+      expect(component.testingAI).toBe(false);
+      expect(component.aiConnectionMessage).toContain('Connected');
+    });
+
+    it('surfaces a configuration error without claiming the connection works', () => {
+      posts.testAIConnection.mockReturnValue(throwError(() => ({error: {error: 'AI integration is disabled.'}})));
+      component.testAIConnection();
+      expect(component.testingAI).toBe(false);
+      expect(component.aiConnectionMessage).toBe('AI integration is disabled.');
+    });
+  });
 
   describe('initialization', () => {
     it('loads saved settings and server status immediately when the service is ready', () => {

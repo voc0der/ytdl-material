@@ -1608,6 +1608,23 @@ paths:
         - API bearer token: []
       tags:
         - downloader
+  /api/testAIConnection:
+    post:
+      summary: Test the saved local AI connection
+      description: Requires administrator access in multi-user mode. Checks the configured local model without running inference.
+      operationId: post-api-testAIConnection
+      responses:
+        '200':
+          description: Local model is available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+        '400':
+          description: AI is disabled, misconfigured, or unavailable
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/getTask:
     post:
       summary: Get info for one task
@@ -3482,6 +3499,21 @@ components:
         - favorite
       type: object
       properties:
+        transcript:
+          description: Saved local AI transcript, read from the media sidecar when requesting file details.
+          type: object
+          properties:
+            text:
+              type: string
+            provider:
+              type: string
+            model:
+              type: string
+            language:
+              type: string
+              nullable: true
+            created_at:
+              type: string
         id:
           type: string
         title:
@@ -3704,6 +3736,16 @@ components:
           type: string
         schedule:
           $ref: '#/components/schemas/Schedule'
+        result:
+          description: Counts from the last Auto-transcribe run.
+          type: object
+          properties:
+            transcribed:
+              type: integer
+            skipped:
+              type: integer
+            failed:
+              type: integer
         next_invocation:
           description: When the schedule next fires, in milliseconds since the epoch. Only set while the task is scheduled.
           type: number
@@ -3725,6 +3767,7 @@ components:
       - subscriptions_check
       - delete_old_transcodes
       - codec_discovery
+      - auto_transcribe
     Schedule:
       required:
         - type

@@ -389,6 +389,46 @@ exports.CONFIG_ITEMS = {
     },
 
     // Advanced
+    'ytdl_ai_enabled': {
+        'key': 'ytdl_ai_enabled',
+        'path': 'YtdlMaterial.Advanced.ai.enabled'
+    },
+    'ytdl_ai_provider': {
+        'key': 'ytdl_ai_provider',
+        'path': 'YtdlMaterial.Advanced.ai.provider'
+    },
+    'ytdl_ai_base_url': {
+        'key': 'ytdl_ai_base_url',
+        'path': 'YtdlMaterial.Advanced.ai.base_url'
+    },
+    'ytdl_ai_model': {
+        'key': 'ytdl_ai_model',
+        'path': 'YtdlMaterial.Advanced.ai.model'
+    },
+    'ytdl_ai_api_key': {
+        'key': 'ytdl_ai_api_key',
+        'path': 'YtdlMaterial.Advanced.ai.api_key'
+    },
+    'ytdl_ai_transcription_provider': {
+        'key': 'ytdl_ai_transcription_provider',
+        'path': 'YtdlMaterial.Advanced.ai.transcription_provider'
+    },
+    'ytdl_ai_transcription_url': {
+        'key': 'ytdl_ai_transcription_url',
+        'path': 'YtdlMaterial.Advanced.ai.transcription_url'
+    },
+    'ytdl_ai_transcription_model': {
+        'key': 'ytdl_ai_transcription_model',
+        'path': 'YtdlMaterial.Advanced.ai.transcription_model'
+    },
+    'ytdl_ai_transcription_api_key': {
+        'key': 'ytdl_ai_transcription_api_key',
+        'path': 'YtdlMaterial.Advanced.ai.transcription_api_key'
+    },
+    'ytdl_ai_language': {
+        'key': 'ytdl_ai_language',
+        'path': 'YtdlMaterial.Advanced.ai.language'
+    },
     'ytdl_default_downloader': {
         'key': 'ytdl_default_downloader',
         'path': 'YtdlMaterial.Advanced.default_downloader'

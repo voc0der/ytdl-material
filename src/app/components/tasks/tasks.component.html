@@ -49,6 +49,10 @@
             }
           </div>
 
+          @if (task.key === 'auto_transcribe' && task.result) {
+            <p class="task-description" i18n>{{task.result.transcribed}} transcribed · {{task.result.skipped}} skipped · {{task.result.failed}} failed</p>
+          }
+
           @if (task.error) {
             <div class="task-error-row">
               <button type="button" class="task-error kit-one-line" (click)="showError(task)" [matTooltip]="errorSummary(task)">

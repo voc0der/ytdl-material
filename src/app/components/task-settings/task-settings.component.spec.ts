@@ -36,6 +36,17 @@ describe('TaskSettingsComponent', () => {
   const saveButton = (): HTMLButtonElement => [...fixture.nativeElement.querySelectorAll('button')]
     .find((button: HTMLButtonElement) => button.textContent.trim() === 'Save');
 
+  it('limits automatic transcription batches and hides irrelevant confirmation controls', () => {
+    openOn(task({key: TaskType.AUTO_TRANSCRIBE, options: {max_files: 10}}));
+    expect(fixture.nativeElement.querySelector('#task-auto-confirm-title')).toBeNull();
+    component.setOption('max_files', 0);
+    component.save();
+    expect(postsService.updateTaskOptions).not.toHaveBeenCalled();
+    component.setOption('max_files', 25);
+    component.save();
+    expect(postsService.updateTaskOptions).toHaveBeenCalledWith(TaskType.AUTO_TRANSCRIBE, {max_files: 25});
+  });
+
   beforeEach(async () => {
     postsService = {
       updateTaskSchedule: vi.fn().mockName('updateTaskSchedule').mockReturnValue(of({ success: true })),

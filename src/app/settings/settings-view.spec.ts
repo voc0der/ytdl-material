@@ -75,6 +75,26 @@ describe('Settings page controls', () => {
     root = fixture.nativeElement;
   });
 
+  it('keeps AI opt-in and saves provider and speech settings from Advanced', async () => {
+    await render();
+    await switchTab('advanced');
+    expect(component.new_config.Advanced.ai.enabled).toBe(false);
+    expect(root.textContent).not.toContain('Test AI connection');
+    const toggle = root.querySelector('#settings-ai-enabled').closest('.settings-row').querySelector('button');
+    toggle.click();
+    await render();
+    expect(root.textContent).toContain('Speech recognition');
+    expect(button('Test AI connection').disabled).toBe(true);
+    component.new_config.Advanced.ai.model = 'local-model';
+    component.new_config.Advanced.ai.transcription_provider = 'whispercpp';
+    await render();
+    expect(root.textContent).toContain('Speech server URL');
+    component.saveSettings();
+    expect(posts.setConfig.mock.lastCall[0].YtdlMaterial.Advanced.ai).toMatchObject({
+      enabled: true, provider: 'ollama', model: 'local-model', transcription_provider: 'whispercpp'
+    });
+  });
+
   it('shows loading until configuration arrives', async () => {
     posts.initialized = false;
     await render();

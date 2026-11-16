@@ -19,5 +19,6 @@ export type Task = {
      * When the schedule next fires, in milliseconds since the epoch. Only set while the task is scheduled.
      */
     next_invocation?: number;
+    result?: { transcribed?: number; skipped?: number; failed?: number };
     options?: any;
 };
