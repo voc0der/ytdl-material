@@ -16,8 +16,8 @@ const compression = require('compression');
 const multer  = require('multer');
 const express = require("express");
 const rateLimit = require('express-rate-limit');
-const { ZipArchive } = require('archiver');
 const unzipper = require('unzipper');
+const zip_api = require('./zip');
 const db_api = require('./db');
 const { DelegatingRateLimitStore } = require('./rate-limit-store');
 const { skipApiRateLimit, skipAuthRateLimit } = require('./rate-limit-paths');
@@ -665,43 +665,44 @@ async function installDependencies() {
     return true;
 }
 
+/*************************************************
+ * Zips the server's folder before an update, less
+ * the media, earlier backups -- this one among
+ * them -- and conversions that are made again when
+ * wanted. Names starting with a dot stay out too,
+ * .git above all, as they did when a glob chose
+ * the files.
+ *
+ * A failure used to be logged and then reported as
+ * a success, so the update went ahead without a
+ * backup. Now it stops the update.
+ ************************************************/
 async function backupServerLite() {
     await fs.ensureDir(path.join(__dirname, 'appdata', 'backups'));
-    let output_path = path.join('appdata', 'backups', `backup-${Date.now()}.zip`);
+    const output_path = path.join('appdata', 'backups', `backup-${Date.now()}.zip`);
     logger.info(`Backing up your non-video/audio files to ${output_path}. This may take up to a few seconds/minutes.`);
-    let output = fs.createWriteStream(path.join(__dirname, output_path));
 
-    await new Promise(resolve => {
-        // archiver 8 exports classes rather than a callable factory; the old form threw.
-        const archive = new ZipArchive({
-            zlib: { level: 9 } // Sets the compression level.
+    // Resolved, so a media folder configured as an absolute path inside this one is left out as
+    // well. The glob compared it as written, against names relative to here, and took it in.
+    const left_out = [
+        config_api.getConfigItem('ytdl_subscriptions_base_path'),
+        config_api.getConfigItem('ytdl_audio_folder_path'),
+        config_api.getConfigItem('ytdl_video_folder_path'),
+        'appdata/backups',
+        'appdata/transcodes',
+        'appdata/codec-work'
+    ].filter(folder => typeof folder === 'string' && folder.trim() !== '').map(folder => path.resolve(__dirname, folder));
+
+    try {
+        await zip_api.zipFolder(path.join(__dirname, output_path), __dirname, {
+            compress: true,
+            skip: (absolute_path, entry) => entry.name.startsWith('.') || left_out.includes(absolute_path)
         });
-
-        archive.on('error', function(err) {
-            logger.error(err);
-            resolve(false);
-        });
-
-        // pipe archive data to the output file
-        archive.pipe(output);
-
-        // ignore certain directories (ones with video or audio files)
-        const files_to_ignore = [path.join(config_api.getConfigItem('ytdl_subscriptions_base_path'), '**'),
-                                path.join(config_api.getConfigItem('ytdl_audio_folder_path'), '**'),
-                                path.join(config_api.getConfigItem('ytdl_video_folder_path'), '**'),
-                                'appdata/backups/backup-*.zip',
-                                'appdata/transcodes/**',
-                                'appdata/codec-work/**'];
-
-        archive.glob('**/*', {
-            ignore: files_to_ignore
-        });
-
-        resolve(archive.finalize());
-    });
-
-    // wait a tiny bit for the zip to reload in fs
-    await utils.wait(100);
+    } catch (err) {
+        logger.error(`Could not back up the server before updating: ${err.message}`);
+        await fs.remove(path.join(__dirname, output_path)).catch(() => null);
+        return false;
+    }
     return true;
 }
 
@@ -2526,7 +2527,7 @@ app.post('/api/downloadFileFromServer', optionalJwt, requireAuthenticatedOrShare
     let download_display_name = null;
 
     // Container archives are prepared before Express starts sending the response. Tie
-    // that work to the connection so cancelling the browser request stops archiver and
+    // that work to the connection so cancelling the browser request stops the archive and
     // removes its partial file instead of filling appdata in the background.
     const createContainerArchive = async (name, file_objs, user_uid) => {
         const controller = new AbortController();

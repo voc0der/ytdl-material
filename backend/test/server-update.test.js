@@ -1,9 +1,9 @@
 const assert = require('assert');
 const fs = require('fs-extra');
 const path = require('path');
-const { EventEmitter } = require('events');
 const { PassThrough, Readable } = require('stream');
 const { createAppHarness } = require('./helpers/app-harness');
+const { hasPython, readWithPython } = require('./helpers/zip-readers');
 
 // Never run npm, replace application files, or restart the test process.
 describe('Server updates', function() {
@@ -191,25 +191,68 @@ describe('Server updates', function() {
         await assert.rejects(context.downloadReleaseFiles('v2.0.0'), failure => failure === error);
     });
 
-    it('backs up files while excluding media, previous backups and transient conversions', async function() {
-        harness.close();
-        let globOptions;
-        let output;
-        class Archive extends EventEmitter {
-            pipe(stream) { output = stream; }
-            glob(pattern, options) { assert.strictEqual(pattern, '**/*'); globOptions = options; }
-            async finalize() { output.end('backup'); }
+    describe('The backup before an update', function() {
+        const media = { ytdl_subscriptions_base_path: 'subscriptions', ytdl_audio_folder_path: 'audio', ytdl_video_folder_path: 'video' };
+
+        async function writeServerFolder(root) {
+            const files = {
+                'appdata/db.json': '{"files": []}',
+                'appdata/backups/backup-1.zip': 'an earlier backup',
+                'appdata/transcodes/a.mp4': 'a conversion',
+                'appdata/codec-work/b.part': 'work in progress',
+                'video/a.mp4': 'video', 'audio/b.mp3': 'audio', 'subscriptions/channel/c.mp4': 'subscription',
+                'node_modules/pkg/index.js': 'module.exports = 1;',
+                '.git/HEAD': 'ref: refs/heads/main',
+                '.env': 'SECRET=1'
+            };
+            for (const [name, content] of Object.entries(files)) await fs.outputFile(path.join(root, name), content);
         }
-        harness = createAppHarness({ config: {
-            ytdl_subscriptions_base_path: 'subscriptions', ytdl_audio_folder_path: 'audio', ytdl_video_folder_path: 'video'
-        }, dependencies: { archiver: { ZipArchive: Archive }, './utils': { wait: async () => {} } } });
-        assert.strictEqual(await harness.context.backupServerLite(), true);
-        assert.deepStrictEqual(Array.from(globOptions.ignore), [
-            'subscriptions/**', 'audio/**', 'video/**', 'appdata/backups/backup-*.zip', 'appdata/transcodes/**', 'appdata/codec-work/**'
-        ]);
-        await new Promise(resolve => output.on('close', resolve));
-        const backups = fs.readdirSync(path.join(harness.root, 'appdata/backups'));
-        assert.strictEqual(backups.length, 1);
-        assert.strictEqual(fs.readFileSync(path.join(harness.root, 'appdata/backups', backups[0]), 'utf8'), 'backup');
+
+        function newBackup(root) {
+            const backups = fs.readdirSync(path.join(root, 'appdata/backups')).filter(name => name !== 'backup-1.zip');
+            assert.strictEqual(backups.length, 1);
+            return path.join(root, 'appdata/backups', backups[0]);
+        }
+
+        it('backs up the server folder without media, earlier backups, conversions or dot files', async function() {
+            if (!hasPython()) this.skip();
+            harness.close();
+            harness = createAppHarness({ config: media });
+            await writeServerFolder(harness.root);
+
+            assert.strictEqual(await harness.context.backupServerLite(), true);
+
+            const read = readWithPython(newBackup(harness.root));
+            assert.strictEqual(read.bad, null);
+            assert.deepStrictEqual(read.entries.map(entry => entry.name),
+                ['appdata/', 'appdata/db.json', 'node_modules/', 'node_modules/pkg/', 'node_modules/pkg/index.js']);
+            assert.strictEqual(read.entries.find(entry => entry.name === 'appdata/db.json').method, 8, 'a backup is deflated');
+        });
+
+        it('also leaves out a media folder configured as an absolute path inside the server folder', async function() {
+            if (!hasPython()) this.skip();
+            harness.close();
+            harness = createAppHarness({ config: media });
+            harness.values.ytdl_video_folder_path = path.join(harness.root, 'video') + path.sep;
+            await writeServerFolder(harness.root);
+
+            assert.strictEqual(await harness.context.backupServerLite(), true);
+            const names = readWithPython(newBackup(harness.root)).entries.map(entry => entry.name);
+            assert(!names.some(name => name.startsWith('video/')), names.join(', '));
+        });
+
+        it('stops the update when the backup cannot be written, and removes what it wrote', async function() {
+            harness.close();
+            harness = createAppHarness({ config: media, dependencies: { './zip': {
+                zipFolder: async zip_path => {
+                    await fs.outputFile(zip_path, 'half a backup');
+                    throw new Error('No space left on device');
+                }
+            } } });
+
+            assert.strictEqual(await harness.context.backupServerLite(), false);
+            assert.deepStrictEqual(fs.readdirSync(path.join(harness.root, 'appdata/backups')), []);
+            assert(harness.messages.some(([level, message]) => level === 'error' && String(message).includes('No space left on device')));
+        });
     });
 });
