@@ -354,6 +354,9 @@
         <target state="translated">你正在浏览 <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/> 的媒体库。你可以观看其中的任何内容，但不能更改。</target>
         <note priority="1" from="description">Viewing a shared library hint</note>
       </trans-unit>
+      <trans-unit id="8381481668809947175" datatype="html">
+        <source>AI server</source>
+      </trans-unit>
       <trans-unit id="8384225360105280028" datatype="html">
         <source>Complete</source>
         <target state="translated">完成</target>
@@ -403,6 +406,9 @@
         <source>Download Search as Playlist</source>
         <target state="translated">将搜索结果作为播放列表下载</target>
         <note priority="1" from="description">Main download button option for channel search playlist</note>
+      </trans-unit>
+      <trans-unit id="7775999787835593038" datatype="html">
+        <source>Test AI connection</source>
       </trans-unit>
       <trans-unit id="7788789394151316565" datatype="html">
         <source>Oldest first</source>
@@ -1110,6 +1116,9 @@
         <source>Delete success!</source>
         <target state="translated">删除成功！</target>
       </trans-unit>
+      <trans-unit id="4055972091126124019" datatype="html">
+        <source>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</source>
+      </trans-unit>
       <trans-unit id="4076653141869059729" datatype="html">
         <source>Open file in new tab</source>
         <target state="translated">在新标签页中打开文件</target>
@@ -1118,6 +1127,9 @@
       <trans-unit id="4078464740149713941" datatype="html">
         <source>Register users on first sign-in</source>
         <target state="translated">首次登录时注册用户</target>
+      </trans-unit>
+      <trans-unit id="4088179347012665225" datatype="html">
+        <source>AI server URL</source>
       </trans-unit>
       <trans-unit id="4088802997354529592" datatype="html">
         <source>Full screen</source>
@@ -1423,6 +1435,9 @@
         <target state="translated">链接会从你指定的秒数开始播放。</target>
         <note priority="1" from="description">Use timestamp hint</note>
       </trans-unit>
+      <trans-unit id="3041352556427960064" datatype="html">
+        <source>Files per run</source>
+      </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
         <target state="translated">计划与选项</target>
@@ -1536,6 +1551,9 @@
       <trans-unit id="3209056610537919480" datatype="html">
         <source>Quality</source>
         <target state="translated">画质</target>
+      </trans-unit>
+      <trans-unit id="3211508814722120515" datatype="html">
+        <source>API key (optional)</source>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -1794,6 +1812,9 @@
         <source>This file can&apos;t be cast.</source>
         <target state="translated">无法投屏此文件。</target>
       </trans-unit>
+      <trans-unit id="5456411039311005292" datatype="html">
+        <source>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</source>
+      </trans-unit>
       <trans-unit id="5456775416888155476" datatype="html">
         <source>Failed to resume download! See server logs for more info.</source>
         <target state="translated">无法恢复下载！有关详细信息，请参阅服务器日志。</target>
@@ -1946,6 +1967,9 @@
         <target state="translated">还没有下载任何内容</target>
         <note priority="1" from="description">No downloads title</note>
       </trans-unit>
+      <trans-unit id="5799220820325966085" datatype="html">
+        <source>Could not save settings.</source>
+      </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
         <target state="translated">在上方粘贴链接即可开始。你和你的订阅下载的所有内容都会出现在这里。</target>
@@ -1969,6 +1993,9 @@
         <target state="translated">用户</target>
         <note priority="1" from="description">Settings users section</note>
       </trans-unit>
+      <trans-unit id="4557543465555419049" datatype="html">
+        <source>Speech server URL</source>
+      </trans-unit>
       <trans-unit id="4558137277814663794" datatype="html">
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
         <target state="translated">关注频道或播放列表，其新上传会自动下载。</target>
@@ -1982,6 +2009,9 @@
         <source>What everyone with this role can do, unless their own account says otherwise.</source>
         <target state="translated">拥有此角色的每个人可以做的事，除非其账户另有设置。</target>
         <note priority="1" from="description">Manage role hint</note>
+      </trans-unit>
+      <trans-unit id="1000762815409704864" datatype="html">
+        <source>Transcript</source>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -2055,6 +2085,9 @@
         <source>Custom webhook template enabled</source>
         <target state="translated">已启用自定义 Webhook 模板</target>
         <note priority="1" from="description">Webhook template enabled status</note>
+      </trans-unit>
+      <trans-unit id="1141886420788473147" datatype="html">
+        <source>Model</source>
       </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
@@ -2252,9 +2285,18 @@
         <target state="translated">无法检查重复项</target>
         <note priority="1" from="description">Duplicates failed to load title</note>
       </trans-unit>
+      <trans-unit id="8784643385015737262" datatype="html">
+        <source>Speech API key (optional)</source>
+      </trans-unit>
+      <trans-unit id="8785594097937561888" datatype="html">
+        <source>Language (blank for automatic)</source>
+      </trans-unit>
       <trans-unit id="8798932904948432529" datatype="html">
         <source>Wednesday</source>
         <target state="translated">星期三</target>
+      </trans-unit>
+      <trans-unit id="4509540400670266782" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</source>
       </trans-unit>
       <trans-unit id="451465738669593469" datatype="html">
         <source>The day it runs, once.</source>
@@ -2374,6 +2416,9 @@
         <target state="translated">留空则使用频道或播放列表的标题。</target>
         <note priority="1" from="description">Subscription name hint</note>
       </trans-unit>
+      <trans-unit id="6415232261008820634" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+      </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
         <target state="translated">绑定 DN</target>
@@ -2400,6 +2445,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 个条目} other {<x id="INTERPOLATION"/> 个条目}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4908491779964774132" datatype="html">
+        <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
+        <target state="translated">为 SponsorBlock 剪掉片段后音频滞后的视频重新同步音频。新下载在完成时即会修复；此任务修复较早的下载。不会重新编码。</target>
       </trans-unit>
       <trans-unit id="4912777079475374894" datatype="html">
         <source>Check now</source>
@@ -2469,6 +2518,9 @@
         <source>Remove newest</source>
         <target state="translated">删除最新的</target>
         <note priority="1" from="description">Remove newest duplicates button</note>
+      </trans-unit>
+      <trans-unit id="2714953633188512356" datatype="html">
+        <source>Enable AI integration</source>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -2618,6 +2670,9 @@
       <trans-unit id="2876893175497409225" datatype="html">
         <source>Update failed. Check logs for more details.</source>
         <target state="translated">更新失败。检查日志以获取更多详细信息。</target>
+      </trans-unit>
+      <trans-unit id="2879733215745180962" datatype="html">
+        <source>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</source>
       </trans-unit>
       <trans-unit id="2881002557487420797" datatype="html">
         <source>Choose what to remove.</source>
@@ -2852,6 +2907,9 @@
         <source>Default</source>
         <target state="translated">默认</target>
         <note priority="1" from="description">Default custom file output placeholder</note>
+      </trans-unit>
+      <trans-unit id="56128022633377229" datatype="html">
+        <source>Connected to the configured local model.</source>
       </trans-unit>
       <trans-unit id="561362724688986720" datatype="html">
         <source>Couldn&apos;t load your files</source>
@@ -3117,6 +3175,9 @@
         <source>Failed to clear download! See server logs for more info.</source>
         <target state="translated">无法清除下载！详情请查看服务器日志。</target>
       </trans-unit>
+      <trans-unit id="8253769692007111005" datatype="html">
+        <source>Could not connect to the local AI server.</source>
+      </trans-unit>
       <trans-unit id="8253784007450387353" datatype="html">
         <source>Channel or playlist link</source>
         <target state="translated">频道或播放列表链接</target>
@@ -3168,6 +3229,9 @@
         <source>Successfully created playlist!</source>
         <target state="translated">成功创建播放列表！</target>
       </trans-unit>
+      <trans-unit id="3994376439814748860" datatype="html">
+        <source>Speech recognition</source>
+      </trans-unit>
       <trans-unit id="5823550543348347814" datatype="html">
         <source>Cleared downloads!</source>
         <target state="translated">已清除下载！</target>
@@ -3185,6 +3249,9 @@
         <source>Files show up here as this subscription downloads them.</source>
         <target state="translated">此订阅下载的文件会显示在这里。</target>
         <note priority="1" from="description">Empty subscription library text</note>
+      </trans-unit>
+      <trans-unit id="5847422406693848816" datatype="html">
+        <source>Local AI</source>
       </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
@@ -3394,6 +3461,9 @@
         <target state="translated">创建播放列表</target>
         <note priority="1" from="description">Create first playlist button</note>
       </trans-unit>
+      <trans-unit id="3442502711356265569" datatype="html">
+        <source>Generated by local AI. Transcription may contain mistakes.</source>
+      </trans-unit>
       <trans-unit id="8348223454028662277" datatype="html">
         <source>OK.</source>
         <target state="translated">确定</target>
@@ -3430,6 +3500,9 @@
         <source>File type</source>
         <target state="translated">文件类型</target>
         <note priority="1" from="description">File type</note>
+      </trans-unit>
+      <trans-unit id="5021420569147183336" datatype="html">
+        <source>Speech model (optional)</source>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -4912,6 +4985,9 @@
         <source>Mute</source>
         <target state="translated">静音</target>
       </trans-unit>
+      <trans-unit id="7410307802499733353" datatype="html">
+        <source>Save settings before testing. This checks the configured model without generating content.</source>
+      </trans-unit>
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">期间</target>
@@ -5204,6 +5280,9 @@
         <target state="translated">显示</target>
         <note priority="1" from="description">Subscription type filter label</note>
       </trans-unit>
+      <trans-unit id="8468524500656821404" datatype="html">
+        <source>Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.</source>
+      </trans-unit>
       <trans-unit id="8473179749546646244" datatype="html">
         <source>Edit playlist</source>
         <target state="translated">编辑播放列表</target>
@@ -5264,6 +5343,9 @@
         <source>Preview</source>
         <target state="translated">预览</target>
         <note priority="1" from="description">Preview snip button</note>
+      </trans-unit>
+      <trans-unit id="1315089505120660725" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</source>
       </trans-unit>
       <trans-unit id="1317814792060529621" datatype="html">
         <source>Migration</source>

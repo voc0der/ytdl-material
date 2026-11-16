@@ -3768,6 +3768,7 @@ components:
       - delete_old_transcodes
       - codec_discovery
       - auto_transcribe
+      - resync_cut_audio
     Schedule:
       required:
         - type
