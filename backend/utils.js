@@ -3,11 +3,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { v4: uuid } = require('uuid');
 const { Readable, pipeline } = require('stream');
-const { ZipArchive } = require('archiver');
 const winston = require('winston');
 
 const config_api = require('./config');
 const logger = require('./logger');
+const zip_api = require('./zip');
 const transcoding_api = require('./transcoding');
 const CONSTS = require('./consts');
 
@@ -162,52 +162,16 @@ exports.createZipFile = async (zip_file_path, file_paths, options = {}) => {
     const signal = options.signal;
     if (signal?.aborted) return null;
 
-    const output = fs.createWriteStream(zip_file_path);
-
-    // archiver 8 replaced the callable factory with exported classes, so archiver('zip')
-    // has been throwing TypeError since the dependency was bumped -- which is to say
-    // container downloads have simply been failing.
-    const archive = new ZipArchive({
-        zlib: { level: 9 } // Sets the compression level.
-    });
-    let aborted = false;
-    const abortArchive = () => {
-        aborted = true;
-        // Archiver lets its one active worker finish, then drops the rest of the
-        // queue and closes the output. Keeping the output writable until that close
-        // avoids stranding the active worker behind backpressure.
-        archive.abort();
-    };
-    signal?.addEventListener('abort', abortArchive, {once: true});
-
-    // Both ends need a handler. An unhandled 'error' on either stream is an uncaught
-    // exception, which takes the process down rather than failing the one request --
-    // a missing file is enough to cause it.
-    const archive_finished = new Promise((resolve, reject) => {
-        output.on('close', resolve);
-        output.on('error', reject);
-        archive.on('error', reject);
-        archive.on('warning', (err) => logger.warn(`Archiver warning: ${err.message}`));
-    });
-
-    // pipe archive data to the output file
-    archive.pipe(output);
-
-    for (const file_path of file_paths) {
-        const file_name = path.parse(file_path).base;
-        archive.file(file_path, {name: file_name})
-    }
-
+    // Stored, not deflated: these are videos and audio, compressed already, and deflating
+    // them again at level 9 only made a download wait longer to start.
+    const files = file_paths.map(file_path => ({path: file_path, name: path.basename(file_path)}));
     try {
-        archive.finalize().catch(() => null);
-        await archive_finished;
-        if (aborted) throw new Error('Archive creation cancelled');
+        await zip_api.zipFiles(zip_file_path, files, {signal});
     } catch (err) {
-        if (!aborted) logger.error(`Failed to build ${zip_file_path}: ${err.message}`);
+        // A cancelled download says nothing: the browser asked for it to stop.
+        if (!signal?.aborted) logger.error(`Failed to build ${zip_file_path}: ${err.message}`);
         await fs.remove(zip_file_path).catch(() => null);
         return null;
-    } finally {
-        signal?.removeEventListener('abort', abortArchive);
     }
 
     return zip_file_path;

@@ -108,6 +108,21 @@ so CI and anyone who has not started the server are unaffected. Point it elsewhe
 directory, or a second instance — with the `YTDL_TEST_LDAP_*` variables that
 `dev/ldap/ldap-server.sh env` prints.
 
+# Zips over 4 GiB
+
+`backend/zip.js` writes the playlist and subscription downloads and the pre-update backup
+itself, with ZIP64 for any size or offset past 4 GiB. `backend/test/zip.test.js` forces the
+ZIP64 records on small files; one test does it for real, with a 4.25 GiB file and another
+after it, and skips itself unless `YTDL_TEST_ZIP64_DIR` names a folder with 5 GB free:
+
+```bash
+cd backend
+YTDL_TEST_ZIP64_DIR=~/.cache npx mocha test/zip.test.js -g "over 4 GiB"   # seconds on an SSD
+```
+
+The source file is sparse, but the archive is written out in full, so pick a folder on a
+disk rather than a `/tmp` held in memory. The test deletes both when it is done.
+
 # Checking dependency declarations
 
 `package.json` is a shopping list, not a record of what the code uses, and nothing ever
