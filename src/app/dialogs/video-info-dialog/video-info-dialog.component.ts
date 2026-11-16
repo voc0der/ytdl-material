@@ -90,6 +90,8 @@ export class VideoInfoDialogComponent implements OnInit {
     const change_obj = {};
     const keys = Object.keys(this.new_file);
     keys.forEach(key => {
+      // Transcripts are read from sidecars and can be large. They are never a metadata edit.
+      if (key === 'transcript') return;
       if (this.file[key] !== this.new_file[key]) change_obj[key] = this.new_file[key];
     });
 

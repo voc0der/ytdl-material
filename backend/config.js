@@ -423,6 +423,18 @@ const DEFAULT_CONFIG = {
         "db_migrate": ""
       },
       "Advanced": {
+        "ai": {
+            "enabled": false,
+            "provider": "ollama",
+            "base_url": "http://127.0.0.1:11434",
+            "model": "",
+            "api_key": "",
+            "transcription_provider": "disabled",
+            "transcription_url": "http://127.0.0.1:8081",
+            "transcription_model": "",
+            "transcription_api_key": "",
+            "language": ""
+        },
         "default_downloader": "yt-dlp",
         "ytdlp_update_channel": "stable",
         "use_default_downloading_agent": true,
@@ -449,6 +461,8 @@ const DEFAULT_CONFIG = {
  * value never round-trips back into setConfig.
  ************************************************/
 const SENSITIVE_CONFIG_PATHS = [
+    'YtdlMaterial.Advanced.ai.api_key',
+    'YtdlMaterial.Advanced.ai.transcription_api_key',
     'YtdlMaterial.API.API_key',
     'YtdlMaterial.API.twitch_client_ID',
     'YtdlMaterial.API.twitch_client_secret',

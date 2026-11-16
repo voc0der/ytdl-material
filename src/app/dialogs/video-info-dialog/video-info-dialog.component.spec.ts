@@ -84,6 +84,14 @@ describe('VideoInfoDialogComponent', () => {
     fixture.detectChanges();
   });
 
+  it('renders saved transcripts as plain text', () => {
+    component.file.transcript = {text: '<img src=x onerror=alert(1)> Spoken words.'};
+    fixture.detectChanges();
+    const transcript = fixture.nativeElement.querySelector('.transcript-text');
+    expect(transcript.textContent).toContain('<img src=x onerror=alert(1)>');
+    expect(transcript.querySelector('img')).toBeNull();
+  });
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });
@@ -159,6 +167,15 @@ describe('VideoInfoDialogComponent', () => {
     expect(component.new_file.favorite).toBe(true);
     expect(component.new_file.title).toBe('Unsaved title');
     expect(component.file.title).toBe('Mac Miller - Self Care');
+  });
+
+  it('does not send a large read-only transcript with a title edit', () => {
+    component.initializeFile({...component.file, transcript: {text: 'words '.repeat(30000)}});
+    component.new_file.title = 'Updated title';
+    component.saveChanges();
+    const changes = postsServiceStub.updateFile.mock.lastCall[1];
+    expect(changes.title).toBe('Updated title');
+    expect(changes.transcript).toBeUndefined();
   });
 
   it('prevents duplicate saves while a request is pending', () => {

@@ -16,4 +16,5 @@ export enum TaskType {
     SUBSCRIPTIONS_CHECK = 'subscriptions_check',
     DELETE_OLD_TRANSCODES = 'delete_old_transcodes',
     CODEC_DISCOVERY = 'codec_discovery',
+    AUTO_TRANSCRIBE = 'auto_transcribe',
 }

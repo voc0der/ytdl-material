@@ -112,6 +112,16 @@ export class TaskSettingsComponent implements OnChanges {
     return this.task?.key === TaskType.DELETE_OLD_FILES;
   }
 
+  get hasTranscriptionOptions(): boolean {
+    return this.task?.key === TaskType.AUTO_TRANSCRIBE;
+  }
+
+  get transcriptionLimitInvalid(): boolean {
+    if (!this.hasTranscriptionOptions) return false;
+    const limit = Number(this.options['max_files']);
+    return !Number.isSafeInteger(limit) || limit < 1 || limit > 1000;
+  }
+
   get hasCodecOptions(): boolean {
     return this.task?.key === TaskType.CODEC_DISCOVERY;
   }
@@ -177,7 +187,7 @@ export class TaskSettingsComponent implements OnChanges {
   }
 
   save(): void {
-    if (this.saving || !this.task || this.incomplete || this.thresholdInvalid || this.alreadyPassed) return;
+    if (this.saving || !this.task || this.incomplete || this.thresholdInvalid || this.transcriptionLimitInvalid || this.alreadyPassed) return;
 
     const schedule = this.buildSchedule();
     const schedule_changed = JSON.stringify(schedule) !== this.saved_schedule;

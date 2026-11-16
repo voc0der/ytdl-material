@@ -5,6 +5,14 @@
 import type { Category } from './Category';
 
 export type DatabaseFile = {
+    /** Saved local AI transcript, returned with file details. */
+    transcript?: {
+        text?: string;
+        provider?: string;
+        model?: string;
+        language?: string | null;
+        created_at?: string;
+    };
     id: string;
     title: string;
     /**

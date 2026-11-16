@@ -45,6 +45,8 @@ const playback_links = require('./playback-links');
 const share_links = require('./share-links');
 const playback_transcode = require('./playback-transcode');
 const codec_discovery = require('./codec-discovery');
+const local_ai = require('./local-ai');
+const ai_transcription = require('./ai-transcription');
 const notifications_api = require('./notifications');
 const transcoding_api = require('./transcoding');
 const thumbnails_api = require('./thumbnails');
@@ -1290,6 +1292,11 @@ function keepHeaderAuthSettings(new_config_file) {
 app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     let new_config_file = normalizeConfigRoot(req.body.new_config_file);
     if (new_config_file && new_config_file[CONFIG_ROOT_KEY]) {
+        try {
+            local_ai.validateSettings(new_config_file[CONFIG_ROOT_KEY].Advanced?.ai);
+        } catch (error) {
+            return res.status(400).send({success: false, error: error.message});
+        }
         const header_auth_conflict = keepHeaderAuthSettings(new_config_file);
         if (header_auth_conflict) {
             logger.error(`Refusing to save the config: ${header_auth_conflict}`);
@@ -1305,6 +1312,14 @@ app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     } else {
         logger.error('Tried to save invalid config file!')
         res.sendStatus(400);
+    }
+});
+
+app.post('/api/testAIConnection', optionalJwt, requireAdmin, async (req, res) => {
+    try {
+        res.send(await local_ai.testConnection());
+    } catch (error) {
+        res.status(400).send({success: false, error: error.message});
     }
 });
 
@@ -1590,6 +1605,7 @@ app.post('/api/getFile', optionalJwt, requireAuthenticatedOrShared, resolveLibra
     // check if chat exists for twitch videos
     if (file && file['url'].includes('twitch.tv')) file['chat_exists'] = fs.existsSync(file['path'].substring(0, file['path'].length - 4) + '.twitch_chat.json');
     if (file) file = await files_api.attachFilePlaybackMetadata(file, true);
+    if (file) file = await ai_transcription.attachTranscript(file);
 
     if (file) {
         res.send({
@@ -3562,7 +3578,7 @@ function taskWithNextRun(task) {
 
 app.post('/api/getTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
     const tasks = await db_api.getRecords('tasks');
-    res.send({tasks: tasks.map(taskWithNextRun)});
+    res.send({tasks: tasks.filter(task => task.key !== 'auto_transcribe' || local_ai.isEnabled()).map(taskWithNextRun)});
 });
 
 app.post('/api/resetTasks', optionalJwt, requirePermission('tasks_manager'), async (req, res) => {
@@ -3593,7 +3609,7 @@ app.post('/api/runTask', optionalJwt, requirePermission('tasks_manager'), async 
     const task = await getKnownTask(task_key);
 
     let success = true;
-    if (!task || task['running'] || task['confirming']) success = false;
+    if (!task || task['running'] || task['confirming'] || (task_key === 'auto_transcribe' && !local_ai.isEnabled())) success = false;
     else if (tasks_api.TASKS[task_key] && tasks_api.TASKS[task_key]['runInBackground']) {
         // The tasks page polls, so it sees the run start and finish without waiting on this.
         tasks_api.executeRun(task_key).catch(err => logger.error(`Task '${task_key}' failed: ${err.message}`));

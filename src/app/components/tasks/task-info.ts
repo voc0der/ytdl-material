@@ -18,10 +18,12 @@ export const TASK_ICONS: { [key in TaskType]?: string } = {
   [TaskType.APPLY_CATEGORIES]: 'label',
   [TaskType.SUBSCRIPTIONS_CHECK]: 'subscriptions',
   [TaskType.DELETE_OLD_TRANSCODES]: 'cleaning_services',
+  [TaskType.AUTO_TRANSCRIBE]: 'transcribe',
   [TaskType.CODEC_DISCOVERY]: 'video_settings'
 };
 
 const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
+  [TaskType.AUTO_TRANSCRIBE]: $localize`Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.`,
   [TaskType.BACKUP_LOCAL_DB]: $localize`Writes a copy of the database to appdata/db_backup, which is what Restore reads back.`,
   [TaskType.MISSING_FILES_CHECK]: $localize`Finds files the database still lists that are no longer on disk.`,
   [TaskType.MISSING_DB_RECORDS]: $localize`Finds media on disk that the database has no record of, and imports it.`,

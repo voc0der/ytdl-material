@@ -663,6 +663,10 @@ export class PostsService {
         return this.http.post<SuccessObject>(this.path + 'uploadCookies', formData, this.httpOptions);
     }
 
+    testAIConnection() {
+        return this.http.post<{success: boolean}>(this.path + 'testAIConnection', {}, this.httpOptions);
+    }
+
     testCookies(url: string) {
         return this.http.post(this.path + 'testCookies', {url: url}, this.httpOptions);
     }

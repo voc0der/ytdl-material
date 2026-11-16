@@ -88,3 +88,11 @@
   width: 4rem;
   flex: 0 0 auto;
 }
+
+.transcript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: 12px;
+}
