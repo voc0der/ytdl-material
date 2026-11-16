@@ -1612,6 +1612,7 @@ paths:
     post:
       summary: Test the saved local AI connection
       description: Requires administrator access in multi-user mode. Checks the configured local model without running inference.
+      operationId: post-api-testAIConnection
       responses:
         '200':
           description: Local model is available
@@ -1621,6 +1622,9 @@ paths:
                 $ref: '#/components/schemas/SuccessObject'
         '400':
           description: AI is disabled, misconfigured, or unavailable
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/getTask:
     post:
       summary: Get info for one task
