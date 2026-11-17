@@ -1346,6 +1346,18 @@ app.post('/api/getAIModels', optionalJwt, requireAdmin, async (req, res) => {
     }
 });
 
+// What the saved Whisper server runs, for the settings page to show it is the right one.
+app.post('/api/getWhisperInfo', optionalJwt, requireAdmin, async (req, res) => {
+    try {
+        const info = await local_ai.describeWhisper(local_ai.settings(), {requireEnabled: false});
+        logger.verbose(`The Whisper server at ${local_ai.whisperAddress(local_ai.settings().whisper_url).label} runs ${info.name}.`);
+        res.send(info);
+    } catch (error) {
+        logger.warn(`Could not ask the Whisper server what it runs: ${error.message}`);
+        res.status(400).send({success: false, error: error.message});
+    }
+});
+
 app.get('/api/versionInfo', (req, res) => {
     res.send({
         version_info: version_info,

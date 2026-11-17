@@ -22,7 +22,7 @@ function createHarness() {
     config: {
       Host: { url: 'https://media.example.test', port: 17442 },
       Advanced: { multi_user_mode: false, default_downloader: 'yt-dlp', ytdlp_update_channel: 'stable', ai: {
-        enabled: false, base_url: '', model: '', api_key: '', vision: false, audio: false
+        enabled: false, base_url: '', model: '', api_key: '', vision: false, audio: false, whisper_url: ''
       } },
       Downloader: { custom_args: '--embed-metadata' },
       Extra: { allowed_notification_types: ['download_error'] },
@@ -56,6 +56,7 @@ function createHarness() {
     testCookies: vi.fn(),
     getAIModels: vi.fn(),
     setAIServer: vi.fn(),
+    getWhisperInfo: vi.fn(),
     openSnackBar: vi.fn()
   };
   const closed = new Subject<any>();
@@ -193,6 +194,56 @@ describe('Settings workflows', () => {
       form().base_url = SAVED;
       component.aiServerEdited();
       expect(component.aiModels).toEqual(['gemma']);
+    });
+  });
+
+  describe('Whisper server', () => {
+    const form = () => component.new_config.Advanced.ai;
+
+    it('asks the saved server what it runs when the page opens, and nothing while AI is off or none is saved', () => {
+      component.getConfig();
+      expect(posts.getWhisperInfo).not.toHaveBeenCalled();
+      Object.assign(posts.config.Advanced.ai, { whisper_url: 'tcp://192.168.1.20:10300' });
+      component.getConfig();
+      expect(posts.getWhisperInfo).not.toHaveBeenCalled();
+
+      posts.config.Advanced.ai.enabled = true;
+      posts.getWhisperInfo.mockReturnValue(of({ name: 'faster-whisper small-int8' }));
+      component.getConfig();
+      expect(posts.getWhisperInfo).toHaveBeenCalledWith();
+      expect(component.whisperState).toBe('loaded');
+      expect(component.whisperName).toBe('faster-whisper small-int8');
+    });
+
+    it('asks only once an address is saved, and shows why it could not', () => {
+      posts.config.Advanced.ai.enabled = true;
+      component.getConfig();
+      form().whisper_url = 'tcp://192.168.1.20';
+      expect(component.whisperChanged).toBe(true);
+      expect(posts.getWhisperInfo).not.toHaveBeenCalled();
+
+      posts.getWhisperInfo.mockReturnValue(throwError(() => 'Nothing is listening at 192.168.1.20:10300.'));
+      component.saveSettings();
+      expect(component.whisperChanged).toBe(false);
+      expect(posts.getWhisperInfo).toHaveBeenCalledTimes(1);
+      expect(component.whisperState).toBe('failed');
+      expect(component.whisperError).toBe('Nothing is listening at 192.168.1.20:10300.');
+
+      // Another setting saved leaves the server alone.
+      form().vision = true;
+      component.saveSettings();
+      expect(posts.getWhisperInfo).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores an answer about an address that has since been cleared', () => {
+      Object.assign(posts.config.Advanced.ai, { enabled: true, whisper_url: 'tcp://192.168.1.20:10300' });
+      const answer = new Subject<{ name: string }>();
+      posts.getWhisperInfo.mockReturnValue(answer);
+      component.getConfig();
+      form().whisper_url = '';
+      component.saveSettings();
+      answer.next({ name: 'faster-whisper small-int8' });
+      expect(component.whisperState).toBe('idle');
     });
   });
 

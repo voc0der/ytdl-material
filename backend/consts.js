@@ -413,6 +413,10 @@ exports.CONFIG_ITEMS = {
         'key': 'ytdl_ai_audio',
         'path': 'YtdlMaterial.Advanced.ai.audio'
     },
+    'ytdl_ai_whisper_url': {
+        'key': 'ytdl_ai_whisper_url',
+        'path': 'YtdlMaterial.Advanced.ai.whisper_url'
+    },
     'ytdl_default_downloader': {
         'key': 'ytdl_default_downloader',
         'path': 'YtdlMaterial.Advanced.default_downloader'

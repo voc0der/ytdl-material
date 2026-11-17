@@ -1,5 +1,6 @@
 const assert = require('assert');
 const http = require('http');
+const net = require('net');
 const {startApp} = require('./helpers/app-process');
 
 describe('Local AI routes and permissions', function() {
@@ -61,6 +62,34 @@ describe('Local AI routes and permissions', function() {
         await as('admin', 'post', '/api/setAIServer').send({base_url: base, api_key: 'server-key'}).expect(200);
     });
 
+    it('lets only an administrator ask the saved Whisper server what it runs, and says why it cannot', async function() {
+        // Answers a description the way a Wyoming server does, with its data after the header line.
+        const whisper = net.createServer(socket => socket.on('data', () => {
+            const body = Buffer.from(JSON.stringify({asr: [{name: 'faster-whisper', installed: true, models: [{name: 'base-int8', installed: true}]}]}));
+            socket.write(Buffer.concat([Buffer.from(`${JSON.stringify({type: 'info', data_length: body.length})}\n`), body]));
+        }));
+        await new Promise(resolve => whisper.listen(0, '127.0.0.1', resolve));
+        try {
+            await app.api.post('/api/getWhisperInfo').send({}).expect(401);
+            await as('reader', 'post', '/api/getWhisperInfo').send({}).expect(403);
+            const unset = await as('admin', 'post', '/api/getWhisperInfo').send({}).expect(400);
+            assert.match(unset.body.error, /Enter the Whisper server's address/);
+            const config = (await as('admin', 'get', '/api/config').expect(200)).body.config_file;
+            Object.assign(config.YtdlMaterial.Advanced.ai, {enabled: true, whisper_url: 'tcp://8.8.8.8:10300'});
+            const refused = await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(400);
+            assert.match(refused.body.error, /Whisper servers must use a loopback or private network address/);
+            // Asked before AI is turned on, as the models are listed.
+            Object.assign(config.YtdlMaterial.Advanced.ai, {enabled: false, whisper_url: `tcp://127.0.0.1:${whisper.address().port}`});
+            await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(200);
+            const response = await as('admin', 'post', '/api/getWhisperInfo').send({whisper_url: 'tcp://127.0.0.1:1'}).expect(200);
+            assert.deepStrictEqual(response.body, {name: 'faster-whisper base-int8'});
+            config.YtdlMaterial.Advanced.ai.whisper_url = '';
+            await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(200);
+        } finally {
+            await new Promise(resolve => whisper.close(resolve));
+        }
+    });
+
     it('defaults to disabled and refuses direct task execution', async function() {
         const tasks = await as('admin', 'post', '/api/getTasks').send({}).expect(200);
         assert(!tasks.body.tasks.some(task => task.key === 'auto_transcribe'));
@@ -71,7 +100,7 @@ describe('Local AI routes and permissions', function() {
     it('validates saved settings and exposes the unscheduled task only after opt-in', async function() {
         const response = await as('admin', 'get', '/api/config').expect(200);
         const config = response.body.config_file;
-        assert.deepStrictEqual(config.YtdlMaterial.Advanced.ai, {enabled: false, base_url: base, model: '', api_key: 'server-key', vision: false, audio: false});
+        assert.deepStrictEqual(config.YtdlMaterial.Advanced.ai, {enabled: false, base_url: base, model: '', api_key: 'server-key', vision: false, audio: false, whisper_url: ''});
         Object.assign(config.YtdlMaterial.Advanced.ai, {enabled: true, model: 'gemma', api_key: 'ai-test-value', audio: true, base_url: 'https://8.8.8.8'});
         const refused = await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(400);
         assert.match(refused.body.error, /loopback or private/);

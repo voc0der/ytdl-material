@@ -108,7 +108,8 @@ describe('Config', async function() {
 
         const ai_config = config_api.getConfigFile()['YtdlMaterial']['Advanced']['ai'];
         assert.deepStrictEqual(ai_config, {
-            enabled: true, base_url: 'http://192.168.1.10:8080/v1', model: 'gemma', api_key: 'kept-key', vision: false, audio: false
+            enabled: true, base_url: 'http://192.168.1.10:8080/v1', model: 'gemma', api_key: 'kept-key', vision: false, audio: false,
+            whisper_url: ''
         });
     });
 

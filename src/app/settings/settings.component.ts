@@ -67,6 +67,10 @@ export class SettingsComponent implements OnInit {
   aiModelsError = '';
   private aiModelsRequest = 0;
   readonly aiModelLabel = $localize`Model`;
+  whisperState: 'idle' | 'loading' | 'loaded' | 'failed' = 'idle';
+  whisperName = '';
+  whisperError = '';
+  private whisperRequest = 0;
   testingCookies = false;
   cookiesTestComplete = false;
   cookiesTestSuccess: boolean = null;
@@ -443,8 +447,10 @@ export class SettingsComponent implements OnInit {
     ai.api_key ??= '';
     ai.vision ??= false;
     ai.audio ??= false;
+    ai.whisper_url ??= '';
     this.new_config = JSON.parse(JSON.stringify(this.initial_config));
     this.findAIModels();
+    this.checkWhisper();
   }
 
   getDownloaderInfo(): void {
@@ -608,6 +614,34 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  // The Whisper address in the form is not the saved one, which is the only one ever asked.
+  get whisperChanged(): boolean {
+    return (this.new_config?.Advanced?.ai?.whisper_url ?? '').trim() !== (this.initial_config?.Advanced?.ai?.whisper_url ?? '').trim();
+  }
+
+  // Asks the saved Whisper server what it runs, which shows it is reachable and the right one.
+  checkWhisper(): void {
+    const request = ++this.whisperRequest;
+    if (!this.new_config?.Advanced?.ai?.enabled || !this.initial_config?.Advanced?.ai?.whisper_url?.trim()) {
+      this.whisperState = 'idle';
+      return;
+    }
+    this.whisperState = 'loading';
+    this.postsService.getWhisperInfo().subscribe({
+      next: res => {
+        if (request !== this.whisperRequest) return;
+        this.whisperName = res?.name ?? '';
+        this.whisperState = 'loaded';
+      },
+      // The HTTP interceptor hands on the server's error message as a string.
+      error: (message: unknown) => {
+        if (request !== this.whisperRequest) return;
+        this.whisperState = 'failed';
+        this.whisperError = typeof message === 'string' && message ? message : $localize`Could not reach the AI server.`;
+      }
+    });
+  }
+
   private aiModelsFailed(request: number, message: unknown): void {
     if (request !== this.aiModelsRequest) return;
     this.aiModels = [];
@@ -623,8 +657,11 @@ export class SettingsComponent implements OnInit {
           // multi user mode was enabled, let's check if default admin account exists
           this.postsService.checkAdminCreationStatus(true);
         }
+        const whisper = (config: any) => [config?.Advanced?.ai?.enabled, config?.Advanced?.ai?.whisper_url];
+        const whisperSaved = JSON.stringify(whisper(this.initial_config)) !== JSON.stringify(whisper(this.new_config));
         // sets new config as old config
         this.initial_config = JSON.parse(JSON.stringify(this.new_config));
+        if (whisperSaved) this.checkWhisper();
         this.postsService.reload_config.next(true);
       }
     }, (message: unknown) => {

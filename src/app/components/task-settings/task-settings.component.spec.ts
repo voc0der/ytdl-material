@@ -60,8 +60,13 @@ describe('TaskSettingsComponent', () => {
     postsService.config = {Advanced: {ai: {vision: true, audio: false}}};
     openOn(task({key: TaskType.AUTO_TRANSCRIBE, options}));
     expect(text()).toContain('Visual cues');
-    expect(text()).toContain('Turn on Audio for the model in Settings');
+    expect(text()).toContain('Set a Whisper server or turn on Audio for the model in Settings');
     expect(component.visualCueOptions.map(option => option.value)).toEqual(['off', 'exact', 'brief', 'detailed', 'descriptive', 'novel']);
+
+    // A Whisper server hears it instead.
+    postsService.config = {Advanced: {ai: {vision: false, audio: false, whisper_url: 'tcp://192.168.1.20:10300'}}};
+    openOn(task({key: TaskType.AUTO_TRANSCRIBE, options}));
+    expect(text()).toContain('How the model writes up what is said.');
 
     component.setOption('audio_style', 'novel');
     component.setOption('vision_style', 'descriptive');

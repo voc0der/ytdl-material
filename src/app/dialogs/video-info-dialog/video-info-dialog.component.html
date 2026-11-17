@@ -128,8 +128,10 @@
   @if (file.transcript) {
     <section class="dialog-section">
       <h3 class="dialog-section-title"><mat-icon>transcribe</mat-icon>{{transcriptTitle}}</h3>
-      @if (file.transcript.model) {
-        <p class="dialog-hint" i18n>Written by {{file.transcript.model}}, which can make mistakes.</p>
+      @if (file.transcript.whisper_model && file.transcript.model) {
+        <p class="dialog-hint" i18n>Heard by {{file.transcript.whisper_model}} and written by {{file.transcript.model}}. Both can make mistakes.</p>
+      } @else if (file.transcript.whisper_model || file.transcript.model) {
+        <p class="dialog-hint" i18n>Written by {{file.transcript.whisper_model || file.transcript.model}}, which can make mistakes.</p>
       } @else {
         <p class="dialog-hint" i18n>Written by local AI, which can make mistakes.</p>
       }

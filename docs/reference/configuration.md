@@ -168,6 +168,7 @@ JSON section: <code>YtdlMaterial.Advanced</code>
 | <code>ytdl_ai_api_key</code> | <code>ai.api_key</code> | <code>""</code> |
 | <code>ytdl_ai_vision</code> | <code>ai.vision</code> | <code>false</code> |
 | <code>ytdl_ai_audio</code> | <code>ai.audio</code> | <code>false</code> |
+| <code>ytdl_ai_whisper_url</code> | <code>ai.whisper_url</code> | <code>""</code> |
 | <code>ytdl_default_downloader</code> | <code>default_downloader</code> | <code>"yt-dlp"</code> |
 | <code>ytdl_ytdlp_update_channel</code> | <code>ytdlp_update_channel</code> | <code>"stable"</code> |
 | <code>ytdl_use_default_downloading_agent</code> | <code>use_default_downloading_agent</code> | <code>true</code> |

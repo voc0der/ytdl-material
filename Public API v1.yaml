@@ -1678,6 +1678,36 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/getWhisperInfo:
+    post:
+      summary: Say what the saved Whisper server runs
+      description: Requires administrator access in multi-user mode. Asks the saved Whisper server, over the Wyoming protocol, to describe itself, whether or not AI is turned on yet.
+      operationId: post-api-getWhisperInfo
+      responses:
+        '200':
+          description: What the server runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: The speech-to-text program and its model, such as faster-whisper small-int8.
+        '400':
+          description: No Whisper server is saved, it could not be reached, or it does no speech-to-text. The error says why.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: string
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/getTask:
     post:
       summary: Get info for one task
@@ -3559,7 +3589,13 @@ components:
             text:
               type: string
             model:
+              description: The model that wrote it, or null when what the Whisper server wrote down is kept as it is.
               type: string
+              nullable: true
+            whisper_model:
+              description: What the Whisper server ran when it wrote down what is said, or null when the model heard the audio itself.
+              type: string
+              nullable: true
             audio_style:
               description: How it wrote up speech, or null when it was not given the audio.
               type: string
