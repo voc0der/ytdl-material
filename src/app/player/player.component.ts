@@ -26,6 +26,7 @@ import { SeeMoreComponent } from '../components/see-more/see-more.component';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { ConcurrentStreamComponent } from '../components/concurrent-stream/concurrent-stream.component';
 import { CastRequest, CastSource, MediaControlsComponent, TimeRange, attempt } from './media-controls/media-controls.component';
+import { AutoTheaterWatch, autoTheaterSupported } from './auto-theater';
 import { TwitchChatComponent as TwitchChatComponent_1 } from '../components/twitch-chat/twitch-chat.component';
 
 
@@ -174,8 +175,20 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   autoplay_enabled = false;
   repeat_enabled = false;
   theater_mode_enabled = false;
+  // Theater mode came on by itself, so moving the mouse turns it off again.
+  theater_mode_auto = false;
   theater_toolbar_visible = false;
   theater_toolbar_hide_timer: ReturnType<typeof setTimeout> | null = null;
+  private readonly auto_theater = new AutoTheaterWatch(this.zone, {
+    idle: () => this.onAutoTheaterIdle(),
+    moved: () => this.onAutoTheaterMoved()
+  });
+  private auto_theater_setting: Subscription | null = null;
+  // The fade bringing theater mode on by itself, while it lasts.
+  private theater_fade: ViewTransition | null = null;
+  // How far the page was scrolled when theater mode came on. Theater mode collapses the page
+  // under the video, which loses that, so it is put back once the page is there again.
+  private theater_scroll_top: number | null = null;
   autoplay_queue_loading = false;
   autoplay_queue_initialized = false;
   pending_autoplay_advance = false;
@@ -226,9 +239,12 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     return this.mediaElement?.nativeElement ?? null;
   }
   @ViewChild('queueList') queueList?: ElementRef<HTMLElement>;
+  @ViewChild(MediaControlsComponent) mediaControls?: MediaControlsComponent;
+  @ViewChild(MatDrawerContainer) drawerContainer?: MatDrawerContainer;
 
   ngOnInit(): void {
     this.initPlaybackModeToggles();
+    this.auto_theater_setting = this.postsService.auto_theater.subscribe(enabled => this.watchForAutoTheater(enabled));
     this.playlist_id = this.linkParam('playlist_id');
     this.uid = this.linkParam('uid');
     this.share_id = this.linkParam('v') ?? this.linkParam('list');
@@ -280,6 +296,11 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   ngAfterViewChecked(): void {
+    if (this.theater_scroll_top !== null && !this.theater_mode_enabled) {
+      const scroller = this.pageScroller();
+      if (scroller) scroller.scrollTop = this.theater_scroll_top;
+      this.theater_scroll_top = null;
+    }
     const row = this.currentItem ? `${this.currentIndex}/${this.playlist.length}/${this.theater_mode_enabled}` : null;
     if (row === this.revealed_queue_row) return;
     this.revealed_queue_row = row;
@@ -289,6 +310,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   ngOnDestroy(): void {
     this.destroyed = true;
     this.cast_token += 1;
+    this.auto_theater_setting?.unsubscribe();
+    this.auto_theater.stop();
     this.setTheaterMode(false);
     this.playlistDownloadSubscription?.unsubscribe();
     this.playlistDownloadSubscription = null;
@@ -501,6 +524,8 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
         this.playVideo();
       });
       media.addEventListener('ended', () => this.nextVideo());
+      // Theater mode coming on by itself waits as long after playback starts as after a move.
+      media.addEventListener('play', () => this.auto_theater.reset());
       media.addEventListener('playing', () => this.onPlaybackStarted());
       media.addEventListener('timeupdate', () => this.onPlaybackTimeUpdate());
       media.addEventListener('seeking', () => this.onSeeking());
@@ -925,13 +950,21 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
   }
 
   private setTheaterMode(enabled: boolean): void {
+    // Turning it off cuts short a fade that was bringing it on.
+    if (!enabled) this.theater_fade?.skipTransition();
+    if (enabled && !this.theater_mode_enabled) this.theater_scroll_top = this.pageScroller()?.scrollTop ?? null;
     this.theater_mode_enabled = enabled;
+    this.theater_mode_auto = false;
     this.theater_toolbar_visible = false;
     this.clearTheaterToolbarHideTimer();
     if (enabled && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
     document.body.classList.toggle('player-theater-mode-active', enabled);
+  }
+
+  private pageScroller(): HTMLElement | null {
+    return this.drawerContainer?.scrollable?.getElementRef().nativeElement ?? null;
   }
 
   onTheaterToolbarMouseEnter(): void {
@@ -963,6 +996,71 @@ export class PlayerComponent implements OnInit, AfterViewInit, AfterViewChecked,
     if (!this.theater_toolbar_hide_timer) return;
     clearTimeout(this.theater_toolbar_hide_timer);
     this.theater_toolbar_hide_timer = null;
+  }
+
+  // Auto theater: once the mouse has been left alone a while, theater mode comes on by itself,
+  // and moving the mouse turns it off again. Android keeps the browser's own controls, which have
+  // no theater mode.
+  private watchForAutoTheater(enabled: boolean): void {
+    if (enabled && autoTheaterSupported() && !this.native_video_controls) {
+      this.auto_theater.start();
+    } else {
+      this.auto_theater.stop();
+    }
+  }
+
+  // Whether theater mode may come on by itself just now: not while the video is stopped, or its
+  // controls are still up, held there by the mouse resting on them, a menu or the keyboard. Nor
+  // while a dialog or the snip panel waits on the viewer, or the video is full screen or in a
+  // window of its own.
+  private canEnterAutoTheater(): boolean {
+    const media = this.media;
+    return !this.destroyed && this.show_player && !!this.currentItem && this.canToggleTheaterMode()
+      && !this.theater_mode_enabled && !!media && !media.paused && !media.ended
+      && !this.mediaControls?.controlsVisible && !this.snip_mode && !this.chapterDropdownOpen
+      && !document.fullscreenElement && !document.pictureInPictureElement
+      // The menus and dialogs that wait on the viewer are the overlays with a backdrop.
+      && !document.querySelector('.cdk-overlay-backdrop');
+  }
+
+  // False while something is in the way, to be asked again shortly.
+  private onAutoTheaterIdle(): boolean {
+    if (this.theater_mode_enabled) return true;
+    if (!this.canEnterAutoTheater()) return false;
+    this.enterAutoTheater();
+    return true;
+  }
+
+  private onAutoTheaterMoved(): void {
+    if (!this.theater_mode_auto) return;
+    this.zone.run(() => this.setTheaterMode(false));
+  }
+
+  // Nobody asked for it just then, so it fades in over the page rather than snapping into place,
+  // where the browser can and the viewer has not asked for less motion.
+  private enterAutoTheater(): void {
+    const enter = () => this.zone.run(() => {
+      // Asked again, since a fade starts only once the page has been captured.
+      if (!this.auto_theater.idle || !this.canEnterAutoTheater()) return;
+      this.setTheaterMode(true);
+      this.theater_mode_auto = true;
+      this.cdr.detectChanges();
+    });
+    if (typeof document.startViewTransition !== 'function' || document.hidden
+        || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      enter();
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add('auto-theater-fade');
+    const fade = document.startViewTransition(enter);
+    this.theater_fade = fade;
+    const done = () => {
+      if (this.theater_fade !== fade) return;
+      this.theater_fade = null;
+      root.classList.remove('auto-theater-fade');
+    };
+    fade.finished.then(done, done);
   }
 
   downloadContent(): void {

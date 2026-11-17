@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, NgZone } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { of, Subject, throwError } from 'rxjs';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IMedia, PlayerComponent } from './player.component';
@@ -21,6 +21,7 @@ describe('Player edges', () => {
       path: '/api/', initialized: true, isLoggedIn: false, hasPermission: () => true, setPageTitle: vi.fn(), openSnackBar: vi.fn(),
       config: { Downloader: { 'path-audio': 'audio', 'path-video': 'video' }, Subscriptions: { subscriptions_base_path: 'subscriptions' } },
       service_initialized: new Subject<boolean>(),
+      auto_theater: new BehaviorSubject(false),
       incrementViewCount: vi.fn().mockReturnValue(of({ success: true })),
       getFile: vi.fn().mockReturnValue(of({ file: {} })),
       getAllFiles: vi.fn()

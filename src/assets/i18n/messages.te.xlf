@@ -2873,6 +2873,11 @@
         <source>Download failed!</source>
         <target state="translated">డౌన్‌లోడ్ విఫలమైంది!</target>
       </trans-unit>
+      <trans-unit id="8319421443159572036" datatype="html">
+        <source>Auto theater</source>
+        <target state="translated">ఆటో థియేటర్ మోడ్</target>
+        <note priority="1" from="description">Menu switch: the player goes into theater mode by itself while the mouse is left alone</note>
+      </trans-unit>
       <trans-unit id="8325128210832071900" datatype="html">
         <source>Allow theme change</source>
         <target state="translated">థీమ్ మార్పును అనుమతించు</target>

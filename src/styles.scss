@@ -296,6 +296,13 @@ app-player .player-page.theater-mode-active .player-toolbar-section mat-icon {
   color: inherit;
 }
 
+/* Theater mode coming on by itself cross-fades in, slower than the browser's quick default, since
+   nobody is waiting on it. Turning it off with the mouse stays immediate. */
+html.auto-theater-fade::view-transition-old(root),
+html.auto-theater-fade::view-transition-new(root) {
+  animation-duration: 0.7s;
+}
+
 /* The player's controls take the whole player full screen, not only the video, so they come
    along. After theater mode's rules, which it has to override when both are on. */
 app-player .player-page .media-player:fullscreen {

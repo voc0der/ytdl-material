@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick, waitForAsync } from '@angul
 import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { Observable, Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of, throwError } from 'rxjs';
 import { DatabaseFile } from '../../api-types';
 import { PostsService } from '../posts.services';
 import { IChapter, IMedia, ISubtitleTrack, PlayerComponent, linkedClip } from './player.component';
@@ -44,6 +44,7 @@ describe('PlayerComponent', () => {
         subscribe: () => ({ unsubscribe() { } })
       }),
       incrementViewCount: vi.fn().mockReturnValue(of({success: true})),
+      auto_theater: new BehaviorSubject(false),
       service_initialized: {
         pipe: () => ({
           subscribe: () => ({ unsubscribe() { } })
@@ -667,6 +668,22 @@ describe('PlayerComponent', () => {
     expect(playerPlaylist()?.hidden).toBe(false);
   });
 
+  // Theater mode collapses the page under the video, which used to leave it scrolled to the top.
+  it('should put the page back where it was scrolled once theater mode goes', () => {
+    showPlayer();
+    fixture.detectChanges();
+    const scroller: HTMLElement = fixture.nativeElement.querySelector('.example-container > .mat-drawer-content');
+    Object.defineProperty(scroller, 'scrollTop', {configurable: true, writable: true, value: 178});
+
+    theaterButton().click();
+    fixture.detectChanges();
+    scroller.scrollTop = 0;
+    document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+    fixture.detectChanges();
+
+    expect(scroller.scrollTop).toBe(178);
+  });
+
   it('should not offer theater mode for audio', () => {
     component.playlist_id = 'playlist-1';
     component.file_objs = [
@@ -700,6 +717,235 @@ describe('PlayerComponent', () => {
 
     expect(playlistAutoplayButtons()).toHaveLength(1);
     expect(theaterButton()).toBeDefined();
+  });
+
+  // Theater mode coming on by itself once the mouse has been left alone, from the toolbar menu.
+  describe('auto theater', () => {
+    let video: HTMLVideoElement;
+    let paused: boolean;
+
+    // A video playing, with the switch on unless a test turns it on later. The controls show for a
+    // moment as it starts, and are gone again before theater mode is due.
+    function play(switch_on = true): void {
+      showPlayer();
+      fixture.detectChanges();
+      tick();
+      video = fixture.nativeElement.querySelector('video');
+      paused = false;
+      Object.defineProperty(video, 'paused', {configurable: true, get: () => paused});
+      video.dispatchEvent(new Event('play'));
+      if (switch_on) postsServiceStub.auto_theater.next(true);
+    }
+
+    const move = (x: number, y: number) => window.dispatchEvent(new PointerEvent('pointermove', {clientX: x, clientY: y}));
+
+    beforeEach(() => {
+      vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      postsServiceStub.auto_theater.next(false);
+      delete (document as {startViewTransition?: unknown}).startViewTransition;
+      delete (document as {fullscreenElement?: unknown}).fullscreenElement;
+      delete (window as {matchMedia?: unknown}).matchMedia;
+      document.querySelectorAll('.test-backdrop').forEach(element => element.remove());
+      document.documentElement.classList.remove('auto-theater-fade');
+      vi.restoreAllMocks();
+    });
+
+    it('comes on once the mouse has been left alone over a playing video, and goes as soon as it moves', fakeAsync(() => {
+      play();
+      tick(4999);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      tick(1);
+      fixture.detectChanges();
+      expect(component.theater_mode_enabled).toBe(true);
+      expect(playerPage()?.classList.contains('theater-mode-active')).toBe(true);
+      expect(document.body.classList.contains('player-theater-mode-active')).toBe(true);
+      expect(playerPlaylist()?.hidden).toBe(true);
+
+      move(200, 150);
+      fixture.detectChanges();
+      expect(component.theater_mode_enabled).toBe(false);
+      expect(document.body.classList.contains('player-theater-mode-active')).toBe(false);
+      expect(playerPlaylist()?.hidden).toBe(false);
+
+      tick(5000);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('leaves a theater mode turned on by hand alone when the mouse moves', fakeAsync(() => {
+      play();
+      theaterButton().click();
+      fixture.detectChanges();
+
+      move(200, 150);
+      component.onPlayerMouseMove();
+      fixture.detectChanges();
+      expect(component.theater_mode_enabled).toBe(true);
+      expect(playerToolbar()?.classList.contains('theater-toolbar-visible')).toBe(true);
+      tick(2000);
+    }));
+
+    it('comes back after Escape, which only turns it off until the mouse is left alone again', fakeAsync(() => {
+      play();
+      tick(5000);
+      document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+      expect(component.theater_mode_enabled).toBe(false);
+
+      tick(5000);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('waits while the video is stopped, and starts waiting again when it plays', fakeAsync(() => {
+      play();
+      paused = true;
+      tick(30000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      paused = false;
+      video.dispatchEvent(new Event('play'));
+      tick(4999);
+      expect(component.theater_mode_enabled).toBe(false);
+      tick(1);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('waits while the mouse rests on the controls, and comes on once they have gone', fakeAsync(() => {
+      play();
+      const controls: MediaControlsComponent = fixture.debugElement.query(By.directive(MediaControlsComponent)).componentInstance;
+      controls.onBarPointerEnter();
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      controls.onBarPointerLeave();
+      tick(2000);
+      expect(component.theater_mode_enabled).toBe(false);
+      tick(1500);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('waits while a menu or dialog is open, and comes on shortly after it closes', fakeAsync(() => {
+      play();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'cdk-overlay-backdrop test-backdrop';
+      document.body.appendChild(backdrop);
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      backdrop.remove();
+      tick(1000);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('waits while snipping, or in full screen', fakeAsync(() => {
+      play();
+      component.snip_mode = true;
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      component.snip_mode = false;
+      Object.defineProperty(document, 'fullscreenElement', {configurable: true, get: () => video.parentElement});
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      delete (document as {fullscreenElement?: unknown}).fullscreenElement;
+      tick(1000);
+      expect(component.theater_mode_enabled).toBe(true);
+    }));
+
+    it('stays off until it is switched on, and stops once it is switched off', fakeAsync(() => {
+      play(false);
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+
+      postsServiceStub.auto_theater.next(true);
+      tick(5000);
+      expect(component.theater_mode_enabled).toBe(true);
+
+      move(200, 150);
+      postsServiceStub.auto_theater.next(false);
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+    }));
+
+    it('is not on a touch screen, which has no theater mode', fakeAsync(() => {
+      Object.defineProperty(window, 'matchMedia', {configurable: true, value: (query: string) => ({matches: query === '(hover: none), (pointer: coarse)'})});
+      play();
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+    }));
+
+    // Leaving the player while the fade was starting would otherwise hide the next page's toolbar.
+    it('stops when the player is left, and does not come on afterwards', fakeAsync(() => {
+      play();
+      tick(4000);
+      component.ngOnDestroy();
+      tick(20000);
+      expect(component.theater_mode_enabled).toBe(false);
+      expect(document.body.classList.contains('player-theater-mode-active')).toBe(false);
+    }));
+
+    describe('where the browser can fade between pages', () => {
+      let update: () => void;
+      let finish: () => void;
+      let transition: {finished: Promise<void>, skipTransition: ReturnType<typeof vi.fn>};
+
+      beforeEach(() => {
+        Object.defineProperty(document, 'startViewTransition', {configurable: true, value: vi.fn((callback: () => void) => {
+          update = callback;
+          transition = {finished: new Promise(resolve => finish = resolve), skipTransition: vi.fn()};
+          return transition;
+        })});
+      });
+
+      it('fades theater mode in, and takes the fade away once it is over', fakeAsync(() => {
+        play();
+        tick(5000);
+        expect(document.startViewTransition).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.classList.contains('auto-theater-fade')).toBe(true);
+        expect(component.theater_mode_enabled).toBe(false);
+
+        update();
+        expect(component.theater_mode_enabled).toBe(true);
+        finish();
+        tick();
+        expect(document.documentElement.classList.contains('auto-theater-fade')).toBe(false);
+      }));
+
+      it('cuts the fade short when the mouse moves during it', fakeAsync(() => {
+        play();
+        tick(5000);
+        update();
+        move(200, 150);
+
+        expect(transition.skipTransition).toHaveBeenCalled();
+        expect(component.theater_mode_enabled).toBe(false);
+        finish();
+        tick();
+        expect(document.documentElement.classList.contains('auto-theater-fade')).toBe(false);
+      }));
+
+      it('does not come on when the mouse moved before the page was captured', fakeAsync(() => {
+        play();
+        tick(5000);
+        move(200, 150);
+        update();
+
+        expect(component.theater_mode_enabled).toBe(false);
+        finish();
+        tick();
+      }));
+
+      it('does not fade for a viewer who asked for less motion', fakeAsync(() => {
+        Object.defineProperty(window, 'matchMedia', {configurable: true, value: (query: string) => ({matches: query === '(prefers-reduced-motion: reduce)'})});
+        play();
+        tick(5000);
+        expect(document.startViewTransition).not.toHaveBeenCalled();
+        expect(component.theater_mode_enabled).toBe(true);
+      }));
+    });
   });
 
   it('should create', () => {
