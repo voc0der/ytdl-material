@@ -561,6 +561,13 @@
           <context context-type="sourcefile">src/app/app.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="813263746069473514" datatype="html">
+        <source>Connect</source>
+        <note priority="1" from="description">Connect to the AI server button</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="8148278165104804951" datatype="html">
         <source>Keeps one copy of <x id="duplicate title" equiv-text="title"/> and deletes the other <x id="duplicate count" equiv-text="count"/> from disk. Remove newest keeps the first download (<x id="oldest date" equiv-text="oldest"/>). Remove oldest keeps the latest one (<x id="newest date" equiv-text="newest"/>).</source>
         <note priority="1" from="description">Remove duplicates dialog text</note>
@@ -8243,6 +8250,12 @@
         <note priority="1" from="description">Media information subtitle for a file in someone else&apos;s library</note>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="46243493191214447" datatype="html">
+        <source>Connect to list this server&apos;s models. That saves its URL and key.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="4630864631749156494" datatype="html">

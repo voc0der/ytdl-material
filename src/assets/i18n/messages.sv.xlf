@@ -2937,6 +2937,10 @@
         <target state="translated">Information om den här filen i ett bibliotek som delas med dig. Du kan titta, men inte ändra något.</target>
         <note priority="1" from="description">Media information subtitle for a file in someone else&apos;s library</note>
       </trans-unit>
+      <trans-unit id="46243493191214447" datatype="html">
+        <source>Connect to list this server&apos;s models. That saves its URL and key.</source>
+        <target state="translated">Anslut för att se serverns modeller. Det sparar dess URL och nyckel.</target>
+      </trans-unit>
       <trans-unit id="4630864631749156494" datatype="html">
         <source>Download jobs are queued, and <x id="skipped count" equiv-text="this.getSkippedCount(refresh_status)"/> were skipped because they are unavailable or members-only. New files will appear here as each download completes.</source>
         <target state="translated">Nedladdningarna är köade och <x id="skipped count" equiv-text="this.getSkippedCount(refresh_status)"/> hoppades över eftersom de inte är tillgängliga eller bara för medlemmar. Nya filer visas här allteftersom varje nedladdning blir klar.</target>
@@ -3870,6 +3874,11 @@
         <source>More options</source>
         <target state="translated">Fler alternativ</target>
         <note priority="1" from="description">Toolbar overflow menu label</note>
+      </trans-unit>
+      <trans-unit id="813263746069473514" datatype="html">
+        <source>Connect</source>
+        <target state="translated">Anslut</target>
+        <note priority="1" from="description">Connect to the AI server button</note>
       </trans-unit>
       <trans-unit id="8148278165104804951" datatype="html">
         <source>Keeps one copy of <x id="duplicate title" equiv-text="title"/> and deletes the other <x id="duplicate count" equiv-text="count"/> from disk. Remove newest keeps the first download (<x id="oldest date" equiv-text="oldest"/>). Remove oldest keeps the latest one (<x id="newest date" equiv-text="newest"/>).</source>

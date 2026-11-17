@@ -948,6 +948,11 @@
         <target state="translated">Meer opties</target>
         <note priority="1" from="description">Toolbar overflow menu label</note>
       </trans-unit>
+      <trans-unit id="813263746069473514" datatype="html">
+        <source>Connect</source>
+        <target state="translated">Verbinden</target>
+        <note priority="1" from="description">Connect to the AI server button</note>
+      </trans-unit>
       <trans-unit id="8148278165104804951" datatype="html">
         <source>Keeps one copy of <x id="duplicate title" equiv-text="title"/> and deletes the other <x id="duplicate count" equiv-text="count"/> from disk. Remove newest keeps the first download (<x id="oldest date" equiv-text="oldest"/>). Remove oldest keeps the latest one (<x id="newest date" equiv-text="newest"/>).</source>
         <target state="translated">Bewaart één kopie van <x id="duplicate title" equiv-text="title"/> en verwijdert de andere <x id="duplicate count" equiv-text="count"/> van de schijf. ‘Nieuwste verwijderen’ bewaart de eerste download (<x id="oldest date" equiv-text="oldest"/>). ‘Oudste verwijderen’ bewaart de laatste (<x id="newest date" equiv-text="newest"/>).</target>
@@ -3663,6 +3668,10 @@
         <source>Details about this file in a library shared with you. You can look, but not change anything.</source>
         <target state="translated">Details over dit bestand in een bibliotheek die met je is gedeeld. Je kunt kijken, maar niets wijzigen.</target>
         <note priority="1" from="description">Media information subtitle for a file in someone else&apos;s library</note>
+      </trans-unit>
+      <trans-unit id="46243493191214447" datatype="html">
+        <source>Connect to list this server&apos;s models. That saves its URL and key.</source>
+        <target state="translated">Maak verbinding om de modellen van deze server te zien. Dat slaat de URL en sleutel op.</target>
       </trans-unit>
       <trans-unit id="4630864631749156494" datatype="html">
         <source>Download jobs are queued, and <x id="skipped count" equiv-text="this.getSkippedCount(refresh_status)"/> were skipped because they are unavailable or members-only. New files will appear here as each download completes.</source>

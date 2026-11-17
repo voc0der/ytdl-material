@@ -362,6 +362,11 @@
         <target state="translated">மேலும் விருப்பங்கள்</target>
         <note priority="1" from="description">Toolbar overflow menu label</note>
       </trans-unit>
+      <trans-unit id="813263746069473514" datatype="html">
+        <source>Connect</source>
+        <target state="translated">இணை</target>
+        <note priority="1" from="description">Connect to the AI server button</note>
+      </trans-unit>
       <trans-unit id="8148278165104804951" datatype="html">
         <source>Keeps one copy of <x id="duplicate title" equiv-text="title"/> and deletes the other <x id="duplicate count" equiv-text="count"/> from disk. Remove newest keeps the first download (<x id="oldest date" equiv-text="oldest"/>). Remove oldest keeps the latest one (<x id="newest date" equiv-text="newest"/>).</source>
         <target state="translated"><x id="duplicate title" equiv-text="title"/>-இன் ஒரு நகலை வைத்து, மற்ற <x id="duplicate count" equiv-text="count"/> நகல்களை வட்டிலிருந்து நீக்கும். &quot;புதியவற்றை அகற்று&quot; முதல் பதிவிறக்கத்தை (<x id="oldest date" equiv-text="oldest"/>) வைத்திருக்கும். &quot;பழையவற்றை அகற்று&quot; சமீபத்தியதை (<x id="newest date" equiv-text="newest"/>) வைத்திருக்கும்.</target>
@@ -5238,6 +5243,10 @@
         <source>Details about this file in a library shared with you. You can look, but not change anything.</source>
         <target state="translated">உங்களுடன் பகிரப்பட்ட நூலகத்திலுள்ள இந்தக் கோப்பின் விவரங்கள். பார்க்கலாம், ஆனால் எதையும் மாற்ற முடியாது.</target>
         <note priority="1" from="description">Media information subtitle for a file in someone else&apos;s library</note>
+      </trans-unit>
+      <trans-unit id="46243493191214447" datatype="html">
+        <source>Connect to list this server&apos;s models. That saves its URL and key.</source>
+        <target state="translated">இந்தச் சேவையகத்தின் மாதிரிகளைப் பார்க்க இணைக்கவும். இது அதன் URL ஐயும் விசையையும் சேமிக்கும்.</target>
       </trans-unit>
       <trans-unit id="4630864631749156494" datatype="html">
         <source>Download jobs are queued, and <x id="skipped count" equiv-text="this.getSkippedCount(refresh_status)"/> were skipped because they are unavailable or members-only. New files will appear here as each download completes.</source>
