@@ -373,6 +373,11 @@
         <source>Yes</source>
         <target state="translated">Ja</target>
       </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Draait <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
+      </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
         <target state="translated">Nieuwste</target>
@@ -533,6 +538,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">Kon favoriet niet bijwerken. Probeer het opnieuw.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Stel een Whisper-server in of zet Horen aan voor het model in Instellingen → Geavanceerd om dit te gebruiken.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Draait alleen als jij hem start</target>
@@ -587,8 +596,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Geschreven door <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, dat fouten kan maken.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Geschreven door <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, dat fouten kan maken.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -910,6 +919,10 @@
         <source>You must manually load the extension and modify the extension&apos;s settings to set the frontend URL.</source>
         <target state="translated">Je moet de extensie handmatig laden en in de instellingen ervan de frontend-URL invullen.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
+      </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Gehoord door <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> en geschreven door <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Beide kunnen fouten maken.</target>
       </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
@@ -4383,6 +4396,10 @@
         <target state="translated">Ingesteld met <x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code&gt;"/>ytdl_oidc_enabled<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/>.</target>
         <note priority="1" from="description">Single sign-on setting hint</note>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper-server (optioneel)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Single sign-on</target>
@@ -4448,6 +4465,10 @@
         <source>Your media, in one place.</source>
         <target state="translated">Je media, op één plek.</target>
         <note priority="1" from="description">About subtitle</note>
+      </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Het Wyoming-adres van een spraak-naar-tekstserver, zoals Whisper van Home Assistant. Auto-transcribe laat die opschrijven wat er gezegd wordt, en het model hierboven werkt met zijn woorden.</target>
       </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
@@ -4690,10 +4711,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Schaduw (alleen lezen)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Zet Horen aan voor het model in Instellingen → Geavanceerd om dit te gebruiken.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -5404,6 +5421,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Download herstart!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Sla op om deze server te controleren.</target>
       </trans-unit>
       <trans-unit id="1604823060459595401" datatype="html">
         <source>Uploads</source>

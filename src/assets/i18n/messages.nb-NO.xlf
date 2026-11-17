@@ -708,10 +708,6 @@
         <source>Shadow (read only)</source>
         <target state="translated">Skygge (skrivebeskyttet)</target>
       </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Slå på Hørsel for modellen under Innstillinger → Avansert for å bruke dette.</target>
-      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Lag klipp</target>
@@ -764,6 +760,10 @@
         <source>You must manually load the extension and modify the extension&apos;s settings to set the frontend URL.</source>
         <target state="translated">Du må laste inn utvidelsen manuelt og endre innstillingene for den for å angi frontend-URL-en.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
+      </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Hørt av <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> og skrevet av <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Begge kan ta feil.</target>
       </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
@@ -1069,6 +1069,10 @@
       <trans-unit id="8525406024045742391" datatype="html">
         <source>Settings access</source>
         <target state="translated">Tilgang til innstillinger</target>
+      </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper-server (valgfri)</target>
       </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
@@ -1461,6 +1465,10 @@
       <trans-unit id="9097851943136080403" datatype="html">
         <source>Could not reach the AI server.</source>
         <target state="translated">Fikk ikke kontakt med KI-serveren.</target>
+      </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Angi en Whisper-server eller slå på Hørsel for modellen under Innstillinger → Avansert for å bruke dette.</target>
       </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
@@ -2611,8 +2619,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Skrevet av <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, som kan ta feil.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Skrevet av <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, som kan ta feil.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -3086,6 +3094,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Nedlastingen er startet på nytt!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Lagre for å sjekke serveren.</target>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -4961,6 +4973,10 @@
         <source>Sorts files that were downloaded before your category rules existed.</source>
         <target state="translated">Sorterer filer som ble lastet ned før kategorireglene dine fantes.</target>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Wyoming-adressen til en tale-til-tekst-server, som Whisper i Home Assistant. Auto-transcribe lar den skrive ned det som blir sagt, og modellen over jobber ut fra ordene dens.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <target state="translated">Nedlastingsfeil</target>
@@ -5542,6 +5558,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Ja</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Kjører <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>

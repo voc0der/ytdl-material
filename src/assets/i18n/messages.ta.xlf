@@ -325,6 +325,10 @@
         <target state="translated">நீட்டிப்பைக் கைமுறையாக ஏற்றி, முன்பக்க URL-ஐ அமைக்க அதன் அமைப்புகளை மாற்ற வேண்டும்.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> கேட்டது, <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/> எழுதியது; இரண்டிலும் தவறுகள் இருக்கலாம்.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -451,6 +455,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">ஆம்</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{whisperName}}"/> இயங்குகிறது.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2870,6 +2879,10 @@
         <source>Finds more than one database record pointing at the same file.</source>
         <target state="translated">ஒரே கோப்பைச் சுட்டும் ஒன்றுக்கு மேற்பட்ட தரவுத்தளப் பதிவுகளைக் கண்டறியும்.</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper சேவையகம் (விருப்பத்தேர்வு)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">ஒற்றை உள்நுழைவு</target>
@@ -3102,6 +3115,10 @@
         <target state="translated">நகலில் எச்சரி</target>
         <note priority="1" from="description">Warn on duplicate setting</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Home Assistant இன் Whisper போன்ற, பேச்சை உரையாக்கும் சேவையகத்தின் Wyoming முகவரி. சொல்லப்படுவதை Auto-transcribe அதைக் கொண்டு எழுதுவிக்கிறது; மேலே உள்ள மாதிரி அதன் சொற்களைக் கொண்டு வேலை செய்கிறது.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html" xml:space="preserve">
         <source>Download error</source>
         <target state="translated">பிழையைப் பதிவிறக்கவும்</target>
@@ -3134,6 +3151,10 @@
       <trans-unit id="5000203534763292992" datatype="html" xml:space="preserve">
         <source>Download restarted!</source>
         <target state="translated">பதிவிறக்கம் மறுதொடக்கம்!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">இந்தச் சேவையகத்தைச் சரிபார்க்கச் சேமிக்கவும்.</target>
       </trans-unit>
       <trans-unit id="7902480848174727416" datatype="html">
         <source>No preference</source>
@@ -3174,10 +3195,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">நிழல் (படிக்க மட்டும்)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">இதைப் பயன்படுத்த, அமைப்புகள் → மேம்பட்டது இல் மாதிரிக்கான கேட்டலை இயக்கவும்.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -3820,6 +3837,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">பிடித்தத்தைப் புதுப்பிக்க முடியவில்லை. மீண்டும் முயலவும்.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">இதைப் பயன்படுத்த, Whisper சேவையகத்தை அமைக்கவும் அல்லது அமைப்புகள் → மேம்பட்டது இல் மாதிரிக்கான கேட்டலை இயக்கவும்.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">நீங்கள் இயக்கும்போது மட்டுமே இயங்கும்</target>
@@ -3926,8 +3947,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> எழுதியது; தவறுகள் இருக்கலாம்.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/> எழுதியது; தவறுகள் இருக்கலாம்.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>

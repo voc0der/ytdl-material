@@ -108,6 +108,10 @@
         <target state="translated">拡張機能を手動で読み込み、拡張機能の設定でフロントエンドの URL を設定する必要があります。</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> が聞き取り、<x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/> が書いたもので、どちらも誤りを含むことがあります。</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -234,6 +238,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">はい</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{whisperName}}"/> を実行中です。</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2400,6 +2409,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">お気に入りを更新できませんでした。もう一度お試しください。</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">使うには、Whisper サーバーを設定するか、設定 → 詳細 でモデルの聴覚をオンにしてください。</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">手動で実行したときだけ動作します</target>
@@ -2506,8 +2519,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> が書いたもので、誤りを含むことがあります。</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/> が書いたもので、誤りを含むことがあります。</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -4385,6 +4398,10 @@
         <target state="translated">重複時に警告</target>
         <note priority="1" from="description">Warn on duplicate setting</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Home Assistant の Whisper など、音声をテキストにするサーバーの Wyoming アドレス。Auto-transcribe は話された内容をこのサーバーに書き起こさせ、上のモデルはその言葉をもとに書きます。</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <target state="translated">ダウンロードエラー</target>
@@ -4662,10 +4679,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">シャドウ（閲覧のみ）</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">使うには、設定 → 詳細 でモデルの聴覚をオンにしてください。</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -4956,6 +4969,10 @@
       <trans-unit id="8443255455605104030" datatype="html">
         <source>Finds more than one database record pointing at the same file.</source>
         <target state="translated">同じファイルを指すデータベースレコードが複数あるものを見つけます。</target>
+      </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper サーバー（任意）</target>
       </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
@@ -5660,6 +5677,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">ダウンロードを再開しました!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">保存すると、このサーバーを確認します。</target>
       </trans-unit>
       <trans-unit id="4661214567876885089" datatype="html">
         <source>Failed to add default categories!</source>

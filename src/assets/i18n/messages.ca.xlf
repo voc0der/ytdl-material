@@ -364,6 +364,11 @@
         <source>Yes</source>
         <target state="translated">Sí</target>
       </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Executa <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
+      </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
         <target state="translated">La més recent</target>
@@ -654,6 +659,10 @@
         <source>Could not reach the AI server.</source>
         <target state="translated">No s&apos;ha pogut contactar amb el servidor d&apos;IA.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Defineix un servidor Whisper o activa Àudio per al model a Configuració → Avançat per fer servir això.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Només s&apos;executa quan l&apos;executes tu</target>
@@ -781,8 +790,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Escrit per <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, que es pot equivocar.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Escrit per <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, que es pot equivocar.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -1143,6 +1152,10 @@
         <source>Settings access</source>
         <target state="translated">Configuració d&apos;accés</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Servidor Whisper (opcional)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Inici de sessió únic</target>
@@ -1328,6 +1341,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">S&apos;ha reiniciat la baixada!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Desa per comprovar aquest servidor.</target>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -3179,6 +3196,10 @@
         <target state="translated">Has de carregar l&apos;extensió manualment i canviar-ne la configuració per definir l&apos;URL del frontend.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Escoltat per <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> i escrit per <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Tots dos es poden equivocar.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -3560,6 +3581,10 @@
       <trans-unit id="1867461139670784024" datatype="html">
         <source>Sorts files that were downloaded before your category rules existed.</source>
         <target state="translated">Classifica els fitxers baixats abans que existissin les teves regles de categories.</target>
+      </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">L&apos;adreça Wyoming d&apos;un servidor de veu a text, com ara el Whisper de Home Assistant. Auto-transcribe li fa posar per escrit el que es diu, i el model d&apos;aquí dalt treballa a partir de les seves paraules.</target>
       </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
@@ -4002,10 +4027,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Ombra (només lectura)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Activa Àudio per al model a Configuració → Avançat per fer servir això.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>

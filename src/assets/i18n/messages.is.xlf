@@ -325,6 +325,10 @@
         <target state="translated">Þú verður að hlaða viðbótinni handvirkt og breyta stillingum hennar til að stilla slóð framenda.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Heyrt af <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> og skrifað af <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Bæði geta gert mistök.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">Auðkenni</target>
@@ -451,6 +455,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Já</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Keyrir <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2870,6 +2879,10 @@
         <source>Finds more than one database record pointing at the same file.</source>
         <target state="translated">Finnur fleiri en eina færslu í gagnagrunninum sem vísa á sömu skrána.</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper-þjónn (valfrjálst)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Einföld innskráning</target>
@@ -3102,6 +3115,10 @@
         <target state="translated">Vara við tvítökum</target>
         <note priority="1" from="description">Warn on duplicate setting</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Wyoming-vistfang talgreiningarþjóns, svo sem Whisper í Home Assistant. Auto-transcribe lætur hann skrifa upp það sem sagt er og líkanið hér að ofan vinnur úr orðum hans.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <target state="translated">Villa í niðurhali</target>
@@ -3134,6 +3151,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Niðurhal endurræst!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Vistaðu til að athuga þennan þjón.</target>
       </trans-unit>
       <trans-unit id="7902480848174727416" datatype="html">
         <source>No preference</source>
@@ -3174,10 +3195,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Skuggi (aðeins lestur)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Kveiktu á Heyrn fyrir líkanið í Stillingar → Ítarlegt til að nota þetta.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -3820,6 +3837,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">Ekki tókst að uppfæra eftirlæti. Reyndu aftur.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Settu inn Whisper-þjón eða kveiktu á Heyrn fyrir líkanið í Stillingar → Ítarlegt til að nota þetta.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Keyrir aðeins þegar þú keyrir það</target>
@@ -3926,8 +3947,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Skrifað af <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, sem getur gert mistök.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Skrifað af <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, sem getur gert mistök.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>

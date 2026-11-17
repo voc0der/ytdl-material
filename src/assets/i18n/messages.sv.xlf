@@ -6,6 +6,11 @@
         <source>Yes</source>
         <target state="translated">Ja</target>
       </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Kör <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
+      </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
         <target state="translated">Senaste</target>
@@ -509,10 +514,6 @@
         <source>Shadow (read only)</source>
         <target state="translated">Skugga (skrivskyddat)</target>
       </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Slå på Hörsel för modellen under Inställningar → Avancerat för att använda det här.</target>
-      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Skapa klipp</target>
@@ -895,6 +896,10 @@
         <source>Could not reach the AI server.</source>
         <target state="translated">Kunde inte nå AI-servern.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Ange en Whisper-server eller slå på Hörsel för modellen under Inställningar → Avancerat för att använda det här.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Körs bara när du kör den</target>
@@ -1189,8 +1194,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Skrivet av <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, som kan göra fel.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Skrivet av <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, som kan göra fel.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -1554,6 +1559,10 @@
       <trans-unit id="1867461139670784024" datatype="html">
         <source>Sorts files that were downloaded before your category rules existed.</source>
         <target state="translated">Sorterar filer som laddades ned innan dina kategoriregler fanns.</target>
+      </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Wyoming-adressen till en tal-till-text-server, som Whisper i Home Assistant. Auto-transcribe låter den skriva ned det som sägs, och modellen ovan arbetar utifrån dess ord.</target>
       </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
@@ -2348,6 +2357,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Nedladdningen startades om!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Spara för att kontrollera servern.</target>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -3838,6 +3851,10 @@
         <target state="translated">Du måste läsa in tillägget manuellt och ändra tilläggets inställningar för att ange frontend-URL:en.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Hört av <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> och skrivet av <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Båda kan göra fel.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -4407,6 +4424,10 @@
       <trans-unit id="8525406024045742391" datatype="html">
         <source>Settings access</source>
         <target state="translated">Åtkomst till inställningar</target>
+      </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper-server (valfri)</target>
       </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>

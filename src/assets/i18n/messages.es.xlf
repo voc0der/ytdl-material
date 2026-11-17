@@ -89,6 +89,11 @@
         <source>Yes</source>
         <target state="translated">Sí</target>
       </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Ejecuta <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
+      </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
         <target state="translated">Más reciente</target>
@@ -277,6 +282,10 @@
         <source>You must manually load the extension and modify the extension&apos;s settings to set the frontend URL.</source>
         <target state="translated">Debes cargar la extensión manualmente y cambiar sus ajustes para definir la URL del frontend.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
+      </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Oído por <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> y escrito por <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Ambos pueden equivocarse.</target>
       </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
@@ -3339,6 +3348,10 @@
         <target state="translated">Descargar toda la lista de reproducción como zip</target>
         <note priority="1" from="description">Download playlist tooltip</note>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Configura un servidor Whisper o activa Audio para el modelo en Configuración → Avanzado para usar esto.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Solo se ejecuta cuando tú la ejecutas</target>
@@ -3529,8 +3542,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Escrito por <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, que puede equivocarse.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Escrito por <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, que puede equivocarse.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -5022,6 +5035,10 @@
         <target state="translated">V</target>
         <note priority="1" from="description">Friday initial</note>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Servidor Whisper (opcional)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Inicio de sesión único</target>
@@ -5121,6 +5138,10 @@
         <target state="translated">Inicio de sesión por cabecera</target>
         <note priority="1" from="description">Settings header sign-in section</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">La dirección Wyoming de un servidor de voz a texto, como el Whisper de Home Assistant. Auto-transcribe le hace poner por escrito lo que se dice, y el modelo de arriba trabaja a partir de sus palabras.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <target state="translated">Error al descargar</target>
@@ -5172,10 +5193,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Sombra (solo lectura)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Activa Audio para el modelo en Configuración → Avanzado para usar esto.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -5240,6 +5257,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">¡Descarga reiniciada!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Guarda para comprobar este servidor.</target>
       </trans-unit>
       <trans-unit id="7327973294225241434" datatype="html">
         <source>Whether this server reached the provider and read its configuration.</source>
