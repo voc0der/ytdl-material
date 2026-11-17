@@ -108,6 +108,10 @@
         <target state="translated">Musisz ręcznie załadować rozszerzenie i w jego ustawieniach podać adres frontendu.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Usłyszane przez <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> i napisane przez <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Oba mogą się mylić.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -234,6 +238,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Tak</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Działa na nim <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2400,6 +2409,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">Nie udało się zaktualizować ulubionych. Spróbuj ponownie.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Aby z tego skorzystać, ustaw serwer Whisper lub włącz Słuch dla modelu w Ustawienia → Zaawansowane.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Uruchamia się tylko ręcznie</target>
@@ -2506,8 +2519,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Napisane przez <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, który może się mylić.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Napisane przez <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, który może się mylić.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -4414,10 +4427,6 @@
         <source>Shadow (read only)</source>
         <target state="translated">Cień (tylko do odczytu)</target>
       </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Aby z tego skorzystać, włącz Słuch dla modelu w Ustawienia → Zaawansowane.</target>
-      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">Utwórz wycinek</target>
@@ -5010,6 +5019,10 @@
         <source>Finds more than one database record pointing at the same file.</source>
         <target state="translated">Znajduje wiele rekordów bazy danych wskazujących na ten sam plik.</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Serwer Whisper (opcjonalny)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Logowanie jednokrotne</target>
@@ -5075,6 +5088,10 @@
         <source>Your media, in one place.</source>
         <target state="translated">Twoje multimedia w jednym miejscu.</target>
         <note priority="1" from="description">About subtitle</note>
+      </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Adres Wyoming serwera zamiany mowy na tekst, np. Whispera z Home Assistanta. Auto-transcribe zleca mu spisanie tego, co zostało powiedziane, a model powyżej pracuje na jego słowach.</target>
       </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
@@ -5518,6 +5535,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Pobieranie wznowione!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Zapisz, aby sprawdzić ten serwer.</target>
       </trans-unit>
       <trans-unit id="330031188099152519" datatype="html">
         <source>No item-level progress details available yet.</source>

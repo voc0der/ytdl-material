@@ -70,6 +70,7 @@ describe('Settings page controls', () => {
       testConnectionString: vi.fn(),
       getAIModels: vi.fn().mockReturnValue(of({ models: ['gemma', 'qwen'] })),
       setAIServer: vi.fn().mockReturnValue(of({ success: true })),
+      getWhisperInfo: vi.fn().mockReturnValue(of({ name: 'faster-whisper small-int8' })),
       openSnackBar: vi.fn()
     });
     fixture = TestBed.createComponent(SettingsComponent);
@@ -111,8 +112,28 @@ describe('Settings page controls', () => {
     await render();
     component.saveSettings();
     expect(posts.setConfig.mock.lastCall[0].YtdlMaterial.Advanced.ai).toEqual({
-      enabled: true, base_url: 'https://llama.example.lan/v1', model: 'qwen', api_key: '', vision: true, audio: true
+      enabled: true, base_url: 'https://llama.example.lan/v1', model: 'qwen', api_key: '', vision: true, audio: true, whisper_url: ''
     });
+  });
+
+  it('checks a Whisper server once its address is saved, and shows what it runs', async () => {
+    posts.config.Advanced.ai = { enabled: true, base_url: '', model: '', api_key: '', vision: false, audio: false, whisper_url: '' };
+    await render();
+    await switchTab('advanced');
+    expect(root.textContent).toContain('Whisper server (optional)');
+    expect(posts.getWhisperInfo).not.toHaveBeenCalled();
+
+    const address = Array.from(root.querySelectorAll<HTMLInputElement>('input'))
+      .find(input => input.placeholder === 'tcp://192.168.1.20:10300');
+    await editInput(address, 'tcp://192.168.1.20:10300');
+    expect(root.textContent).toContain('Save to check this server.');
+    expect(posts.getWhisperInfo).not.toHaveBeenCalled();
+    component.saveSettings();
+    await render();
+    expect(posts.setConfig.mock.lastCall[0].YtdlMaterial.Advanced.ai.whisper_url).toBe('tcp://192.168.1.20:10300');
+    expect(posts.getWhisperInfo).toHaveBeenCalledWith();
+    expect(root.textContent).toContain('Runs faster-whisper small-int8.');
+    expect(root.textContent).not.toContain('Save to check this server.');
   });
 
   it('shows loading until configuration arrives', async () => {

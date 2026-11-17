@@ -933,7 +933,7 @@
                   <span class="settings-row-title" id="settings-ai-enabled" i18n>Enable AI integration</span>
                   <span class="settings-row-hint" i18n>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</span>
                 </span>
-                <mat-slide-toggle [ngModel]="new_config.Advanced.ai.enabled" (ngModelChange)="new_config.Advanced.ai.enabled = $event; findAIModels()"
+                <mat-slide-toggle [ngModel]="new_config.Advanced.ai.enabled" (ngModelChange)="new_config.Advanced.ai.enabled = $event; findAIModels(); checkWhisper()"
                   aria-labelledby="settings-ai-enabled"></mat-slide-toggle>
               </div>
               @if (new_config.Advanced.ai.enabled) {
@@ -996,6 +996,23 @@
                   </span>
                   <mat-slide-toggle [(ngModel)]="new_config.Advanced.ai.audio" aria-labelledby="settings-ai-audio"></mat-slide-toggle>
                 </div>
+                <label class="settings-row settings-field-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" i18n>Whisper server (optional)</span>
+                    <span class="settings-row-hint" i18n>The Wyoming address of a speech-to-text server, such as Home Assistant's Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</span>
+                    <span class="settings-row-hint" role="status">
+                      @if (whisperChanged) {
+                        @if (new_config.Advanced.ai.whisper_url?.trim()) { <ng-container i18n>Save to check this server.</ng-container> }
+                      } @else if (whisperState === 'failed') {
+                        {{whisperError}}
+                      } @else if (whisperState === 'loaded') {
+                        <ng-container i18n="What the Whisper server runs, such as faster-whisper small-int8">Runs {{whisperName}}.</ng-container>
+                      }
+                    </span>
+                  </span>
+                  <span class="kit-field"><input type="text" inputmode="url" [(ngModel)]="new_config.Advanced.ai.whisper_url"
+                    placeholder="tcp://192.168.1.20:10300" autocomplete="off" spellcheck="false"></span>
+                </label>
                 <p class="settings-row-hint" i18n>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</p>
               }
             </div></div>

@@ -108,6 +108,10 @@
         <target state="translated">Πρέπει να φορτώσετε χειροκίνητα την επέκταση και να ορίσετε το URL του frontend στις ρυθμίσεις της.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Ακούστηκε από το <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> και γράφτηκε από το <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Και τα δύο μπορεί να κάνουν λάθη.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">Αναγνωριστικό</target>
@@ -234,6 +238,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Ναι</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Εκτελεί το <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2438,6 +2447,10 @@
         <source>Settings access</source>
         <target state="translated">Πρόσβαση στις ρυθμίσεις</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Διακομιστής Whisper (προαιρετικός)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Ενιαία σύνδεση</target>
@@ -2545,6 +2558,10 @@
       <trans-unit id="1867461139670784024" datatype="html">
         <source>Sorts files that were downloaded before your category rules existed.</source>
         <target state="translated">Ταξινομεί αρχεία που λήφθηκαν πριν υπάρξουν οι κανόνες κατηγοριών σας.</target>
+      </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Η διεύθυνση Wyoming ενός διακομιστή μετατροπής ομιλίας σε κείμενο, όπως το Whisper του Home Assistant. Το Auto-transcribe τού αναθέτει να καταγράφει όσα λέγονται, και το παραπάνω μοντέλο δουλεύει με τις λέξεις του.</target>
       </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
@@ -2697,6 +2714,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Η λήψη ξεκίνησε ξανά!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Αποθηκεύστε για να ελεγχθεί αυτός ο διακομιστής.</target>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -3426,6 +3447,10 @@
         <source>Could not reach the AI server.</source>
         <target state="translated">Δεν ήταν δυνατή η σύνδεση με τον διακομιστή ΤΝ.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Για να το χρησιμοποιήσετε, ορίστε διακομιστή Whisper ή ενεργοποιήστε την Ακοή του μοντέλου στις Ρυθμίσεις → Για προχωρημένους.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Εκτελείται μόνο όταν την εκτελείτε εσείς</target>
@@ -3553,8 +3578,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Γραμμένο από το <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, που μπορεί να κάνει λάθη.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Γραμμένο από το <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, που μπορεί να κάνει λάθη.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -4402,10 +4427,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Σκιά (μόνο ανάγνωση)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Για να το χρησιμοποιήσετε, ενεργοποιήστε την Ακοή του μοντέλου στις Ρυθμίσεις → Για προχωρημένους.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>

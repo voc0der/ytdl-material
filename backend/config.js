@@ -437,7 +437,8 @@ const DEFAULT_CONFIG = {
             "model": "",
             "api_key": "",
             "vision": false,
-            "audio": false
+            "audio": false,
+            "whisper_url": ""
         },
         "default_downloader": "yt-dlp",
         "ytdlp_update_channel": "stable",

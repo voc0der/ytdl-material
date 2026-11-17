@@ -138,9 +138,11 @@ export class TaskSettingsComponent implements OnChanges {
     return this.task?.key === TaskType.AUTO_TRANSCRIBE;
   }
 
-  // What the saved settings say the model can do. Visual cues are only offered when it can see.
-  get audioEnabled(): boolean {
-    return this.postsService.config?.Advanced?.ai?.audio === true;
+  // What the saved settings say can be heard and seen: speech by a Whisper server or by the
+  // model itself. Visual cues are only offered when the model can see.
+  get speechEnabled(): boolean {
+    const ai = this.postsService.config?.Advanced?.ai;
+    return ai?.audio === true || !!ai?.whisper_url?.trim();
   }
 
   get visionEnabled(): boolean {

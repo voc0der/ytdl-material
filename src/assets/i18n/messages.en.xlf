@@ -508,6 +508,12 @@
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <note priority="1" from="description">Subscription ID property</note>
@@ -695,6 +701,13 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
@@ -4643,6 +4656,12 @@
           <context context-type="sourcefile">src/app/components/tasks/task-info.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <note priority="1" from="description">Single sign-on setting</note>
@@ -4993,6 +5012,12 @@
           <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <context-group purpose="location">
@@ -5049,6 +5074,12 @@
         <source>Download restarted!</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/notifications/notifications.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/settings/settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="7902480848174727416" datatype="html">
@@ -5110,12 +5141,6 @@
         <source>Shadow (read only)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/modify-users/modify-users.component.ts</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/components/task-settings/task-settings.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
@@ -6083,6 +6108,12 @@
           <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/components/task-settings/task-settings.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <context-group purpose="location">
@@ -6238,7 +6269,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
         </context-group>

@@ -1,5 +1,6 @@
 const {assert, fs, os, path, db_api, config_api, useTemporaryMediaRoots} = require('./test-shared');
 const http = require('http');
+const net = require('net');
 const dns = require('dns');
 const {execFileSync} = require('child_process');
 const ai = require('../local-ai');
@@ -143,6 +144,17 @@ describe('Local AI', function() {
             assert.throws(() => ai.validateSettings({...ai.settings(), model: 'gpt-oss:120b-cloud'}), /Cloud models/);
             assert.throws(() => ai.validateSettings({...ai.settings(), vision: 'yes'}), /true or false/);
             ai.validateSettings({...ai.settings(), vision: undefined, audio: undefined});
+        });
+
+        it('takes a Whisper server alone, or with an AI server, only on the local network', function() {
+            ai.validateSettings({...ai.settings(), base_url: '', model: '', whisper_url: 'tcp://192.168.1.20:10300'});
+            ai.validateSettings({...ai.settings(), whisper_url: 'homeassistant.local'});
+            assert.throws(() => ai.validateSettings({...ai.settings(), base_url: '', whisper_url: ''}), /Enter the AI server URL/);
+            for (const whisper_url of ['tcp://8.8.8.8:10300', 'tcp://[2001:4860:4860::8888]', 'http://192.168.1.20:10300', 'tcp://192.168.1.20/path', 'tcp://user:secret@192.168.1.20', 'x'.repeat(4097)]) {
+                assert.throws(() => ai.validateSettings({...ai.settings(), whisper_url}), whisper_url.slice(0, 40));
+            }
+            assert.deepStrictEqual(ai.whisperAddress('192.168.1.20'), {host: '192.168.1.20', port: 10300, label: '192.168.1.20:10300'});
+            assert.deepStrictEqual(ai.whisperAddress('tcp://[fd00::20]:10301/'), {host: 'fd00::20', port: 10301, label: '[fd00::20]:10301'});
         });
 
         it('redacts the API key and keeps it when a redacted config is saved', function() {
@@ -365,5 +377,215 @@ describe('Local AI', function() {
         };
         await assert.rejects(transcription.run(), /1 file/);
         assert(!await fs.pathExists(sidecar(file)));
+    });
+
+    describe('with a Whisper server', function() {
+        let whisper, sockets, connections, answer;
+        // Frames an event the way the Python wyoming library does, with its data in a block
+        // of its own after the header line.
+        const frame = (type, data) => {
+            const body = Buffer.from(JSON.stringify(data));
+            return Buffer.concat([Buffer.from(`${JSON.stringify({type, version: '1.11.0', data_length: body.length})}\n`), body]);
+        };
+        const info = (model = 'tiny-int8') => ({asr: [{name: 'faster-whisper', installed: true, models: [{name: model, installed: true, languages: ['en']}]}]});
+        const answerWith = (text, model) => (event, socket) => {
+            if (event.type === 'describe') socket.write(frame('info', info(model)));
+            if (event.type === 'audio-stop') socket.end(frame('transcript', {text}));
+        };
+
+        beforeEach(async function() {
+            sockets = new Set();
+            // The events each connection sent, in order.
+            connections = [];
+            answer = answerWith(' Words Whisper heard. ');
+            whisper = net.createServer(socket => {
+                const events = [];
+                let buffer = Buffer.alloc(0);
+                sockets.add(socket);
+                connections.push(events);
+                socket.on('error', () => {});
+                socket.on('close', () => sockets.delete(socket));
+                socket.on('data', chunk => {
+                    buffer = Buffer.concat([buffer, chunk]);
+                    for (let end = buffer.indexOf(10); end >= 0; end = buffer.indexOf(10)) {
+                        const header = JSON.parse(buffer.subarray(0, end));
+                        const data_end = end + 1 + (header.data_length ?? 0);
+                        const payload_end = data_end + (header.payload_length ?? 0);
+                        if (buffer.length < payload_end) return;
+                        const extra = header.data_length ? JSON.parse(buffer.subarray(end + 1, data_end)) : {};
+                        const event = {type: header.type, data: {...header.data, ...extra}, payload: buffer.subarray(data_end, payload_end)};
+                        buffer = buffer.subarray(payload_end);
+                        events.push(event);
+                        answer(event, socket);
+                    }
+                });
+            });
+            await new Promise(resolve => whisper.listen(0, '127.0.0.1', resolve));
+            settings({whisper_url: `tcp://127.0.0.1:${whisper.address().port}`});
+        });
+
+        afterEach(async function() {
+            for (const socket of sockets) socket.destroy();
+            await new Promise(resolve => whisper.close(resolve));
+        });
+
+        async function addSilence(name = 'quiet') {
+            const file = {uid: name, id: name, title: 'Silence', isAudio: true, url: '', path: path.join(media.audio, `${name}.wav`)};
+            execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'anullsrc=r=16000:cl=mono', '-t', '1', file.path]);
+            await db_api.insertRecordIntoTable('files', {...file});
+            return file;
+        }
+
+        it('says what the Whisper server runs, and refuses one that does no speech-to-text', async function() {
+            assert.deepStrictEqual(await ai.describeWhisper(ai.settings()), {name: 'faster-whisper tiny-int8'});
+            assert.deepStrictEqual(connections[0].map(event => event.type), ['describe']);
+            answer = (event, socket) => socket.write(frame('info', {asr: [{name: 'vosk', installed: true, models: [{name: 'vosk-model-small-en-us', installed: true}]}]}));
+            assert.deepStrictEqual(await ai.describeWhisper(ai.settings()), {name: 'vosk-model-small-en-us'});
+            answer = (event, socket) => socket.write(frame('info', {asr: [], tts: [{name: 'piper', installed: true, voices: []}]}));
+            await assert.rejects(ai.describeWhisper(ai.settings()),
+                /The Wyoming server at 127\.0\.0\.1:\d+ does no speech-to-text; it runs piper\. Home Assistant's Whisper is usually on port 10300\./);
+        });
+
+        it('writes Exact transcripts with Whisper alone, with no model or AI server', async function() {
+            settings({base_url: '', model: '', audio: false});
+            const file = await addFile();
+            assert.deepStrictEqual(await transcription.run(), {transcribed: 1, skipped: 0, failed: 0});
+            assert.strictEqual(calls.length, 0);
+            const [describe, request] = connections;
+            assert.deepStrictEqual(describe.map(event => event.type), ['describe']);
+            assert.deepStrictEqual(request.map(event => event.type), ['transcribe', 'audio-start', 'audio-chunk', 'audio-stop']);
+            assert.deepStrictEqual(request[0].data, {});
+            assert.deepStrictEqual(request[1].data, {rate: 16000, width: 2, channels: 1, timestamp: 0});
+            // A second of 16 kHz 16-bit PCM, without a WAV header.
+            assert.strictEqual(request[2].payload.length, 32000);
+            assert.notStrictEqual(request[2].payload.subarray(0, 4).toString('latin1'), 'RIFF');
+            assert.deepStrictEqual(request[3].data, {timestamp: 1000});
+            const transcript = (await fs.readJSON(sidecar(file))).ytdl_material.transcript;
+            assert.strictEqual(transcript.text, 'Words Whisper heard.');
+            assert.deepStrictEqual([transcript.model, transcript.whisper_model, transcript.audio_style, transcript.vision_style],
+                [null, 'faster-whisper tiny-int8', 'exact', 'off']);
+            assert.deepStrictEqual(await transcription.run(), {transcribed: 0, skipped: 1, failed: 0});
+            const attached = (await transcription.attachTranscript(file)).transcript;
+            assert.deepStrictEqual([attached.text, attached.model, attached.whisper_model], ['Words Whisper heard.', null, 'faster-whisper tiny-int8']);
+        });
+
+        it('has the model write up Whisper\'s words in other styles, hearing the sound itself only for Descriptive', async function() {
+            const file = await addFile();
+            await options({audio_style: 'brief'});
+            await transcription.run();
+            assert.deepStrictEqual(partsOf(calls[0], 'input_audio'), []);
+            assert.match(promptOf(calls[0]), /Speech recognition wrote down what is said in this stretch: "Words Whisper heard\."/);
+            assert.match(promptOf(calls[0]), /Sum up what is said in one or two sentences/);
+            const transcript = (await fs.readJSON(sidecar(file))).ytdl_material.transcript;
+            assert.deepStrictEqual([transcript.text, transcript.model, transcript.whisper_model], ['A local transcript.', 'local-model', 'faster-whisper tiny-int8']);
+
+            await options({audio_style: 'descriptive'});
+            assert.strictEqual((await transcription.run()).transcribed, 1);
+            const sound = Buffer.from(partsOf(calls[1], 'input_audio')[0].input_audio.data, 'base64');
+            assert.deepStrictEqual([sound.subarray(0, 4).toString(), sound.subarray(8, 16).toString(), sound.readUInt32LE(24), sound.readUInt32LE(40)],
+                ['RIFF', 'WAVEfmt ', 16000, sound.length - 44]);
+            assert.match(promptOf(calls[1]), /describe other sounds in the audio that matter/);
+        });
+
+        it('has the model add what the frames show to Whisper\'s words for Exact', async function() {
+            settings({vision: true});
+            await options({vision_style: 'detailed'});
+            const file = await addVideo();
+            await transcription.run();
+            const [call] = calls;
+            assert.deepStrictEqual(partsOf(call, 'input_audio'), []);
+            assert.strictEqual(partsOf(call, 'image_url').length, 1);
+            assert.match(promptOf(call), /"Words Whisper heard\."\nWrite out what is said exactly as speech recognition wrote it down\./);
+            assert.match(promptOf(call), /changes of scene/);
+            const transcript = (await fs.readJSON(sidecar(file))).ytdl_material.transcript;
+            assert.deepStrictEqual([transcript.model, transcript.whisper_model, transcript.audio_style, transcript.vision_style],
+                ['local-model', 'faster-whisper tiny-int8', 'exact', 'detailed']);
+        });
+
+        it('does not send Whisper a silent stretch, nor the model one with nothing to write up', async function() {
+            const file = await addSilence();
+            assert.strictEqual((await transcription.run()).transcribed, 1);
+            await options({audio_style: 'novel'});
+            assert.strictEqual((await transcription.run()).transcribed, 1);
+            assert.deepStrictEqual(connections.map(events => events[0].type), ['describe', 'describe']);
+            assert.strictEqual(calls.length, 0);
+            assert.strictEqual((await fs.readJSON(sidecar(file))).ytdl_material.transcript.text, '');
+        });
+
+        it('refuses Descriptive without a model that can hear, and other styles without a model, before asking anything', async function() {
+            await addFile();
+            settings({audio: false});
+            await options({audio_style: 'descriptive'});
+            await assert.rejects(transcription.run(), /Descriptive also describes sounds that are not words/);
+            settings({model: ''});
+            await options({audio_style: 'brief'});
+            await assert.rejects(transcription.run(), /or choose Exact in this task's options/);
+            settings({vision: true});
+            await options({audio_style: 'exact', vision_style: 'brief'});
+            await assert.rejects(transcription.run(), /Choose a model/);
+            assert.strictEqual(calls.length, 0);
+            assert.strictEqual(connections.length, 0);
+        });
+
+        it('fails the run, saying why, when the Whisper server cannot be reached or is not one', async function() {
+            await addFile();
+            const closed = net.createServer();
+            await new Promise(resolve => closed.listen(0, '127.0.0.1', resolve));
+            const port = closed.address().port;
+            await new Promise(resolve => closed.close(resolve));
+            settings({whisper_url: `tcp://127.0.0.1:${port}`});
+            await assert.rejects(transcription.run(), /Nothing is listening at 127\.0\.0\.1:\d+\. .*Whisper add-on needs a port set under Network/);
+            settings({whisper_url: base.replace('http://', 'tcp://')});
+            await assert.rejects(transcription.run(), /127\.0\.0\.1:\d+ did not answer in the Wyoming protocol\. Use the address of a Wyoming server/);
+            settings({whisper_url: `tcp://127.0.0.1:${whisper.address().port}`});
+            answer = (event, socket) => socket.end();
+            await assert.rejects(transcription.run(), /closed the connection without answering/);
+            assert(!(await db_api.getRecords('files')).some(file => file.transcription_failed_at));
+        });
+
+        it('fails a file whose audio the Whisper server refuses, keeping no transcript', async function() {
+            const file = await addFile();
+            answer = (event, socket) => {
+                if (event.type === 'describe') socket.write(frame('info', info()));
+                if (event.type === 'audio-stop') socket.write(frame('error', {text: 'Model failed to load'}));
+            };
+            await assert.rejects(transcription.run(), /1 file/);
+            assert(!await fs.pathExists(sidecar(file)));
+            assert((await db_api.getRecord('files', {uid: file.uid})).transcription_failed_at);
+            await assert.rejects(ai.transcribeSpeech(ai.settings(), Buffer.alloc(3200)),
+                /The Whisper server at 127\.0\.0\.1:\d+ answered with an error: Model failed to load/);
+        });
+
+        it('writes it up again when the Whisper server runs another model', async function() {
+            await addFile();
+            await transcription.run();
+            answer = answerWith('Better words.', 'small-int8');
+            assert.strictEqual((await transcription.run()).transcribed, 1);
+            assert.strictEqual((await transcription.run()).skipped, 1);
+        });
+
+        it('stops listening when AI settings change, keeping no transcript', async function() {
+            const file = await addFile();
+            answer = (event, socket) => {
+                if (event.type === 'describe') socket.write(frame('info', info()));
+                if (event.type === 'audio-stop') settings({enabled: false});
+            };
+            await assert.rejects(transcription.run(), /settings changed/);
+            assert(!await fs.pathExists(sidecar(file)));
+        });
+
+        it('keeps the Whisper server to the local network, whatever its name resolves to', async function() {
+            for (const whisper_url of ['tcp://8.8.8.8:10300', 'http://127.0.0.1:10300', 'tcp://127.0.0.1/path']) {
+                settings({whisper_url});
+                await assert.rejects(ai.describeWhisper(ai.settings()));
+            }
+            dns.lookup = (host, options, callback) => callback(null, [{address: '8.8.8.8', family: 4}]);
+            settings({whisper_url: 'tcp://whisper.example:10300'});
+            await assert.rejects(ai.describeWhisper(ai.settings()), /whisper\.example resolves to an address outside the local network/);
+            assert.strictEqual(connections.length, 0);
+            dns.lookup = (host, options, callback) => callback(null, [{address: '127.0.0.1', family: 4}]);
+            settings({whisper_url: `tcp://whisper.internal:${whisper.address().port}`});
+            assert.deepStrictEqual(await ai.describeWhisper(ai.settings()), {name: 'faster-whisper tiny-int8'});
+        });
     });
 });

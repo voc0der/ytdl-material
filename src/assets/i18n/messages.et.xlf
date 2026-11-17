@@ -325,6 +325,10 @@
         <target state="translated">Laiendus tuleb laadida käsitsi ja selle seadetes määrata kasutajaliidese URL.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated">Kuulnud <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> ja kirjutanud <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Mõlemad võivad eksida.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">ID</target>
@@ -451,6 +455,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Jah</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated">Käitab <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2744,6 +2753,10 @@
         <source>Not sent</source>
         <target state="translated">Pole saadetud</target>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisperi server (valikuline)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Ühekordne sisselogimine</target>
@@ -2976,6 +2989,10 @@
         <target state="translated">Hoiata duplikaadi korral</target>
         <note priority="1" from="description">Warn on duplicate setting</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Kõne tekstiks muutva serveri Wyomingi aadress, näiteks Home Assistanti Whisper. Auto-transcribe laseb sellel räägitu üles kirjutada ja ülalolev mudel töötab selle sõnade põhjal.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html">
         <source>Download error</source>
         <target state="translated">Allalaadimise viga</target>
@@ -3008,6 +3025,10 @@
       <trans-unit id="5000203534763292992" datatype="html">
         <source>Download restarted!</source>
         <target state="translated">Allalaadimine taaskäivitatud!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Salvesta, et seda serverit kontrollida.</target>
       </trans-unit>
       <trans-unit id="7902480848174727416" datatype="html">
         <source>No preference</source>
@@ -3048,10 +3069,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Vari (kirjutuskaitstud)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Selle kasutamiseks lülita mudeli Kuulmine sisse jaotises Seaded → Täpsem.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
@@ -3747,6 +3764,10 @@
         <source>Could not reach the AI server.</source>
         <target state="translated">Tehisaru serveriga ei saanud ühendust.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Selle kasutamiseks määra Whisperi server või lülita mudeli Kuulmine sisse jaotises Seaded → Täpsem.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Käivitub ainult käsitsi</target>
@@ -3853,8 +3874,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated">Kirjutanud <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, mis võib eksida.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated">Kirjutanud <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, mis võib eksida.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>

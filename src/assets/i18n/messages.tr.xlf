@@ -108,6 +108,10 @@
         <target state="translated">Eklentiyi elle yüklemeniz ve ön yüz URL&apos;sini ayarlamak için eklentinin ayarlarını değiştirmeniz gerekir.</target>
         <note priority="1" from="description">Chrome setup suffix</note>
       </trans-unit>
+      <trans-unit id="8033403806793900" datatype="html">
+        <source>Heard by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> and written by <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/>. Both can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model}}"/> tarafından duyuldu ve <x id="INTERPOLATION_1" equiv-text="{{file.transcript.model}}"/> tarafından yazıldı; ikisi de hata yapabilir.</target>
+      </trans-unit>
       <trans-unit id="8040881171107393560" datatype="html">
         <source>ID</source>
         <target state="translated">Kimlik</target>
@@ -234,6 +238,11 @@
       <trans-unit id="2807800733729323332" datatype="html">
         <source>Yes</source>
         <target state="translated">Evet</target>
+      </trans-unit>
+      <trans-unit id="2810184249505618936" datatype="html">
+        <source>Runs <x id="INTERPOLATION" equiv-text="{{whisperName}}"/>.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{whisperName}}"/> çalıştırıyor.</target>
+        <note priority="1" from="description">What the Whisper server runs, such as faster-whisper small-int8</note>
       </trans-unit>
       <trans-unit id="2820031676440667416" datatype="html">
         <source>Latest</source>
@@ -2462,6 +2471,10 @@
         <source>Could not update favorite. Please try again.</source>
         <target state="translated">Favori güncellenemedi. Lütfen tekrar deneyin.</target>
       </trans-unit>
+      <trans-unit id="9101172072489390459" datatype="html">
+        <source>Set a Whisper server or turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">Bunu kullanmak için bir Whisper sunucusu ayarlayın veya Ayarlar → Gelişmiş bölümünde model için İşitme&apos;yi açın.</target>
+      </trans-unit>
       <trans-unit id="9103549919390869560" datatype="html">
         <source>Runs only when you run it</source>
         <target state="translated">Yalnızca siz çalıştırınca çalışır</target>
@@ -2568,8 +2581,8 @@
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
       <trans-unit id="4310170311174325877" datatype="html">
-        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
-        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> tarafından yazıldı; hata yapabilir.</target>
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.whisper_model || file.transcript.model}}"/> tarafından yazıldı; hata yapabilir.</target>
       </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
@@ -4766,6 +4779,10 @@
         <target state="translated"><x id="START_TAG_CODE" ctype="x-code" equiv-text="&lt;code&gt;"/>ytdl_oidc_enabled<x id="CLOSE_TAG_CODE" ctype="x-code" equiv-text="&lt;/code&gt;"/> ile ayarlanır.</target>
         <note priority="1" from="description">Single sign-on setting hint</note>
       </trans-unit>
+      <trans-unit id="8538332069454297927" datatype="html">
+        <source>Whisper server (optional)</source>
+        <target state="translated">Whisper sunucusu (isteğe bağlı)</target>
+      </trans-unit>
       <trans-unit id="8547434482108418130" datatype="html">
         <source>Single sign-on</source>
         <target state="translated">Tek oturum açma</target>
@@ -4998,6 +5015,10 @@
         <target state="translated">Yinelenende uyar</target>
         <note priority="1" from="description">Warn on duplicate setting</note>
       </trans-unit>
+      <trans-unit id="1872283277847911197" datatype="html">
+        <source>The Wyoming address of a speech-to-text server, such as Home Assistant&apos;s Whisper. Auto-transcribe has it write down what is said, and the model above works from its words.</source>
+        <target state="translated">Home Assistant&apos;ın Whisper&apos;ı gibi bir konuşmadan metne sunucusunun Wyoming adresi. Auto-transcribe söyleneni ona yazdırır, yukarıdaki model de onun sözcükleriyle çalışır.</target>
+      </trans-unit>
       <trans-unit id="1879058637439215882" datatype="html" xml:space="preserve">
         <source>Download error</source>
         <target state="translated">İndirme hatası</target>
@@ -5030,6 +5051,10 @@
       <trans-unit id="5000203534763292992" datatype="html" xml:space="preserve">
         <source>Download restarted!</source>
         <target state="translated">İndirme yeniden başlatıldı!</target>
+      </trans-unit>
+      <trans-unit id="500320132851592767" datatype="html">
+        <source>Save to check this server.</source>
+        <target state="translated">Bu sunucuyu denetlemek için kaydedin.</target>
       </trans-unit>
       <trans-unit id="7902480848174727416" datatype="html">
         <source>No preference</source>
@@ -5070,10 +5095,6 @@
       <trans-unit id="7945574393654903960" datatype="html">
         <source>Shadow (read only)</source>
         <target state="translated">Gölge (salt okunur)</target>
-      </trans-unit>
-      <trans-unit id="795368655998273997" datatype="html">
-        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
-        <target state="translated">Bunu kullanmak için Ayarlar → Gelişmiş bölümünde model için İşitme&apos;yi açın.</target>
       </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>

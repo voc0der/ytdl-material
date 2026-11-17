@@ -680,6 +680,10 @@ export class PostsService {
         return this.http.post<{models: string[]}>(this.path + 'getAIModels', {}, this.httpOptions);
     }
 
+    getWhisperInfo() {
+        return this.http.post<{name: string}>(this.path + 'getWhisperInfo', {}, this.httpOptions);
+    }
+
     testCookies(url: string) {
         return this.http.post(this.path + 'testCookies', {url: url}, this.httpOptions);
     }

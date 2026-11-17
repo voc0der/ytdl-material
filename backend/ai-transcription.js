@@ -1,7 +1,9 @@
 // The Auto-transcribe task. The model chosen in Settings → Advanced → Local AI listens to each
 // library file 30 seconds at a time and writes up what it hears in the style the task's Speech
-// option asks for. With Vision on and Visual cues chosen, it also gets a few frames from each
-// stretch and adds what they show. What it writes is saved in the file's metadata sidecar.
+// option asks for. With a Whisper server set, Whisper writes down what is said instead, and
+// the model writes from its words: Exact keeps them as they are, with no model needed. With
+// Vision on and Visual cues chosen, the model also gets a few frames from each stretch and
+// adds what they show. What is written is saved in the file's metadata sidecar.
 const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
@@ -25,6 +27,9 @@ const STRETCH_SECONDS = 30;
 const FRAMES_PER_STRETCH = 3;
 // How much of the text so far goes with each stretch, so the model carries on from it.
 const CONTEXT_CHARACTERS = 400;
+// Whisper makes up words for silence, such as a sign-off nobody said, so a stretch whose
+// loudest sample stays under -50 dBFS is not sent to it.
+const SILENCE_PEAK = Math.round(32768 * 10 ** (-50 / 20));
 let activeRun = null;
 
 exports.TASK_KEY = TASK_KEY;
@@ -41,6 +46,16 @@ const SPEECH = {
     detailed: 'Write notes on what is said in the audio, covering every point in order.',
     descriptive: 'Transcribe everything said in the audio, word for word, and describe other sounds that matter, such as music, laughter or sound effects, in square brackets.',
     novel: 'Retell what happens in the audio as a passage from a novel, in the past tense, with what people say as quoted dialogue.'
+};
+
+// ...or about the words Whisper wrote down, when a Whisper server does the listening. Exact
+// only gets here with frames to add. Descriptive also gets the sound, for what is not words.
+const SPEECH_FROM_WORDS = {
+    exact: 'Write out what is said exactly as speech recognition wrote it down.',
+    brief: 'Sum up what is said in one or two sentences.',
+    detailed: 'Write notes on what is said, covering every point in order.',
+    descriptive: 'Write out what is said exactly as speech recognition wrote it down, and describe other sounds in the audio that matter, such as music, laughter or sound effects, in square brackets where they happen.',
+    novel: 'Retell what happens as a passage from a novel, in the past tense, with what people say as quoted dialogue.'
 };
 
 // What it adds about the frames, by the Visual cues option: into the same text as the speech...
@@ -61,9 +76,13 @@ const VISUALS_ALONE = {
     novel: 'Describe what the frames show as a passage from a novel, in the past tense.'
 };
 
-function buildPrompt({speech, visual_cues, frames, previous}) {
+// `words` is what Whisper wrote down for the stretch, or undefined when the model hears it.
+function buildPrompt({speech, words, visual_cues, frames, previous}) {
     const lines = [];
-    if (speech) lines.push(SPEECH[speech]);
+    if (speech && words !== undefined) {
+        lines.push(words ? `Speech recognition wrote down what is said in this stretch: "${words}"` : 'Speech recognition heard nothing said in this stretch.');
+        lines.push(SPEECH_FROM_WORDS[speech]);
+    } else if (speech) lines.push(SPEECH[speech]);
     if (visual_cues) {
         const what = frames === 1 ? 'The image is a frame' : `The ${frames} images are frames, in order,`;
         lines.push(`${what} from ${speech ? 'the same stretch' : 'a stretch of video'}.`);
@@ -136,10 +155,11 @@ function validTranscript(transcript) {
         && transcript.text.length <= MAX_TEXT_LENGTH && Array.isArray(transcript.segments);
 }
 
-// A transcript made another way is made again: changing the model or a style is a request
-// for something different.
+// A transcript made another way is made again: changing the model, the Whisper server's model
+// or a style is a request for something different.
 function sameRecipe(transcript, recipe) {
-    return transcript.model === recipe.model
+    return (transcript.model ?? null) === recipe.model
+        && (transcript.whisper_model ?? null) === recipe.whisper_model
         && (transcript.audio_style ?? null) === recipe.audio_style
         && (transcript.vision_style ?? 'off') === recipe.vision_style;
 }
@@ -151,7 +171,8 @@ exports.attachTranscript = async (file) => {
         const {metadata} = await readMetadata(file);
         const transcript = metadata.ytdl_material?.transcript;
         if (validTranscript(transcript) && sameMedia(await fs.stat(file.path), transcript.source)) {
-            return {...file, transcript: {text: transcript.text, model: transcript.model,
+            return {...file, transcript: {text: transcript.text, model: transcript.model ?? null,
+                whisper_model: transcript.whisper_model ?? null,
                 audio_style: transcript.audio_style ?? null, vision_style: transcript.vision_style ?? 'off',
                 created_at: transcript.created_at}};
         }
@@ -168,13 +189,38 @@ function inputArgs(media_path, start, seconds) {
         '-protocol_whitelist', 'file,pipe,data', '-i', path.resolve(media_path), '-t', String(seconds)];
 }
 
-// A stretch of the first audio track as 16 kHz mono WAV, about 1 MB for 30 seconds.
+// A stretch of the first audio track as 16 kHz mono 16-bit PCM, about 1 MB for 30 seconds:
+// as Whisper takes it, and inside a WAV header for the model.
 async function extractAudio(media_path, start, seconds, directory, signal) {
-    const audio_path = path.join(directory, 'audio.wav');
+    const audio_path = path.join(directory, 'audio.pcm');
     await runFile(ffmpeg(), [...inputArgs(media_path, start, seconds),
-        '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', audio_path],
+        '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', '-f', 's16le', audio_path],
     {signal, timeout: 5 * 60 * 1000, maxBuffer: 1024 * 1024});
-    return (await fs.readFile(audio_path)).toString('base64');
+    return fs.readFile(audio_path);
+}
+
+function wav(pcm) {
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0, 'ascii');
+    header.writeUInt32LE(36 + pcm.length, 4);
+    header.write('WAVEfmt ', 8, 'ascii');
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20); // PCM
+    header.writeUInt16LE(1, 22); // mono
+    header.writeUInt32LE(16000, 24);
+    header.writeUInt32LE(16000 * 2, 28);
+    header.writeUInt16LE(2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write('data', 36, 'ascii');
+    header.writeUInt32LE(pcm.length, 40);
+    return Buffer.concat([header, pcm]);
+}
+
+function silent(pcm) {
+    for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+        if (Math.abs(pcm.readInt16LE(offset)) > SILENCE_PEAK) return false;
+    }
+    return true;
 }
 
 // Frames spread evenly over a stretch, at most 768 pixels on a side so a few cost the model
@@ -196,16 +242,25 @@ async function extractFrames(media_path, start, seconds, directory, signal) {
     return frames;
 }
 
-async function transcribeFile(file, settings, options, signal) {
+// `whisper` is what the Whisper server runs, or null when the model does the listening.
+async function transcribeFile(file, settings, options, whisper, signal) {
     const before = await fs.stat(file.path);
     const {metadata} = await readMetadata(file);
     const probe = await transcoding.probeMedia(file.path);
     if (!probe) throw new Error('Could not probe the media file.');
-    const hears = settings.audio === true && probe.streams.some(stream => stream.codec_type === 'audio');
+    const sound = probe.streams.some(stream => stream.codec_type === 'audio');
+    const hears = sound && (whisper !== null || settings.audio === true);
+    // With Whisper writing the words down, the model only hears the sound for Descriptive,
+    // which also describes what is not words.
+    const listens = sound && settings.audio === true && (whisper === null || options.speech === 'descriptive');
     const sees = settings.vision === true && options.visual_cues !== 'off'
         && probe.streams.some(stream => stream.codec_type === 'video' && stream.disposition?.attached_pic !== 1);
     if (!hears && !sees) return 'skipped';
-    const recipe = {model: settings.model, audio_style: hears ? options.speech : null, vision_style: sees ? options.visual_cues : 'off'};
+    const transcribes = hears && whisper !== null;
+    // Whisper's words stand as they are for Exact. Everything else is written by the model.
+    const writes = !transcribes || options.speech !== 'exact' || sees;
+    const recipe = {model: writes ? settings.model : null, whisper_model: transcribes ? whisper.name : null,
+        audio_style: hears ? options.speech : null, vision_style: sees ? options.visual_cues : 'off'};
     const existing = metadata.ytdl_material?.transcript;
     if (validTranscript(existing) && sameMedia(before, existing.source) && sameRecipe(existing, recipe)) return 'skipped';
     const duration = Number(probe.format.duration);
@@ -220,16 +275,25 @@ async function transcribeFile(file, settings, options, signal) {
             signal.throwIfAborted();
             if (!utils.isServableMediaFile(file.path, file.user_uid)) throw new Error('Media is no longer available.');
             const seconds = Math.min(STRETCH_SECONDS, duration - start);
+            const pcm = hears ? await extractAudio(file.path, start, seconds, directory, signal) : null;
+            const quiet = transcribes && silent(pcm);
+            const words = transcribes ? (quiet ? '' : await ai.transcribeSpeech(settings, pcm, {signal})) : undefined;
             const content = [];
-            if (hears) content.push({type: 'input_audio', input_audio: {data: await extractAudio(file.path, start, seconds, directory, signal), format: 'wav'}});
+            if (listens && !quiet) content.push({type: 'input_audio', input_audio: {data: wav(pcm).toString('base64'), format: 'wav'}});
             const frames = sees ? await extractFrames(file.path, start, seconds, directory, signal) : [];
             for (const frame of frames) content.push({type: 'image_url', image_url: {url: `data:image/jpeg;base64,${frame}`}});
-            // The video can end before the sound does.
-            if (content.length === 0) continue;
-            content.push({type: 'text', text: buildPrompt({speech: hears ? options.speech : null,
-                visual_cues: frames.length > 0 ? options.visual_cues : null, frames: frames.length, previous})});
-            const text = await ai.chat(settings, [{role: 'system', content: SYSTEM_PROMPT}, {role: 'user', content}],
-                {signal, temperature: style === 'novel' ? 0.7 : 0.2});
+            let text = words ?? '';
+            // With no sound or frames for the model, Whisper's words stand when they are to be
+            // kept exactly, or when there are none to write from.
+            if (content.length === 0 && (!transcribes || options.speech === 'exact' || !words)) {
+                // The video can end before the sound does.
+                if (!transcribes) continue;
+            } else {
+                content.push({type: 'text', text: buildPrompt({speech: hears ? options.speech : null, words,
+                    visual_cues: frames.length > 0 ? options.visual_cues : null, frames: frames.length, previous})});
+                text = await ai.chat(settings, [{role: 'system', content: SYSTEM_PROMPT}, {role: 'user', content}],
+                    {signal, temperature: style === 'novel' ? 0.7 : 0.2});
+            }
             length += text.length + 2;
             if (length > MAX_TEXT_LENGTH) throw new Error('The transcript exceeds the storage limit.');
             segments.push({start, end: start + seconds, text});
@@ -270,9 +334,19 @@ async function run() {
     ai.validateSettings(settings);
     const task = await db.getRecord('tasks', {key: TASK_KEY});
     const options = readOptions(task?.options);
-    if (!settings.model?.trim()) throw new Error('Choose a model in Settings → Advanced → Local AI before running Auto-transcribe.');
-    if (settings.audio !== true && !(settings.vision === true && options.visual_cues !== 'off')) {
-        throw new Error('Auto-transcribe has nothing to send the model. Turn on Audio for it in Settings → Advanced, or Vision there and Visual cues in this task\'s options.');
+    const listening = Boolean(settings.whisper_url?.trim());
+    const cues = settings.vision === true && options.visual_cues !== 'off';
+    // Whisper on its own writes Exact transcripts. Anything else needs the model.
+    if ((!listening || options.speech !== 'exact' || cues) && !settings.model?.trim()) {
+        throw new Error(listening
+            ? 'Choose a model in Settings → Advanced → Local AI to write in this style, or choose Exact in this task\'s options to keep what Whisper writes down.'
+            : 'Choose a model in Settings → Advanced → Local AI before running Auto-transcribe.');
+    }
+    if (!listening && settings.audio !== true && !cues) {
+        throw new Error('Auto-transcribe has nothing to send the model. Set a Whisper server or turn on Audio for the model in Settings → Advanced, or turn on Vision there and choose Visual cues in this task\'s options.');
+    }
+    if (listening && options.speech === 'descriptive' && settings.audio !== true) {
+        throw new Error('Descriptive also describes sounds that are not words, which Whisper does not write down. Turn on Audio for a model that can hear in Settings → Advanced, or choose another Speech style.');
     }
     const controller = new AbortController();
     // Saving any AI setting stops the old run, including disabling then quickly re-enabling.
@@ -281,6 +355,9 @@ async function run() {
     });
     const result = {transcribed: 0, skipped: 0, failed: 0};
     try {
+        // Asked once a run, so a wrong address fails the run rather than every file, and so a
+        // transcript records which model wrote it down.
+        const whisper = listening ? await ai.describeWhisper(settings, {signal: controller.signal}) : null;
         const files = [...await db.getRecords('files')];
         // Retry failures after untouched files, oldest attempt first, so a bad recording
         // cannot consume every limited run and prevent the rest of the library progressing.
@@ -289,7 +366,7 @@ async function run() {
             if (controller.signal.aborted) break;
             if (result.transcribed + result.failed >= options.limit) break;
             try {
-                result[await transcribeFile(file, settings, options, controller.signal)]++;
+                result[await transcribeFile(file, settings, options, whisper, controller.signal)]++;
                 if (file.transcription_failed_at) await db.updateRecord('files', {uid: file.uid}, {transcription_failed_at: null});
             } catch (error) {
                 if (controller.signal.aborted) break;

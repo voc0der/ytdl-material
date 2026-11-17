@@ -10,7 +10,14 @@ export type DatabaseFile = {
      */
     transcript?: {
         text?: string;
-        model?: string;
+        /**
+         * The model that wrote it, or null when what the Whisper server wrote down is kept as it is.
+         */
+        model?: string | null;
+        /**
+         * What the Whisper server ran when it wrote down what is said, or null when the model heard the audio itself.
+         */
+        whisper_model?: string | null;
         /**
          * How it wrote up speech, or null when it was not given the audio.
          */

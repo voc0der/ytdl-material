@@ -137,7 +137,8 @@
         "model": "",
         "api_key": "",
         "vision": false,
-        "audio": false
+        "audio": false,
+        "whisper_url": ""
       }
     }
   }

@@ -107,6 +107,9 @@ describe('VideoInfoDialogComponent', () => {
     expect(shown({audio_style: null, vision_style: 'exact'})[0]).toBe('transcribeDescription');
     expect(shown({audio_style: null, vision_style: 'novel'})[0]).toBe('transcribeStory');
     expect(shown({})[1]).toBe('Written by local AI, which can make mistakes.');
+    expect(shown({model: null, whisper_model: 'faster-whisper small-int8', audio_style: 'exact'})).toEqual(['transcribeTranscript', 'Written by faster-whisper small-int8, which can make mistakes.']);
+    expect(shown({model: 'gemma', whisper_model: 'faster-whisper small-int8', audio_style: 'brief'})[1])
+      .toBe('Heard by faster-whisper small-int8 and written by gemma. Both can make mistakes.');
   });
 
   it('should create', () => {
