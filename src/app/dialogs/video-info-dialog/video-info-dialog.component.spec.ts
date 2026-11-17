@@ -92,6 +92,23 @@ describe('VideoInfoDialogComponent', () => {
     expect(transcript.querySelector('img')).toBeNull();
   });
 
+  it('names what the model wrote by how it was asked to write it, and which model wrote it', () => {
+    const shown = (transcript: typeof component.file.transcript) => {
+      component.file.transcript = {text: 'Words.', ...transcript};
+      fixture.detectChanges();
+      const section = fixture.nativeElement.querySelector('.transcript-text').closest('section');
+      return [section.querySelector('h3').textContent.trim(), section.querySelector('.dialog-hint').textContent.trim()];
+    };
+    expect(shown({model: 'gemma', audio_style: 'exact', vision_style: 'off'})).toEqual(['transcribeTranscript', 'Written by gemma, which can make mistakes.']);
+    expect(shown({audio_style: 'brief'})[0]).toBe('transcribeSummary');
+    expect(shown({audio_style: 'detailed', vision_style: 'novel'})[0]).toBe('transcribeNotes');
+    expect(shown({audio_style: 'novel'})[0]).toBe('transcribeStory');
+    expect(shown({audio_style: 'descriptive'})[0]).toBe('transcribeTranscript');
+    expect(shown({audio_style: null, vision_style: 'exact'})[0]).toBe('transcribeDescription');
+    expect(shown({audio_style: null, vision_style: 'novel'})[0]).toBe('transcribeStory');
+    expect(shown({})[1]).toBe('Written by local AI, which can make mistakes.');
+  });
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });

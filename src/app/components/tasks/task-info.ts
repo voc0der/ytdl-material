@@ -24,7 +24,7 @@ export const TASK_ICONS: { [key in TaskType]?: string } = {
 };
 
 const TASK_DESCRIPTIONS: { [key in TaskType]?: string } = {
-  [TaskType.AUTO_TRANSCRIBE]: $localize`Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.`,
+  [TaskType.AUTO_TRANSCRIBE]: $localize`Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.`,
   [TaskType.BACKUP_LOCAL_DB]: $localize`Writes a copy of the database to appdata/db_backup, which is what Restore reads back.`,
   [TaskType.MISSING_FILES_CHECK]: $localize`Finds files the database still lists that are no longer on disk.`,
   [TaskType.MISSING_DB_RECORDS]: $localize`Finds media on disk that the database has no record of, and imports it.`,

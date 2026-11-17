@@ -21,9 +21,6 @@
         <source>Successfully created playlist!</source>
         <target state="translated">正常にプレイリストが作成されました！</target>
       </trans-unit>
-      <trans-unit id="3994376439814748860" datatype="html">
-        <source>Speech recognition</source>
-      </trans-unit>
       <trans-unit id="200099763629573204" datatype="html">
         <source>Select the cast button again to pick a device.</source>
         <target state="translated">もう一度キャストボタンを選んでデバイスを選択してください。</target>
@@ -130,6 +127,10 @@
         <target state="translated">ダウンローダー自身のオプションに加えて渡される内容です。</target>
         <note priority="1" from="description">Modify args subtitle</note>
       </trans-unit>
+      <trans-unit id="8104421162933956065" datatype="html">
+        <source>Notes</source>
+        <target state="translated">メモ</target>
+      </trans-unit>
       <trans-unit id="810879770523945825" datatype="html">
         <source>No subscriptions yet</source>
         <target state="translated">サブスクリプションはまだありません</target>
@@ -143,6 +144,11 @@
         <source>More options</source>
         <target state="translated">その他のオプション</target>
         <note priority="1" from="description">Toolbar overflow menu label</note>
+      </trans-unit>
+      <trans-unit id="813263746069473514" datatype="html">
+        <source>Connect</source>
+        <target state="translated">接続</target>
+        <note priority="1" from="description">Connect to the AI server button</note>
       </trans-unit>
       <trans-unit id="8148278165104804951" datatype="html">
         <source>Keeps one copy of <x id="duplicate title" equiv-text="title"/> and deletes the other <x id="duplicate count" equiv-text="count"/> from disk. Remove newest keeps the first download (<x id="oldest date" equiv-text="oldest"/>). Remove oldest keeps the latest one (<x id="newest date" equiv-text="newest"/>).</source>
@@ -192,9 +198,6 @@
       <trans-unit id="8234307238313675888" datatype="html">
         <source>Failed to clear download! See server logs for more info.</source>
         <target state="translated">ダウンロードを消去できませんでした。詳しくはサーバーのログを確認してください。</target>
-      </trans-unit>
-      <trans-unit id="8253769692007111005" datatype="html">
-        <source>Could not connect to the local AI server.</source>
       </trans-unit>
       <trans-unit id="8253784007450387353" datatype="html">
         <source>Channel or playlist link</source>
@@ -292,9 +295,6 @@
         <target state="translated">検索結果をプレイリストとしてダウンロード</target>
         <note priority="1" from="description">Main download button option for channel search playlist</note>
       </trans-unit>
-      <trans-unit id="7775999787835593038" datatype="html">
-        <source>Test AI connection</source>
-      </trans-unit>
       <trans-unit id="7788789394151316565" datatype="html">
         <source>Oldest first</source>
         <target state="translated">古い順</target>
@@ -313,9 +313,6 @@
         <source>You are browsing <x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/>&apos;s library. You can watch anything in it, but not change it.</source>
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{postsService.viewed_library.name}}"/> さんのライブラリを閲覧しています。中のものは何でも視聴できますが、変更はできません。</target>
         <note priority="1" from="description">Viewing a shared library hint</note>
-      </trans-unit>
-      <trans-unit id="8381481668809947175" datatype="html">
-        <source>AI server</source>
       </trans-unit>
       <trans-unit id="8384225360105280028" datatype="html">
         <source>Complete</source>
@@ -372,6 +369,7 @@
       </trans-unit>
       <trans-unit id="3041352556427960064" datatype="html">
         <source>Files per run</source>
+        <target state="translated">1 回の実行あたりのファイル数</target>
       </trans-unit>
       <trans-unit id="3050605769225764399" datatype="html">
         <source>Schedule &amp; options</source>
@@ -489,6 +487,7 @@
       </trans-unit>
       <trans-unit id="3211508814722120515" datatype="html">
         <source>API key (optional)</source>
+        <target state="translated">API キー（任意）</target>
       </trans-unit>
       <trans-unit id="3218672403913933699" datatype="html">
         <source>The last refresh did not find any new videos to download.</source>
@@ -727,6 +726,7 @@
       </trans-unit>
       <trans-unit id="5847422406693848816" datatype="html">
         <source>Local AI</source>
+        <target state="translated">ローカル AI</target>
       </trans-unit>
       <trans-unit id="5851560788527570644" datatype="html">
         <source>Notifications</source>
@@ -810,6 +810,10 @@
         <target state="translated">引数を編集</target>
         <note priority="1" from="description">Edit args button</note>
       </trans-unit>
+      <trans-unit id="5245657366616111982" datatype="html">
+        <source>Story</source>
+        <target state="translated">物語</target>
+      </trans-unit>
       <trans-unit id="5245678833271110050" datatype="html">
         <source>Add to playlist</source>
         <target state="translated">プレイリストに追加</target>
@@ -829,6 +833,10 @@
         <source>Uploading new cookies replaces the old ones, for everyone.</source>
         <target state="translated">新しい Cookie をアップロードすると、全員分の古い Cookie が置き換えられます。</target>
         <note priority="1" from="description">Cookies upload warning</note>
+      </trans-unit>
+      <trans-unit id="5251960374481252687" datatype="html">
+        <source>Also sends the model a few frames from every half minute, and adds what they show.</source>
+        <target state="translated">30 秒ごとに数枚のフレームもモデルに送り、そこに映るものを書き加えます。</target>
       </trans-unit>
       <trans-unit id="5260577932366416526" datatype="html">
         <source>Copy video URL at <x id="INTERPOLATION" equiv-text="{{formatTime(context_time)}}"/></source>
@@ -935,9 +943,6 @@
       <trans-unit id="5455412917858424413" datatype="html">
         <source>This file can&apos;t be cast.</source>
         <target state="translated">このファイルはキャストできません。</target>
-      </trans-unit>
-      <trans-unit id="5456411039311005292" datatype="html">
-        <source>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</source>
       </trans-unit>
       <trans-unit id="5456775416888155476" datatype="html">
         <source>Failed to resume download! See server logs for more info.</source>
@@ -1093,6 +1098,7 @@
       </trans-unit>
       <trans-unit id="5799220820325966085" datatype="html">
         <source>Could not save settings.</source>
+        <target state="translated">設定を保存できませんでした。</target>
       </trans-unit>
       <trans-unit id="4522839814630934482" datatype="html">
         <source>Paste a link above to get started. Everything you and your subscriptions download ends up here.</source>
@@ -1116,9 +1122,6 @@
         <source>Users</source>
         <target state="translated">ユーザー</target>
         <note priority="1" from="description">Settings users section</note>
-      </trans-unit>
-      <trans-unit id="4557543465555419049" datatype="html">
-        <source>Speech server URL</source>
       </trans-unit>
       <trans-unit id="4558137277814663794" datatype="html">
         <source>Follow a channel or a playlist and its new uploads download on their own.</source>
@@ -1351,6 +1354,12 @@
         <target state="translated">この設定を有効にすると、動画が 1 本でもカテゴリに一致すれば、プレイリスト全体がそのカテゴリになります。</target>
         <note priority="1" from="description">Allow playlist categorization setting tooltip</note>
       </trans-unit>
+      <trans-unit id="3830666137663267696" datatype="html">
+        <source>Off</source>
+        <target state="translated">オフ</target>
+        <note priority="1" from="description">No visual cues are added</note>
+        <note priority="1" from="meaning">Visual cues setting</note>
+      </trans-unit>
       <trans-unit id="383181061702648553" datatype="html">
         <source>Queued</source>
         <target state="translated">キュー済み</target>
@@ -1401,6 +1410,11 @@
       </trans-unit>
       <trans-unit id="1000762815409704864" datatype="html">
         <source>Transcript</source>
+        <target state="translated">文字起こし</target>
+      </trans-unit>
+      <trans-unit id="100438009373446159" datatype="html">
+        <source>Speech</source>
+        <target state="translated">音声</target>
       </trans-unit>
       <trans-unit id="1014075402717090995" datatype="html">
         <source>Add arg</source>
@@ -1477,11 +1491,16 @@
       </trans-unit>
       <trans-unit id="1141886420788473147" datatype="html">
         <source>Model</source>
+        <target state="translated">モデル</target>
       </trans-unit>
       <trans-unit id="1144407473317535723" datatype="html">
         <source>Subscribe</source>
         <target state="translated">登録</target>
         <note priority="1" from="description">Subscribe button</note>
+      </trans-unit>
+      <trans-unit id="1161846231647163951" datatype="html">
+        <source>Novel</source>
+        <target state="translated">小説風</target>
       </trans-unit>
       <trans-unit id="117068237894470695" datatype="html">
         <source>More actions</source>
@@ -1534,12 +1553,6 @@
         <target state="translated">重複を確認できませんでした</target>
         <note priority="1" from="description">Duplicates failed to load title</note>
       </trans-unit>
-      <trans-unit id="8784643385015737262" datatype="html">
-        <source>Speech API key (optional)</source>
-      </trans-unit>
-      <trans-unit id="8785594097937561888" datatype="html">
-        <source>Language (blank for automatic)</source>
-      </trans-unit>
       <trans-unit id="8798932904948432529" datatype="html">
         <source>Wednesday</source>
         <target state="translated">水曜日</target>
@@ -1552,6 +1565,10 @@
       <trans-unit id="222445758463066517" datatype="html">
         <source>Delete playlist files</source>
         <target state="translated">プレイリストのファイルを削除</target>
+      </trans-unit>
+      <trans-unit id="2225477084354009475" datatype="html">
+        <source>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</source>
+        <target state="translated">モデルが画像を見られる場合にオンにします。Auto-transcribe の視覚的な手がかりはフレームを送るため、見られないモデルでは失敗します。</target>
       </trans-unit>
       <trans-unit id="223627784289287792" datatype="html">
         <source>Value on this request</source>
@@ -1683,9 +1700,6 @@
         <source>Files you download show up here, ready to go in a playlist.</source>
         <target state="translated">ダウンロードしたファイルがここに表示され、プレイリストに入れられます。</target>
         <note priority="1" from="description">No playlist files text</note>
-      </trans-unit>
-      <trans-unit id="4509540400670266782" datatype="html">
-        <source>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</source>
       </trans-unit>
       <trans-unit id="451465738669593469" datatype="html">
         <source>The day it runs, once.</source>
@@ -1832,6 +1846,10 @@
         <source>Could not revoke that token.</source>
         <target state="translated">そのトークンを取り消せませんでした。</target>
       </trans-unit>
+      <trans-unit id="4739818603756173797" datatype="html">
+        <source>Summary</source>
+        <target state="translated">要約</target>
+      </trans-unit>
       <trans-unit id="4744991787069301975" datatype="html">
         <source>Share files</source>
         <target state="translated">共有ファイル</target>
@@ -1879,6 +1897,10 @@
         <source>Smallest first</source>
         <target state="translated">小さい順</target>
         <note priority="1" from="description">Sort order, smallest first</note>
+      </trans-unit>
+      <trans-unit id="4828235027266194419" datatype="html">
+        <source>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app&apos;s own container.</source>
+        <target state="translated">llama.cpp、llama-swap、Ollama など、ループバックまたはプライベートネットワークのアドレスにある OpenAI 互換サーバー。Docker では、localhost はアプリ自身のコンテナーを指します。</target>
       </trans-unit>
       <trans-unit id="4832056586737439470" datatype="html">
         <source>Example:</source>
@@ -1937,9 +1959,6 @@
         <source>Skip join-only videos</source>
         <target state="translated">メンバー限定の動画をスキップ</target>
         <note priority="1" from="description">Skip join-only videos setting</note>
-      </trans-unit>
-      <trans-unit id="5021420569147183336" datatype="html">
-        <source>Speech model (optional)</source>
       </trans-unit>
       <trans-unit id="5024927217479784399" datatype="html">
         <source>More subscription options</source>
@@ -2028,6 +2047,11 @@
         <source>Downloading</source>
         <target state="translated">ダウンロード中</target>
       </trans-unit>
+      <trans-unit id="5108776964165215943" datatype="html">
+        <source>{VAR_PLURAL, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs <x id="INTERPOLATION"/> models.}}</source>
+        <target state="translated">{VAR_PLURAL, plural, =0 {このサーバーではモデルが動いていません。} =1 {このサーバーでは 1 個のモデルが動いています。} other {このサーバーでは <x id="INTERPOLATION"/> 個のモデルが動いています。}}</target>
+        <note priority="1" from="description">AI server model count</note>
+      </trans-unit>
       <trans-unit id="512547681740720854" datatype="html">
         <source>to download the official ytdl-material Chrome extension manually.</source>
         <target state="translated">公式の ytdl-material Chrome 拡張機能を手動でダウンロードできます。</target>
@@ -2050,6 +2074,10 @@
       <trans-unit id="5154991839000495911" datatype="html">
         <source>Group claim</source>
         <target state="translated">グループクレーム</target>
+      </trans-unit>
+      <trans-unit id="5168373211109609221" datatype="html">
+        <source>Woven in as scenery</source>
+        <target state="translated">情景として織り込む</target>
       </trans-unit>
       <trans-unit id="5172183930114489440" datatype="html">
         <source>Force autoplay</source>
@@ -2104,6 +2132,10 @@
         <target state="translated">ユーザー UID</target>
         <note priority="1" from="description">User UID</note>
       </trans-unit>
+      <trans-unit id="3414193149881749318" datatype="html">
+        <source>Looking for models…</source>
+        <target state="translated">モデルを探しています…</target>
+      </trans-unit>
       <trans-unit id="3422072459966537394" datatype="html">
         <source>Nothing here yet</source>
         <target state="translated">まだ何もありません</target>
@@ -2123,9 +2155,6 @@
         <target state="translated">プレイリストを作成</target>
         <note priority="1" from="description">Create first playlist button</note>
       </trans-unit>
-      <trans-unit id="3442502711356265569" datatype="html">
-        <source>Generated by local AI. Transcription may contain mistakes.</source>
-      </trans-unit>
       <trans-unit id="4043049091728011235" datatype="html">
         <source>Cancelled</source>
         <target state="translated">キャンセル済み</target>
@@ -2143,9 +2172,6 @@
         <source>Delete success!</source>
         <target state="translated">削除成功！</target>
       </trans-unit>
-      <trans-unit id="4055972091126124019" datatype="html">
-        <source>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</source>
-      </trans-unit>
       <trans-unit id="4076653141869059729" datatype="html">
         <source>Open file in new tab</source>
         <target state="translated">ファイルを新しいタブで開く</target>
@@ -2154,9 +2180,6 @@
       <trans-unit id="4078464740149713941" datatype="html">
         <source>Register users on first sign-in</source>
         <target state="translated">初回サインイン時にユーザーを登録</target>
-      </trans-unit>
-      <trans-unit id="4088179347012665225" datatype="html">
-        <source>AI server URL</source>
       </trans-unit>
       <trans-unit id="4088802997354529592" datatype="html">
         <source>Full screen</source>
@@ -2360,6 +2383,10 @@
         <source>Check didn&apos;t finish</source>
         <target state="translated">確認が完了しませんでした</target>
       </trans-unit>
+      <trans-unit id="2127015463078975766" datatype="html">
+        <source>What helps follow along</source>
+        <target state="translated">内容を追う助けになるもの</target>
+      </trans-unit>
       <trans-unit id="2128755808672960949" datatype="html">
         <source>User ID</source>
         <target state="translated">ユーザー ID</target>
@@ -2385,6 +2412,14 @@
       <trans-unit id="9121124215111024650" datatype="html">
         <source>Failed to confirm task!</source>
         <target state="translated">タスクの確認に失敗しました!</target>
+      </trans-unit>
+      <trans-unit id="9125170524728601552" datatype="html">
+        <source>How the model writes up what is said.</source>
+        <target state="translated">話された内容をモデルがどう書き起こすか。</target>
+      </trans-unit>
+      <trans-unit id="9133922156289086497" datatype="html">
+        <source>A short summary</source>
+        <target state="translated">短い要約</target>
       </trans-unit>
       <trans-unit id="9144205082232389988" datatype="html">
         <source>Choose how much fits in your library.</source>
@@ -2470,6 +2505,10 @@
         <target state="translated">ドラッグするか矢印キーで並べ替えます</target>
         <note priority="1" from="description">Reorder playlist item hint</note>
       </trans-unit>
+      <trans-unit id="4310170311174325877" datatype="html">
+        <source>Written by <x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/>, which can make mistakes.</source>
+        <target state="translated"><x id="INTERPOLATION" equiv-text="{{file.transcript.model}}"/> が書いたもので、誤りを含むことがあります。</target>
+      </trans-unit>
       <trans-unit id="4323470180912194028" datatype="html">
         <source>Copy</source>
         <target state="translated">コピー</target>
@@ -2511,6 +2550,10 @@
         <source>Leave blank to send an empty title.</source>
         <target state="translated">空のままにするとタイトルなしで送信されます。</target>
         <note priority="1" from="description">Webhook template title hint</note>
+      </trans-unit>
+      <trans-unit id="4363522385567279511" datatype="html">
+        <source>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</source>
+        <target state="translated">自分の AI サーバーを接続します。AI タスクが有効になり、タスクページで実行・スケジュールできます。</target>
       </trans-unit>
       <trans-unit id="4382215328251656896" datatype="html">
         <source>PostgreSQL Connection String</source>
@@ -2671,6 +2714,10 @@
         <target state="translated">ファイルがライブラリに追加されてからの日数です。これを設定するまでは何も削除されません。</target>
         <note priority="1" from="description">Delete files older than hint</note>
       </trans-unit>
+      <trans-unit id="8839519668693296575" datatype="html">
+        <source>Retold as a story</source>
+        <target state="translated">物語として語り直す</target>
+      </trans-unit>
       <trans-unit id="8857281659097048666" datatype="html">
         <source>Remove 1 duplicate</source>
         <target state="translated">1 件の重複を削除</target>
@@ -2763,6 +2810,7 @@
       </trans-unit>
       <trans-unit id="6415232261008820634" datatype="html">
         <source><x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> transcribed · <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> skipped · <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> failed</source>
+        <target state="translated">書き起こし <x id="INTERPOLATION" equiv-text="{{task.result.transcribed}}"/> 件 · スキップ <x id="INTERPOLATION_1" equiv-text="{{task.result.skipped}}"/> 件 · 失敗 <x id="INTERPOLATION_2" equiv-text="{{task.result.failed}}"/> 件</target>
       </trans-unit>
       <trans-unit id="6416752962772772210" datatype="html">
         <source>Bind DN</source>
@@ -2823,10 +2871,18 @@
         <target state="translated">トップのタイトル</target>
         <note priority="1" from="description">Top title</note>
       </trans-unit>
+      <trans-unit id="1979875875295125551" datatype="html">
+        <source>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</source>
+        <target state="translated">モデルが音声を聞ける場合にオンにします。Auto-transcribe は音声を送るため、聞けないモデルでは失敗します。</target>
+      </trans-unit>
       <trans-unit id="1983843925906958355" datatype="html">
         <source>Saves the archive for the chosen subscription and type as a yt-dlp archive file</source>
         <target state="translated">選択したサブスクリプションと種類のアーカイブを yt-dlp のアーカイブファイルとして保存します</target>
         <note priority="1" from="description">Export archive tooltip</note>
+      </trans-unit>
+      <trans-unit id="1984057056639767771" datatype="html">
+        <source>Descriptive</source>
+        <target state="translated">描写的</target>
       </trans-unit>
       <trans-unit id="1991378014841002605" datatype="html">
         <source><x id="count" equiv-text="item_count"/> items</source>
@@ -2837,6 +2893,10 @@
         <source>{VAR_PLURAL, plural, =1 {1 item} other {<x id="INTERPOLATION"/> items}}</source>
         <target state="translated">{VAR_PLURAL, plural, =1 {1 項目} other {<x id="INTERPOLATION"/> 項目}}</target>
         <note priority="1" from="description">Archive item count</note>
+      </trans-unit>
+      <trans-unit id="4902817035128594900" datatype="html">
+        <source>Description</source>
+        <target state="translated">説明</target>
       </trans-unit>
       <trans-unit id="4908491779964774132" datatype="html">
         <source>Puts the audio back in sync in videos where it runs late after a SponsorBlock cut. New downloads are fixed as they finish; this fixes older ones. Nothing is re-encoded.</source>
@@ -2879,6 +2939,10 @@
         <source>Sharing enabled.</source>
         <target state="translated">共有を有効化しました。</target>
       </trans-unit>
+      <trans-unit id="4965547150225047024" datatype="html">
+        <source>Look for models again</source>
+        <target state="translated">もう一度モデルを探す</target>
+      </trans-unit>
       <trans-unit id="4966713925033867254" datatype="html">
         <source>Switch to URL</source>
         <target state="translated">URL に切り替え</target>
@@ -2913,6 +2977,7 @@
       </trans-unit>
       <trans-unit id="2714953633188512356" datatype="html">
         <source>Enable AI integration</source>
+        <target state="translated">AI 連携を有効にする</target>
       </trans-unit>
       <trans-unit id="2720327817780634026" datatype="html">
         <source>Failed to enable sharing.</source>
@@ -3063,9 +3128,6 @@
         <source>Update failed. Check logs for more details.</source>
         <target state="translated">更新に失敗しました。詳細はログを参照。</target>
       </trans-unit>
-      <trans-unit id="2879733215745180962" datatype="html">
-        <source>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</source>
-      </trans-unit>
       <trans-unit id="2881002557487420797" datatype="html">
         <source>Choose what to remove.</source>
         <target state="translated">削除するものを選んでください。</target>
@@ -3090,6 +3152,10 @@
         <target state="translated">ダウンロード元</target>
         <note priority="1" from="description">Playlist source filter label</note>
       </trans-unit>
+      <trans-unit id="2885832839912260075" datatype="html">
+        <source>Exact</source>
+        <target state="translated">正確</target>
+      </trans-unit>
       <trans-unit id="2899765511338334073" datatype="html">
         <source>File creation mask</source>
         <target state="translated">ファイル作成マスク</target>
@@ -3103,6 +3169,10 @@
         <source>Retry failed</source>
         <target state="translated">失敗したものを再試行</target>
         <note priority="1" from="description">Retry failed downloads</note>
+      </trans-unit>
+      <trans-unit id="2917087967127250250" datatype="html">
+        <source>1–1000 files. Failed attempts count toward the limit. Files already done the same way are skipped.</source>
+        <target state="translated">1〜1000 ファイル。失敗した試行も上限に数えます。同じ方法で処理済みのファイルはスキップします。</target>
       </trans-unit>
       <trans-unit id="2934378117270446087" datatype="html">
         <source>Browse Files</source>
@@ -3158,6 +3228,10 @@
         <source>Start at a time</source>
         <target state="translated">指定した時点から開始</target>
         <note priority="1" from="description">Use timestamp</note>
+      </trans-unit>
+      <trans-unit id="8300365790859338390" datatype="html">
+        <source>Detailed</source>
+        <target state="translated">詳しく</target>
       </trans-unit>
       <trans-unit id="8314249599019746316" datatype="html">
         <source>Download failed!</source>
@@ -3441,6 +3515,10 @@
         <source>Chrome users must drag the &apos;Alternate URL&apos; link to your bookmarks.</source>
         <target state="translated">Chromeをお使いの方は、「代替URL」リンクをブックマークにドラッグしてください。</target>
       </trans-unit>
+      <trans-unit id="4604502586548874431" datatype="html">
+        <source>Enter the server&apos;s URL to choose from its models.</source>
+        <target state="translated">サーバーの URL を入力すると、そのモデルから選べます。</target>
+      </trans-unit>
       <trans-unit id="460799937634193265" datatype="html">
         <source>Something went wrong.</source>
         <target state="translated">問題が発生しました。</target>
@@ -3449,6 +3527,10 @@
         <source>Details about this file in a library shared with you. You can look, but not change anything.</source>
         <target state="translated">あなたと共有されたライブラリ内のこのファイルの詳細です。閲覧はできますが、変更はできません。</target>
         <note priority="1" from="description">Media information subtitle for a file in someone else&apos;s library</note>
+      </trans-unit>
+      <trans-unit id="46243493191214447" datatype="html">
+        <source>Connect to list this server&apos;s models. That saves its URL and key.</source>
+        <target state="translated">接続すると、このサーバーのモデルが一覧表示されます。URL とキーも保存されます。</target>
       </trans-unit>
       <trans-unit id="4630864631749156494" datatype="html">
         <source>Download jobs are queued, and <x id="skipped count" equiv-text="this.getSkippedCount(refresh_status)"/> were skipped because they are unavailable or members-only. New files will appear here as each download completes.</source>
@@ -3550,6 +3632,10 @@
         <source>Playlist download cancelled.</source>
         <target state="translated">プレイリストのダウンロードをキャンセルしました。</target>
       </trans-unit>
+      <trans-unit id="6223166203117111958" datatype="html">
+        <source>Written by local AI, which can make mistakes.</source>
+        <target state="translated">ローカル AI が書いたもので、誤りを含むことがあります。</target>
+      </trans-unit>
       <trans-unit id="6223900216496903957" datatype="html">
         <source>JavaScript runtimes</source>
         <target state="translated">JavaScript ランタイム</target>
@@ -3650,9 +3736,6 @@
         <source>Default</source>
         <target state="translated">既定</target>
         <note priority="1" from="description">Default custom file output placeholder</note>
-      </trans-unit>
-      <trans-unit id="56128022633377229" datatype="html">
-        <source>Connected to the configured local model.</source>
       </trans-unit>
       <trans-unit id="561362724688986720" datatype="html">
         <source>Couldn&apos;t load your files</source>
@@ -3940,6 +4023,10 @@
         <target state="translated">引数の値</target>
         <note priority="1" from="description">Arg value</note>
       </trans-unit>
+      <trans-unit id="9097851943136080403" datatype="html">
+        <source>Could not reach the AI server.</source>
+        <target state="translated">AI サーバーに接続できませんでした。</target>
+      </trans-unit>
       <trans-unit id="8456659390937171831" datatype="html">
         <source>Show error</source>
         <target state="translated">エラーを表示</target>
@@ -3953,9 +4040,6 @@
         <source>Show</source>
         <target state="translated">表示</target>
         <note priority="1" from="description">Subscription type filter label</note>
-      </trans-unit>
-      <trans-unit id="8468524500656821404" datatype="html">
-        <source>Transcribes library audio and video with your local speech server. Saves transcripts in metadata sidecars and skips files already transcribed.</source>
       </trans-unit>
       <trans-unit id="8473179749546646244" datatype="html">
         <source>Edit playlist</source>
@@ -3979,6 +4063,10 @@
         <source>Telegram webhook proxy</source>
         <target state="translated">Telegram Webhook プロキシ</target>
         <note priority="1" from="description">Telegram webhook proxy</note>
+      </trans-unit>
+      <trans-unit id="6439639233310162029" datatype="html">
+        <source>Word for word</source>
+        <target state="translated">一語一句</target>
       </trans-unit>
       <trans-unit id="6451124054666895206" datatype="html">
         <source>Generate feed token</source>
@@ -4026,6 +4114,10 @@
       <trans-unit id="6256212616798424840" datatype="html">
         <source>PostgreSQL to MongoDB on startup</source>
         <target state="translated">起動時に PostgreSQL から MongoDB へ</target>
+      </trans-unit>
+      <trans-unit id="6260690087121421322" datatype="html">
+        <source>Words and other sounds</source>
+        <target state="translated">言葉とその他の音</target>
       </trans-unit>
       <trans-unit id="6263133199970006" datatype="html">
         <source>The app is scanning this channel before it creates download jobs. Files will appear here after queued downloads finish.</source>
@@ -4085,6 +4177,10 @@
         <target state="translated">別の検索を試すか、フィルターをオフにしてください。</target>
         <note priority="1" from="description">No matching files text</note>
       </trans-unit>
+      <trans-unit id="5919647210770023072" datatype="html">
+        <source>People, places and mood</source>
+        <target state="translated">人物、場所、雰囲気</target>
+      </trans-unit>
       <trans-unit id="592174589413634677" datatype="html">
         <source>The refresh finished successfully.</source>
         <target state="translated">更新が正常に完了しました。</target>
@@ -4092,6 +4188,10 @@
       <trans-unit id="5947241266456580665" datatype="html">
         <source>Download failed</source>
         <target state="translated">ダウンロードに失敗</target>
+      </trans-unit>
+      <trans-unit id="5975532227999286857" datatype="html">
+        <source>Server URL</source>
+        <target state="translated">サーバー URL</target>
       </trans-unit>
       <trans-unit id="5982496808088686844" datatype="html">
         <source>Medium</source>
@@ -4292,12 +4392,13 @@
         <source>This video</source>
         <target state="translated">この動画</target>
       </trans-unit>
-      <trans-unit id="7410307802499733353" datatype="html">
-        <source>Save settings before testing. This checks the configured model without generating content.</source>
-      </trans-unit>
       <trans-unit id="7410432243549869948" datatype="html">
         <source>Duration</source>
         <target state="translated">長さ</target>
+      </trans-unit>
+      <trans-unit id="7417684059872083389" datatype="html">
+        <source>Notes on every point</source>
+        <target state="translated">要点ごとのメモ</target>
       </trans-unit>
       <trans-unit id="7419412790104674886" datatype="html">
         <source>Extra</source>
@@ -4557,6 +4658,10 @@
         <source>Shadow (read only)</source>
         <target state="translated">シャドウ（閲覧のみ）</target>
       </trans-unit>
+      <trans-unit id="795368655998273997" datatype="html">
+        <source>Turn on Audio for the model in Settings → Advanced to use this.</source>
+        <target state="translated">使うには、設定 → 詳細 でモデルの聴覚をオンにしてください。</target>
+      </trans-unit>
       <trans-unit id="796177494790075618" datatype="html">
         <source>Create snip</source>
         <target state="translated">切り抜きを作成</target>
@@ -4803,6 +4908,12 @@
         <target state="translated">サーバーを実行しているユーザー、つまり書き込んだファイルの所有者です。環境変数で設定します。変更は設定した場所で行ってください。</target>
         <note priority="1" from="description">Settings permissions hint</note>
       </trans-unit>
+      <trans-unit id="8420117768607305292" datatype="html">
+        <source>Audio</source>
+        <target state="translated">聴覚</target>
+        <note priority="1" from="description">Whether the model can hear sound</note>
+        <note priority="1" from="meaning">AI model capability</note>
+      </trans-unit>
       <trans-unit id="8422875188929347819" datatype="html">
         <source>Sharing</source>
         <target state="translated">共有</target>
@@ -4903,6 +5014,10 @@
         <target state="translated">GPU を使って切り抜きなどの動画処理を高速化します。GPU をコンテナーにパススルーする必要があります。</target>
         <note priority="1" from="description">Hardware acceleration setting hint</note>
       </trans-unit>
+      <trans-unit id="1666969499918836654" datatype="html">
+        <source>On-screen text, stated plainly</source>
+        <target state="translated">画面上の文字を、そのまま記述</target>
+      </trans-unit>
       <trans-unit id="1667457027839249429" datatype="html">
         <source>to continue to <x id="INTERPOLATION" equiv-text="{{appTitle}}"/></source>
         <target state="translated"><x id="INTERPOLATION" equiv-text="{{appTitle}}"/> に進むには</target>
@@ -4916,6 +5031,16 @@
         <source>Create admin account</source>
         <target state="translated">管理者アカウントを作成</target>
         <note priority="1" from="description">Create admin account dialog title</note>
+      </trans-unit>
+      <trans-unit id="1680505653363144314" datatype="html">
+        <source>Brief</source>
+        <target state="translated">簡潔</target>
+      </trans-unit>
+      <trans-unit id="16805340547729444" datatype="html">
+        <source>Vision</source>
+        <target state="translated">視覚</target>
+        <note priority="1" from="description">Whether the model can see images</note>
+        <note priority="1" from="meaning">AI model capability</note>
       </trans-unit>
       <trans-unit id="1682389786131106440" datatype="html">
         <source> This came from the video itself, <x id="INTERPOLATION" equiv-text="{{frame_seconds_used}}"/> seconds in. </source>
@@ -4990,6 +5115,10 @@
         <source>This item is removed from your archive, so it can be downloaded again.</source>
         <target state="translated">この項目はアーカイブから削除され、再びダウンロードできるようになります。</target>
       </trans-unit>
+      <trans-unit id="2453748468973386437" datatype="html">
+        <source>Only what matters most</source>
+        <target state="translated">最も大事なことだけ</target>
+      </trans-unit>
       <trans-unit id="2454050363478003966" datatype="html">
         <source>Login</source>
         <target state="translated">ログイン</target>
@@ -5022,6 +5151,10 @@
         <source>Download as zip</source>
         <target state="translated">zip でダウンロード</target>
         <note priority="1" from="description">Download subscription zip menu item</note>
+      </trans-unit>
+      <trans-unit id="7330418888628626932" datatype="html">
+        <source>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</source>
+        <target state="translated">タスク で Auto-transcribe を実行またはスケジュールし、書き方もそこで選びます。メディアはこのサーバーに送られ、モデルが書いた内容はメディアの隣に保存されます。AI を無効にすると実行中の処理は止まり、完了した分は残ります。</target>
       </trans-unit>
       <trans-unit id="7332320960988475089" datatype="html">
         <source>Successfully deleted <x id="category name" equiv-text="category[&apos;name&apos;]"/>!</source>
@@ -5064,6 +5197,10 @@
       <trans-unit id="7364207692385658584" datatype="html">
         <source>Getting the file ready to cast</source>
         <target state="translated">キャスト用にファイルを準備中</target>
+      </trans-unit>
+      <trans-unit id="7371200029918709154" datatype="html">
+        <source>Visual cues</source>
+        <target state="translated">視覚的な手がかり</target>
       </trans-unit>
       <trans-unit id="7374761165000102313" datatype="html">
         <source>Every 6 hours</source>
@@ -5315,9 +5452,6 @@
         <target state="translated">プレビュー</target>
         <note priority="1" from="description">Preview snip button</note>
       </trans-unit>
-      <trans-unit id="1315089505120660725" datatype="html">
-        <source>1–1000 files. Failed attempts count toward the limit. Existing transcripts are kept.</source>
-      </trans-unit>
       <trans-unit id="1317814792060529621" datatype="html">
         <source>Migration</source>
         <target state="translated">移行</target>
@@ -5392,6 +5526,10 @@
         <source>These overrides apply within the selected shadow access level. Read only always prevents library changes. Shadow access never grants account or server administration.</source>
         <target state="translated">これらの個別設定は、選択したシャドウアクセスのレベルの範囲内で適用されます。閲覧のみではライブラリを変更できません。シャドウアクセスでアカウントやサーバーの管理権限が付与されることはありません。</target>
         <note priority="1" from="description">Shadow permission overrides hint</note>
+      </trans-unit>
+      <trans-unit id="1422986258300082934" datatype="html">
+        <source>Has your AI model write up library audio and video in the style set in its options, with what is on screen when Vision is on. Saves it beside the media, and skips files already done the same way.</source>
+        <target state="translated">AI モデルに、ライブラリの音声と動画をオプションで選んだスタイルで書き起こさせ、視覚がオンなら画面に映るものも添えさせます。結果はメディアの隣に保存し、同じ方法で処理済みのファイルはスキップします。</target>
       </trans-unit>
       <trans-unit id="1423977810144340665" datatype="html">
         <source>Show every copy</source>
@@ -5477,6 +5615,10 @@
         <source>UID</source>
         <target state="translated">UID</target>
         <note priority="1" from="description">UID</note>
+      </trans-unit>
+      <trans-unit id="1483248452038246966" datatype="html">
+        <source>The chosen model is not on this server.</source>
+        <target state="translated">選択したモデルはこのサーバーにありません。</target>
       </trans-unit>
       <trans-unit id="1494518490116523821" datatype="html">
         <source>Select all</source>

@@ -95,6 +95,23 @@ describe('Config', async function() {
         assert(!('API_key' in api_config));
     });
 
+    it('Strips the separate speech server a development build had on initialize, keeping the AI server, model and key', async function() {
+        const config_json = config_api.getConfigFile();
+        config_json['YtdlMaterial']['Advanced']['ai'] = {
+            enabled: true, provider: 'llamacpp', base_url: 'http://192.168.1.10:8080/v1', model: 'gemma', api_key: 'kept-key',
+            transcription_provider: 'whispercpp', transcription_url: 'http://192.168.1.10:8081', transcription_model: 'base',
+            transcription_api_key: 'retired-speech-key', language: 'en'
+        };
+        config_api.setConfigFile(config_json);
+
+        config_api.initialize();
+
+        const ai_config = config_api.getConfigFile()['YtdlMaterial']['Advanced']['ai'];
+        assert.deepStrictEqual(ai_config, {
+            enabled: true, base_url: 'http://192.168.1.10:8080/v1', model: 'gemma', api_key: 'kept-key', vision: false, audio: false
+        });
+    });
+
     it('Strips the retired fresh upload redownload setting on initialize, and says nothing changes', async function() {
         const logger = require('../logger');
         const original_warn = logger.warn;

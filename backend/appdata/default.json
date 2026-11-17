@@ -133,15 +133,11 @@
       "ytdlp_update_channel": "stable",
       "ai": {
         "enabled": false,
-        "provider": "ollama",
-        "base_url": "http://127.0.0.1:11434",
+        "base_url": "",
         "model": "",
         "api_key": "",
-        "transcription_provider": "disabled",
-        "transcription_url": "http://127.0.0.1:8081",
-        "transcription_model": "",
-        "transcription_api_key": "",
-        "language": ""
+        "vision": false,
+        "audio": false
       }
     }
   }

@@ -49,6 +49,24 @@ const WEEKDAY_NAMES = [
  * When a task runs and how it behaves, on the task's own card rather than in a dialog. It
  * opens on what the task has now, and Save writes back only what was changed and closes.
  */
+// How Auto-transcribe writes up what the model hears and sees, in the task's options.
+const SPEECH_OPTIONS: PickerOption<string>[] = [
+  {value: 'exact', label: $localize`Exact`, detail: $localize`Word for word`},
+  {value: 'brief', label: $localize`Brief`, detail: $localize`A short summary`},
+  {value: 'detailed', label: $localize`Detailed`, detail: $localize`Notes on every point`},
+  {value: 'descriptive', label: $localize`Descriptive`, detail: $localize`Words and other sounds`},
+  {value: 'novel', label: $localize`Novel`, detail: $localize`Retold as a story`}
+];
+
+const VISUAL_CUE_OPTIONS: PickerOption<string>[] = [
+  {value: 'off', label: $localize`:Visual cues setting|No visual cues are added:Off`},
+  {value: 'exact', label: $localize`Exact`, detail: $localize`On-screen text, stated plainly`},
+  {value: 'brief', label: $localize`Brief`, detail: $localize`Only what matters most`},
+  {value: 'detailed', label: $localize`Detailed`, detail: $localize`What helps follow along`},
+  {value: 'descriptive', label: $localize`Descriptive`, detail: $localize`People, places and mood`},
+  {value: 'novel', label: $localize`Novel`, detail: $localize`Woven in as scenery`}
+];
+
 @Component({
   selector: 'app-task-settings',
   templateUrl: './task-settings.component.html',
@@ -67,6 +85,10 @@ export class TaskSettingsComponent implements OnChanges {
   readonly repeatLabel = $localize`Repeat`;
   readonly timeLabel = $localize`Time`;
   readonly dateLabel = $localize`Date`;
+  readonly speechLabel = $localize`Speech`;
+  readonly visualCuesLabel = $localize`Visual cues`;
+  readonly speechOptions = SPEECH_OPTIONS;
+  readonly visualCueOptions = VISUAL_CUE_OPTIONS;
 
   repeat: RepeatChoice = 'off';
   days_of_week: number[] = [];
@@ -114,6 +136,15 @@ export class TaskSettingsComponent implements OnChanges {
 
   get hasTranscriptionOptions(): boolean {
     return this.task?.key === TaskType.AUTO_TRANSCRIBE;
+  }
+
+  // What the saved settings say the model can do. Visual cues are only offered when it can see.
+  get audioEnabled(): boolean {
+    return this.postsService.config?.Advanced?.ai?.audio === true;
+  }
+
+  get visionEnabled(): boolean {
+    return this.postsService.config?.Advanced?.ai?.vision === true;
   }
 
   get transcriptionLimitInvalid(): boolean {

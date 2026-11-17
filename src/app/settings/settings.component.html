@@ -931,65 +931,72 @@
               <div class="settings-row">
                 <span class="settings-row-text">
                   <span class="settings-row-title" id="settings-ai-enabled" i18n>Enable AI integration</span>
-                  <span class="settings-row-hint" i18n>Connect your own local servers. Enables AI tasks; schedules are set on the Tasks page.</span>
+                  <span class="settings-row-hint" i18n>Connect your own AI server. Enables AI tasks, which run and are scheduled on the Tasks page.</span>
                 </span>
-                <mat-slide-toggle [(ngModel)]="new_config.Advanced.ai.enabled" aria-labelledby="settings-ai-enabled"></mat-slide-toggle>
+                <mat-slide-toggle [ngModel]="new_config.Advanced.ai.enabled" (ngModelChange)="new_config.Advanced.ai.enabled = $event; findAIModels()"
+                  aria-labelledby="settings-ai-enabled"></mat-slide-toggle>
               </div>
               @if (new_config.Advanced.ai.enabled) {
-                <div class="settings-row">
+                <label class="settings-row settings-field-row">
                   <span class="settings-row-text">
-                    <span class="settings-row-title" i18n>AI server</span>
-                    <span class="settings-row-hint" i18n>Use a loopback or private network URL reachable from the app server. In Docker, localhost refers to the app container.</span>
+                    <span class="settings-row-title" i18n>Server URL</span>
+                    <span class="settings-row-hint" i18n>Any OpenAI-compatible server, such as llama.cpp, llama-swap or Ollama, on a loopback or private network address. In Docker, localhost is the app's own container.</span>
                   </span>
-                  <app-picker [title]="aiProviderLabel" [options]="aiProviderOptions" [value]="new_config.Advanced.ai.provider"
-                    (valueChange)="new_config.Advanced.ai.provider = $any($event)"></app-picker>
-                </div>
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>AI server URL</span>
-                  <span class="kit-field"><input type="url" [(ngModel)]="new_config.Advanced.ai.base_url" placeholder="http://127.0.0.1:11434" autocomplete="off"></span>
-                </label>
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>Model</span>
-                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.model" placeholder="" autocomplete="off"></span>
+                  <span class="kit-field"><input type="url" [ngModel]="new_config.Advanced.ai.base_url"
+                    (ngModelChange)="new_config.Advanced.ai.base_url = $event; aiServerEdited()" (keydown.enter)="connectAIServer()"
+                    placeholder="http://192.168.1.10:8080" autocomplete="off"></span>
                 </label>
                 <label class="settings-row settings-field-row">
                   <span class="settings-row-title" i18n>API key (optional)</span>
-                  <span class="kit-field"><input type="password" [(ngModel)]="new_config.Advanced.ai.api_key" placeholder="" autocomplete="off"></span>
+                  <span class="kit-field"><input type="password" [ngModel]="new_config.Advanced.ai.api_key"
+                    (ngModelChange)="new_config.Advanced.ai.api_key = $event; aiServerEdited()" (keydown.enter)="connectAIServer()" autocomplete="off"></span>
                 </label>
-                <div class="settings-row">
-                  <span class="settings-row-hint" i18n>Save settings before testing. This checks the configured model without generating content.</span>
-                  <button type="button" class="kit-chip" (click)="testAIConnection()" [disabled]="testingAI || !settingsSame()">
-                    <span i18n>Test AI connection</span>
-                  </button>
-                </div>
-                @if (aiConnectionMessage) { <p class="settings-row-hint" role="status">{{aiConnectionMessage}}</p> }
                 <div class="settings-row">
                   <span class="settings-row-text">
-                    <span class="settings-row-title" i18n>Speech recognition</span>
-                    <span class="settings-row-hint" i18n>Auto-transcribe needs whisper.cpp or an audio-capable llama.cpp server. Ollama is only connected for text models.</span>
+                    <span class="settings-row-title" i18n>Model</span>
+                    <span class="settings-row-hint" role="status">
+                      @if (aiModelsState === 'loading') {
+                        <ng-container i18n>Looking for models…</ng-container>
+                      } @else if (aiModelsState === 'failed') {
+                        {{aiModelsError}}
+                      } @else if (!new_config.Advanced.ai.base_url?.trim()) {
+                        <ng-container i18n>Enter the server's URL to choose from its models.</ng-container>
+                      } @else if (aiServerChanged) {
+                        <ng-container i18n>Connect to list this server's models. That saves its URL and key.</ng-container>
+                      } @else if (aiModelsState === 'loaded') {
+                        <ng-container i18n="AI server model count">{aiModels.length, plural, =0 {This server runs no models.} =1 {This server runs 1 model.} other {This server runs {{aiModels.length}} models.}}</ng-container>
+                      }
+                      @if (aiModelMissing) { <ng-container i18n>The chosen model is not on this server.</ng-container> }
+                    </span>
                   </span>
-                  <app-picker [title]="speechProviderLabel" [options]="speechProviderOptions" [value]="new_config.Advanced.ai.transcription_provider"
-                    (valueChange)="new_config.Advanced.ai.transcription_provider = $any($event)"></app-picker>
+                  <app-picker [title]="aiModelLabel" [options]="aiModelOptions" [value]="new_config.Advanced.ai.model"
+                    [loading]="aiModelsState === 'loading'" [disabled]="aiModelOptions.length === 0"
+                    (valueChange)="new_config.Advanced.ai.model = $any($event)"></app-picker>
+                  @if (aiServerChanged) {
+                    <button type="button" class="kit-chip kit-primary" (click)="connectAIServer()"
+                      [disabled]="aiModelsState === 'loading' || !new_config.Advanced.ai.base_url?.trim()" i18n="Connect to the AI server button">Connect</button>
+                  } @else {
+                    <button type="button" class="kit-icon-button" (click)="findAIModels()" [disabled]="aiModelsState === 'loading' || !new_config.Advanced.ai.base_url"
+                      matTooltip="Look for models again" i18n-matTooltip aria-label="Look for models again" i18n-aria-label>
+                      <mat-icon>refresh</mat-icon>
+                    </button>
+                  }
                 </div>
-                @if (new_config.Advanced.ai.transcription_provider !== 'disabled') {
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>Speech server URL</span>
-                  <span class="kit-field"><input type="url" [(ngModel)]="new_config.Advanced.ai.transcription_url" placeholder="http://127.0.0.1:8081" autocomplete="off"></span>
-                </label>
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>Speech model (optional)</span>
-                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.transcription_model" placeholder="" autocomplete="off"></span>
-                </label>
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>Speech API key (optional)</span>
-                  <span class="kit-field"><input type="password" [(ngModel)]="new_config.Advanced.ai.transcription_api_key" placeholder="" autocomplete="off"></span>
-                </label>
-                <label class="settings-row settings-field-row">
-                  <span class="settings-row-title" i18n>Language (blank for automatic)</span>
-                  <span class="kit-field"><input type="text" [(ngModel)]="new_config.Advanced.ai.language" placeholder="en" autocomplete="off"></span>
-                </label>
-                  <p class="settings-row-hint" i18n>Run or schedule Auto-transcribe in Tasks. Audio is sent to this local speech server and the transcript is saved beside the media. Disabling AI stops active work and keeps completed transcripts.</p>
-                }
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-ai-vision" i18n="AI model capability|Whether the model can see images">Vision</span>
+                    <span class="settings-row-hint" i18n>Turn on if the model can see images. Visual cues in Auto-transcribe send it frames, and fail if it cannot.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config.Advanced.ai.vision" aria-labelledby="settings-ai-vision"></mat-slide-toggle>
+                </div>
+                <div class="settings-row">
+                  <span class="settings-row-text">
+                    <span class="settings-row-title" id="settings-ai-audio" i18n="AI model capability|Whether the model can hear sound">Audio</span>
+                    <span class="settings-row-hint" i18n>Turn on if the model can hear audio. Auto-transcribe sends it the sound, and fails if it cannot.</span>
+                  </span>
+                  <mat-slide-toggle [(ngModel)]="new_config.Advanced.ai.audio" aria-labelledby="settings-ai-audio"></mat-slide-toggle>
+                </div>
+                <p class="settings-row-hint" i18n>Run or schedule Auto-transcribe in Tasks, and choose there how it writes. Media is sent to this server, and what the model writes is saved beside it. Disabling AI stops active work and keeps what is finished.</p>
               }
             </div></div>
           </section>

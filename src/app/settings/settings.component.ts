@@ -62,18 +62,11 @@ export class SettingsComponent implements OnInit {
   db_info: DBInfoResponse = null;
   db_transferring = false;
   testing_connection_string = false;
-  testingAI = false;
-  aiConnectionMessage = '';
-  readonly aiProviderLabel = $localize`AI server`;
-  readonly speechProviderLabel = $localize`Speech recognition`;
-  readonly aiProviderOptions: PickerOption[] = [
-    {value: 'ollama', label: 'Ollama'}, {value: 'llamacpp', label: 'llama.cpp'}
-  ];
-  readonly speechProviderOptions: PickerOption[] = [
-    {value: 'disabled', label: $localize`Disabled`},
-    {value: 'whispercpp', label: 'whisper.cpp'},
-    {value: 'llamacpp', label: 'llama.cpp'}
-  ];
+  aiModels: string[] = [];
+  aiModelsState: 'idle' | 'loading' | 'loaded' | 'failed' = 'idle';
+  aiModelsError = '';
+  private aiModelsRequest = 0;
+  readonly aiModelLabel = $localize`Model`;
   testingCookies = false;
   cookiesTestComplete = false;
   cookiesTestSuccess: boolean = null;
@@ -443,12 +436,15 @@ export class SettingsComponent implements OnInit {
 
   getConfig(): void {
     this.initial_config = JSON.parse(JSON.stringify(this.postsService.config));
-    this.initial_config.Advanced.ai ??= {
-      enabled: false, provider: 'ollama', base_url: 'http://127.0.0.1:11434', model: '', api_key: '',
-      transcription_provider: 'disabled', transcription_url: 'http://127.0.0.1:8081',
-      transcription_model: '', transcription_api_key: '', language: ''
-    };
+    const ai = this.initial_config.Advanced.ai ??= {};
+    ai.enabled ??= false;
+    ai.base_url ??= '';
+    ai.model ??= '';
+    ai.api_key ??= '';
+    ai.vision ??= false;
+    ai.audio ??= false;
     this.new_config = JSON.parse(JSON.stringify(this.initial_config));
+    this.findAIModels();
   }
 
   getDownloaderInfo(): void {
@@ -534,19 +530,89 @@ export class SettingsComponent implements OnInit {
     return JSON.stringify(this.new_config) === JSON.stringify(this.initial_config);
   }
 
-  testAIConnection(): void {
-    this.testingAI = true;
-    this.aiConnectionMessage = '';
-    this.postsService.testAIConnection().subscribe({
-      next: () => {
-        this.testingAI = false;
-        this.aiConnectionMessage = $localize`Connected to the configured local model.`;
+  get aiModelOptions(): PickerOption[] {
+    const models = [...this.aiModels];
+    // The saved model stays selectable while the server cannot be asked, so it is not lost.
+    const chosen = this.new_config?.Advanced?.ai?.model;
+    if (chosen && !models.includes(chosen)) models.unshift(chosen);
+    // A model router's IDs can share a long prefix, such as my-llamacpp/bartowski/, which
+    // would cut off the part that tells them apart. Each is labeled by its last segment,
+    // unless another model's ends the same way.
+    const name = (model: string) => model.slice(model.lastIndexOf('/') + 1) || model;
+    const named = new Map<string, number>();
+    for (const model of models) named.set(name(model), (named.get(name(model)) ?? 0) + 1);
+    return models.map(model => ({value: model, label: named.get(name(model)) === 1 ? name(model) : model}));
+  }
+
+  get aiModelMissing(): boolean {
+    const chosen = this.new_config?.Advanced?.ai?.model;
+    return this.aiModelsState === 'loaded' && !!chosen && !this.aiModels.includes(chosen);
+  }
+
+  // The URL or key in the form is not the saved one. The server is only ever asked about what
+  // is saved, so it has to be connected to first.
+  get aiServerChanged(): boolean {
+    const ai = this.new_config?.Advanced?.ai;
+    const saved = this.initial_config?.Advanced?.ai;
+    return !!ai && ((ai.base_url ?? '') !== (saved?.base_url ?? '') || (ai.api_key ?? '') !== (saved?.api_key ?? ''));
+  }
+
+  // Models listed for another URL or key would be the wrong ones to choose from. Typed back to
+  // what is saved, the saved server's are listed again.
+  aiServerEdited(): void {
+    if (!this.aiServerChanged) return this.findAIModels();
+    this.aiModelsRequest++;
+    this.aiModels = [];
+    this.aiModelsState = 'idle';
+  }
+
+  // Asks the saved server which models it runs.
+  findAIModels(): void {
+    const ai = this.new_config?.Advanced?.ai;
+    const request = ++this.aiModelsRequest;
+    if (!ai?.enabled || !ai.base_url?.trim() || this.aiServerChanged) {
+      this.aiModels = [];
+      this.aiModelsState = 'idle';
+      return;
+    }
+    this.aiModelsState = 'loading';
+    this.postsService.getAIModels().subscribe({
+      next: res => {
+        if (request !== this.aiModelsRequest) return;
+        this.aiModels = res?.models ?? [];
+        this.aiModelsState = 'loaded';
+        if (!ai.model && this.aiModels.length === 1) ai.model = this.aiModels[0];
       },
-      error: error => {
-        this.testingAI = false;
-        this.aiConnectionMessage = error.error?.error || $localize`Could not connect to the local AI server.`;
-      }
+      // The HTTP interceptor hands on the server's error message as a string.
+      error: (message: unknown) => this.aiModelsFailed(request, message)
     });
+  }
+
+  // Saves the URL and key in the form, and only those, then lists that server's models.
+  connectAIServer(): void {
+    const ai = this.new_config?.Advanced?.ai;
+    if (!ai?.base_url?.trim() || !this.aiServerChanged || this.aiModelsState === 'loading') return;
+    const request = ++this.aiModelsRequest;
+    const server = {base_url: ai.base_url.trim(), api_key: ai.api_key ?? ''};
+    this.aiModelsState = 'loading';
+    this.postsService.setAIServer(server.base_url, server.api_key).subscribe({
+      next: () => {
+        if (request !== this.aiModelsRequest) return;
+        // Saved now, so neither the save bar nor Cancel should treat them as unsaved.
+        ai.base_url = server.base_url;
+        Object.assign(this.initial_config.Advanced.ai, server);
+        if (this.postsService.config?.Advanced?.ai) Object.assign(this.postsService.config.Advanced.ai, server);
+        this.findAIModels();
+      },
+      error: (message: unknown) => this.aiModelsFailed(request, message)
+    });
+  }
+
+  private aiModelsFailed(request: number, message: unknown): void {
+    if (request !== this.aiModelsRequest) return;
+    this.aiModels = [];
+    this.aiModelsState = 'failed';
+    this.aiModelsError = typeof message === 'string' && message ? message : $localize`Could not reach the AI server.`;
   }
 
   saveSettings(): void {
@@ -561,8 +627,9 @@ export class SettingsComponent implements OnInit {
         this.initial_config = JSON.parse(JSON.stringify(this.new_config));
         this.postsService.reload_config.next(true);
       }
-    }, error => {
-      this.postsService.openSnackBar(error.error?.error || $localize`Could not save settings.`);
+    }, (message: unknown) => {
+      // The HTTP interceptor hands on the server's error message as a string.
+      this.postsService.openSnackBar(typeof message === 'string' && message ? message : $localize`Could not save settings.`);
       console.error('Failed to save config!');
     })
   }
