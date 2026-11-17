@@ -27,6 +27,7 @@ import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatNavList, MatListItem, MatListItemIcon, MatListItemTitle, MatDivider } from '@angular/material/list';
 import { AvatarComponent } from 'ngx-avatars';
 import { SubscriptionActionsService } from './subscriptions/subscription-actions.service';
+import { autoTheaterSupported } from './player/auto-theater';
 
 @Component({
     selector: 'app-root',
@@ -58,6 +59,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   topBarTitle = 'Youtube Downloader';
   defaultTheme = null;
   allowThemeChange = null;
+  // Theater mode is a desktop layout, so a touch screen gets no switch for it.
+  readonly autoTheaterAvailable = autoTheaterSupported();
   allowSubscriptions = false;
   enableDownloadsManager = false;
   canViewDuplicates = false;
@@ -270,6 +273,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   themeMenuItemClicked(event): void {
     this.flipTheme();
+    event.stopPropagation();
+  }
+
+  // Like the theme switch, it leaves the menu open.
+  autoTheaterMenuItemClicked(event: Event): void {
+    this.postsService.setAutoTheater(!this.postsService.auto_theater.value);
     event.stopPropagation();
   }
 

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, DefaultUrlSerializer, provideRouter, Router, UrlSerializer } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 
 import { AppComponent } from './app.component';
 import { PostsService } from './posts.services';
@@ -110,5 +111,53 @@ describe('AppComponent menu subscriptions', () => {
     const banner: HTMLElement = fixture.nativeElement.querySelector('.shadow-banner');
     expect(banner.textContent).toContain('Ask an administrator to return you to your own account.');
     expect(banner.querySelector('button')).toBeNull();
+  });
+});
+
+/*************************************************
+ * The toolbar's overflow menu, opened the way a
+ * person would, and its switches.
+ ************************************************/
+describe('AppComponent toolbar menu', () => {
+  let fixture: ComponentFixture<AppComponent>;
+  let postsService: any;
+
+  const items = () => Array.from<HTMLElement>(document.querySelectorAll('.cdk-overlay-container [mat-menu-item]'));
+  const item = (label: string) => items().find(element => element.textContent.includes(label));
+
+  beforeEach(async () => {
+    await configureTestBed({
+      imports: [AppComponent],
+      providers: [
+        provideRouter([]),
+        {provide: Router, useClass: Router},
+        {provide: UrlSerializer, useClass: DefaultUrlSerializer},
+        {provide: ActivatedRoute, useFactory: () => inject(Router).routerState.root}
+      ]
+    }).compileComponents();
+
+    postsService = TestBed.inject(PostsService);
+    postsService.hasPermission = () => true;
+    postsService.auto_theater = new BehaviorSubject(false);
+    postsService.setAutoTheater = vi.fn((enabled: boolean) => postsService.auto_theater.next(enabled));
+    fixture = TestBed.createComponent(AppComponent);
+    fixture.componentInstance.allowThemeChange = true;
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('button[aria-label="More options"]').click();
+    fixture.detectChanges();
+  });
+
+  it('offers auto theater right above the dark theme, and switches it without closing the menu', () => {
+    const labels = items().map(element => element.textContent);
+    const auto_theater = labels.findIndex(label => label.includes('Auto theater'));
+    expect(auto_theater).toBeGreaterThan(-1);
+    expect(labels[auto_theater + 1]).toContain('Dark');
+    expect(item('Auto theater').getAttribute('aria-checked')).toBe('false');
+
+    item('Auto theater').click();
+    fixture.detectChanges();
+
+    expect(postsService.setAutoTheater).toHaveBeenCalledWith(true);
+    expect(item('Auto theater').getAttribute('aria-checked')).toBe('true');
   });
 });

@@ -104,6 +104,21 @@ describe('PostsService session lifecycle', () => {
     http.expectNone(req => req.url.includes('/auth/'));
   });
 
+  it('remembers the auto theater switch in this browser, off until it is turned on', () => {
+    start().flush({ config_file: { YtdlMaterial: configuration(false) } });
+    expect(service.auto_theater.value).toBe(false);
+
+    service.setAutoTheater(true);
+    expect(service.auto_theater.value).toBe(true);
+    expect(localStorage.getItem('player_auto_theater_enabled')).toBe('true');
+  });
+
+  it('starts with the auto theater switch as this browser left it', () => {
+    localStorage.setItem('player_auto_theater_enabled', 'true');
+    start().flush({ config_file: { YtdlMaterial: configuration(false) } });
+    expect(service.auto_theater.value).toBe(true);
+  });
+
   it('restores a saved session and waits for authenticated config before releasing a route guard', async () => {
     const bootstrap = start({ token: 'saved-token' });
     const readyConfigs: unknown[] = [];

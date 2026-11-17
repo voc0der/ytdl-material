@@ -207,6 +207,7 @@ export const OWN_LIBRARY_PAGES = ['subscriptions', 'subscription', 'downloads', 
 
 // Where a tab keeps the handoff value of the OIDC sign-in it started (see beginOIDCHandoff).
 const OIDC_HANDOFF_STORAGE_KEY = 'oidc_handoff';
+const AUTO_THEATER_STORAGE_KEY = 'player_auto_theater_enabled';
 
 // A stream URL for one video that carries no login, for a player that fetches the file itself.
 export interface PlaybackLink {
@@ -230,6 +231,9 @@ export class PostsService {
     theme;
     card_size = 'medium';
     sidepanel_mode: MatDrawerMode = 'over';
+    // Whether the player goes into theater mode by itself once the mouse is left alone. Kept in
+    // this browser, like the player's other modes.
+    auto_theater = new BehaviorSubject<boolean>(localStorage.getItem(AUTO_THEATER_STORAGE_KEY) === 'true');
 
     // auth
     httpOptions: {
@@ -398,6 +402,11 @@ export class PostsService {
 
     setTheme(theme) {
         this.theme = this.THEMES_CONFIG[theme];
+    }
+
+    setAutoTheater(enabled: boolean): void {
+        localStorage.setItem(AUTO_THEATER_STORAGE_KEY, `${enabled}`);
+        this.auto_theater.next(enabled);
     }
 
     getSubscriptionByID(sub_id: string): Subscription {

@@ -620,8 +620,12 @@ it showed. It opens the part's link and checks the video stops at the end and st
 play goes on into the rest, and that with Loop on it plays the part again. It goes full screen
 with a double-click,
 checks the menu shows there too, and leaves with `f`, and turns theater mode on from the bar and
-off with `t`. In a playlist it checks Next plays the next file, and that an audio file keeps the
-browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the
+off with `t`. It switches on Auto theater from the toolbar's menu, where it sits right above Dark,
+and checks theater mode fades in 5 seconds after the mouse comes to rest on the video, stays on
+while it stays still, goes as soon as it moves, leaving the page scrolled where it was, and comes
+on 3 seconds after the mouse leaves the window. It does not come on while the video is paused,
+does 5 seconds after it plays again, and the switch is still on after a reload. In a playlist it
+checks Next plays the next file, and that an audio file keeps the browser's own bar. At a phone width it checks a tap shows the controls without pausing, that the
 bar fits, and that the play button in the middle pauses. Screenshots of each, per browser, are
 left in the `shots` folder it prints.
 

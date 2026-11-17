@@ -1,5 +1,6 @@
 // Drives the player's own controls in Chromium and Firefox: clicking and holding the picture,
-// the scrubber and its chapters, the menus, keyboard shortcuts, full screen and theater mode.
+// the scrubber and its chapters, the menus, keyboard shortcuts, full screen and theater mode,
+// and theater mode coming on by itself.
 //
 // Firefox keeps every press on its native video controls to itself, which is why the player
 // draws its own, so every check runs in both browsers. The library is two minute-long clips,
@@ -549,6 +550,86 @@ async function partLink(page, name, seeded, errors, browser) {
     await looped.context().close();
 }
 
+// Auto theater, switched on from the toolbar's menu: theater mode comes on by itself once the
+// mouse has been left alone over a playing video, fading in where the browser can, and goes as
+// soon as the mouse moves.
+async function autoTheater(browser, name, seeded, errors) {
+    say(`${name}: auto theater`);
+    // Short enough for the page to scroll.
+    const page = await newPage(browser, name, errors, { width: 1280, height: 640 });
+    // Counts the fades, which are over too soon to catch on the page.
+    await page.addInitScript(() => {
+        const start = document.startViewTransition;
+        if (typeof start !== 'function') return;
+        window.__fades = 0;
+        document.startViewTransition = function (...args) {
+            window.__fades += 1;
+            return start.apply(this, args);
+        };
+    });
+    const theater = () => page.evaluate(() => document.body.classList.contains('player-theater-mode-active'));
+    // Seconds from now until theater mode is on.
+    const comesOn = async () => {
+        const from = Date.now();
+        await waitFor(page, () => document.body.classList.contains('player-theater-mode-active'), null, 15_000);
+        return (Date.now() - from) / 1000;
+    };
+    const toggle = page.getByRole('menuitemcheckbox', { name: 'Auto theater' });
+    const scrolled = () => page.evaluate(() => document.querySelector('.example-container > .mat-drawer-content').scrollTop);
+
+    await openPlaying(page, `?uid=${seeded.plain.uid}`);
+    await page.getByRole('button', { name: 'More options' }).click();
+    const labels = (await page.locator('.mat-mdc-menu-panel [mat-menu-item]').allTextContents()).map(label => label.trim());
+    const index = labels.findIndex(label => label.includes('Auto theater'));
+    check('the toolbar menu offers Auto theater right above Dark', index >= 0 && labels[index + 1]?.includes('Dark'), labels.join(' | '));
+    await toggle.click();
+    check('and switches it on without closing', await toggle.getAttribute('aria-checked') === 'true');
+    await page.keyboard.press('Escape');
+    // The menu's backdrop takes a moment to go, and takes the wheel until it has.
+    await waitFor(page, () => !document.querySelector('.cdk-overlay-backdrop'));
+
+    let { x, y } = await centre(page);
+    await page.mouse.move(x, y);
+    await page.mouse.wheel(0, 150);
+    await page.waitForTimeout(300);
+    const scroll = await scrolled();
+    ({ x, y } = await centre(page));
+    await page.mouse.move(x, y);
+    const rested = await comesOn();
+    check('theater mode comes on once the mouse has rested on the video for 5 seconds', rested > 4.5 && rested < 6.5, `${rested.toFixed(1)} s`);
+    await page.waitForTimeout(1500);
+    check('and stays on while the mouse stays still, though the page changed under it', await theater());
+    if (await page.evaluate(() => typeof document.startViewTransition === 'function')) {
+        check('it faded in, and the fade is over', await page.evaluate(() => window.__fades === 1 && !document.documentElement.classList.contains('auto-theater-fade')));
+    }
+    await shoot(page, `${name}-auto-theater`);
+
+    await page.mouse.move(x + 30, y + 10);
+    await page.waitForTimeout(100);
+    check('moving the mouse turns it off at once', !(await theater()) && await page.locator('.player-playlist-section').isVisible());
+    const back = await scrolled();
+    check('and the page is still scrolled where it was', scroll > 0 && Math.abs(back - scroll) <= 1, `${scroll} then ${back}`);
+
+    await page.mouse.move(x, -20);
+    const away = await comesOn();
+    check('with the mouse off the window it comes on after 3 seconds', away > 2.5 && away < 4.5, `${away.toFixed(1)} s`);
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(100);
+    check('and goes once the mouse is back', !(await theater()));
+
+    await page.keyboard.press('k');
+    await page.waitForTimeout(7000);
+    check('it waits while the video is paused', !(await theater()) && (await media(page)).paused);
+    await page.keyboard.press('k');
+    const replayed = await comesOn();
+    check('and comes on 5 seconds after it plays again', replayed > 4.5 && replayed < 6.5, `${replayed.toFixed(1)} s`);
+
+    await openPlaying(page, `?uid=${seeded.plain.uid}`);
+    await page.getByRole('button', { name: 'More options' }).click();
+    check('the switch is still on after a reload', await toggle.getAttribute('aria-checked') === 'true');
+    await page.context().close();
+}
+
 async function onAPhone(browser, name, seeded, errors) {
     say(`${name}: a phone`);
     const page = await newPage(browser, `${name}-phone`, errors, { width: 412, height: 915 });
@@ -598,6 +679,7 @@ async function main() {
             const browser = await type.launch(options);
             try {
                 await onDesktop(browser, name, seeded, errors);
+                await autoTheater(browser, name, seeded, errors);
                 await onAPhone(browser, name, seeded, errors);
             } finally {
                 await browser.close();
