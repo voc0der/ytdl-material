@@ -69,6 +69,7 @@ describe('Settings page controls', () => {
       testCookies: vi.fn(),
       testConnectionString: vi.fn(),
       getAIModels: vi.fn().mockReturnValue(of({ models: ['gemma', 'qwen'] })),
+      setAIServer: vi.fn().mockReturnValue(of({ success: true })),
       openSnackBar: vi.fn()
     });
     fixture = TestBed.createComponent(SettingsComponent);
@@ -93,10 +94,15 @@ describe('Settings page controls', () => {
 
     const url = root.querySelector<HTMLInputElement>('input[type="url"]');
     await editInput(url, 'https://llama.example.lan/v1');
-    url.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(root.textContent).toContain("Connect to list this server's models. That saves its URL and key.");
+    expect(posts.setAIServer).not.toHaveBeenCalled();
+    expect(posts.getAIModels).not.toHaveBeenCalled();
+    button('Connect').click();
     await render();
-    expect(posts.getAIModels).toHaveBeenCalledWith('https://llama.example.lan/v1', '');
+    expect(posts.setAIServer).toHaveBeenCalledWith('https://llama.example.lan/v1', '');
+    expect(posts.getAIModels).toHaveBeenCalledWith();
     expect(root.textContent).toContain('This server runs 2 models.');
+    expect(Array.from(root.querySelectorAll('button')).some(candidate => candidate.textContent.trim() === 'Connect')).toBe(false);
 
     component.new_config.Advanced.ai.model = 'qwen';
     for (const id of ['#settings-ai-vision', '#settings-ai-audio']) {

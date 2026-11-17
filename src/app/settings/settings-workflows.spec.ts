@@ -55,6 +55,7 @@ function createHarness() {
     testConnectionString: vi.fn(),
     testCookies: vi.fn(),
     getAIModels: vi.fn(),
+    setAIServer: vi.fn(),
     openSnackBar: vi.fn()
   };
   const closed = new Subject<any>();
@@ -85,41 +86,41 @@ describe('Settings workflows', () => {
   afterEach(() => vi.restoreAllMocks());
 
   describe('local AI models', () => {
-    // What the settings form holds, as opposed to what is saved.
-    const useServer = (values: Record<string, unknown> = {}) => {
-      component.getConfig();
-      Object.assign(component.new_config.Advanced.ai, { enabled: true, base_url: 'http://192.168.1.10:8080', ...values });
+    const SAVED = 'http://192.168.1.10:8080';
+    // Settings saved on the server before the page opens.
+    const savedServer = (values: Record<string, unknown> = {}) => {
+      Object.assign(posts.config.Advanced.ai, { enabled: true, base_url: SAVED, api_key: 'saved-key', ...values });
     };
+    const form = () => component.new_config.Advanced.ai;
 
-    it('asks nothing until AI is on and has a URL', () => {
+    it('asks nothing until AI is on and a URL is saved', () => {
       component.getConfig();
-      component.findAIModels();
-      component.new_config.Advanced.ai.enabled = true;
+      form().enabled = true;
       component.findAIModels();
       expect(posts.getAIModels).not.toHaveBeenCalled();
       expect(component.aiModelsState).toBe('idle');
     });
 
-    it('lists the models on the server in the form, and picks the only one there is', () => {
-      useServer({ api_key: 'form-key' });
+    it('lists the saved server when the page opens, and picks the only model there is', () => {
+      savedServer();
       const response = new Subject<{ models: string[] }>();
       posts.getAIModels.mockReturnValue(response);
-      component.findAIModels();
-      expect(posts.getAIModels).toHaveBeenCalledWith('http://192.168.1.10:8080', 'form-key');
+      component.getConfig();
+      expect(posts.getAIModels).toHaveBeenCalledWith();
       expect(component.aiModelsState).toBe('loading');
       response.next({ models: ['gemma'] });
       expect(component.aiModelsState).toBe('loaded');
       expect(component.aiModelOptions).toEqual([{ value: 'gemma', label: 'gemma' }]);
-      expect(component.new_config.Advanced.ai.model).toBe('gemma');
+      expect(form().model).toBe('gemma');
     });
 
     it('labels models by the end of their ID, so a shared prefix does not hide what tells them apart', () => {
-      useServer();
+      savedServer();
       posts.getAIModels.mockReturnValue(of({ models: [
         'my-llamacpp/bartowski/google_gemma-4-26B-A4B-it-GGUF', 'my-llamacpp/unsloth/Qwen3-30B-A3B-GGUF',
         'one-router/same-name', 'other-router/same-name', 'plain-model:latest'
       ] }));
-      component.findAIModels();
+      component.getConfig();
       expect(component.aiModelOptions).toEqual([
         { value: 'my-llamacpp/bartowski/google_gemma-4-26B-A4B-it-GGUF', label: 'google_gemma-4-26B-A4B-it-GGUF' },
         { value: 'my-llamacpp/unsloth/Qwen3-30B-A3B-GGUF', label: 'Qwen3-30B-A3B-GGUF' },
@@ -130,34 +131,68 @@ describe('Settings workflows', () => {
     });
 
     it('keeps a chosen model selectable, and says so, when the server no longer has it', () => {
-      useServer({ model: 'retired-model' });
+      savedServer({ model: 'retired-model' });
       posts.getAIModels.mockReturnValue(of({ models: ['gemma', 'qwen'] }));
-      component.findAIModels();
+      component.getConfig();
       expect(component.aiModelOptions.map(option => option.value)).toEqual(['retired-model', 'gemma', 'qwen']);
       expect(component.aiModelMissing).toBe(true);
-      expect(component.new_config.Advanced.ai.model).toBe('retired-model');
+      expect(form().model).toBe('retired-model');
     });
 
     it('shows why the server could not be asked, as the HTTP interceptor passes it on', () => {
-      useServer();
+      savedServer();
       posts.getAIModels.mockReturnValue(throwError(() => 'The AI server at 192.168.1.10:8080 refused the API key (HTTP 401).'));
-      component.findAIModels();
+      component.getConfig();
       expect(component.aiModelsState).toBe('failed');
       expect(component.aiModelsError).toBe('The AI server at 192.168.1.10:8080 refused the API key (HTTP 401).');
       expect(component.aiModelOptions).toEqual([]);
     });
 
-    it('ignores an answer about a URL that has since been changed', () => {
-      useServer();
-      const first = new Subject<{ models: string[] }>();
-      const second = new Subject<{ models: string[] }>();
-      posts.getAIModels.mockReturnValueOnce(first).mockReturnValueOnce(second);
-      component.findAIModels();
-      component.new_config.Advanced.ai.base_url = 'http://192.168.1.11:8080';
-      component.findAIModels();
-      second.next({ models: ['qwen'] });
-      first.next({ models: ['stale'] });
+    it('asks nothing about a URL or key that is not saved, until Connect saves them', () => {
+      savedServer();
+      posts.getAIModels.mockReturnValue(of({ models: ['gemma'] }));
+      component.getConfig();
+      posts.getAIModels.mockClear();
+      form().base_url = ' http://192.168.1.11:8080/v1 ';
+      component.aiServerEdited();
+      expect(component.aiServerChanged).toBe(true);
+      expect(component.aiModels).toEqual([]);
+      expect(posts.getAIModels).not.toHaveBeenCalled();
+
+      posts.setAIServer.mockReturnValue(of({ success: true }));
+      posts.getAIModels.mockReturnValue(of({ models: ['qwen'] }));
+      component.connectAIServer();
+      expect(posts.setAIServer).toHaveBeenCalledWith('http://192.168.1.11:8080/v1', 'saved-key');
+      expect(posts.getAIModels).toHaveBeenCalledWith();
+      expect(component.aiServerChanged).toBe(false);
+      expect(component.initial_config.Advanced.ai.base_url).toBe('http://192.168.1.11:8080/v1');
       expect(component.aiModels).toEqual(['qwen']);
+    });
+
+    it('saves nothing it is refused, and says why', () => {
+      component.getConfig();
+      Object.assign(form(), { enabled: true, base_url: 'http://8.8.8.8' });
+      posts.setAIServer.mockReturnValue(throwError(() => 'AI servers must use a loopback or private network address.'));
+      component.connectAIServer();
+      expect(component.aiModelsState).toBe('failed');
+      expect(component.aiModelsError).toBe('AI servers must use a loopback or private network address.');
+      expect(component.initial_config.Advanced.ai.base_url).toBe('');
+      expect(component.aiServerChanged).toBe(true);
+      expect(posts.getAIModels).not.toHaveBeenCalled();
+    });
+
+    it('lists the saved server again when the URL is typed back to it, and ignores an answer about another', () => {
+      savedServer();
+      const first = new Subject<{ models: string[] }>();
+      posts.getAIModels.mockReturnValueOnce(first).mockReturnValueOnce(of({ models: ['gemma'] }));
+      component.getConfig();
+      form().base_url = 'http://192.168.1.11:8080';
+      component.aiServerEdited();
+      first.next({ models: ['stale'] });
+      expect(component.aiModels).toEqual([]);
+      form().base_url = SAVED;
+      component.aiServerEdited();
+      expect(component.aiModels).toEqual(['gemma']);
     });
   });
 

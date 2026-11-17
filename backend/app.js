@@ -1315,14 +1315,30 @@ app.post('/api/setConfig', optionalJwt, requireAdmin, function(req, res) {
     }
 });
 
-// The models on an AI server, for choosing one in the settings. It takes the URL and key from
-// the form rather than the saved settings, since this is how they are filled in.
-app.post('/api/getAIModels', optionalJwt, requireAdmin, async (req, res) => {
-    const base_url = typeof req.body?.base_url === 'string' ? req.body.base_url : '';
-    const api_key = typeof req.body?.api_key === 'string' ? req.body.api_key : '';
+// The AI server's address and key, saved on their own so its models can be listed before the
+// rest of the settings are saved. The server is only ever asked for what is saved.
+app.post('/api/setAIServer', optionalJwt, requireAdmin, (req, res) => {
+    const server = {
+        base_url: typeof req.body?.base_url === 'string' ? req.body.base_url.trim() : '',
+        api_key: typeof req.body?.api_key === 'string' ? req.body.api_key : ''
+    };
     try {
-        const models = await local_ai.listModels({base_url, api_key});
-        logger.verbose(`Found ${models.length} model(s) on the AI server at ${local_ai.apiRoot(base_url)}.`);
+        local_ai.validateServer(server);
+    } catch (error) {
+        return res.status(400).send({success: false, error: error.message});
+    }
+    const success = config_api.setConfigItems([
+        {key: 'ytdl_ai_base_url', value: server.base_url},
+        {key: 'ytdl_ai_api_key', value: server.api_key}
+    ]);
+    res.send({success});
+});
+
+// The models on the saved AI server, for choosing one in the settings.
+app.post('/api/getAIModels', optionalJwt, requireAdmin, async (req, res) => {
+    try {
+        const models = await local_ai.listModels();
+        logger.verbose(`Found ${models.length} model(s) on the AI server at ${local_ai.apiRoot(local_ai.settings().base_url)}.`);
         res.send({models});
     } catch (error) {
         logger.warn(`Could not list the models on the AI server: ${error.message}`);

@@ -1608,11 +1608,11 @@ paths:
         - API bearer token: []
       tags:
         - downloader
-  /api/getAIModels:
+  /api/setAIServer:
     post:
-      summary: List the models on an AI server
-      description: Requires administrator access in multi-user mode. Lists the models an OpenAI-compatible server on a loopback or private network address runs, from the URL and key given rather than the saved settings, so the settings can be filled in with them. Ollama cloud models are left out.
-      operationId: post-api-getAIModels
+      summary: Save the AI server's address and key
+      description: Requires administrator access in multi-user mode. Saves only the server's URL and API key, so its models can be listed before the rest of the settings are saved. The URL must point at a loopback or private network address.
+      operationId: post-api-setAIServer
       requestBody:
         content:
           application/json:
@@ -1626,6 +1626,32 @@ paths:
                   description: The server's address, with or without /v1.
                 api_key:
                   type: string
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+        '400':
+          description: The URL or key cannot be used. The error says why.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: string
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
+  /api/getAIModels:
+    post:
+      summary: List the models on the saved AI server
+      description: Requires administrator access in multi-user mode. Lists the models the saved OpenAI-compatible server runs, whether or not AI is turned on yet. Ollama cloud models are left out.
+      operationId: post-api-getAIModels
       responses:
         '200':
           description: The model IDs, sorted

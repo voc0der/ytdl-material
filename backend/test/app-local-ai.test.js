@@ -31,20 +31,34 @@ describe('Local AI routes and permissions', function() {
         if (server) await new Promise(resolve => server.close(resolve));
     });
 
-    it('lets only an administrator list the models on a server', async function() {
-        await app.api.post('/api/getAIModels').send({base_url: base}).expect(401);
-        await as('reader', 'post', '/api/getAIModels').send({base_url: base}).expect(403);
-        const response = await as('admin', 'post', '/api/getAIModels').send({base_url: base, api_key: 'server-key'}).expect(200);
+    it('lets only an administrator save the server and list its models', async function() {
+        await app.api.post('/api/setAIServer').send({base_url: base}).expect(401);
+        await as('reader', 'post', '/api/setAIServer').send({base_url: base}).expect(403);
+        await app.api.post('/api/getAIModels').send({}).expect(401);
+        await as('reader', 'post', '/api/getAIModels').send({}).expect(403);
+        await as('admin', 'post', '/api/setAIServer').send({base_url: `${base}/v1`, api_key: 'server-key'}).expect(200);
+        const saved = (await as('admin', 'get', '/api/config').expect(200)).body.config_file.YtdlMaterial.Advanced.ai;
+        assert.deepStrictEqual([saved.base_url, saved.api_key, saved.enabled], [`${base}/v1`, 'server-key', false]);
+        const response = await as('admin', 'post', '/api/getAIModels').send({}).expect(200);
         assert.deepStrictEqual(response.body.models, ['gemma', 'qwen']);
     });
 
-    it('says why the models could not be listed', async function() {
-        const refused = await as('admin', 'post', '/api/getAIModels').send({base_url: base, api_key: 'wrong-key'}).expect(400);
+    it('asks only the saved server, whatever a request names', async function() {
+        const response = await as('admin', 'post', '/api/getAIModels').send({base_url: 'http://127.0.0.1:1'}).expect(200);
+        assert.deepStrictEqual(response.body.models, ['gemma', 'qwen']);
+    });
+
+    it('says why a server cannot be saved or asked, and saves nothing it refuses', async function() {
+        await as('admin', 'post', '/api/setAIServer').send({base_url: base, api_key: 'wrong-key'}).expect(200);
+        const refused = await as('admin', 'post', '/api/getAIModels').send({}).expect(400);
         assert.match(refused.body.error, /refused the API key \(HTTP 401\)/);
-        const public_address = await as('admin', 'post', '/api/getAIModels').send({base_url: 'http://8.8.8.8'}).expect(400);
+        const public_address = await as('admin', 'post', '/api/setAIServer').send({base_url: 'http://8.8.8.8'}).expect(400);
         assert.match(public_address.body.error, /loopback or private network address/);
-        const missing = await as('admin', 'post', '/api/getAIModels').send({}).expect(400);
+        const missing = await as('admin', 'post', '/api/setAIServer').send({}).expect(400);
         assert.match(missing.body.error, /Enter the AI server URL/);
+        const saved = (await as('admin', 'get', '/api/config').expect(200)).body.config_file.YtdlMaterial.Advanced.ai;
+        assert.deepStrictEqual([saved.base_url, saved.api_key], [base, 'wrong-key']);
+        await as('admin', 'post', '/api/setAIServer').send({base_url: base, api_key: 'server-key'}).expect(200);
     });
 
     it('defaults to disabled and refuses direct task execution', async function() {
@@ -57,7 +71,7 @@ describe('Local AI routes and permissions', function() {
     it('validates saved settings and exposes the unscheduled task only after opt-in', async function() {
         const response = await as('admin', 'get', '/api/config').expect(200);
         const config = response.body.config_file;
-        assert.deepStrictEqual(config.YtdlMaterial.Advanced.ai, {enabled: false, base_url: '', model: '', api_key: '', vision: false, audio: false});
+        assert.deepStrictEqual(config.YtdlMaterial.Advanced.ai, {enabled: false, base_url: base, model: '', api_key: 'server-key', vision: false, audio: false});
         Object.assign(config.YtdlMaterial.Advanced.ai, {enabled: true, model: 'gemma', api_key: 'ai-test-value', audio: true, base_url: 'https://8.8.8.8'});
         const refused = await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(400);
         assert.match(refused.body.error, /loopback or private/);

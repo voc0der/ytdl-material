@@ -69,19 +69,20 @@ describe('Local AI', function() {
     const sidecar = file => `${file.path.slice(0, -4)}.info.json`;
 
     describe('listing models', function() {
-        it('lists the models a server runs, from its URL with or without /v1, leaving out cloud models', async function() {
+        it('lists the models the saved server runs, from its URL with or without /v1, leaving out cloud models', async function() {
             handler = (req, res) => res.end(JSON.stringify({object: 'list', data: [
                 {id: 'zeta'}, {id: 'my-llamacpp/bartowski/gemma'}, {id: 'gpt-oss:120b-cloud'}, {id: 'zeta'}, {id: ''}, {}
             ]}));
             for (const base_url of [base, `${base}/v1`, `${base}/v1/`]) {
-                assert.deepStrictEqual(await ai.listModels({base_url, api_key: 'local-secret'}), ['my-llamacpp/bartowski/gemma', 'zeta']);
+                settings({base_url});
+                assert.deepStrictEqual(await ai.listModels(), ['my-llamacpp/bartowski/gemma', 'zeta']);
             }
             assert(calls.every(call => call.method === 'GET' && call.url === '/v1/models' && call.headers.authorization === 'Bearer local-secret'));
         });
 
         it('lists models before AI is turned on, since that is how the settings are filled in', async function() {
-            settings({enabled: false});
-            assert.deepStrictEqual(await ai.listModels({base_url: base}), ['local-model']);
+            settings({enabled: false, api_key: ''});
+            assert.deepStrictEqual(await ai.listModels(), ['local-model']);
             assert.strictEqual(calls[0].headers.authorization, undefined);
         });
 
@@ -94,32 +95,45 @@ describe('Local AI', function() {
             ];
             for (const [status, body, expected] of answers) {
                 handler = (req, res) => { res.statusCode = status; res.end(typeof body === 'string' ? body : JSON.stringify(body)); };
-                await assert.rejects(ai.listModels({base_url: base, api_key: 'local-secret'}),
-                    error => expected.test(error.message) && !error.message.includes('local-secret'));
+                await assert.rejects(ai.listModels(), error => expected.test(error.message) && !error.message.includes('local-secret'));
             }
             const closed = http.createServer();
             await new Promise(resolve => closed.listen(0, '127.0.0.1', resolve));
             const port = closed.address().port;
             await new Promise(resolve => closed.close(resolve));
-            await assert.rejects(ai.listModels({base_url: `http://127.0.0.1:${port}`}), /Nothing is listening at 127\.0\.0\.1:\d+/);
+            settings({base_url: `http://127.0.0.1:${port}`});
+            await assert.rejects(ai.listModels(), /Nothing is listening at 127\.0\.0\.1:\d+/);
         });
 
         it('blocks public IPs, redirects, credentials in URLs, and public DNS answers', async function() {
             for (const base_url of ['http://8.8.8.8', 'http://[2001:4860:4860::8888]', 'http://user:secret@localhost', 'file:///tmp/model', 'not a url', '']) {
                 assert.throws(() => ai.validateSettings({...ai.settings(), base_url}));
-                await assert.rejects(ai.listModels({base_url}));
+                assert.throws(() => ai.validateServer({base_url, api_key: ''}));
+                settings({base_url});
+                await assert.rejects(ai.listModels());
             }
+            assert.strictEqual(calls.length, 0);
+            settings({base_url: base});
             handler = (req, res) => { res.statusCode = 302; res.setHeader('Location', base + '/redirected'); res.end('{}'); };
-            await assert.rejects(ai.listModels({base_url: base}), /HTTP 302/);
+            await assert.rejects(ai.listModels(), /HTTP 302/);
             assert.strictEqual(calls.length, 1);
             dns.lookup = (host, options, callback) => callback(null, [{address: '8.8.8.8', family: 4}]);
-            await assert.rejects(ai.listModels({base_url: 'http://local.example:1234'}), /local\.example resolves to an address outside the local network/);
+            settings({base_url: 'http://local.example:1234'});
+            await assert.rejects(ai.listModels(), /local\.example resolves to an address outside the local network/);
             assert.strictEqual(calls.length, 1);
         });
 
         it('allows a private DNS name', async function() {
             dns.lookup = (host, options, callback) => callback(null, [{address: '127.0.0.1', family: 4}]);
-            assert.deepStrictEqual(await ai.listModels({base_url: base.replace('127.0.0.1', 'ai.internal')}), ['local-model']);
+            settings({base_url: base.replace('127.0.0.1', 'ai.internal')});
+            assert.deepStrictEqual(await ai.listModels(), ['local-model']);
+        });
+
+        it('checks a server address and key on their own, as they are saved before the server is asked', function() {
+            ai.validateServer({base_url: base, api_key: ''});
+            ai.validateServer({base_url: `${base}/v1`, api_key: 'key'});
+            assert.throws(() => ai.validateServer({base_url: base, api_key: 'k'.repeat(4097)}), /at most 4096/);
+            assert.throws(() => ai.validateServer({base_url: base}), /at most 4096/);
         });
     });
 

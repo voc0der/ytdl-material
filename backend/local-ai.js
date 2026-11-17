@@ -40,6 +40,17 @@ exports.apiRoot = apiRoot;
 
 exports.isCloudModel = (model) => CLOUD_MODEL.test(model);
 
+/**
+ * The address and key of a server, checked on their own: they are saved before anything is
+ * asked of the server, which is only ever asked for what is saved.
+ */
+exports.validateServer = ({base_url, api_key} = {}) => {
+    for (const value of [base_url, api_key]) {
+        if (typeof value !== 'string' || value.length > 4096) throw new Error('AI settings must be text values of at most 4096 characters.');
+    }
+    apiRoot(base_url);
+};
+
 exports.validateSettings = (settings) => {
     if (!settings || settings.enabled === false || settings.enabled === undefined) return;
     if (settings.enabled !== true) throw new Error('AI enabled must be true or false.');
@@ -138,12 +149,13 @@ exports.request = async (base_url, endpoint, {data, key = '', signal, timeout = 
 };
 
 /**
- * The models a server runs, for choosing one in the settings. Works before the settings are
- * saved, since it is how they are filled in. Cloud models are left out.
+ * The models the saved server runs, for choosing one in the settings. Works before AI is
+ * turned on, since it is how the settings are filled in. Cloud models are left out.
  * @returns {Promise<string[]>} model IDs, sorted
  */
-exports.listModels = async ({base_url, api_key = ''} = {}) => {
-    const result = await exports.request(base_url, '/models', {key: api_key, requireEnabled: false, listing: true});
+exports.listModels = async () => {
+    const {base_url, api_key} = exports.settings();
+    const result = await exports.request(base_url, '/models', {key: api_key || '', requireEnabled: false, listing: true});
     if (!Array.isArray(result?.data)) {
         throw new Error(`The server at ${apiRoot(base_url)} did not answer with a list of models. Use the address of an OpenAI-compatible API.`);
     }

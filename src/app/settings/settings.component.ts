@@ -549,17 +549,34 @@ export class SettingsComponent implements OnInit {
     return this.aiModelsState === 'loaded' && !!chosen && !this.aiModels.includes(chosen);
   }
 
-  // Asks the server in the form, saved or not, which models it runs.
+  // The URL or key in the form is not the saved one. The server is only ever asked about what
+  // is saved, so it has to be connected to first.
+  get aiServerChanged(): boolean {
+    const ai = this.new_config?.Advanced?.ai;
+    const saved = this.initial_config?.Advanced?.ai;
+    return !!ai && ((ai.base_url ?? '') !== (saved?.base_url ?? '') || (ai.api_key ?? '') !== (saved?.api_key ?? ''));
+  }
+
+  // Models listed for another URL or key would be the wrong ones to choose from. Typed back to
+  // what is saved, the saved server's are listed again.
+  aiServerEdited(): void {
+    if (!this.aiServerChanged) return this.findAIModels();
+    this.aiModelsRequest++;
+    this.aiModels = [];
+    this.aiModelsState = 'idle';
+  }
+
+  // Asks the saved server which models it runs.
   findAIModels(): void {
     const ai = this.new_config?.Advanced?.ai;
     const request = ++this.aiModelsRequest;
-    if (!ai?.enabled || !ai.base_url?.trim()) {
+    if (!ai?.enabled || !ai.base_url?.trim() || this.aiServerChanged) {
       this.aiModels = [];
       this.aiModelsState = 'idle';
       return;
     }
     this.aiModelsState = 'loading';
-    this.postsService.getAIModels(ai.base_url, ai.api_key || '').subscribe({
+    this.postsService.getAIModels().subscribe({
       next: res => {
         if (request !== this.aiModelsRequest) return;
         this.aiModels = res?.models ?? [];
@@ -567,13 +584,35 @@ export class SettingsComponent implements OnInit {
         if (!ai.model && this.aiModels.length === 1) ai.model = this.aiModels[0];
       },
       // The HTTP interceptor hands on the server's error message as a string.
-      error: (message: unknown) => {
-        if (request !== this.aiModelsRequest) return;
-        this.aiModels = [];
-        this.aiModelsState = 'failed';
-        this.aiModelsError = typeof message === 'string' && message ? message : $localize`Could not reach the AI server.`;
-      }
+      error: (message: unknown) => this.aiModelsFailed(request, message)
     });
+  }
+
+  // Saves the URL and key in the form, and only those, then lists that server's models.
+  connectAIServer(): void {
+    const ai = this.new_config?.Advanced?.ai;
+    if (!ai?.base_url?.trim() || !this.aiServerChanged || this.aiModelsState === 'loading') return;
+    const request = ++this.aiModelsRequest;
+    const server = {base_url: ai.base_url.trim(), api_key: ai.api_key ?? ''};
+    this.aiModelsState = 'loading';
+    this.postsService.setAIServer(server.base_url, server.api_key).subscribe({
+      next: () => {
+        if (request !== this.aiModelsRequest) return;
+        // Saved now, so neither the save bar nor Cancel should treat them as unsaved.
+        ai.base_url = server.base_url;
+        Object.assign(this.initial_config.Advanced.ai, server);
+        if (this.postsService.config?.Advanced?.ai) Object.assign(this.postsService.config.Advanced.ai, server);
+        this.findAIModels();
+      },
+      error: (message: unknown) => this.aiModelsFailed(request, message)
+    });
+  }
+
+  private aiModelsFailed(request: number, message: unknown): void {
+    if (request !== this.aiModelsRequest) return;
+    this.aiModels = [];
+    this.aiModelsState = 'failed';
+    this.aiModelsError = typeof message === 'string' && message ? message : $localize`Could not reach the AI server.`;
   }
 
   saveSettings(): void {
