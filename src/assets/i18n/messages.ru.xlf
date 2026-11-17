@@ -1699,6 +1699,11 @@
         <source>Download failed!</source>
         <target state="translated">Ошибка при загрузке!</target>
       </trans-unit>
+      <trans-unit id="8319421443159572036" datatype="html">
+        <source>Auto theater</source>
+        <target state="translated">Автоматический режим кинотеатра</target>
+        <note priority="1" from="description">Menu switch: the player goes into theater mode by itself while the mouse is left alone</note>
+      </trans-unit>
       <trans-unit id="8325128210832071900" datatype="html">
         <source>Allow theme change</source>
         <target state="translated">Разрешить смену темы</target>

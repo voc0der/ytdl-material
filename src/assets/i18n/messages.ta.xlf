@@ -4746,6 +4746,11 @@
         <source>Download failed!</source>
         <target state="translated">பதிவிறக்கம் தோல்வியடைந்தது!</target>
       </trans-unit>
+      <trans-unit id="8319421443159572036" datatype="html">
+        <source>Auto theater</source>
+        <target state="translated">தானியங்கு திரையரங்குப் பயன்முறை</target>
+        <note priority="1" from="description">Menu switch: the player goes into theater mode by itself while the mouse is left alone</note>
+      </trans-unit>
       <trans-unit id="8325128210832071900" datatype="html">
         <source>Allow theme change</source>
         <target state="translated">தீம் மாற்றத்தை அனுமதி</target>

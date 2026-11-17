@@ -1021,6 +1021,11 @@
         <source>Download failed!</source>
         <target state="translated">다운로드에 실패했습니다!</target>
       </trans-unit>
+      <trans-unit id="8319421443159572036" datatype="html">
+        <source>Auto theater</source>
+        <target state="translated">자동 극장 모드</target>
+        <note priority="1" from="description">Menu switch: the player goes into theater mode by itself while the mouse is left alone</note>
+      </trans-unit>
       <trans-unit id="8325128210832071900" datatype="html">
         <source>Allow theme change</source>
         <target state="translated">테마 변경 허용</target>

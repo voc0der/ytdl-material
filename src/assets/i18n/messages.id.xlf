@@ -2310,6 +2310,11 @@
         <source>Download failed!</source>
         <target state="translated">unduh gagal!</target>
       </trans-unit>
+      <trans-unit id="8319421443159572036" datatype="html">
+        <source>Auto theater</source>
+        <target state="translated">Mode teater otomatis</target>
+        <note priority="1" from="description">Menu switch: the player goes into theater mode by itself while the mouse is left alone</note>
+      </trans-unit>
       <trans-unit id="8325128210832071900" datatype="html">
         <source>Allow theme change</source>
         <target state="translated">Izinkan perubahan tema</target>
