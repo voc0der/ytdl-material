@@ -3,7 +3,8 @@
 // option asks for. With a Whisper server set, Whisper writes down what is said instead, and
 // the model writes from its words: Exact keeps them as they are, with no model needed. With
 // Vision on and Visual cues chosen, the model also gets a few frames from each stretch and
-// adds what they show. What is written is saved in the file's metadata sidecar.
+// adds what they show. What is written is saved in the file's metadata sidecar. One file can
+// also be transcribed on its own from its info dialog, the same way.
 const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
@@ -30,7 +31,16 @@ const CONTEXT_CHARACTERS = 400;
 // Whisper makes up words for silence, such as a sign-off nobody said, so a stretch whose
 // loudest sample stays under -50 dBFS is not sent to it.
 const SILENCE_PEAK = Math.round(32768 * 10 ** (-50 / 20));
+// Each file transcribed on its own runs beside the task, so only a few at once.
+const MAX_FILE_JOBS = 3;
+// How long the outcome of a file transcribed on its own is kept for its dialog: long enough for
+// one left open in a background tab, whose timers run slowly.
+const JOB_RETENTION_MS = 10 * 60 * 1000;
 let activeRun = null;
+// What is being transcribed now, by the task or on its own, by file uid, so no file is
+// transcribed twice at once and its info dialog can say how far it has got. A file done on its
+// own keeps how it went for a while; the task forgets each file as it finishes it.
+const jobs = new Map();
 
 exports.TASK_KEY = TASK_KEY;
 exports.STYLES = STYLES;
@@ -242,8 +252,18 @@ async function extractFrames(media_path, start, seconds, directory, signal) {
     return frames;
 }
 
-// `whisper` is what the Whisper server runs, or null when the model does the listening.
-async function transcribeFile(file, settings, options, whisper, signal) {
+// Why a file asked for on its own cannot be transcribed with the settings it was asked with.
+function nothingToSend(sound, cues) {
+    if (sound) return 'Nothing can hear this file\'s sound, and it has no picture to describe. Set a Whisper server or turn on Audio for the model in Settings → Advanced.';
+    if (cues) return 'This file has no sound, and no picture to describe.';
+    return 'This file has no sound. To describe what it shows instead, turn on Vision in Settings → Advanced and choose Visual cues in Auto-transcribe\'s options.';
+}
+
+// `whisper` is what the Whisper server runs, or null when the model does the listening. With
+// `force`, as for a file asked for on its own, it is written again whatever is saved, and a
+// file with nothing to send fails, saying why, rather than being skipped. `onProgress` is told
+// the percentage done before each stretch.
+async function transcribeFile(file, settings, options, whisper, signal, {force = false, onProgress} = {}) {
     const before = await fs.stat(file.path);
     const {metadata} = await readMetadata(file);
     const probe = await transcoding.probeMedia(file.path);
@@ -253,16 +273,19 @@ async function transcribeFile(file, settings, options, whisper, signal) {
     // With Whisper writing the words down, the model only hears the sound for Descriptive,
     // which also describes what is not words.
     const listens = sound && settings.audio === true && (whisper === null || options.speech === 'descriptive');
-    const sees = settings.vision === true && options.visual_cues !== 'off'
-        && probe.streams.some(stream => stream.codec_type === 'video' && stream.disposition?.attached_pic !== 1);
-    if (!hears && !sees) return 'skipped';
+    const cues = settings.vision === true && options.visual_cues !== 'off';
+    const sees = cues && probe.streams.some(stream => stream.codec_type === 'video' && stream.disposition?.attached_pic !== 1);
+    if (!hears && !sees) {
+        if (force) throw new Error(nothingToSend(sound, cues));
+        return 'skipped';
+    }
     const transcribes = hears && whisper !== null;
     // Whisper's words stand as they are for Exact. Everything else is written by the model.
     const writes = !transcribes || options.speech !== 'exact' || sees;
     const recipe = {model: writes ? settings.model : null, whisper_model: transcribes ? whisper.name : null,
         audio_style: hears ? options.speech : null, vision_style: sees ? options.visual_cues : 'off'};
     const existing = metadata.ytdl_material?.transcript;
-    if (validTranscript(existing) && sameMedia(before, existing.source) && sameRecipe(existing, recipe)) return 'skipped';
+    if (!force && validTranscript(existing) && sameMedia(before, existing.source) && sameRecipe(existing, recipe)) return 'skipped';
     const duration = Number(probe.format.duration);
     if (!Number.isFinite(duration) || duration <= 0) throw new Error('The media duration is unavailable.');
     const style = hears ? options.speech : options.visual_cues;
@@ -273,6 +296,7 @@ async function transcribeFile(file, settings, options, whisper, signal) {
         let previous = '';
         for (let start = 0; start < duration; start += STRETCH_SECONDS) {
             signal.throwIfAborted();
+            onProgress?.(Math.floor(start / duration * 100));
             if (!utils.isServableMediaFile(file.path, file.user_uid)) throw new Error('Media is no longer available.');
             const seconds = Math.min(STRETCH_SECONDS, duration - start);
             const pcm = hears ? await extractAudio(file.path, start, seconds, directory, signal) : null;
@@ -327,9 +351,9 @@ async function transcribeFile(file, settings, options, whisper, signal) {
     }
 }
 
-async function run() {
-    if (!ai.isEnabled()) return null;
-    await db.updateRecord('tasks', {key: TASK_KEY}, {result: null});
+// The settings and the task's options, refused before any server is asked when they cannot
+// work. Files transcribed on their own use the same options as the task.
+async function prepare() {
     const settings = ai.settings();
     ai.validateSettings(settings);
     const task = await db.getRecord('tasks', {key: TASK_KEY});
@@ -339,20 +363,31 @@ async function run() {
     // Whisper on its own writes Exact transcripts. Anything else needs the model.
     if ((!listening || options.speech !== 'exact' || cues) && !settings.model?.trim()) {
         throw new Error(listening
-            ? 'Choose a model in Settings → Advanced → Local AI to write in this style, or choose Exact in this task\'s options to keep what Whisper writes down.'
+            ? 'Choose a model in Settings → Advanced → Local AI to write in this style, or choose Exact in Auto-transcribe\'s options to keep what Whisper writes down.'
             : 'Choose a model in Settings → Advanced → Local AI before running Auto-transcribe.');
     }
     if (!listening && settings.audio !== true && !cues) {
-        throw new Error('Auto-transcribe has nothing to send the model. Set a Whisper server or turn on Audio for the model in Settings → Advanced, or turn on Vision there and choose Visual cues in this task\'s options.');
+        throw new Error('Auto-transcribe has nothing to send the model. Set a Whisper server or turn on Audio for the model in Settings → Advanced, or turn on Vision there and choose Visual cues in Auto-transcribe\'s options.');
     }
     if (listening && options.speech === 'descriptive' && settings.audio !== true) {
         throw new Error('Descriptive also describes sounds that are not words, which Whisper does not write down. Turn on Audio for a model that can hear in Settings → Advanced, or choose another Speech style.');
     }
-    const controller = new AbortController();
-    // Saving any AI setting stops the old run, including disabling then quickly re-enabling.
-    const subscription = config.config_updated.pipe(skip(1)).subscribe(change => {
+    return {settings, options, listening};
+}
+
+// Saving any AI setting stops work under way, including disabling then quickly re-enabling.
+function stopOnSettingsChange(controller) {
+    return config.config_updated.pipe(skip(1)).subscribe(change => {
         if (change?.key === 'ai' || change?.key?.startsWith('ytdl_ai_')) controller.abort();
     });
+}
+
+async function run() {
+    if (!ai.isEnabled()) return null;
+    await db.updateRecord('tasks', {key: TASK_KEY}, {result: null});
+    const {settings, options, listening} = await prepare();
+    const controller = new AbortController();
+    const subscription = stopOnSettingsChange(controller);
     const result = {transcribed: 0, skipped: 0, failed: 0};
     try {
         // Asked once a run, so a wrong address fails the run rather than every file, and so a
@@ -365,14 +400,23 @@ async function run() {
         for (const file of files) {
             if (controller.signal.aborted) break;
             if (result.transcribed + result.failed >= options.limit) break;
+            // A file being transcribed on its own is left to that.
+            if (jobs.get(file.uid)?.status === 'transcribing') {
+                result.skipped++;
+                continue;
+            }
+            const job = {status: 'transcribing', percent: 0};
+            jobs.set(file.uid, job);
             try {
-                result[await transcribeFile(file, settings, options, whisper, controller.signal)]++;
+                result[await transcribeFile(file, settings, options, whisper, controller.signal, {onProgress: percent => { job.percent = percent; }})]++;
                 if (file.transcription_failed_at) await db.updateRecord('files', {uid: file.uid}, {transcription_failed_at: null});
             } catch (error) {
                 if (controller.signal.aborted) break;
                 result.failed++;
                 await db.updateRecord('files', {uid: file.uid}, {transcription_failed_at: Date.now()});
                 logger.warn(`Auto-transcribe failed for file ${file.uid}: ${error.message}`);
+            } finally {
+                if (jobs.get(file.uid) === job) jobs.delete(file.uid);
             }
         }
         await db.updateRecord('tasks', {key: TASK_KEY}, {result});
@@ -390,4 +434,66 @@ async function run() {
 exports.run = () => {
     if (!activeRun) activeRun = run().finally(() => { activeRun = null; });
     return activeRun;
+};
+
+// Forgets how files transcribed on their own went, once their dialogs have had time to ask.
+function pruneJobs() {
+    const now = Date.now();
+    for (const [uid, job] of jobs) {
+        if (job.finished && now - job.finished > JOB_RETENTION_MS) jobs.delete(uid);
+    }
+}
+
+// Never rejects: nobody waits on it but a test, and how it went is kept on the job.
+async function transcribeOnItsOwn(file, {settings, options, listening}, job) {
+    const controller = new AbortController();
+    const subscription = stopOnSettingsChange(controller);
+    try {
+        const whisper = listening ? await ai.describeWhisper(settings, {signal: controller.signal}) : null;
+        await transcribeFile(file, settings, options, whisper, controller.signal, {force: true, onProgress: percent => { job.percent = percent; }});
+        Object.assign(job, {status: 'complete', percent: 100});
+        logger.info(`Transcribed file ${file.uid}.`);
+    } catch (error) {
+        const reason = controller.signal.aborted ? 'Transcription stopped because AI settings changed.' : error.message;
+        Object.assign(job, {status: 'failed', error: reason});
+        logger.warn(`Could not transcribe file ${file.uid}: ${reason}`);
+    } finally {
+        job.finished = Date.now();
+        subscription.unsubscribe();
+    }
+}
+
+/**
+ * Transcribes one file on its own, from its info dialog, with the task's options, writing it
+ * again whatever is saved. Resolves as soon as it has started, with `finished` for the work
+ * itself; getStatus says how it goes. Refuses, saying why, before anything is sent anywhere:
+ * while AI is off or the file is already being transcribed, and with settings the task could
+ * not run with either.
+ */
+exports.transcribe = async (file) => {
+    if (!ai.isEnabled()) throw new Error('AI integration is disabled.');
+    pruneJobs();
+    if (jobs.get(file.uid)?.status === 'transcribing') throw new Error('This file is already being transcribed.');
+    if ([...jobs.values()].filter(job => job.own && job.status === 'transcribing').length >= MAX_FILE_JOBS) {
+        throw new Error('Too many files are being transcribed at once. Try again when one finishes.');
+    }
+    // Claimed before anything is awaited, so asking twice cannot start it twice.
+    const job = {status: 'transcribing', percent: 0, own: true};
+    jobs.set(file.uid, job);
+    let prepared;
+    try {
+        prepared = await prepare();
+    } catch (error) {
+        jobs.delete(file.uid);
+        throw error;
+    }
+    return {finished: transcribeOnItsOwn(file, prepared, job)};
+};
+
+// How the transcription of a file is going, by the task or on its own, or null when none is
+// under way or recently finished.
+exports.getStatus = (uid) => {
+    pruneJobs();
+    const job = jobs.get(uid);
+    return job ? {status: job.status, percent: job.percent, error: job.error ?? null} : null;
 };

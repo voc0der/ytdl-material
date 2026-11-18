@@ -1797,6 +1797,48 @@ app.post('/api/generateThumbnail', optionalJwt, requirePermission('filemanager')
     });
 });
 
+// The file a request names, scoped to the caller in multi-user mode, so one user cannot have
+// another's files transcribed or see how it is going.
+async function getCallerFile(req) {
+    const uid = req.body?.uid;
+    if (typeof uid !== 'string' || !uid) return null;
+    const file_filter = {uid: uid};
+    const user_uid = req.isAuthenticated() ? req.user.uid : null;
+    if (config_api.getConfigItem('ytdl_multi_user_mode') && user_uid) file_filter['user_uid'] = user_uid;
+    return await db_api.getRecord('files', file_filter);
+}
+
+// Transcribes one file on its own, from its info dialog, with Auto-transcribe's options, for
+// those who may run the task itself. That can take many minutes, so it runs in the background,
+// and the dialog asks how it is going.
+app.post('/api/transcribeFile', optionalJwt, requirePermission('tasks_manager'), async function (req, res) {
+    const file_obj = await getCallerFile(req);
+    if (!file_obj) {
+        res.send({success: false, error: 'File could not be found'});
+        return;
+    }
+
+    try {
+        await ai_transcription.transcribe(file_obj);
+    } catch (error) {
+        logger.warn(`Could not start transcribing file ${file_obj.uid}: ${error.message}`);
+        res.send({success: false, error: error.message});
+        return;
+    }
+    res.send({success: true});
+});
+
+app.post('/api/getTranscriptionStatus', optionalJwt, requirePermission('tasks_manager'), async function (req, res) {
+    const file_obj = await getCallerFile(req);
+    if (!file_obj) {
+        res.send({success: false, error: 'File could not be found'});
+        return;
+    }
+
+    const status = ai_transcription.getStatus(file_obj.uid);
+    res.send({success: true, status: status?.status ?? null, percent: status?.percent ?? null, error: status?.error ?? null});
+});
+
 app.post('/api/checkConcurrentStream', async (req, res) => {
     const uid = req.body.uid;
 

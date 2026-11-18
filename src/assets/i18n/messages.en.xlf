@@ -1064,6 +1064,13 @@
           <context context-type="sourcefile">src/app/settings/settings.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="1278869621658522988" datatype="html">
+        <source>Transcribe</source>
+        <note priority="1" from="description">Transcribe button</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="12816402920404434" datatype="html">
         <source>The desired port. Default is 17442.</source>
         <note priority="1" from="description">Port setting input hint</note>
@@ -2486,6 +2493,13 @@
           <context context-type="sourcefile">src/app/subscription/subscription/subscription.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="5399834108232874628" datatype="html">
+        <source>Re-transcribe</source>
+        <note priority="1" from="description">Re-transcribe button</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="5412014831274753209" datatype="html">
         <source>Edit category</source>
         <note priority="1" from="description">Edit category button label</note>
@@ -2854,6 +2868,12 @@
         <source>Error for <x id="url" equiv-text="download[&apos;url&apos;]"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/components/downloads/downloads.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="2566437087168130507" datatype="html">
+        <source>Could not transcribe this file.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.ts</context>
         </context-group>
       </trans-unit>
       <trans-unit id="2573823578527613511" datatype="html">
@@ -4116,6 +4136,12 @@
           <context context-type="sourcefile">src/app/main/main.component.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="4838883258282588246" datatype="html">
+        <source>Transcription finished.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="4843029585279212168" datatype="html">
         <source>Once</source>
         <context-group purpose="location">
@@ -5115,6 +5141,13 @@
         <source>Side</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/dialogs/user-profile-dialog/user-profile-dialog.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="7934337796148755915" datatype="html">
+        <source>Transcribing… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</source>
+        <note priority="1" from="description">Transcribe button while the file is being transcribed, with how much is done</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="7934833136974560675" datatype="html">
@@ -8482,6 +8515,13 @@
         <source><x id="count" equiv-text="duplicates"/> duplicates skipped</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/main/main.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="6105951674460989207" datatype="html">
+        <source>Writes up this file with your AI server, in the style set in Auto-transcribe&apos;s options</source>
+        <note priority="1" from="description">Transcribe button tooltip</note>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/dialogs/video-info-dialog/video-info-dialog.component.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="6107645321264917211" datatype="html">

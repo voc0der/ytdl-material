@@ -1,7 +1,8 @@
 const assert = require('assert');
 const http = require('http');
 const net = require('net');
-const {startApp} = require('./helpers/app-process');
+const path = require('path');
+const {startApp, addSampleMedia} = require('./helpers/app-process');
 
 describe('Local AI routes and permissions', function() {
     this.timeout(30000);
@@ -16,6 +17,7 @@ describe('Local AI routes and permissions', function() {
                 res.statusCode = 401;
                 return res.end(JSON.stringify({error: 'Unauthorized'}));
             }
+            if (req.url.endsWith('/chat/completions')) return res.end(JSON.stringify({choices: [{message: {role: 'assistant', content: 'Heard through the server.'}}]}));
             res.end(JSON.stringify({object: 'list', data: [{id: 'gemma'}, {id: 'qwen'}]}));
         });
         await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -129,5 +131,51 @@ describe('Local AI routes and permissions', function() {
         await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(200);
         const tasks = await as('admin', 'post', '/api/getTasks').send({}).expect(200);
         assert(!tasks.body.tasks.some(task => task.key === 'auto_transcribe'));
+    });
+
+    it('lets those who may run tasks transcribe one of their own files while AI is on, saying how it is going', async function() {
+        await addSampleMedia(path.join(app.media.users, 'admin', 'audio'), {type: 'audio', info: {id: 'admin-song', title: 'Admin song', webpage_url: 'https://example.com/song'}});
+        await addSampleMedia(path.join(app.media.users, 'admin', 'video'), {info: {id: 'admin-clip', title: 'Admin clip', webpage_url: 'https://example.com/clip'}});
+        await as('admin', 'post', '/api/runTask').send({task_key: 'missing_db_records'}).expect(200);
+        const [song] = (await as('admin', 'get', '/api/getMp3s').expect(200)).body.mp3s;
+        const [clip] = (await as('admin', 'get', '/api/getMp4s').expect(200)).body.mp4s;
+        const transcribe = (user, uid, code = 200) => as(user, 'post', '/api/transcribeFile').send({uid}).expect(code);
+        const status = (user, uid, code = 200) => as(user, 'post', '/api/getTranscriptionStatus').send({uid}).expect(code);
+        const settled = async uid => {
+            let body;
+            do {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                body = (await status('admin', uid)).body;
+            } while (body.status === 'transcribing');
+            return body;
+        };
+
+        await app.api.post('/api/transcribeFile').send({uid: song.uid}).expect(401);
+        await app.api.post('/api/getTranscriptionStatus').send({uid: song.uid}).expect(401);
+        // As running the task does, it needs tasks_manager, which users are not given by default.
+        await transcribe('reader', song.uid, 403);
+        await status('reader', song.uid, 403);
+        // And even then reaches only the caller's own files.
+        await as('admin', 'post', '/api/changeUserPermissions').send({user_uid: 'reader', permission: 'tasks_manager', new_value: 'yes'}).expect(200);
+        const missing = {success: false, error: 'File could not be found'};
+        assert.deepStrictEqual((await transcribe('reader', song.uid)).body, missing);
+        assert.deepStrictEqual((await status('reader', song.uid)).body, missing);
+        assert.deepStrictEqual((await transcribe('admin', {$ne: null})).body, missing);
+        assert.deepStrictEqual((await transcribe('admin', song.uid)).body, {success: false, error: 'AI integration is disabled.'});
+        assert.deepStrictEqual((await status('admin', song.uid)).body, {success: true, status: null, percent: null, error: null});
+
+        const config = (await as('admin', 'get', '/api/config').expect(200)).body.config_file;
+        Object.assign(config.YtdlMaterial.Advanced.ai, {enabled: true, base_url: base, model: 'gemma', api_key: 'server-key', audio: true});
+        await as('admin', 'post', '/api/setConfig').send({new_config_file: config}).expect(200);
+        assert.deepStrictEqual((await transcribe('admin', song.uid)).body, {success: true});
+        assert.deepStrictEqual(await settled(song.uid), {success: true, status: 'complete', percent: 100, error: null});
+        const file = (await as('admin', 'post', '/api/getFile').send({uid: song.uid}).expect(200)).body.file;
+        assert.deepStrictEqual([file.transcript.text, file.transcript.model], ['Heard through the server.', 'gemma']);
+
+        // The sample video has no sound.
+        assert.deepStrictEqual((await transcribe('admin', clip.uid)).body, {success: true});
+        const failed = await settled(clip.uid);
+        assert.strictEqual(failed.status, 'failed');
+        assert.match(failed.error, /^This file has no sound\./);
     });
 });

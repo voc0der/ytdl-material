@@ -549,6 +549,10 @@
         <source>Error for <x id="url" equiv-text="download[&apos;url&apos;]"/></source>
         <target state="new">Error a<x id="url" equiv-text="download[&apos;url&apos;]"/></target>
       </trans-unit>
+      <trans-unit id="2566437087168130507" datatype="html">
+        <source>Could not transcribe this file.</source>
+        <target state="translated">No s&apos;ha pogut transcriure aquest fitxer.</target>
+      </trans-unit>
       <trans-unit id="2573823578527613511" datatype="html">
         <source>You have unsaved changes.</source>
         <target state="translated">Tens canvis sense desar.</target>
@@ -1289,6 +1293,10 @@
         <source>Only Audio</source>
         <target state="translated">Només àudio</target>
         <note priority="1" from="description">Subscription option for audio-only downloads</note>
+      </trans-unit>
+      <trans-unit id="4838883258282588246" datatype="html">
+        <source>Transcription finished.</source>
+        <target state="translated">Transcripció acabada.</target>
       </trans-unit>
       <trans-unit id="4843029585279212168" datatype="html">
         <source>Once</source>
@@ -2706,6 +2714,11 @@
         <source>Administrator group</source>
         <target state="translated">Grup d&apos;administradors</target>
       </trans-unit>
+      <trans-unit id="1278869621658522988" datatype="html">
+        <source>Transcribe</source>
+        <target state="translated">Transcriu</target>
+        <note priority="1" from="description">Transcribe button</note>
+      </trans-unit>
       <trans-unit id="12816402920404434" datatype="html">
         <source>The desired port. Default is 17442.</source>
         <target state="translated">El port que vulguis. Per defecte és 17442.</target>
@@ -4010,6 +4023,11 @@
         <source>Side</source>
         <target state="translated">Al costat</target>
       </trans-unit>
+      <trans-unit id="7934337796148755915" datatype="html">
+        <source>Transcribing… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</source>
+        <target state="translated">S&apos;està transcrivint… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/> %</target>
+        <note priority="1" from="description">Transcribe button while the file is being transcribed, with how much is done</note>
+      </trans-unit>
       <trans-unit id="7934833136974560675" datatype="html">
         <source>Retry</source>
         <target state="translated">Torna-ho a provar</target>
@@ -4681,6 +4699,11 @@
         <source><x id="count" equiv-text="duplicates"/> duplicates skipped</source>
         <target state="translated"><x id="count" equiv-text="duplicates"/> duplicats omesos</target>
       </trans-unit>
+      <trans-unit id="6105951674460989207" datatype="html">
+        <source>Writes up this file with your AI server, in the style set in Auto-transcribe&apos;s options</source>
+        <target state="translated">Redacta aquest fitxer amb el teu servidor d&apos;IA, amb l&apos;estil triat a les opcions d&apos;Auto-transcribe</target>
+        <note priority="1" from="description">Transcribe button tooltip</note>
+      </trans-unit>
       <trans-unit id="6107645321264917211" datatype="html">
         <source>Download all <x id="subscription file count" equiv-text="file_count"/> files from <x id="subscription name" equiv-text="this.subscription.name"/> as a zip? Creating the archive can take a while and use significant disk space.</source>
         <target state="translated">Vols baixar els <x id="subscription file count" equiv-text="file_count"/> fitxers de <x id="subscription name" equiv-text="this.subscription.name"/> en un zip? Crear l&apos;arxiu pot trigar i ocupar força espai al disc.</target>
@@ -4962,6 +4985,11 @@
       <trans-unit id="539915467595394418" datatype="html">
         <source>Channel refresh</source>
         <target state="translated">Actualització del canal</target>
+      </trans-unit>
+      <trans-unit id="5399834108232874628" datatype="html">
+        <source>Re-transcribe</source>
+        <target state="translated">Torna a transcriure</target>
+        <note priority="1" from="description">Re-transcribe button</note>
       </trans-unit>
       <trans-unit id="2600933489084742998" datatype="html">
         <source>Failed to kill all downloads! Check logs for details.</source>
