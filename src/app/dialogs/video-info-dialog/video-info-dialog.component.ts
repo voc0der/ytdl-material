@@ -247,11 +247,11 @@ export class VideoInfoDialogComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Offered while AI is on, for a file the caller may change: as Transcribe, or as Re-transcribe
-  // once it has a transcript.
+  // Offered while AI is on, on the caller's own files, to those who may run Auto-transcribe
+  // itself: as Transcribe, or as Re-transcribe once the file has a transcript.
   canTranscribe(): boolean {
     return this.initialized && this.write_access && this.postsService.config?.Advanced?.ai?.enabled === true
-      && this.postsService.hasPermission('filemanager');
+      && this.postsService.hasPermission('tasks_manager');
   }
 
   transcribe(): void {

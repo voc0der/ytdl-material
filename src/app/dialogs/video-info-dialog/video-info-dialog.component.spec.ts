@@ -393,6 +393,12 @@ describe('VideoInfoDialogComponent', () => {
       expect(label()).toBeUndefined();
       component.editing = false;
 
+      // Only for those who may run Auto-transcribe itself.
+      postsServiceStub.hasPermission.mockImplementation((permission: string) => permission !== 'tasks_manager');
+      fixture.detectChanges();
+      expect(label()).toBeUndefined();
+      postsServiceStub.hasPermission.mockReturnValue(true);
+
       postsServiceStub.config.Advanced.ai.enabled = false;
       fixture.detectChanges();
       expect(label()).toBeUndefined();

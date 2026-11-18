@@ -1808,9 +1808,10 @@ async function getCallerFile(req) {
     return await db_api.getRecord('files', file_filter);
 }
 
-// Transcribes one file on its own, from its info dialog, with Auto-transcribe's options. That
-// can take many minutes, so it runs in the background, and the dialog asks how it is going.
-app.post('/api/transcribeFile', optionalJwt, requirePermission('filemanager'), async function (req, res) {
+// Transcribes one file on its own, from its info dialog, with Auto-transcribe's options, for
+// those who may run the task itself. That can take many minutes, so it runs in the background,
+// and the dialog asks how it is going.
+app.post('/api/transcribeFile', optionalJwt, requirePermission('tasks_manager'), async function (req, res) {
     const file_obj = await getCallerFile(req);
     if (!file_obj) {
         res.send({success: false, error: 'File could not be found'});
@@ -1827,7 +1828,7 @@ app.post('/api/transcribeFile', optionalJwt, requirePermission('filemanager'), a
     res.send({success: true});
 });
 
-app.post('/api/getTranscriptionStatus', optionalJwt, requirePermission('filemanager'), async function (req, res) {
+app.post('/api/getTranscriptionStatus', optionalJwt, requirePermission('tasks_manager'), async function (req, res) {
     const file_obj = await getCallerFile(req);
     if (!file_obj) {
         res.send({success: false, error: 'File could not be found'});

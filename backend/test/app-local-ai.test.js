@@ -133,14 +133,14 @@ describe('Local AI routes and permissions', function() {
         assert(!tasks.body.tasks.some(task => task.key === 'auto_transcribe'));
     });
 
-    it('transcribes one of the caller\'s own files while AI is on, saying how it is going', async function() {
+    it('lets those who may run tasks transcribe one of their own files while AI is on, saying how it is going', async function() {
         await addSampleMedia(path.join(app.media.users, 'admin', 'audio'), {type: 'audio', info: {id: 'admin-song', title: 'Admin song', webpage_url: 'https://example.com/song'}});
         await addSampleMedia(path.join(app.media.users, 'admin', 'video'), {info: {id: 'admin-clip', title: 'Admin clip', webpage_url: 'https://example.com/clip'}});
         await as('admin', 'post', '/api/runTask').send({task_key: 'missing_db_records'}).expect(200);
         const [song] = (await as('admin', 'get', '/api/getMp3s').expect(200)).body.mp3s;
         const [clip] = (await as('admin', 'get', '/api/getMp4s').expect(200)).body.mp4s;
-        const transcribe = (user, uid) => as(user, 'post', '/api/transcribeFile').send({uid}).expect(200);
-        const status = (user, uid) => as(user, 'post', '/api/getTranscriptionStatus').send({uid}).expect(200);
+        const transcribe = (user, uid, code = 200) => as(user, 'post', '/api/transcribeFile').send({uid}).expect(code);
+        const status = (user, uid, code = 200) => as(user, 'post', '/api/getTranscriptionStatus').send({uid}).expect(code);
         const settled = async uid => {
             let body;
             do {
@@ -152,6 +152,11 @@ describe('Local AI routes and permissions', function() {
 
         await app.api.post('/api/transcribeFile').send({uid: song.uid}).expect(401);
         await app.api.post('/api/getTranscriptionStatus').send({uid: song.uid}).expect(401);
+        // As running the task does, it needs tasks_manager, which users are not given by default.
+        await transcribe('reader', song.uid, 403);
+        await status('reader', song.uid, 403);
+        // And even then reaches only the caller's own files.
+        await as('admin', 'post', '/api/changeUserPermissions').send({user_uid: 'reader', permission: 'tasks_manager', new_value: 'yes'}).expect(200);
         const missing = {success: false, error: 'File could not be found'};
         assert.deepStrictEqual((await transcribe('reader', song.uid)).body, missing);
         assert.deepStrictEqual((await status('reader', song.uid)).body, missing);
