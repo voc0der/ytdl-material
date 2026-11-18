@@ -12,13 +12,18 @@ set -eu
 # static builds, but the codec libraries are stored once under lib/ instead of being linked
 # into both ffmpeg and ffprobe. The binaries find them through an $ORIGIN/../lib rpath, so
 # bin/ and lib/ have to be installed next to each other.
+#
+# Stay on 8.1 rather than 9.0. BtbN compiles 8.1 against NVIDIA's 13.0 codec headers, so
+# NVENC works with driver 570 or newer. Its 9.0 builds use the 13.1 headers, which need
+# driver 610. As of 2026-11 only NVIDIA's New Feature Branch has 610 (production is 595),
+# so on most hosts NVENC failed its startup check and processing fell back to software.
 case $(uname -m) in
   x86_64)
     ARCH=amd64
-    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-shared-9.0.tar.xz";;
+    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-shared-8.1.tar.xz";;
   aarch64)
     ARCH=arm64
-    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linuxarm64-gpl-shared-9.0.tar.xz";;
+    FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linuxarm64-gpl-shared-8.1.tar.xz";;
   *)
     echo "Unsupported architecture: $(uname -m)"
     exit 1

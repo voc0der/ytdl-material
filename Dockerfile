@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Use script due local build compability
 COPY docker-utils/*.sh .
 RUN chmod +x *.sh
-# These fetch the newest ffmpeg 9.0 build and TwitchDownloader release. Docker reuses a cached
+# These fetch the newest ffmpeg 8.1 build and TwitchDownloader release. Docker reuses a cached
 # step for as long as its text stays the same, which would keep what they fetched the first
 # time, so a new REFRESH_DATE runs them again. The nightly build passes the day's date.
 ARG REFRESH_DATE
