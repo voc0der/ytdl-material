@@ -166,6 +166,10 @@
         <source>Error for <x id="url" equiv-text="download[&apos;url&apos;]"/></source>
         <target state="translated">Erro para <x id="url" equiv-text="download[&apos;url&apos;]"/></target>
       </trans-unit>
+      <trans-unit id="2566437087168130507" datatype="html">
+        <source>Could not transcribe this file.</source>
+        <target state="translated">Não foi possível transcrever este arquivo.</target>
+      </trans-unit>
       <trans-unit id="2573823578527613511" datatype="html">
         <source>You have unsaved changes.</source>
         <target state="translated">Você tem alterações não salvas.</target>
@@ -1272,6 +1276,11 @@
         <source>Administrator group</source>
         <target state="translated">Grupo de administradores</target>
       </trans-unit>
+      <trans-unit id="1278869621658522988" datatype="html">
+        <source>Transcribe</source>
+        <target state="translated">Transcrever</target>
+        <note priority="1" from="description">Transcribe button</note>
+      </trans-unit>
       <trans-unit id="12816402920404434" datatype="html">
         <source>The desired port. Default is 17442.</source>
         <target state="translated">A porta desejada. O padrão é 17442.</target>
@@ -2122,6 +2131,11 @@
       <trans-unit id="539915467595394418" datatype="html">
         <source>Channel refresh</source>
         <target state="translated">Atualização do canal</target>
+      </trans-unit>
+      <trans-unit id="5399834108232874628" datatype="html">
+        <source>Re-transcribe</source>
+        <target state="translated">Transcrever novamente</target>
+        <note priority="1" from="description">Re-transcribe button</note>
       </trans-unit>
       <trans-unit id="5823550543348347814" datatype="html">
         <source>Cleared downloads!</source>
@@ -3257,6 +3271,11 @@
         <source>Reverse proxy header</source>
         <target state="translated">Cabeçalho do proxy reverso</target>
       </trans-unit>
+      <trans-unit id="6105951674460989207" datatype="html">
+        <source>Writes up this file with your AI server, in the style set in Auto-transcribe&apos;s options</source>
+        <target state="translated">Escreve este arquivo com seu servidor de IA, no estilo definido nas opções do Auto-transcribe</target>
+        <note priority="1" from="description">Transcribe button tooltip</note>
+      </trans-unit>
       <trans-unit id="6107645321264917211" datatype="html">
         <source>Download all <x id="subscription file count" equiv-text="file_count"/> files from <x id="subscription name" equiv-text="this.subscription.name"/> as a zip? Creating the archive can take a while and use significant disk space.</source>
         <target state="translated">Baixar todos os <x id="subscription file count" equiv-text="file_count"/> arquivos de <x id="subscription name" equiv-text="this.subscription.name"/> como zip? Criar o arquivo pode demorar e ocupar bastante espaço em disco.</target>
@@ -4117,6 +4136,10 @@
         <target state="translated">Só áudio</target>
         <note priority="1" from="description">Subscription option for audio-only downloads</note>
       </trans-unit>
+      <trans-unit id="4838883258282588246" datatype="html">
+        <source>Transcription finished.</source>
+        <target state="translated">Transcrição concluída.</target>
+      </trans-unit>
       <trans-unit id="4843029585279212168" datatype="html">
         <source>Once</source>
         <target state="translated">Uma vez</target>
@@ -4240,6 +4263,11 @@
       <trans-unit id="791950660812381145" datatype="html">
         <source>Side</source>
         <target state="translated">Ao lado</target>
+      </trans-unit>
+      <trans-unit id="7934337796148755915" datatype="html">
+        <source>Transcribing… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</source>
+        <target state="translated">Transcrevendo… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</target>
+        <note priority="1" from="description">Transcribe button while the file is being transcribed, with how much is done</note>
       </trans-unit>
       <trans-unit id="7934833136974560675" datatype="html">
         <source>Retry</source>

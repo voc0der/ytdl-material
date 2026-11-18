@@ -1269,6 +1269,10 @@
         <target state="translated">ఆడియో మాత్రమే</target>
         <note priority="1" from="description">Subscription option for audio-only downloads</note>
       </trans-unit>
+      <trans-unit id="4838883258282588246" datatype="html">
+        <source>Transcription finished.</source>
+        <target state="translated">ట్రాన్‌స్క్రిప్ట్ పూర్తయింది.</target>
+      </trans-unit>
       <trans-unit id="4843029585279212168" datatype="html">
         <source>Once</source>
         <target state="translated">ఒకసారి</target>
@@ -1698,6 +1702,11 @@
         <source>Channel refresh</source>
         <target state="translated">ఛానెల్ రిఫ్రెష్</target>
       </trans-unit>
+      <trans-unit id="5399834108232874628" datatype="html">
+        <source>Re-transcribe</source>
+        <target state="translated">ట్రాన్‌స్క్రిప్ట్ మళ్లీ సృష్టించు</target>
+        <note priority="1" from="description">Re-transcribe button</note>
+      </trans-unit>
       <trans-unit id="5412014831274753209" datatype="html">
         <source>Edit category</source>
         <target state="translated">వర్గాన్ని సవరించు</target>
@@ -2076,6 +2085,11 @@
       <trans-unit id="6092805170018226622" datatype="html">
         <source>Reverse proxy header</source>
         <target state="translated">రివర్స్ ప్రాక్సీ హెడర్</target>
+      </trans-unit>
+      <trans-unit id="6105951674460989207" datatype="html">
+        <source>Writes up this file with your AI server, in the style set in Auto-transcribe&apos;s options</source>
+        <target state="translated">Auto-transcribe ఎంపికలలో ఎంచుకున్న శైలిలో, మీ AI సర్వర్‌తో ఈ ఫైల్‌ను రాసి పెడుతుంది</target>
+        <note priority="1" from="description">Transcribe button tooltip</note>
       </trans-unit>
       <trans-unit id="6107645321264917211" datatype="html">
         <source>Download all <x id="subscription file count" equiv-text="file_count"/> files from <x id="subscription name" equiv-text="this.subscription.name"/> as a zip? Creating the archive can take a while and use significant disk space.</source>
@@ -3357,6 +3371,11 @@
         <source>Administrator group</source>
         <target state="translated">అడ్మినిస్ట్రేటర్ గ్రూప్</target>
       </trans-unit>
+      <trans-unit id="1278869621658522988" datatype="html">
+        <source>Transcribe</source>
+        <target state="translated">ట్రాన్‌స్క్రిప్ట్ సృష్టించు</target>
+        <note priority="1" from="description">Transcribe button</note>
+      </trans-unit>
       <trans-unit id="12816402920404434" datatype="html">
         <source>The desired port. Default is 17442.</source>
         <target state="translated">కావలసిన పోర్ట్. డిఫాల్ట్ 17442.</target>
@@ -4210,6 +4229,10 @@
         <source>Error for <x id="url" equiv-text="download[&apos;url&apos;]"/></source>
         <target state="new"><x id="url" equiv-text="download[&apos;url&apos;]"/>కోసం లోపం</target>
       </trans-unit>
+      <trans-unit id="2566437087168130507" datatype="html">
+        <source>Could not transcribe this file.</source>
+        <target state="translated">ఈ ఫైల్‌కు ట్రాన్‌స్క్రిప్ట్ సృష్టించలేకపోయింది.</target>
+      </trans-unit>
       <trans-unit id="2573823578527613511" datatype="html">
         <source>You have unsaved changes.</source>
         <target state="translated">సేవ్ చేయని మార్పులు ఉన్నాయి.</target>
@@ -4876,6 +4899,11 @@
       <trans-unit id="791950660812381145" datatype="html">
         <source>Side</source>
         <target state="translated">పక్కన</target>
+      </trans-unit>
+      <trans-unit id="7934337796148755915" datatype="html">
+        <source>Transcribing… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</source>
+        <target state="translated">ట్రాన్‌స్క్రిప్ట్ సృష్టిస్తోంది… <x id="INTERPOLATION" equiv-text="{{transcribing_percent}}"/>%</target>
+        <note priority="1" from="description">Transcribe button while the file is being transcribed, with how much is done</note>
       </trans-unit>
       <trans-unit id="7934833136974560675" datatype="html">
         <source>Retry</source>
