@@ -90,6 +90,8 @@ import {
     GetAllDownloadsRequest,
     TestConnectionStringRequest,
     TestConnectionStringResponse,
+    TranscribeFileRequest,
+    TranscriptionStatusResponse,
     TransferDBRequest,
     TransferDBResponse,
     VersionInfoResponse,
@@ -601,6 +603,16 @@ export class PostsService {
 
     generateThumbnail(uid: string, timestamp_seconds: number) {
         return this.http.post<SuccessObject>(this.path + 'generateThumbnail', {uid: uid, timestamp_seconds: timestamp_seconds}, this.httpOptions);
+    }
+
+    transcribeFile(uid: string) {
+        const body: TranscribeFileRequest = {uid: uid};
+        return this.http.post<SuccessObject>(this.path + 'transcribeFile', body, this.httpOptions);
+    }
+
+    getTranscriptionStatus(uid: string) {
+        const body: TranscribeFileRequest = {uid: uid};
+        return this.http.post<TranscriptionStatusResponse>(this.path + 'getTranscriptionStatus', body, this.httpOptions);
     }
 
     snipFile(uid: string, start: number, end: number) {

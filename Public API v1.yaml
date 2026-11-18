@@ -540,6 +540,56 @@ paths:
       security:
         - JWT token parameter: []
         - API bearer token: []
+  /api/transcribeFile:
+    post:
+      tags:
+        - files
+      summary: Transcribes one file
+      description: >-
+        Starts transcribing one file with the local AI, with Auto-transcribe's options, and
+        writes the transcript again even when one is saved. Answers as soon as it has started,
+        or with why it cannot, such as AI being off or the file already being transcribed. Poll
+        /api/getTranscriptionStatus to follow it.
+      operationId: post-transcribeFile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscribeFileRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessObject'
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
+  /api/getTranscriptionStatus:
+    post:
+      tags:
+        - files
+      summary: Get how the transcription of a file is going
+      description: >-
+        Says whether a file is being transcribed, by Auto-transcribe or on its own, and how far
+        it has got, or how a file transcribed on its own went in the last 10 minutes.
+      operationId: post-getTranscriptionStatus
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscribeFileRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptionStatusResponse'
+      security:
+        - JWT token parameter: []
+        - API bearer token: []
   /api/enableSharing:
     post:
       tags:
@@ -2881,6 +2931,37 @@ components:
             Seconds into the video to take the frame from when the source's own cover art
             cannot be fetched. Omit or send null to use the default, and to avoid the first
             frame, which is often black. Clamped to the video's own length.
+    TranscribeFileRequest:
+      required:
+        - uid
+      type: object
+      properties:
+        uid:
+          type: string
+          description: File UID
+    TranscriptionStatusResponse:
+      required:
+        - success
+      type: object
+      properties:
+        success:
+          type: boolean
+        status:
+          description: Null when the file is not being transcribed and was not transcribed on its own lately
+          type: string
+          nullable: true
+          enum:
+            - transcribing
+            - complete
+            - failed
+        percent:
+          type: number
+          nullable: true
+          description: How much of the file is done, 0-100
+        error:
+          type: string
+          nullable: true
+          description: Why it failed
     SharingToggle:
       required:
         - uid

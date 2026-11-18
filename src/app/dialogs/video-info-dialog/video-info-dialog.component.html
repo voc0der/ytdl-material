@@ -178,6 +178,20 @@
       }
     </button>
   }
+  @if (canTranscribe() && !editing) {
+    <button type="button" class="kit-chip transcribe-button" [disabled]="starting_transcription || transcribing_percent !== null || retrieving_file" (click)="transcribe()"
+      matTooltip="Writes up this file with your AI server, in the style set in Auto-transcribe's options"
+      i18n-matTooltip="Transcribe button tooltip">
+      <mat-icon>transcribe</mat-icon>
+      @if (transcribing_percent !== null) {
+        <ng-container i18n="Transcribe button while the file is being transcribed, with how much is done">Transcribing… {{transcribing_percent}}%</ng-container>
+      } @else if (file.transcript) {
+        <ng-container i18n="Re-transcribe button">Re-transcribe</ng-container>
+      } @else {
+        <ng-container i18n="Transcribe button">Transcribe</ng-container>
+      }
+    </button>
+  }
   @if (editing) {
     <button type="button" class="kit-chip dialog-actions-end" [disabled]="retrieving_file" (click)="cancelEditing()" i18n="Cancel">Cancel</button>
     <button type="button" class="kit-chip kit-primary" [disabled]="!metadataChanged() || retrieving_file || !write_access" (click)="saveChanges()"><mat-icon>check</mat-icon><ng-container i18n="Save video info button">Save</ng-container></button>

@@ -329,6 +329,8 @@ describe('VideoInfoDialogComponent', () => {
     expect(component.write_access).toBe(false);
     expect(component.canSnip()).toBe(false);
     expect(component.canGenerateThumbnail()).toBe(false);
+    postsServiceStub.config = {Advanced: {ai: {enabled: true}}};
+    expect(component.canTranscribe()).toBe(false);
     expect(element.querySelector('.favorite-button')).toBeNull();
     expect(element.querySelector('.dialog-actions').textContent).not.toContain('Edit details');
     expect(element.querySelector('.dialog-subtitle').textContent).toContain('shared with you');
@@ -359,6 +361,95 @@ describe('VideoInfoDialogComponent', () => {
   it('asks the player to snip once the dialog closes', () => {
     component.requestSnip();
     expect(component.snip_requested).toBe(true);
+  });
+
+  describe('transcribing', () => {
+    // What the button says, without its icon's name.
+    const label = (): string | undefined => {
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('.transcribe-button');
+      return button ? Array.from(button.childNodes).filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim() : undefined;
+    };
+
+    beforeEach(() => {
+      postsServiceStub.config = {Advanced: {ai: {enabled: true}}};
+      postsServiceStub.transcribeFile = vi.fn().mockReturnValue(of({success: true}));
+      postsServiceStub.getTranscriptionStatus = vi.fn().mockReturnValue(of({success: true, status: null}));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('offers to transcribe while AI is on, and to transcribe again once there is a transcript', () => {
+      fixture.detectChanges();
+      expect(label()).toBe('Transcribe');
+
+      component.file.transcript = {text: 'Words.'};
+      fixture.detectChanges();
+      expect(label()).toBe('Re-transcribe');
+
+      component.editing = true;
+      fixture.detectChanges();
+      expect(label()).toBeUndefined();
+      component.editing = false;
+
+      postsServiceStub.config.Advanced.ai.enabled = false;
+      fixture.detectChanges();
+      expect(label()).toBeUndefined();
+    });
+
+    it('follows a transcription it starts, then shows what was written', () => {
+      vi.useFakeTimers();
+      postsServiceStub.getTranscriptionStatus.mockReturnValue(of({success: true, status: 'transcribing', percent: 40}));
+
+      component.transcribe();
+      expect(postsServiceStub.transcribeFile).toHaveBeenCalledWith('uid-1');
+      vi.advanceTimersByTime(3000);
+      fixture.detectChanges();
+      expect(label()).toBe('Transcribing… 40%');
+      expect(fixture.nativeElement.querySelector('.transcribe-button').disabled).toBe(true);
+
+      postsServiceStub.getFile.mockClear();
+      postsServiceStub.getTranscriptionStatus.mockReturnValue(of({success: true, status: 'complete', percent: 100}));
+      vi.advanceTimersByTime(3000);
+      expect(component.transcribing_percent).toBeNull();
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('Transcription finished.');
+      expect(postsServiceStub.getFile).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(30000);
+      expect(postsServiceStub.getTranscriptionStatus).toHaveBeenCalledTimes(2);
+    });
+
+    it('says why a transcription could not start, or did not finish', () => {
+      vi.useFakeTimers();
+      postsServiceStub.transcribeFile.mockReturnValue(of({success: false, error: 'This file is already being transcribed.'}));
+      component.transcribe();
+      expect(postsServiceStub.openSnackBar).toHaveBeenCalledWith('This file is already being transcribed.');
+      expect(component.transcribing_percent).toBeNull();
+
+      postsServiceStub.transcribeFile.mockReturnValue(of({success: true}));
+      postsServiceStub.getTranscriptionStatus.mockReturnValue(of({success: true, status: 'failed', percent: 0, error: 'The AI server answered HTTP 500.'}));
+      component.transcribe();
+      vi.advanceTimersByTime(3000);
+      expect(postsServiceStub.openSnackBar).toHaveBeenLastCalledWith('The AI server answered HTTP 500.');
+      expect(component.transcribing_percent).toBeNull();
+      expect(component.starting_transcription).toBe(false);
+    });
+
+    it('picks up a transcription already under way when opened, and stops asking once closed', () => {
+      vi.useFakeTimers();
+      postsServiceStub.getTranscriptionStatus.mockReturnValue(of({success: true, status: 'failed', error: 'Old news.'}));
+      component.ngOnInit();
+      expect(component.transcribing_percent).toBeNull();
+
+      postsServiceStub.getTranscriptionStatus.mockReturnValue(of({success: true, status: 'transcribing', percent: 70}));
+      component.ngOnInit();
+      expect(component.transcribing_percent).toBe(70);
+      component.ngOnDestroy();
+      vi.advanceTimersByTime(30000);
+
+      expect(postsServiceStub.getTranscriptionStatus).toHaveBeenCalledTimes(2);
+      expect(postsServiceStub.openSnackBar).not.toHaveBeenCalled();
+    });
   });
 
   it('stays usable when the file cannot be read again, or a favorite cannot be saved', () => {

@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, OnInit, Inject, ChangeDetectionStrategy } from '@angular/core';
 import { filesize } from 'filesize';
 import { MAT_DIALOG_DATA, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose } from '@angular/material/dialog';
 import { PostsService } from 'app/posts.services';
@@ -12,6 +12,10 @@ import { MatSelect, MatOption } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
 import { codecLabel } from 'app/utils/file-display';
 
+// A file is written up 30 seconds at a time, each a request to the AI server, so asking every few
+// seconds keeps the percentage current without asking far more often than it can change.
+const TRANSCRIPTION_POLL_INTERVAL_MS = 3000;
+
 @Component({
     selector: 'app-video-info-dialog',
     templateUrl: './video-info-dialog.component.html',
@@ -20,7 +24,7 @@ import { codecLabel } from 'app/utils/file-display';
     host: { class: 'kit-dialog' },
     imports: [MatDialogTitle, MatIcon, CdkScrollable, MatDialogContent, FormsModule, MatDatepickerInput, MatDatepickerToggle, MatDatepicker, MatSelect, MatOption, MatDialogActions, MatDialogClose, MatTooltip, KeyValuePipe, DecimalPipe]
 })
-export class VideoInfoDialogComponent implements OnInit {
+export class VideoInfoDialogComponent implements OnInit, OnDestroy {
   file: DatabaseFile;
   new_file: DatabaseFile;
   filesize;
@@ -52,6 +56,12 @@ export class VideoInfoDialogComponent implements OnInit {
   used_frame = false;
   frame_seconds_used: number | null = null;
   thumbnail_timestamp: number | null = null;
+  // How far the file's transcription has got while it is being transcribed, whether from here
+  // or by the Auto-transcribe task, and null otherwise.
+  transcribing_percent: number | null = null;
+  starting_transcription = false;
+  private transcription_timer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: any, public postsService: PostsService, private datePipe: DatePipe) { }
 
@@ -65,7 +75,14 @@ export class VideoInfoDialogComponent implements OnInit {
     this.postsService.reloadCategories();
     if (this.file?.uid) {
       this.getFile();
+      // A transcription started before the dialog was opened is picked up where it is.
+      if (this.canTranscribe()) this.checkTranscription();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    clearTimeout(this.transcription_timer);
   }
 
   initializeFile(file: DatabaseFile): void {
@@ -227,6 +244,56 @@ export class VideoInfoDialogComponent implements OnInit {
       this.generating_thumbnail = false;
       console.error(err);
       this.postsService.openSnackBar($localize`Could not generate cover art for this file.`);
+    });
+  }
+
+  // Offered while AI is on, for a file the caller may change: as Transcribe, or as Re-transcribe
+  // once it has a transcript.
+  canTranscribe(): boolean {
+    return this.initialized && this.write_access && this.postsService.config?.Advanced?.ai?.enabled === true
+      && this.postsService.hasPermission('filemanager');
+  }
+
+  transcribe(): void {
+    if (this.starting_transcription || this.transcribing_percent !== null) return;
+    this.starting_transcription = true;
+    this.postsService.transcribeFile(this.file.uid).subscribe(res => {
+      this.starting_transcription = false;
+      if (!res?.success) {
+        this.postsService.openSnackBar(res?.error || $localize`Could not transcribe this file.`);
+        return;
+      }
+      this.transcribing_percent = 0;
+      this.transcription_timer = setTimeout(() => this.checkTranscription(), TRANSCRIPTION_POLL_INTERVAL_MS);
+    }, err => {
+      this.starting_transcription = false;
+      console.error(err);
+      this.postsService.openSnackBar($localize`Could not transcribe this file.`);
+    });
+  }
+
+  // Asks how the transcription is going until it is done, then shows what was written.
+  checkTranscription(): void {
+    this.postsService.getTranscriptionStatus(this.file.uid).subscribe(res => {
+      if (this.destroyed) return;
+      if (res?.status === 'transcribing') {
+        this.transcribing_percent = res.percent ?? 0;
+        this.transcription_timer = setTimeout(() => this.checkTranscription(), TRANSCRIPTION_POLL_INTERVAL_MS);
+        return;
+      }
+      // How an earlier one went is not news to a dialog opened since.
+      if (this.transcribing_percent === null) return;
+      this.transcribing_percent = null;
+      if (res?.status === 'failed') {
+        this.postsService.openSnackBar(res.error || $localize`Could not transcribe this file.`);
+        return;
+      }
+      if (res?.status === 'complete') this.postsService.openSnackBar($localize`Transcription finished.`);
+      // The task keeps no word of how a file went, so the file itself says whether it has one.
+      this.getFile();
+    }, err => {
+      console.error(err);
+      this.transcribing_percent = null;
     });
   }
 

@@ -121,6 +121,8 @@ export type { Task } from './models/Task';
 export { TaskType } from './models/TaskType';
 export type { TestConnectionStringRequest } from './models/TestConnectionStringRequest';
 export type { TestConnectionStringResponse } from './models/TestConnectionStringResponse';
+export type { TranscribeFileRequest } from './models/TranscribeFileRequest';
+export type { TranscriptionStatusResponse } from './models/TranscriptionStatusResponse';
 export type { TransferDBRequest } from './models/TransferDBRequest';
 export type { TransferDBResponse } from './models/TransferDBResponse';
 export type { TwitchChatMessage } from './models/TwitchChatMessage';

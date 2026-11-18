@@ -379,6 +379,100 @@ describe('Local AI', function() {
         assert(!await fs.pathExists(sidecar(file)));
     });
 
+    describe('one file on its own', function() {
+        const until = async condition => { while (!condition()) await new Promise(resolve => setTimeout(resolve, 10)); };
+        // Holds every model request until released.
+        function hold() {
+            let release;
+            const held = new Promise(resolve => { release = resolve; });
+            handler = async (req, res) => { await held; reply(res, 'Held.'); };
+            return release;
+        }
+
+        it('writes it again whatever is saved, saying how far it has got and how it went', async function() {
+            const file = await addFile('long', 61);
+            const seen = [];
+            handler = (req, res) => {
+                seen.push(transcription.getStatus(file.uid));
+                reply(res, `Part ${calls.length}`);
+            };
+            await (await transcription.transcribe(file)).finished;
+            assert.deepStrictEqual(seen.map(({status, percent}) => [status, percent]), [['transcribing', 0], ['transcribing', 49], ['transcribing', 98]]);
+            assert.deepStrictEqual(transcription.getStatus(file.uid), {status: 'complete', percent: 100, error: null});
+            assert.strictEqual((await fs.readJSON(sidecar(file))).ytdl_material.transcript.text, 'Part 1\n\nPart 2\n\nPart 3');
+            // Made the same way, so the task leaves it alone, but asking again is asking for it again.
+            assert.strictEqual((await transcription.run()).skipped, 1);
+            await (await transcription.transcribe(file)).finished;
+            assert.strictEqual(calls.length, 6);
+            assert.strictEqual((await fs.readJSON(sidecar(file))).ytdl_material.transcript.text, 'Part 4\n\nPart 5\n\nPart 6');
+        });
+
+        it('refuses, before anything is sent, while AI is off, while the file is being transcribed, and with settings that cannot work', async function() {
+            const file = await addFile();
+            const release = hold();
+            const started = await transcription.transcribe(file);
+            await assert.rejects(transcription.transcribe(file), /This file is already being transcribed/);
+            // The task leaves it to that.
+            assert.deepStrictEqual(await transcription.run(), {transcribed: 0, skipped: 1, failed: 0});
+            release();
+            await started.finished;
+            assert.strictEqual(calls.length, 1);
+            settings({model: ''});
+            await assert.rejects(transcription.transcribe(file), /Choose a model/);
+            assert.strictEqual(transcription.getStatus(file.uid), null);
+            settings({model: 'local-model', enabled: false});
+            await assert.rejects(transcription.transcribe(file), /AI integration is disabled/);
+            assert.strictEqual(calls.length, 1);
+        });
+
+        it('transcribes only a few files on their own at once', async function() {
+            const files = [];
+            for (const name of ['one', 'two', 'three', 'four']) files.push(await addFile(name));
+            const release = hold();
+            const started = [];
+            for (const file of files.slice(0, 3)) started.push(await transcription.transcribe(file));
+            await assert.rejects(transcription.transcribe(files[3]), /Too many files are being transcribed at once/);
+            release();
+            await Promise.all(started.map(({finished}) => finished));
+            await (await transcription.transcribe(files[3])).finished;
+            assert.strictEqual(transcription.getStatus(files[3].uid).status, 'complete');
+        });
+
+        it('says why a file has nothing to send', async function() {
+            const silent = await addVideo('silent', {sound: false});
+            await (await transcription.transcribe(silent)).finished;
+            assert.deepStrictEqual(transcription.getStatus(silent.uid), {status: 'failed', percent: 0,
+                error: 'This file has no sound. To describe what it shows instead, turn on Vision in Settings → Advanced and choose Visual cues in Auto-transcribe\'s options.'});
+            settings({audio: false, vision: true});
+            await options({vision_style: 'brief'});
+            const audio = await addFile();
+            await (await transcription.transcribe(audio)).finished;
+            assert.match(transcription.getStatus(audio.uid).error, /^Nothing can hear this file's sound, and it has no picture to describe\./);
+            assert.strictEqual(calls.length, 0);
+        });
+
+        it('stops when AI settings change, keeping no transcript', async function() {
+            const file = await addFile();
+            handler = () => settings({model: 'another-model'});
+            await (await transcription.transcribe(file)).finished;
+            assert.deepStrictEqual(transcription.getStatus(file.uid), {status: 'failed', percent: 0, error: 'Transcription stopped because AI settings changed.'});
+            assert(!await fs.pathExists(sidecar(file)));
+        });
+
+        it('says a file the task is on is being transcribed, and does not start it again', async function() {
+            const file = await addFile();
+            const release = hold();
+            const run = transcription.run();
+            await until(() => calls.length === 1);
+            assert.deepStrictEqual(transcription.getStatus(file.uid), {status: 'transcribing', percent: 0, error: null});
+            await assert.rejects(transcription.transcribe(file), /This file is already being transcribed/);
+            release();
+            assert.strictEqual((await run).transcribed, 1);
+            // The task keeps no word of how each file went.
+            assert.strictEqual(transcription.getStatus(file.uid), null);
+        });
+    });
+
     describe('with a Whisper server', function() {
         let whisper, sockets, connections, answer;
         // Frames an event the way the Python wyoming library does, with its data in a block
@@ -469,6 +563,16 @@ describe('Local AI', function() {
             assert.deepStrictEqual([attached.text, attached.model, attached.whisper_model], ['Words Whisper heard.', null, 'faster-whisper tiny-int8']);
         });
 
+        it('writes one file on its own with Whisper, asking what it runs first', async function() {
+            settings({base_url: '', model: '', audio: false});
+            const file = await addFile();
+            answer = answerWith('Words heard on request.');
+            await (await transcription.transcribe(file)).finished;
+            assert.deepStrictEqual(connections.map(events => events[0].type), ['describe', 'transcribe']);
+            const transcript = (await fs.readJSON(sidecar(file))).ytdl_material.transcript;
+            assert.deepStrictEqual([transcript.text, transcript.model, transcript.whisper_model], ['Words heard on request.', null, 'faster-whisper tiny-int8']);
+        });
+
         it('has the model write up Whisper\'s words in other styles, hearing the sound itself only for Descriptive', async function() {
             const file = await addFile();
             await options({audio_style: 'brief'});
@@ -519,7 +623,7 @@ describe('Local AI', function() {
             await assert.rejects(transcription.run(), /Descriptive also describes sounds that are not words/);
             settings({model: ''});
             await options({audio_style: 'brief'});
-            await assert.rejects(transcription.run(), /or choose Exact in this task's options/);
+            await assert.rejects(transcription.run(), /or choose Exact in Auto-transcribe's options/);
             settings({vision: true});
             await options({audio_style: 'exact', vision_style: 'brief'});
             await assert.rejects(transcription.run(), /Choose a model/);
