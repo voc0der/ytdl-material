@@ -29,7 +29,7 @@ jobs:
       # Fails on high or critical vulnerabilities that have a fix. The images are
       # public, so Grype pulls them without logging in.
       - name: Scan the image
-        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
         with:
           image: registry:ghcr.io/voc0der/ytdl-material:${{ matrix.tag }}
           severity-cutoff: high
